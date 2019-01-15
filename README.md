@@ -20,7 +20,7 @@ To install with [Homebrew](https://brew.sh/), run:
 
 Alternatively, you can use the following: 
 
-```curl  https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo sh```
+```curl  https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash```
 
 # Commands
 
