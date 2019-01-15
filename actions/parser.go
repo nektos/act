@@ -2,12 +2,15 @@ package actions
 
 import (
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/hashicorp/hcl"
 	"github.com/hashicorp/hcl/hcl/ast"
+	"github.com/hashicorp/hcl/hcl/token"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -64,11 +67,33 @@ func cleanWorkflowsAST(node ast.Node) (ast.Node, bool) {
 
 		// handle condition where value is a string but should be a list
 		switch key {
-		case "resolves", "needs", "args":
+		case "args", "runs":
+			if literalType, ok := objectItem.Val.(*ast.LiteralType); ok {
+				listType := new(ast.ListType)
+				parts := strings.Split(literalType.Token.Value().(string), " ")
+				log.Debugf("got list: %v", parts)
+				if len(parts) > 0 {
+					quote := literalType.Token.Text[0]
+					for _, part := range parts {
+						part = fmt.Sprintf("%c%s%c", quote, part, quote)
+						log.Debugf("Adding part %s", part)
+						listType.Add(&ast.LiteralType{
+							Token: token.Token{
+								Type: token.STRING,
+								Text: part,
+							},
+						})
+					}
+				}
+				objectItem.Val = listType
+
+			}
+		case "resolves", "needs":
 			if literalType, ok := objectItem.Val.(*ast.LiteralType); ok {
 				listType := new(ast.ListType)
 				listType.Add(literalType)
 				objectItem.Val = listType
+
 			}
 		}
 	}

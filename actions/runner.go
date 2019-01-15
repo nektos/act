@@ -216,6 +216,7 @@ func (action *actionDef) asExecutor(ctx context.Context, dryrun bool, workingDir
 	executors = append(executors, container.NewDockerRunExecutor(container.NewDockerRunExecutorInput{
 		DockerExecutorInput: in,
 		Cmd:                 action.Args,
+		Entrypoint:          action.Runs,
 		Image:               image,
 		WorkingDir:          "/github/workspace",
 		Env:                 env,

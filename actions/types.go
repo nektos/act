@@ -41,7 +41,7 @@ type workflowDef struct {
 type actionDef struct {
 	Needs   []string
 	Uses    string
-	Runs    string
+	Runs    []string
 	Args    []string
 	Env     map[string]string
 	Secrets []string

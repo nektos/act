@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strings"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -19,7 +18,7 @@ import (
 type NewDockerRunExecutorInput struct {
 	DockerExecutorInput
 	Image      string
-	Entrypoint string
+	Entrypoint []string
 	Cmd        []string
 	WorkingDir string
 	Env        []string
@@ -33,7 +32,7 @@ type NewDockerRunExecutorInput struct {
 func NewDockerRunExecutor(input NewDockerRunExecutorInput) common.Executor {
 	return func() error {
 
-		input.Logger.Infof("docker run %s %s", input.Image, input.Cmd)
+		input.Logger.Infof("docker run %s %s %s", input.Image, input.Entrypoint, input.Cmd)
 		if input.Dryrun {
 			return nil
 		}
@@ -73,14 +72,10 @@ func NewDockerRunExecutor(input NewDockerRunExecutorInput) common.Executor {
 func createContainer(input NewDockerRunExecutorInput, cli *client.Client) (string, error) {
 	isTerminal := terminal.IsTerminal(int(os.Stdout.Fd()))
 
-	cmd := input.Cmd
-	if len(input.Cmd) == 1 {
-		cmd = strings.Split(cmd[0], " ")
-	}
-
 	config := &container.Config{
 		Image:      input.Image,
-		Cmd:        cmd,
+		Cmd:        input.Cmd,
+		Entrypoint: input.Entrypoint,
 		WorkingDir: input.WorkingDir,
 		Env:        input.Env,
 		Tty:        isTerminal,
@@ -93,9 +88,6 @@ func createContainer(input NewDockerRunExecutorInput, cli *client.Client) (strin
 		}
 	}
 
-	if input.Entrypoint != "" {
-		config.Entrypoint = []string{input.Entrypoint}
-	}
 	resp, err := cli.ContainerCreate(input.Ctx, config, &container.HostConfig{
 		Binds: input.Binds,
 	}, nil, input.Name)

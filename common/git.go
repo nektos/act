@@ -204,7 +204,9 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) Executor {
 			return err
 		}
 
-		w.Pull(&git.PullOptions{})
+		w.Pull(&git.PullOptions{
+			ReferenceName: refName,
+		})
 		input.Logger.Debugf("Cloned %s to %s", input.URL.String(), input.Dir)
 
 		err = w.Checkout(&git.CheckoutOptions{
