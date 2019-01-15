@@ -185,11 +185,14 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) Executor {
 		cloneLock.Lock()
 		defer cloneLock.Unlock()
 
+		refName := plumbing.ReferenceName(fmt.Sprintf("refs/heads/%s", input.Ref))
+
 		r, err := git.PlainOpen(input.Dir)
 		if err != nil {
 			r, err = git.PlainClone(input.Dir, false, &git.CloneOptions{
-				URL:      input.URL.String(),
-				Progress: input.Logger.WriterLevel(log.DebugLevel),
+				URL:           input.URL.String(),
+				Progress:      input.Logger.WriterLevel(log.DebugLevel),
+				ReferenceName: refName,
 			})
 			if err != nil {
 				return err
@@ -206,10 +209,12 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) Executor {
 
 		err = w.Checkout(&git.CheckoutOptions{
 			//Branch: plumbing.NewHash(ref),
-			Hash: plumbing.NewHash(input.Ref),
+			Branch: refName,
+			//Hash: plumbing.NewHash(input.Ref),
+			Force: true,
 		})
 		if err != nil {
-			input.Logger.Error(err)
+			input.Logger.Errorf("Unable to checkout %s: %v", refName, err)
 			return err
 		}
 

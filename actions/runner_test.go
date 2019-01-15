@@ -73,6 +73,7 @@ func TestParseImageGithub(t *testing.T) {
 		{"nektos/act/foo", "https://github.com/nektos/act", "master", "foo", true},
 		{"nektos/act@xxxxx", "https://github.com/nektos/act", "xxxxx", ".", true},
 		{"nektos/act/bar/baz@zzzzz", "https://github.com/nektos/act", "zzzzz", "bar/baz", true},
+		{"assimovt/actions-github-deploy/github-deploy@deployment-status-metadata", "https://github.com/assimovt/actions-github-deploy", "deployment-status-metadata", "github-deploy", true},
 		{"nektos/zzzzundefinedzzzz", "", "", "", false},
 	}
 
