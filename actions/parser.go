@@ -38,7 +38,7 @@ func ParseWorkflows(workingDir string, workflowPath string) (Workflows, error) {
 	}
 	workflows.WorkingDir = workingDir
 	workflows.WorkflowPath = workflowPath
-	workflows.TempDir, err = ioutil.TempDir("/tmp", "act-")
+	workflows.TempDir, err = ioutil.TempDir("", "act-")
 	if err != nil {
 		return nil, err
 	}
