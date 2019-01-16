@@ -29,7 +29,7 @@ func NewDockerBuildExecutor(input NewDockerBuildExecutorInput) common.Executor {
 			return nil
 		}
 
-		cli, err := client.NewClientWithOpts()
+		cli, err := client.NewClientWithOpts(client.FromEnv)
 		if err != nil {
 			return err
 		}
