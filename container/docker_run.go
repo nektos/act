@@ -10,7 +10,6 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 	"github.com/nektos/act/common"
-	log "github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ssh/terminal"
 )
 
@@ -95,7 +94,7 @@ func createContainer(input NewDockerRunExecutorInput, cli *client.Client) (strin
 		return "", err
 	}
 	input.Logger.Debugf("Created container name=%s id=%v from image %v", input.Name, resp.ID, input.Image)
-	log.Debugf("ENV ==> %v", input.Env)
+	input.Logger.Debugf("ENV ==> %v", input.Env)
 
 	return resp.ID, nil
 }

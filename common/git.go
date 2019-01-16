@@ -18,7 +18,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	git "gopkg.in/src-d/go-git.v4"
 	"gopkg.in/src-d/go-git.v4/plumbing"
-	"gopkg.in/yaml.v2"
+	yaml "gopkg.in/yaml.v2"
 )
 
 var cloneLock sync.Mutex
@@ -212,17 +212,16 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) Executor {
 
 		err = w.Pull(&git.PullOptions{
 			ReferenceName: refName,
+			Force:         true,
 		})
-		if err != nil {
+		if err != nil && err.Error() != "already up-to-date" {
 			input.Logger.Errorf("Unable to pull %s: %v", refName, err)
 		}
 		input.Logger.Debugf("Cloned %s to %s", input.URL.String(), input.Dir)
 
 		err = w.Checkout(&git.CheckoutOptions{
-			//Branch: plumbing.NewHash(ref),
 			Branch: refName,
-			//Hash: plumbing.NewHash(input.Ref),
-			Force: true,
+			Force:  true,
 		})
 		if err != nil {
 			input.Logger.Errorf("Unable to checkout %s: %v", refName, err)
