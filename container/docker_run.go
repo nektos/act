@@ -32,7 +32,7 @@ type NewDockerRunExecutorInput struct {
 func NewDockerRunExecutor(input NewDockerRunExecutorInput) common.Executor {
 	return func() error {
 
-		input.Logger.Infof("docker run %s %s %s", input.Image, input.Entrypoint, input.Cmd)
+		input.Logger.Infof("docker run image=%s entrypoint=%+q cmd=%+q", input.Image, input.Entrypoint, input.Cmd)
 		if input.Dryrun {
 			return nil
 		}

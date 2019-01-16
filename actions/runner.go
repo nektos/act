@@ -22,10 +22,10 @@ import (
 
 var secretCache map[string]string
 
-func (w *workflowsFile) ListEvents() []string {
+func (wFile *workflowsFile) ListEvents() []string {
 	log.Debugf("Listing all events")
 	events := make([]string, 0)
-	for _, w := range w.Workflow {
+	for _, w := range wFile.Workflow {
 		events = append(events, w.On)
 	}
 
@@ -37,53 +37,55 @@ func (w *workflowsFile) ListEvents() []string {
 	return events
 }
 
-func (w *workflowsFile) GraphEvent(eventName string) ([][]string, error) {
+func (wFile *workflowsFile) GraphEvent(eventName string) ([][]string, error) {
 	log.Debugf("Listing actions for event '%s'", eventName)
-	workflow, _, err := w.getWorkflow(eventName)
+	workflow, _, err := wFile.getWorkflow(eventName)
 	if err != nil {
 		return nil, err
 	}
-	return w.newExecutionGraph(workflow.Resolves...), nil
+	return wFile.newExecutionGraph(workflow.Resolves...), nil
 }
 
-func (w *workflowsFile) RunAction(ctx context.Context, dryrun bool, actionName string) error {
+func (wFile *workflowsFile) RunAction(ctx context.Context, dryrun bool, actionName string) error {
 	log.Debugf("Running action '%s'", actionName)
-	return w.newActionExecutor(ctx, dryrun, "", actionName)()
+	return wFile.newActionExecutor(ctx, dryrun, "", actionName)()
 }
 
-func (w *workflowsFile) RunEvent(ctx context.Context, dryrun bool, eventName string) error {
+func (wFile *workflowsFile) RunEvent(ctx context.Context, dryrun bool, eventName string) error {
 	log.Debugf("Running event '%s'", eventName)
-	workflow, _, err := w.getWorkflow(eventName)
+	workflow, _, err := wFile.getWorkflow(eventName)
 	if err != nil {
 		return err
 	}
 
 	log.Debugf("Running actions %s -> %s", eventName, workflow.Resolves)
-	return w.newActionExecutor(ctx, dryrun, eventName, workflow.Resolves...)()
+	return wFile.newActionExecutor(ctx, dryrun, eventName, workflow.Resolves...)()
 }
 
-func (w *workflowsFile) getWorkflow(eventName string) (*workflowDef, string, error) {
-	for wName, w := range w.Workflow {
+func (wFile *workflowsFile) getWorkflow(eventName string) (*workflowDef, string, error) {
+	var rtn workflowDef
+	for wName, w := range wFile.Workflow {
 		if w.On == eventName {
-			return &w, wName, nil
+			rtn = w
+			return &rtn, wName, nil
 		}
 	}
 	return nil, "", fmt.Errorf("unsupported event: %v", eventName)
 }
 
-func (w *workflowsFile) getAction(actionName string) (*actionDef, error) {
-	if a, ok := w.Action[actionName]; ok {
+func (wFile *workflowsFile) getAction(actionName string) (*actionDef, error) {
+	if a, ok := wFile.Action[actionName]; ok {
 		return &a, nil
 	}
 	return nil, fmt.Errorf("unsupported action: %v", actionName)
 }
 
-func (w *workflowsFile) Close() {
-	os.RemoveAll(w.TempDir)
+func (wFile *workflowsFile) Close() {
+	os.RemoveAll(wFile.TempDir)
 }
 
 // return a pipeline that is run in series.  pipeline is a list of steps to run in parallel
-func (w *workflowsFile) newExecutionGraph(actionNames ...string) [][]string {
+func (wFile *workflowsFile) newExecutionGraph(actionNames ...string) [][]string {
 	// first, build a list of all the necessary actions to run, and their dependencies
 	actionDependencies := make(map[string][]string)
 	for len(actionNames) > 0 {
@@ -91,8 +93,8 @@ func (w *workflowsFile) newExecutionGraph(actionNames ...string) [][]string {
 		for _, aName := range actionNames {
 			// make sure we haven't visited this action yet
 			if _, ok := actionDependencies[aName]; !ok {
-				actionDependencies[aName] = w.Action[aName].Needs
-				newActionNames = append(newActionNames, w.Action[aName].Needs...)
+				actionDependencies[aName] = wFile.Action[aName].Needs
+				newActionNames = append(newActionNames, wFile.Action[aName].Needs...)
 			}
 		}
 		actionNames = newActionNames
@@ -136,18 +138,18 @@ func listInLists(srcList []string, searchLists ...[]string) bool {
 	return true
 }
 
-func (w *workflowsFile) newActionExecutor(ctx context.Context, dryrun bool, eventName string, actionNames ...string) common.Executor {
-	graph := w.newExecutionGraph(actionNames...)
+func (wFile *workflowsFile) newActionExecutor(ctx context.Context, dryrun bool, eventName string, actionNames ...string) common.Executor {
+	graph := wFile.newExecutionGraph(actionNames...)
 
 	pipeline := make([]common.Executor, 0)
 	for _, actions := range graph {
 		stage := make([]common.Executor, 0)
 		for _, actionName := range actions {
-			action, err := w.getAction(actionName)
+			action, err := wFile.getAction(actionName)
 			if err != nil {
 				return common.NewErrorExecutor(err)
 			}
-			actionExecutor := action.asExecutor(ctx, dryrun, w.WorkingDir, w.TempDir, actionName, w.setupEnvironment(eventName, actionName, dryrun))
+			actionExecutor := action.asExecutor(ctx, dryrun, wFile.WorkingDir, wFile.TempDir, actionName, wFile.setupEnvironment(eventName, actionName, dryrun))
 			stage = append(stage, actionExecutor)
 		}
 		pipeline = append(pipeline, common.NewParallelExecutor(stage...))
@@ -273,11 +275,11 @@ func (action *actionDef) createGithubTarball() (io.Reader, error) {
 
 }
 
-func (w *workflowsFile) setupEnvironment(eventName string, actionName string, dryrun bool) []string {
+func (wFile *workflowsFile) setupEnvironment(eventName string, actionName string, dryrun bool) []string {
 	env := make([]string, 0)
-	repoPath := w.WorkingDir
+	repoPath := wFile.WorkingDir
 
-	_, workflowName, _ := w.getWorkflow(eventName)
+	_, workflowName, _ := wFile.getWorkflow(eventName)
 
 	env = append(env, fmt.Sprintf("HOME=/github/home"))
 	env = append(env, fmt.Sprintf("GITHUB_ACTOR=nektos/act"))
@@ -308,7 +310,7 @@ func (w *workflowsFile) setupEnvironment(eventName string, actionName string, dr
 		env = append(env, fmt.Sprintf("GITHUB_REF=refs/heads/%s", branch))
 	}
 
-	action, err := w.getAction(actionName)
+	action, err := wFile.getAction(actionName)
 	if err == nil && !dryrun {
 		action.applyEnvironmentSecrets(&env)
 	}

@@ -15,15 +15,11 @@ TAG_VERSION = v$(VERSION)
 default: check
 
 deps:
-	@GO111MODULE=off go get honnef.co/go/tools/cmd/staticcheck
-	@GO111MODULE=off go get golang.org/x/lint/golint
-	@GO111MODULE=off go get github.com/fzipp/gocyclo
+	curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh| sh -s -- -b $$(go env GOPATH)/bin v1.12.5
+
 
 check:
-	go vet ./...
-	golint -set_exit_status ./...
-	staticcheck ./...
-	gocyclo -over 10 .
+	golangci-lint run
 	go test -cover ./...
 
 build: deps check

@@ -39,7 +39,7 @@ func FindGitRevision(file string) (shortSha string, sha string, err error) {
 	if err != nil {
 		return "", "", err
 	}
-	return string(string(refBuf)[:7]), string(refBuf), nil
+	return string(refBuf[:7]), string(refBuf), nil
 }
 
 // FindGitBranch get the current git branch
@@ -72,9 +72,15 @@ func findGitHead(file string) (string, error) {
 	}()
 
 	headBuffer := new(bytes.Buffer)
-	headBuffer.ReadFrom(bufio.NewReader(headFile))
+	_, err = headBuffer.ReadFrom(bufio.NewReader(headFile))
+	if err != nil {
+		log.Error(err)
+	}
 	head := make(map[string]string)
-	yaml.Unmarshal(headBuffer.Bytes(), head)
+	err = yaml.Unmarshal(headBuffer.Bytes(), head)
+	if err != nil {
+		log.Error(err)
+	}
 
 	log.Debugf("HEAD points to '%s'", head["ref"])
 
@@ -204,9 +210,12 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) Executor {
 			return err
 		}
 
-		w.Pull(&git.PullOptions{
+		err = w.Pull(&git.PullOptions{
 			ReferenceName: refName,
 		})
+		if err != nil {
+			input.Logger.Errorf("Unable to pull %s: %v", refName, err)
+		}
 		input.Logger.Debugf("Cloned %s to %s", input.URL.String(), input.Dir)
 
 		err = w.Checkout(&git.CheckoutOptions{

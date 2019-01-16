@@ -75,5 +75,5 @@ func CopyDir(source string, dest string) (err error) {
 		}
 
 	}
-	return
+	return err
 }

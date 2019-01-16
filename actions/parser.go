@@ -2,11 +2,11 @@ package actions
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/hashicorp/hcl"
 	"github.com/hashicorp/hcl/hcl/ast"
@@ -32,7 +32,10 @@ func ParseWorkflows(workingDir string, workflowPath string) (Workflows, error) {
 	}
 
 	buf := new(bytes.Buffer)
-	buf.ReadFrom(workflowReader)
+	_, err = buf.ReadFrom(workflowReader)
+	if err != nil {
+		log.Error(err)
+	}
 
 	workflows := new(workflowsFile)
 	workflows.WorkingDir = workingDir
@@ -70,20 +73,19 @@ func cleanWorkflowsAST(node ast.Node) (ast.Node, bool) {
 		case "args", "runs":
 			if literalType, ok := objectItem.Val.(*ast.LiteralType); ok {
 				listType := new(ast.ListType)
-				parts := strings.Split(literalType.Token.Value().(string), " ")
-				log.Debugf("got list: %v", parts)
-				if len(parts) > 0 {
-					quote := literalType.Token.Text[0]
-					for _, part := range parts {
-						part = fmt.Sprintf("%c%s%c", quote, part, quote)
-						log.Debugf("Adding part %s", part)
-						listType.Add(&ast.LiteralType{
-							Token: token.Token{
-								Type: token.STRING,
-								Text: part,
-							},
-						})
-					}
+				parts, err := parseCommand(literalType.Token.Value().(string))
+				if err != nil {
+					return nil, false
+				}
+				quote := literalType.Token.Text[0]
+				for _, part := range parts {
+					part = fmt.Sprintf("%c%s%c", quote, part, quote)
+					listType.Add(&ast.LiteralType{
+						Token: token.Token{
+							Type: token.STRING,
+							Text: part,
+						},
+					})
 				}
 				objectItem.Val = listType
 
@@ -98,4 +100,65 @@ func cleanWorkflowsAST(node ast.Node) (ast.Node, bool) {
 		}
 	}
 	return node, true
+}
+
+// reused from: https://github.com/laurent22/massren/blob/ae4c57da1e09a95d9383f7eb645a9f69790dec6c/main.go#L172
+// nolint: gocyclo
+func parseCommand(cmd string) ([]string, error) {
+	var args []string
+	state := "start"
+	current := ""
+	quote := "\""
+	for i := 0; i < len(cmd); i++ {
+		c := cmd[i]
+
+		if state == "quotes" {
+			if string(c) != quote {
+				current += string(c)
+			} else {
+				args = append(args, current)
+				current = ""
+				state = "start"
+			}
+			continue
+		}
+
+		if c == '"' || c == '\'' {
+			state = "quotes"
+			quote = string(c)
+			continue
+		}
+
+		if state == "arg" {
+			if c == ' ' || c == '\t' {
+				args = append(args, current)
+				current = ""
+				state = "start"
+			} else {
+				current += string(c)
+			}
+			continue
+		}
+
+		if c != ' ' && c != '\t' {
+			state = "arg"
+			current += string(c)
+		}
+	}
+
+	if state == "quotes" {
+		return []string{}, fmt.Errorf("unclosed quote in command line: %s", cmd)
+	}
+
+	if current != "" {
+		args = append(args, current)
+	}
+
+	if len(args) == 0 {
+		return []string{}, errors.New("empty command line")
+	}
+
+	log.Debugf("Parsed literal %+q to list %+q", cmd, args)
+
+	return args, nil
 }

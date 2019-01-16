@@ -29,18 +29,17 @@ type dockerMessage struct {
 	Progress string `json:"progress"`
 }
 
-func (i *DockerExecutorInput) logDockerOutput(dockerResponse io.Reader) error {
+func (i *DockerExecutorInput) logDockerOutput(dockerResponse io.Reader) {
 	scanner := bufio.NewScanner(dockerResponse)
 	if i.Logger == nil {
-		return nil
+		return 
 	}
 	for scanner.Scan() {
 		i.Logger.Infof(scanner.Text())
 	}
-	return nil
 }
 
-func (i *DockerExecutorInput) streamDockerOutput(dockerResponse io.Reader) error {
+func (i *DockerExecutorInput) streamDockerOutput(dockerResponse io.Reader) {
 	out := os.Stdout
 	go func() {
 		<-i.Ctx.Done()
@@ -48,7 +47,9 @@ func (i *DockerExecutorInput) streamDockerOutput(dockerResponse io.Reader) error
 	}()
 
 	_, err := io.Copy(out, dockerResponse)
-	return err
+	if err != nil {
+		i.Logger.Error(err)
+	}
 }
 
 func (i *DockerExecutorInput) writeLog(isError bool, format string, args ...interface{}) {
@@ -63,9 +64,9 @@ func (i *DockerExecutorInput) writeLog(isError bool, format string, args ...inte
 
 }
 
-func (i *DockerExecutorInput) logDockerResponse(dockerResponse io.ReadCloser, isError bool) error {
+func (i *DockerExecutorInput) logDockerResponse(dockerResponse io.ReadCloser, isError bool) {
 	if dockerResponse == nil {
-		return nil
+		return 
 	}
 	defer dockerResponse.Close()
 
@@ -81,7 +82,8 @@ func (i *DockerExecutorInput) logDockerResponse(dockerResponse io.ReadCloser, is
 		msg.Progress = ""
 		if err := json.Unmarshal(line, &msg); err == nil {
 			if msg.Error != "" {
-				return fmt.Errorf("%s", msg.Error)
+				i.writeLog(isError, "%s", msg.Error)
+				return 
 			}
 
 			if msg.Status != "" {
@@ -100,5 +102,4 @@ func (i *DockerExecutorInput) logDockerResponse(dockerResponse io.ReadCloser, is
 		}
 	}
 
-	return nil
 }
