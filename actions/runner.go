@@ -46,12 +46,12 @@ func (wFile *workflowsFile) GraphEvent(eventName string) ([][]string, error) {
 	return wFile.newExecutionGraph(workflow.Resolves...), nil
 }
 
-func (wFile *workflowsFile) RunAction(ctx context.Context, dryrun bool, actionName string) error {
+func (wFile *workflowsFile) RunAction(ctx context.Context, dryrun bool, actionName string, eventJSON string) error {
 	log.Debugf("Running action '%s'", actionName)
-	return wFile.newActionExecutor(ctx, dryrun, "", actionName)()
+	return wFile.newActionExecutor(ctx, dryrun, "", eventJSON, actionName)()
 }
 
-func (wFile *workflowsFile) RunEvent(ctx context.Context, dryrun bool, eventName string) error {
+func (wFile *workflowsFile) RunEvent(ctx context.Context, dryrun bool, eventName string, eventJSON string) error {
 	log.Debugf("Running event '%s'", eventName)
 	workflow, _, err := wFile.getWorkflow(eventName)
 	if err != nil {
@@ -59,7 +59,7 @@ func (wFile *workflowsFile) RunEvent(ctx context.Context, dryrun bool, eventName
 	}
 
 	log.Debugf("Running actions %s -> %s", eventName, workflow.Resolves)
-	return wFile.newActionExecutor(ctx, dryrun, eventName, workflow.Resolves...)()
+	return wFile.newActionExecutor(ctx, dryrun, eventName, eventJSON, workflow.Resolves...)()
 }
 
 func (wFile *workflowsFile) getWorkflow(eventName string) (*workflowDef, string, error) {
@@ -138,7 +138,7 @@ func listInLists(srcList []string, searchLists ...[]string) bool {
 	return true
 }
 
-func (wFile *workflowsFile) newActionExecutor(ctx context.Context, dryrun bool, eventName string, actionNames ...string) common.Executor {
+func (wFile *workflowsFile) newActionExecutor(ctx context.Context, dryrun bool, eventName string, eventJSON string, actionNames ...string) common.Executor {
 	graph := wFile.newExecutionGraph(actionNames...)
 
 	pipeline := make([]common.Executor, 0)
@@ -149,7 +149,7 @@ func (wFile *workflowsFile) newActionExecutor(ctx context.Context, dryrun bool, 
 			if err != nil {
 				return common.NewErrorExecutor(err)
 			}
-			actionExecutor := action.asExecutor(ctx, dryrun, wFile.WorkingDir, wFile.TempDir, actionName, wFile.setupEnvironment(eventName, actionName, dryrun))
+			actionExecutor := action.asExecutor(ctx, dryrun, wFile.WorkingDir, wFile.TempDir, actionName, wFile.setupEnvironment(eventName, actionName, dryrun), eventJSON)
 			stage = append(stage, actionExecutor)
 		}
 		pipeline = append(pipeline, common.NewParallelExecutor(stage...))
@@ -158,7 +158,7 @@ func (wFile *workflowsFile) newActionExecutor(ctx context.Context, dryrun bool, 
 	return common.NewPipelineExecutor(pipeline...)
 }
 
-func (action *actionDef) asExecutor(ctx context.Context, dryrun bool, workingDir string, tempDir string, actionName string, env []string) common.Executor {
+func (action *actionDef) asExecutor(ctx context.Context, dryrun bool, workingDir string, tempDir string, actionName string, env []string, eventJSON string) common.Executor {
 	logger := newActionLogger(actionName, dryrun)
 	log.Debugf("Using '%s' for action '%s'", action.Uses, actionName)
 
@@ -206,7 +206,7 @@ func (action *actionDef) asExecutor(ctx context.Context, dryrun bool, workingDir
 		return common.NewErrorExecutor(fmt.Errorf("unable to determine executor type for image '%s'", action.Uses))
 	}
 
-	ghReader, err := action.createGithubTarball()
+	ghReader, err := action.createGithubTarball(eventJSON)
 	if err != nil {
 		return common.NewErrorExecutor(err)
 	}
@@ -244,7 +244,7 @@ func randString(slen int) string {
 	return string(b)
 }
 
-func (action *actionDef) createGithubTarball() (io.Reader, error) {
+func (action *actionDef) createGithubTarball(eventJSON string) (io.Reader, error) {
 	var buf bytes.Buffer
 	tw := tar.NewWriter(&buf)
 	var files = []struct {
@@ -252,18 +252,19 @@ func (action *actionDef) createGithubTarball() (io.Reader, error) {
 		Mode int64
 		Body string
 	}{
-		{"workflow/event.json", 0644, "{}"},
+		{"workflow/event.json", 0644, eventJSON},
 	}
 	for _, file := range files {
+		log.Debugf("Writing entry to tarball %s len:%d from %v", file.Name, len(eventJSON), eventJSON)
 		hdr := &tar.Header{
 			Name: file.Name,
 			Mode: file.Mode,
-			Size: int64(len(file.Body)),
+			Size: int64(len(eventJSON)),
 		}
 		if err := tw.WriteHeader(hdr); err != nil {
 			return nil, err
 		}
-		if _, err := tw.Write([]byte(file.Body)); err != nil {
+		if _, err := tw.Write([]byte(eventJSON)); err != nil {
 			return nil, err
 		}
 	}

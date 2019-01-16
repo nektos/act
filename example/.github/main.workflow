@@ -16,6 +16,6 @@ action "test" {
 
 action "deploy" {
   uses = "./action2"
-  args = "echo 'deploy'"
+  runs = ["/bin/sh", "-c", "cat $GITHUB_EVENT_PATH"]
   needs = ["test"]
 }

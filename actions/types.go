@@ -25,12 +25,12 @@ type EventLister interface {
 
 // ActionRunner to run an action
 type ActionRunner interface {
-	RunAction(ctx context.Context, dryrun bool, action string) error
+	RunAction(ctx context.Context, dryrun bool, action string, eventJSON string) error
 }
 
 // EventRunner to run an event
 type EventRunner interface {
-	RunEvent(ctx context.Context, dryrun bool, event string) error
+	RunEvent(ctx context.Context, dryrun bool, event string, eventJSON string) error
 }
 
 type workflowDef struct {

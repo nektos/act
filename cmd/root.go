@@ -3,7 +3,9 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"os"
+	"path/filepath"
 
 	"github.com/nektos/act/actions"
 	"github.com/nektos/act/common"
@@ -17,6 +19,7 @@ var workingDir string
 var list bool
 var actionName string
 var dryrun bool
+var eventPath string
 
 // Execute is the entry point to running the CLI
 func Execute(ctx context.Context, version string) {
@@ -30,6 +33,7 @@ func Execute(ctx context.Context, version string) {
 	}
 	rootCmd.Flags().BoolVarP(&list, "list", "l", false, "list actions")
 	rootCmd.Flags().StringVarP(&actionName, "action", "a", "", "run action")
+	rootCmd.Flags().StringVarP(&eventPath, "event", "e", "", "path to event JSON file")
 	rootCmd.PersistentFlags().BoolVarP(&dryrun, "dryrun", "n", false, "dryrun mode")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
 	rootCmd.PersistentFlags().StringVarP(&workflowPath, "file", "f", "./.github/main.workflow", "path to workflow file")
@@ -57,14 +61,27 @@ func newRunAction(ctx context.Context) func(*cobra.Command, []string) error {
 			return listEvents(workflows)
 		}
 
+		eventJSON := "{}"
+		if eventPath != "" {
+			if !filepath.IsAbs(eventPath) {
+				eventPath = filepath.Join(workingDir, eventPath)
+			}
+			log.Debugf("Reading event.json from %s", eventPath)
+			eventJSONBytes, err := ioutil.ReadFile(eventPath)
+			if err != nil {
+				return err
+			}
+			eventJSON = string(eventJSONBytes)
+		}
+
 		if actionName != "" {
-			return workflows.RunAction(ctx, dryrun, actionName)
+			return workflows.RunAction(ctx, dryrun, actionName, eventJSON)
 		}
 
 		if len(args) == 0 {
-			return workflows.RunEvent(ctx, dryrun, "push")
+			return workflows.RunEvent(ctx, dryrun, "push", eventJSON)
 		}
-		return workflows.RunEvent(ctx, dryrun, args[0])
+		return workflows.RunEvent(ctx, dryrun, args[0], eventJSON)
 	}
 }
 
