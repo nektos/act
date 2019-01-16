@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 

@@ -22,11 +22,11 @@ func TestNewWorkflow(t *testing.T) {
 	runcount := 0
 	successWorkflow := NewPipelineExecutor(
 		func() error {
-			runcount ++
+			runcount++
 			return nil
 		},
 		func() error {
-			runcount ++
+			runcount++
 			return nil
 		})
 	assert.Nil(successWorkflow())

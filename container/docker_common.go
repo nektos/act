@@ -32,7 +32,7 @@ type dockerMessage struct {
 func (i *DockerExecutorInput) logDockerOutput(dockerResponse io.Reader) {
 	scanner := bufio.NewScanner(dockerResponse)
 	if i.Logger == nil {
-		return 
+		return
 	}
 	for scanner.Scan() {
 		i.Logger.Infof(scanner.Text())
@@ -66,7 +66,7 @@ func (i *DockerExecutorInput) writeLog(isError bool, format string, args ...inte
 
 func (i *DockerExecutorInput) logDockerResponse(dockerResponse io.ReadCloser, isError bool) {
 	if dockerResponse == nil {
-		return 
+		return
 	}
 	defer dockerResponse.Close()
 
@@ -83,7 +83,7 @@ func (i *DockerExecutorInput) logDockerResponse(dockerResponse io.ReadCloser, is
 		if err := json.Unmarshal(line, &msg); err == nil {
 			if msg.Error != "" {
 				i.writeLog(isError, "%s", msg.Error)
-				return 
+				return
 			}
 
 			if msg.Status != "" {
