@@ -37,7 +37,7 @@ act
 act pull-request
 
 # Run a specific action:
-act -t test
+act -a test
 
 # Run in dry-run mode:
 act -n
