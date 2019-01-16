@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 
@@ -31,15 +32,33 @@ func ParseWorkflows(workingDir string, workflowPath string) (Workflows, error) {
 		return nil, err
 	}
 
+	workflows, err := parseWorkflowsFile(workflowReader)
+	if err != nil {
+		return nil, err
+	}
+	workflows.WorkingDir = workingDir
+	workflows.WorkflowPath = workflowPath
+	workflows.TempDir, err = ioutil.TempDir("/tmp", "act-")
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: add validation logic
+	// - check for circular dependencies
+	// - check for valid local path refs
+	// - check for valid dependencies
+
+	return workflows, nil
+}
+func parseWorkflowsFile(workflowReader io.Reader) (*workflowsFile, error) {
+
 	buf := new(bytes.Buffer)
-	_, err = buf.ReadFrom(workflowReader)
+	_, err := buf.ReadFrom(workflowReader)
 	if err != nil {
 		log.Error(err)
 	}
 
 	workflows := new(workflowsFile)
-	workflows.WorkingDir = workingDir
-	workflows.WorkflowPath = workflowPath
 
 	astFile, err := hcl.ParseBytes(buf.Bytes())
 	if err != nil {
@@ -50,16 +69,6 @@ func ParseWorkflows(workingDir string, workflowPath string) (Workflows, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	workflows.TempDir, err = ioutil.TempDir("/tmp", "act-")
-	if err != nil {
-		return nil, err
-	}
-
-	// TODO: add validation logic
-	// - check for circular dependencies
-	// - check for valid local path refs
-	// - check for valid dependencies
 
 	return workflows, nil
 }
