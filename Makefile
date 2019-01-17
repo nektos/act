@@ -12,20 +12,19 @@ endif
 IS_SNAPSHOT = $(if $(findstring -, $(VERSION)),true,false)
 TAG_VERSION = v$(VERSION)
 
+ACT ?= go run main.go
+
 default: check
 
-deps:
-	curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh| sh -s -- -b $$(go env GOPATH)/bin v1.12.5
-
-
 check:
-	golangci-lint run
-	go test -cover ./...
+	$(ACT) -ra check
 
-build: deps check
-	@GO111MODULE=off go get github.com/goreleaser/goreleaser
+build: check
 	$(eval export SNAPSHOT_VERSION=$(VERSION))
-	@goreleaser --snapshot --rm-dist
+	$(ACT) -ra build
+
+release:
+	$(ACT) -ra release
 
 install: build
 	@cp dist/$(shell go env GOOS)_$(shell go env GOARCH)/act /usr/local/bin/act
@@ -35,7 +34,6 @@ install: build
 installer:
 	@GO111MODULE=off go get github.com/goreleaser/godownloader
 	godownloader -r nektos/act -o install.sh
-
 
 promote: 
 	@echo "VERSION:$(VERSION) IS_SNAPSHOT:$(IS_SNAPSHOT) LATEST_VERSION:$(LATEST_VERSION)"

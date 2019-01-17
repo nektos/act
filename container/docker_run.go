@@ -16,15 +16,16 @@ import (
 // NewDockerRunExecutorInput the input for the NewDockerRunExecutor function
 type NewDockerRunExecutorInput struct {
 	DockerExecutorInput
-	Image      string
-	Entrypoint []string
-	Cmd        []string
-	WorkingDir string
-	Env        []string
-	Binds      []string
-	Content    map[string]io.Reader
-	Volumes    []string
-	Name       string
+	Image           string
+	Entrypoint      []string
+	Cmd             []string
+	WorkingDir      string
+	Env             []string
+	Binds           []string
+	Content         map[string]io.Reader
+	Volumes         []string
+	Name            string
+	ReuseContainers bool
 }
 
 // NewDockerRunExecutor function to create a run executor for the container
@@ -41,29 +42,44 @@ func NewDockerRunExecutor(input NewDockerRunExecutorInput) common.Executor {
 			return err
 		}
 
-		containerID, err := createContainer(input, cli)
-		if err != nil {
-			return err
-		}
-		defer removeContainer(input, cli, containerID)
-
-		err = copyContentToContainer(input, cli, containerID)
+		// check if container exists
+		containerID, err := findContainer(input, cli, input.Name)
 		if err != nil {
 			return err
 		}
 
-		err = attachContainer(input, cli, containerID)
-		if err != nil {
-			return err
+		// if we have an old container and we aren't reusing, remove it!
+		if !input.ReuseContainers && containerID != "" {
+			input.Logger.Debugf("Found existing container for %s...removing", input.Name)
+			removeContainer(input, cli, containerID)
+			containerID = ""
 		}
 
-		err = startContainer(input, cli, containerID)
-		if err != nil {
-			return err
+		// create a new container if we don't have one to reuse
+		if containerID == "" {
+			containerID, err = createContainer(input, cli)
+			if err != nil {
+				return err
+			}
 		}
 
-		return waitContainer(input, cli, containerID)
+		// be sure to cleanup container if we aren't reusing
+		if !input.ReuseContainers {
+			defer removeContainer(input, cli, containerID)
+		}
 
+		executor := common.NewPipelineExecutor(
+			func() error {
+				return copyContentToContainer(input, cli, containerID)
+			}, func() error {
+				return attachContainer(input, cli, containerID)
+			}, func() error {
+				return startContainer(input, cli, containerID)
+			}, func() error {
+				return waitContainer(input, cli, containerID)
+			},
+		)
+		return executor()
 	}
 
 }
@@ -97,6 +113,25 @@ func createContainer(input NewDockerRunExecutorInput, cli *client.Client) (strin
 	input.Logger.Debugf("ENV ==> %v", input.Env)
 
 	return resp.ID, nil
+}
+
+func findContainer(input NewDockerRunExecutorInput, cli *client.Client, containerName string) (string, error) {
+	containers, err := cli.ContainerList(input.Ctx, types.ContainerListOptions{
+		All: true,
+	})
+	if err != nil {
+		return "", err
+	}
+
+	for _, container := range containers {
+		for _, name := range container.Names {
+			if name[1:] == containerName {
+				return container.ID, nil
+			}
+		}
+	}
+
+	return "", nil
 }
 
 func removeContainer(input NewDockerRunExecutorInput, cli *client.Client, containerID string) {

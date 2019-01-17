@@ -36,12 +36,13 @@ type ActionRunner interface {
 
 // RunnerConfig contains the config for a new runner
 type RunnerConfig struct {
-	Ctx          context.Context // context to use for the run
-	Dryrun       bool            // don't start any of the containers
-	WorkingDir   string          // base directory to use
-	WorkflowPath string          // path to load main.workflow file, relative to WorkingDir
-	EventName    string          // name of event to run
-	EventPath    string          // path to JSON file to use for event.json in containers, relative to WorkingDir
+	Ctx             context.Context // context to use for the run
+	Dryrun          bool            // don't start any of the containers
+	WorkingDir      string          // base directory to use
+	WorkflowPath    string          // path to load main.workflow file, relative to WorkingDir
+	EventName       string          // name of event to run
+	EventPath       string          // path to JSON file to use for event.json in containers, relative to WorkingDir
+	ReuseContainers bool            // reuse containers to maintain state
 }
 
 type environmentApplier interface {

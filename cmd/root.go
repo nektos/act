@@ -25,6 +25,7 @@ func Execute(ctx context.Context, version string) {
 	}
 	rootCmd.Flags().BoolP("list", "l", false, "list actions")
 	rootCmd.Flags().StringP("action", "a", "", "run action")
+	rootCmd.Flags().BoolVarP(&runnerConfig.ReuseContainers, "reuse", "r", false, "reuse action containers to maintain state")
 	rootCmd.Flags().StringVarP(&runnerConfig.EventPath, "event", "e", "", "path to event JSON file")
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "verbose output")
 	rootCmd.PersistentFlags().BoolVarP(&runnerConfig.Dryrun, "dryrun", "n", false, "dryrun mode")

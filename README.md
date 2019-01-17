@@ -41,6 +41,9 @@ act -a test
 
 # Run in dry-run mode:
 act -n
+
+# Run in reuse mode to save state:
+act -r
 ```
 
 # Support

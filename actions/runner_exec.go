@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"math/rand"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -78,11 +77,6 @@ func (runner *runnerImpl) newActionExecutor(actionName string) common.Executor {
 	if err != nil {
 		return common.NewErrorExecutor(err)
 	}
-	randSuffix := randString(6)
-	containerName := regexp.MustCompile("[^a-zA-Z0-9]").ReplaceAllString(actionName, "-")
-	if len(containerName)+len(randSuffix)+1 > 30 {
-		containerName = containerName[:(30 - (len(randSuffix) + 1))]
-	}
 
 	envList := make([]string, 0)
 	for k, v := range env {
@@ -95,13 +89,14 @@ func (runner *runnerImpl) newActionExecutor(actionName string) common.Executor {
 		Image:               image,
 		WorkingDir:          "/github/workspace",
 		Env:                 envList,
-		Name:                fmt.Sprintf("%s-%s", containerName, randSuffix),
+		Name:                runner.createContainerName(actionName),
 		Binds: []string{
 			fmt.Sprintf("%s:%s", runner.config.WorkingDir, "/github/workspace"),
 			fmt.Sprintf("%s:%s", runner.tempDir, "/github/home"),
 			fmt.Sprintf("%s:%s", "/var/run/docker.sock", "/var/run/docker.sock"),
 		},
-		Content: map[string]io.Reader{"/github": ghReader},
+		Content:         map[string]io.Reader{"/github": ghReader},
+		ReuseContainers: runner.config.ReuseContainers,
 	}))
 
 	return common.NewPipelineExecutor(executors...)
@@ -174,12 +169,18 @@ func (runner *runnerImpl) createGithubTarball() (io.Reader, error) {
 
 }
 
-const letterBytes = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+func (runner *runnerImpl) createContainerName(actionName string) string {
+	containerName := regexp.MustCompile("[^a-zA-Z0-9]").ReplaceAllString(actionName, "-")
 
-func randString(slen int) string {
-	b := make([]byte, slen)
-	for i := range b {
-		b[i] = letterBytes[rand.Int63()%int64(len(letterBytes))]
+	prefix := fmt.Sprintf("%s-", trimToLen(filepath.Base(runner.config.WorkingDir), 10))
+	suffix := ""
+	containerName = trimToLen(containerName, 30-(len(prefix)+len(suffix)))
+	return fmt.Sprintf("%s%s%s", prefix, containerName, suffix)
+}
+
+func trimToLen(s string, l int) string {
+	if len(s) > l {
+		return s[:l]
 	}
-	return string(b)
+	return s
 }

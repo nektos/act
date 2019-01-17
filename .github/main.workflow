@@ -7,15 +7,21 @@ action "check" {
   uses = "./.github/actions/check"
 }
 
- action "branch-filter" {
+action "branch-filter" {
   needs = ["check"]
   uses = "actions/bin/filter@master"
   args = "tag v*"
- }
+}
 
- action "release" {
+action "release" {
   needs = ["branch-filter"]
   uses = "docker://goreleaser/goreleaser:v0.97"
   args = "release"
   secrets = ["GITHUB_TOKEN"]
- }
+}
+
+action "build" {
+  uses = "docker://goreleaser/goreleaser:v0.97"
+  args = "--snapshot --rm-dist"
+  secrets = ["SNAPSHOT_VERSION"]
+}
