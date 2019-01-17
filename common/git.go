@@ -72,20 +72,18 @@ func findGitHead(file string) (string, error) {
 	}()
 
 	headBuffer := new(bytes.Buffer)
-	length, err := headBuffer.ReadFrom(bufio.NewReader(headFile))
+	_, err = headBuffer.ReadFrom(bufio.NewReader(headFile))
 	if err != nil {
 		log.Error(err)
 	}
+	headBytes := headBuffer.Bytes()
 
 	var ref string
-	if length <= 42 {
-		ref = string(headBuffer.Bytes()[:40])
+	head := make(map[string]string)
+	err = yaml.Unmarshal(headBytes, head)
+	if err != nil {
+		ref = string(headBytes)
 	} else {
-		head := make(map[string]string)
-		err = yaml.Unmarshal(headBuffer.Bytes(), head)
-		if err != nil {
-			log.Error(err)
-		}
 		ref = head["ref"]
 	}
 
