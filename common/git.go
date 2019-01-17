@@ -72,19 +72,26 @@ func findGitHead(file string) (string, error) {
 	}()
 
 	headBuffer := new(bytes.Buffer)
-	_, err = headBuffer.ReadFrom(bufio.NewReader(headFile))
-	if err != nil {
-		log.Error(err)
-	}
-	head := make(map[string]string)
-	err = yaml.Unmarshal(headBuffer.Bytes(), head)
+	length, err := headBuffer.ReadFrom(bufio.NewReader(headFile))
 	if err != nil {
 		log.Error(err)
 	}
 
-	log.Debugf("HEAD points to '%s'", head["ref"])
+	var ref string
+	if length <= 42 {
+		ref = string(headBuffer.Bytes()[:40])
+	} else {
+		head := make(map[string]string)
+		err = yaml.Unmarshal(headBuffer.Bytes(), head)
+		if err != nil {
+			log.Error(err)
+		}
+		ref = head["ref"]
+	}
 
-	return head["ref"], nil
+	log.Debugf("HEAD points to '%s'", ref)
+
+	return ref, nil
 }
 
 // FindGithubRepo get the repo
