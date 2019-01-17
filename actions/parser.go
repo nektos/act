@@ -5,9 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
-	"os"
-	"path/filepath"
 
 	"github.com/hashicorp/hcl"
 	"github.com/hashicorp/hcl/hcl/ast"
@@ -15,42 +12,11 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// ParseWorkflows will read in the set of actions from the workflow file
-func ParseWorkflows(workingDir string, workflowPath string) (Workflows, error) {
-	workingDir, err := filepath.Abs(workingDir)
-	if err != nil {
-		return nil, err
-	}
-	log.Debugf("Setting working dir to %s", workingDir)
-
-	if !filepath.IsAbs(workflowPath) {
-		workflowPath = filepath.Join(workingDir, workflowPath)
-	}
-	log.Debugf("Loading workflow config from %s", workflowPath)
-	workflowReader, err := os.Open(workflowPath)
-	if err != nil {
-		return nil, err
-	}
-
-	workflows, err := parseWorkflowsFile(workflowReader)
-	if err != nil {
-		return nil, err
-	}
-	workflows.WorkingDir = workingDir
-	workflows.WorkflowPath = workflowPath
-	workflows.TempDir, err = ioutil.TempDir("", "act-")
-	if err != nil {
-		return nil, err
-	}
-
+func parseWorkflowsFile(workflowReader io.Reader) (*workflowsFile, error) {
 	// TODO: add validation logic
 	// - check for circular dependencies
 	// - check for valid local path refs
 	// - check for valid dependencies
-
-	return workflows, nil
-}
-func parseWorkflowsFile(workflowReader io.Reader) (*workflowsFile, error) {
 
 	buf := new(bytes.Buffer)
 	_, err := buf.ReadFrom(workflowReader)

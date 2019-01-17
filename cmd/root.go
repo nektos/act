@@ -3,9 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
-	"path/filepath"
 
 	"github.com/nektos/act/actions"
 	"github.com/nektos/act/common"
@@ -13,82 +11,80 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var verbose bool
-var workflowPath string
-var workingDir string
-var list bool
-var actionName string
-var dryrun bool
-var eventPath string
-
 // Execute is the entry point to running the CLI
 func Execute(ctx context.Context, version string) {
+	runnerConfig := &actions.RunnerConfig{Ctx: ctx}
 	var rootCmd = &cobra.Command{
-		Use:          "act [event name to run]",
-		Short:        "Run Github actions locally by specifying the event name (e.g. `push`) or an action name directly.",
-		Args:         cobra.MaximumNArgs(1),
-		RunE:         newRunAction(ctx),
-		Version:      version,
-		SilenceUsage: true,
+		Use:              "act [event name to run]",
+		Short:            "Run Github actions locally by specifying the event name (e.g. `push`) or an action name directly.",
+		Args:             cobra.MaximumNArgs(1),
+		RunE:             newRunCommand(runnerConfig),
+		PersistentPreRun: setupLogging,
+		Version:          version,
+		SilenceUsage:     true,
 	}
-	rootCmd.Flags().BoolVarP(&list, "list", "l", false, "list actions")
-	rootCmd.Flags().StringVarP(&actionName, "action", "a", "", "run action")
-	rootCmd.Flags().StringVarP(&eventPath, "event", "e", "", "path to event JSON file")
-	rootCmd.PersistentFlags().BoolVarP(&dryrun, "dryrun", "n", false, "dryrun mode")
-	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
-	rootCmd.PersistentFlags().StringVarP(&workflowPath, "file", "f", "./.github/main.workflow", "path to workflow file")
-	rootCmd.PersistentFlags().StringVarP(&workingDir, "directory", "C", ".", "working directory")
+	rootCmd.Flags().BoolP("list", "l", false, "list actions")
+	rootCmd.Flags().StringP("action", "a", "", "run action")
+	rootCmd.Flags().StringVarP(&runnerConfig.EventPath, "event", "e", "", "path to event JSON file")
+	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "verbose output")
+	rootCmd.PersistentFlags().BoolVarP(&runnerConfig.Dryrun, "dryrun", "n", false, "dryrun mode")
+	rootCmd.PersistentFlags().StringVarP(&runnerConfig.WorkflowPath, "file", "f", "./.github/main.workflow", "path to workflow file")
+	rootCmd.PersistentFlags().StringVarP(&runnerConfig.WorkingDir, "directory", "C", ".", "working directory")
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}
 
 }
 
-func newRunAction(ctx context.Context) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, args []string) error {
-		if verbose {
-			log.SetLevel(log.DebugLevel)
-		}
-
-		workflows, err := actions.ParseWorkflows(workingDir, workflowPath)
-		if err != nil {
-			return err
-		}
-
-		defer workflows.Close()
-
-		if list {
-			return listEvents(workflows)
-		}
-
-		eventJSON := "{}"
-		if eventPath != "" {
-			if !filepath.IsAbs(eventPath) {
-				eventPath = filepath.Join(workingDir, eventPath)
-			}
-			log.Debugf("Reading event.json from %s", eventPath)
-			eventJSONBytes, err := ioutil.ReadFile(eventPath)
-			if err != nil {
-				return err
-			}
-			eventJSON = string(eventJSONBytes)
-		}
-
-		if actionName != "" {
-			return workflows.RunAction(ctx, dryrun, actionName, eventJSON)
-		}
-
-		if len(args) == 0 {
-			return workflows.RunEvent(ctx, dryrun, "push", eventJSON)
-		}
-		return workflows.RunEvent(ctx, dryrun, args[0], eventJSON)
+func setupLogging(cmd *cobra.Command, args []string) {
+	verbose, _ := cmd.Flags().GetBool("verbose")
+	if verbose {
+		log.SetLevel(log.DebugLevel)
 	}
 }
 
-func listEvents(workflows actions.Workflows) error {
-	eventNames := workflows.ListEvents()
+func newRunCommand(runnerConfig *actions.RunnerConfig) func(*cobra.Command, []string) error {
+	return func(cmd *cobra.Command, args []string) error {
+		if len(args) == 0 {
+			runnerConfig.EventName = "push"
+		} else {
+			runnerConfig.EventName = args[0]
+		}
+
+		// create the runner
+		runner, err := actions.NewRunner(runnerConfig)
+		if err != nil {
+			return err
+		}
+		defer runner.Close()
+
+		// check if we should just print the graph
+		list, err := cmd.Flags().GetBool("list")
+		if err != nil {
+			return err
+		}
+		if list {
+			return drawGraph(runner)
+		}
+
+		// check if we are running just a single action
+		actionName, err := cmd.Flags().GetString("action")
+		if err != nil {
+			return err
+		}
+		if actionName != "" {
+			return runner.RunActions(actionName)
+		}
+
+		// run the event in the RunnerRonfig
+		return runner.RunEvent()
+	}
+}
+
+func drawGraph(runner actions.Runner) error {
+	eventNames := runner.ListEvents()
 	for _, eventName := range eventNames {
-		graph, err := workflows.GraphEvent(eventName)
+		graph, err := runner.GraphEvent(eventName)
 		if err != nil {
 			return err
 		}
