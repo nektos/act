@@ -34,11 +34,19 @@ func FindGitRevision(file string) (shortSha string, sha string, err error) {
 	if err != nil {
 		return "", "", err
 	}
-	// load commitid ref
-	refBuf, err := ioutil.ReadFile(fmt.Sprintf("%s/%s", gitDir, head))
-	if err != nil {
-		return "", "", err
+
+	var refBuf []byte
+	if strings.HasPrefix(head, "refs/") {
+		// load commitid ref
+		refBuf, err = ioutil.ReadFile(fmt.Sprintf("%s/%s", gitDir, head))
+		if err != nil {
+			return "", "", err
+		}
+	} else {
+		refBuf = []byte(head)
 	}
+
+	log.Debugf("Found revision: %s", refBuf)
 	return string(refBuf[:7]), string(refBuf), nil
 }
 
@@ -82,7 +90,7 @@ func findGitHead(file string) (string, error) {
 	head := make(map[string]string)
 	err = yaml.Unmarshal(headBytes, head)
 	if err != nil {
-		ref = string(headBytes)
+		ref = strings.TrimRight(string(headBytes), "\r\n")
 	} else {
 		ref = head["ref"]
 	}
