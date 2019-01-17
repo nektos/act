@@ -333,7 +333,7 @@ func (action *actionDef) applyEnvironmentSecrets(env *[]string) {
 					secretCache = make(map[string]string)
 				}
 
-				if secretCache[secret] == "" {
+				if _, ok := secretCache[secret]; !ok {
 					fmt.Printf("Provide value for '%s': ", secret)
 					val, err := gopass.GetPasswdMasked()
 					if err != nil {
