@@ -1,9 +1,9 @@
-<img src="https://github.com/nektos/act/wiki/img/logo.png" width="150">
-<p style="font-size: large">"Think globally, <code>act</code> locally"</p>
+![](https://github.com/nektos/act/wiki/img/logo-150.png) <span style="font-size: large">
+"Think globally, <code>act</code> locally"
+</span>
 
-[![Join the chat at https://gitter.im/nektos/act](https://badges.gitter.im/nektos/act.svg)](https://gitter.im/nektos/act?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) [![Go Report Card](https://goreportcard.com/badge/github.com/nektos/act)](https://goreportcard.com/report/github.com/nektos/act)
+# Overview [![Join the chat at https://gitter.im/nektos/act](https://badges.gitter.im/nektos/act.svg)](https://gitter.im/nektos/act?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) [![Go Report Card](https://goreportcard.com/badge/github.com/nektos/act)](https://goreportcard.com/report/github.com/nektos/act)
 
-# Overview
 
 Run your [GitHub Actions](https://developer.github.com/actions/) locally!  Why would you want to do this?  Two reasons:
 
