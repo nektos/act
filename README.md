@@ -1,8 +1,18 @@
-<img src="https://github.com/nektos/act/wiki/img/logo.png" width="150">
+<table>
+<tr>
+<td>
+  <img src="https://github.com/nektos/act/wiki/img/logo.png" width="150">
+</td>
+<td>
+<p style="font-size: large">"Think globally, <code>act</code> locally"</p>
 
 [![Join the chat at https://gitter.im/nektos/act](https://badges.gitter.im/nektos/act.svg)](https://gitter.im/nektos/act?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) [![Go Report Card](https://goreportcard.com/badge/github.com/nektos/act)](https://goreportcard.com/report/github.com/nektos/act)
+</td>
+</tr>
+</table>
 
 # Overview
+
 Run your [GitHub Actions](https://developer.github.com/actions/) locally!  Why would you want to do this?  Two reasons:
 
 * **Fast Feedback** - Rather than having to commit/push every time you want test out the changes you are making to your `main.workflow` file (or for any changes to embedded GitHub actions), you can use `act` to run the actions locally.  The [environment variables](https://developer.github.com/actions/creating-github-actions/accessing-the-runtime-environment/#environment-variables) and [filesystem](https://developer.github.com/actions/creating-github-actions/accessing-the-runtime-environment/#filesystem) are all configured to match what GitHub provides.
