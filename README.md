@@ -1,14 +1,3 @@
-<style>
-table {
-    border: 0px
-}
-tr {
-    border: 0px
-}
-td {
-    border: 0px
-}
-</style>
 <table>
 <tr>
 <td>
