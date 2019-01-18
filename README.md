@@ -1,4 +1,4 @@
-<table>
+<table border="0">
 <tr>
 <td>
   <img src="https://github.com/nektos/act/wiki/img/logo.png" width="150">
