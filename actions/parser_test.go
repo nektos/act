@@ -13,40 +13,50 @@ func TestParseWorkflowsFile(t *testing.T) {
 
 	conf := `
 	  workflow "build-and-deploy" {
-		on = "push"
-		resolves = ["deploy"]
+			on = "push"
+			resolves = ["deploy"]
 	  }
 	  
 	  action "build" {
-		uses = "./action1"
-		args = "echo 'build'"
+			uses = "./action1"
+			args = "echo 'build'"
 	  }
 	  
 	  action "test" {
-		uses = "docker://ubuntu:18.04"
-		runs = "echo 'test'"
-		needs = ["build"]
+			uses = "docker://ubuntu:18.04"
+			runs = "echo 'test'"
+			needs = ["build"]
 	  }
 
 	  action "deploy" {
-		uses = "./action2"
-		args = ["echo","deploy"]
-		needs = ["test"]
+			uses = "./action2"
+			args = ["echo","deploy"]
+			needs = ["test"]
 	  }
 
 	  action "docker-login" {
-		uses = "docker://docker"
-		runs = ["sh", "-c", "echo $DOCKER_AUTH | docker login --username $REGISTRY_USER --password-stdin"]
-		secrets = ["DOCKER_AUTH"]
-		env = {
-		  REGISTRY_USER = "username"
-		}
+			uses = "docker://docker"
+			runs = ["sh", "-c", "echo $DOCKER_AUTH | docker login --username $REGISTRY_USER --password-stdin"]
+			secrets = ["DOCKER_AUTH"]
+			env = {
+				REGISTRY_USER = "username"
+			}
 	  }
 
 	  action "unit-tests" {
-		uses = "./scripts/github_actions"
-		runs = "yarn test:ci-unittest || echo \"Unit tests failed, but running danger to present the results!\" 2>&1"
-	  }
+			uses = "./scripts/github_actions"
+			runs = "yarn test:ci-unittest || echo \"Unit tests failed, but running danger to present the results!\" 2>&1"
+		}
+
+		action "regex-in-args" {
+			uses = "actions/bin/filter@master"
+			args = "tag v?[0-9]+\\.[0-9]+\\.[0-9]+"
+		}
+
+		action "regex-in-args-array" {
+			uses = "actions/bin/filter@master"
+			args = ["tag","v?[0-9]+\\.[0-9]+\\.[0-9]+"]
+		}
 	`
 
 	workflows, err := parseWorkflowsFile(strings.NewReader(conf))
@@ -99,6 +109,20 @@ func TestParseWorkflowsFile(t *testing.T) {
 			nil,
 			[]string{"yarn", "test:ci-unittest", "||", "echo", "Unit tests failed, but running danger to present the results!", "2>&1"},
 			nil,
+			nil,
+		},
+		{"regex-in-args",
+			"actions/bin/filter@master",
+			nil,
+			nil,
+			[]string{"tag", `v?[0-9]+\.[0-9]+\.[0-9]+`},
+			nil,
+		},
+		{"regex-in-args-array",
+			"actions/bin/filter@master",
+			nil,
+			nil,
+			[]string{"tag", `v?[0-9]+\.[0-9]+\.[0-9]+`},
 			nil,
 		},
 	}

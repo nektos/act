@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/hashicorp/hcl"
 	"github.com/hashicorp/hcl/hcl/ast"
@@ -54,7 +55,7 @@ func cleanWorkflowsAST(node ast.Node) (ast.Node, bool) {
 				}
 				quote := literalType.Token.Text[0]
 				for _, part := range parts {
-					part = fmt.Sprintf("%c%s%c", quote, part, quote)
+					part = fmt.Sprintf("%c%s%c", quote, strings.Replace(part, "\\", "\\\\", -1), quote)
 					listType.Add(&ast.LiteralType{
 						Token: token.Token{
 							Type: token.STRING,

@@ -30,20 +30,20 @@ func FindGitRevision(file string) (shortSha string, sha string, err error) {
 		return "", "", err
 	}
 
-	head, err := findGitHead(file)
+	ref, err := FindGitRef(file)
 	if err != nil {
 		return "", "", err
 	}
 
 	var refBuf []byte
-	if strings.HasPrefix(head, "refs/") {
+	if strings.HasPrefix(ref, "refs/") {
 		// load commitid ref
-		refBuf, err = ioutil.ReadFile(fmt.Sprintf("%s/%s", gitDir, head))
+		refBuf, err = ioutil.ReadFile(fmt.Sprintf("%s/%s", gitDir, ref))
 		if err != nil {
 			return "", "", err
 		}
 	} else {
-		refBuf = []byte(head)
+		refBuf = []byte(ref)
 	}
 
 	log.Debugf("Found revision: %s", refBuf)
@@ -52,18 +52,19 @@ func FindGitRevision(file string) (shortSha string, sha string, err error) {
 
 // FindGitBranch get the current git branch
 func FindGitBranch(file string) (string, error) {
-	head, err := findGitHead(file)
+	ref, err := FindGitRef(file)
 	if err != nil {
 		return "", err
 	}
 
 	// get branch name
-	branch := strings.TrimPrefix(head, "refs/heads/")
+	branch := strings.TrimPrefix(ref, "refs/heads/")
 	log.Debugf("Found branch: %s", branch)
 	return branch, nil
 }
 
-func findGitHead(file string) (string, error) {
+// FindGitRef get the current git ref
+func FindGitRef(file string) (string, error) {
 	gitDir, err := findGitDirectory(file)
 	if err != nil {
 		return "", err

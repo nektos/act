@@ -128,11 +128,11 @@ func (runner *runnerImpl) applyEnvironment(env map[string]string) {
 		env["GITHUB_REPOSITORY"] = repo
 	}
 
-	branch, err := common.FindGitBranch(repoPath)
+	ref, err := common.FindGitRef(repoPath)
 	if err != nil {
-		log.Warningf("unable to get git branch: %v", err)
+		log.Warningf("unable to get git ref: %v", err)
 	} else {
-		env["GITHUB_REF"] = fmt.Sprintf("refs/heads/%s", branch)
+		env["GITHUB_REF"] = ref
 	}
 
 }
