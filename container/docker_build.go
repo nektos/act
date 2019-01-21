@@ -33,6 +33,7 @@ func NewDockerBuildExecutor(input NewDockerBuildExecutorInput) common.Executor {
 		if err != nil {
 			return err
 		}
+		cli.NegotiateAPIVersion(input.Ctx)
 
 		input.Logger.Debugf("Building image from '%v'", input.ContextDir)
 

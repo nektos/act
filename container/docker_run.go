@@ -41,6 +41,7 @@ func NewDockerRunExecutor(input NewDockerRunExecutorInput) common.Executor {
 		if err != nil {
 			return err
 		}
+		cli.NegotiateAPIVersion(input.Ctx)
 
 		// check if container exists
 		containerID, err := findContainer(input, cli, input.Name)
