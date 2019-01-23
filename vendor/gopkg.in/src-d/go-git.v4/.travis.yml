@@ -1,0 +1,37 @@
+language: go
+
+go:
+  - "1.10"
+  - "1.11"
+
+go_import_path: gopkg.in/src-d/go-git.v4
+
+env:
+  - GIT_VERSION=master
+  - GIT_VERSION=v1.9.3
+  - GIT_VERSION=v2.11.0
+
+cache:
+  directories:
+  - $HOME/.git-dist
+
+before_script:
+  - export GIT_DIST_PATH=$HOME/.git-dist
+  - make build-git
+
+before_install:
+  - git config --global user.email "travis@example.com"
+  - git config --global user.name "Travis CI"
+
+install:
+  - go get -v -t ./...
+
+script:
+  - export GIT_EXEC_PATH=$GIT_DIST_PATH
+  - export PATH=$GIT_DIST_PATH:$PATH
+  - git version
+  - make test-coverage
+  - go vet ./...
+
+after_success:
+  - bash <(curl -s https://codecov.io/bash)

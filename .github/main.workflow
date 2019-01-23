@@ -27,3 +27,9 @@ action "build" {
   args = "--snapshot --rm-dist"
   secrets = ["SNAPSHOT_VERSION"]
 }
+
+# local action for `make vendor`
+action "vendor" {
+  uses = "docker://golang:1.11.4"
+  args = "go mod vendor"
+}
