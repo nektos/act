@@ -4,10 +4,9 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"github.com/docker/cli/cli/connhelper"
+
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/builder/dockerignore"
-	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/archive"
 	"github.com/docker/docker/pkg/fileutils"
 	"github.com/nektos/act/common"
@@ -29,23 +28,10 @@ func NewDockerBuildExecutor(input NewDockerBuildExecutorInput) common.Executor {
 			return nil
 		}
 
-		var helper *connhelper.ConnectionHelper
-		if host := os.Getenv("DOCKER_HOST"); host != "" {
-			var err error
-			helper, err = connhelper.GetConnectionHelper(host)
-			if err != nil {
-				return err
-			}
-		}
-		cli, err := client.NewClientWithOpts(
-				//client.FromEnv,
-				client.WithHost(helper.Host),
-				client.WithDialContext(helper.Dialer),
-				)
+		cli, err := getDockerClient(input.Ctx)
 		if err != nil {
 			return err
 		}
-		cli.NegotiateAPIVersion(input.Ctx)
 
 		input.Logger.Debugf("Building image from '%v'", input.ContextDir)
 

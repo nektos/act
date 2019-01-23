@@ -2,12 +2,9 @@ package container
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
-	"github.com/docker/cli/cli/connhelper"
 	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/client"
 	"github.com/nektos/act/common"
 )
 
@@ -29,23 +26,10 @@ func NewDockerPullExecutor(input NewDockerPullExecutorInput) common.Executor {
 		imageRef := cleanImage(input.Image)
 		input.Logger.Debugf("pulling image '%v'", imageRef)
 
-		var helper *connhelper.ConnectionHelper
-		if host := os.Getenv("DOCKER_HOST"); host != "" {
-			var err error
-			helper, err = connhelper.GetConnectionHelper(host)
-			if err != nil {
-				return err
-			}
-		}
-		cli, err := client.NewClientWithOpts(
-				//client.FromEnv,
-				client.WithHost(helper.Host),
-				client.WithDialContext(helper.Dialer),
-		)
+		cli, err := getDockerClient(input.Ctx)
 		if err != nil {
 			return err
 		}
-		cli.NegotiateAPIVersion(input.Ctx)
 
 		reader, err := cli.ImagePull(input.Ctx, imageRef, types.ImagePullOptions{})
 		input.logDockerResponse(reader, err != nil)

@@ -23,6 +23,7 @@ github.com/docker/cli v0.0.0-20181219132003-336b2a5cac7f h1:yhxq6RNek+j/xhCvlLO6
 github.com/docker/cli v0.0.0-20181219132003-336b2a5cac7f/go.mod h1:JLrzqnKDaYBop7H2jaqPtU4hHvMKP+vjCwu2uszcLI8=
 github.com/docker/cli v0.0.0-20190121150209-01a591477c1f h1:SEwEeG+76kApBGUBg5eabFRjGwK4xnXjr2eyWP3Zgso=
 github.com/docker/cli v0.0.0-20190121150209-01a591477c1f/go.mod h1:JLrzqnKDaYBop7H2jaqPtU4hHvMKP+vjCwu2uszcLI8=
+github.com/docker/cli v0.0.0-20190123093516-4d5f8ea8c7b6 h1:pc1oVytfSTOgopZ37gmOlRcIRIKtAckEfqVyF/f98ZM=
 github.com/docker/compose-on-kubernetes v0.4.18 h1:XRfct4dmGmW4uzYsr4KwGOnYxo0wNkqqLkU/0JOZ20o=
 github.com/docker/compose-on-kubernetes v0.4.18/go.mod h1:iT2pYfi580XlpaV4KmK0T6+4/9+XoKmk/fhoDod1emE=
 github.com/docker/distribution v2.7.0+incompatible h1:neUDAlf3wX6Ml4HdqTrbcOHXtfRN0TFIwt6YFL7N9RU=

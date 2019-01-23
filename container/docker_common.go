@@ -8,6 +8,8 @@ import (
 	"io"
 	"os"
 
+	"github.com/docker/cli/cli/connhelper"
+	"github.com/docker/docker/client"
 	"github.com/sirupsen/logrus"
 )
 
@@ -102,4 +104,34 @@ func (i *DockerExecutorInput) logDockerResponse(dockerResponse io.ReadCloser, is
 		}
 	}
 
+}
+
+func getDockerClient(ctx context.Context) (*client.Client, error) {
+	// TODO: the docker-ce ssh helper requires code in the docker daemon 18.09
+	//       change this to use pure ssh tunneled unix sockets so it can be any version
+	var err error
+	var cli *client.Client
+	if host := os.Getenv("DOCKER_HOST"); host != "" {
+		var helper *connhelper.ConnectionHelper
+
+		helper, err = connhelper.GetConnectionHelper(host)
+		if err != nil {
+			return nil, err
+		}
+		cli, err = client.NewClientWithOpts(
+			client.WithHost(helper.Host),
+			client.WithDialContext(helper.Dialer),
+		)
+	} else {
+		cli, err = client.NewClientWithOpts(
+			client.FromEnv,
+		)
+
+	}
+	if err != nil {
+		return nil, err
+	}
+	cli.NegotiateAPIVersion(ctx)
+
+	return cli, err
 }
