@@ -20,6 +20,7 @@ action "release" {
   secrets = ["GITHUB_TOKEN"]
 }
 
+# local action for `make build`
 action "build" {
   uses = "docker://goreleaser/goreleaser:v0.97"
   args = "--snapshot --rm-dist"
