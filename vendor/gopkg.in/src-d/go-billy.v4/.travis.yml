@@ -1,0 +1,16 @@
+language: go
+
+go:
+  - 1.9.x
+  - 1.10.x
+
+go_import_path: gopkg.in/src-d/go-billy.v4
+
+install:
+  - go get -v -t ./...
+
+script:
+  - make test-coverage
+
+after_success:
+  - bash <(curl -s https://codecov.io/bash)

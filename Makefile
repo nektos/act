@@ -12,7 +12,7 @@ endif
 IS_SNAPSHOT = $(if $(findstring -, $(VERSION)),true,false)
 TAG_VERSION = v$(VERSION)
 
-ACT ?= go run main.go
+ACT ?= go run -mod=vendor main.go
 
 default: check
 
@@ -35,7 +35,7 @@ installer:
 	@GO111MODULE=off go get github.com/goreleaser/godownloader
 	godownloader -r nektos/act -o install.sh
 
-promote: 
+promote: vendor
 	@echo "VERSION:$(VERSION) IS_SNAPSHOT:$(IS_SNAPSHOT) LATEST_VERSION:$(LATEST_VERSION)"
 ifeq (false,$(IS_SNAPSHOT))
 	@echo "Unable to promote a non-snapshot"
@@ -48,3 +48,8 @@ endif
 	$(eval NEW_VERSION := $(word 1,$(subst -, , $(TAG_VERSION))))
 	git tag -a -m "releasing $(NEW_VERSION)" $(NEW_VERSION)
 	git push origin $(NEW_VERSION)
+
+vendor:
+	go run main.go -ra vendor
+
+.PHONY: vendor
