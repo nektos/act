@@ -16,14 +16,14 @@ action "branch-filter" {
 # only release on `v*` tags
 action "release" {
   needs = ["branch-filter"]
-  uses = "docker://goreleaser/goreleaser:v0.97"
+  uses = "docker://goreleaser/goreleaser:v0.98"
   args = "release"
   secrets = ["GITHUB_TOKEN"]
 }
 
 # local action for `make build`
 action "build" {
-  uses = "docker://goreleaser/goreleaser:v0.97"
+  uses = "docker://goreleaser/goreleaser:v0.98"
   args = "--snapshot --rm-dist"
   secrets = ["SNAPSHOT_VERSION"]
 }
