@@ -13,6 +13,7 @@ action "branch-filter" {
   args = "tag v*"
 }
 
+# only release on `v*` tags
 action "release" {
   needs = ["branch-filter"]
   uses = "docker://goreleaser/goreleaser:v0.97"
