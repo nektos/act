@@ -91,7 +91,7 @@ func (runner *runnerImpl) newActionExecutor(actionName string) common.Executor {
 		Env:                 envList,
 		Name:                runner.createContainerName(actionName),
 		Binds: []string{
-			fmt.Sprintf("%s:%s", runner.config.WorkingDir, "/github/workspace"),
+			//fmt.Sprintf("%s:%s", runner.config.WorkingDir, "/github/workspace"),
 			fmt.Sprintf("%s:%s", runner.tempDir, "/github/home"),
 			fmt.Sprintf("%s:%s", "/var/run/docker.sock", "/var/run/docker.sock"),
 		},

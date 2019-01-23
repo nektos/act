@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 
+	"github.com/docker/cli/cli/connhelper"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
@@ -37,7 +38,19 @@ func NewDockerRunExecutor(input NewDockerRunExecutorInput) common.Executor {
 			return nil
 		}
 
-		cli, err := client.NewClientWithOpts(client.FromEnv)
+		var helper *connhelper.ConnectionHelper
+		if host := os.Getenv("DOCKER_HOST"); host != "" {
+			var err error
+			helper, err = connhelper.GetConnectionHelper(host)
+			if err != nil {
+				return err
+			}
+		}
+		cli, err := client.NewClientWithOpts(
+				//client.FromEnv,
+				client.WithHost(helper.Host),
+				client.WithDialContext(helper.Dialer),
+				)
 		if err != nil {
 			return err
 		}
