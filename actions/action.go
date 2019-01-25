@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 
 	"github.com/nektos/act/common"
 	log "github.com/sirupsen/logrus"
@@ -14,9 +15,10 @@ import (
 
 // imageURL is the directory where a `Dockerfile` should exist
 func parseImageLocal(workingDir string, contextDir string) (contextDirOut string, tag string, ok bool) {
-	if !filepath.IsAbs(contextDir) {
-		contextDir = filepath.Join(workingDir, contextDir)
+	if !strings.HasPrefix(contextDir, "./") {
+		return "", "", false
 	}
+	contextDir = filepath.Join(workingDir, contextDir)
 	if _, err := os.Stat(filepath.Join(contextDir, "Dockerfile")); os.IsNotExist(err) {
 		log.Debugf("Ignoring missing Dockerfile '%s/Dockerfile'", contextDir)
 		return "", "", false
