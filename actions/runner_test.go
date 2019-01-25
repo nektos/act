@@ -43,7 +43,8 @@ func TestParseImageLocal(t *testing.T) {
 	}{
 		{"docker://myhost.com/foo/bar", "", "", false},
 		{"http://google.com:8080", "", "", false},
-		{"example/action1", "/example/action1", "action1:", true},
+		{"example/action1", "", "", false},
+		{"./example/action1", "/example/action1", "action1:", true},
 	}
 
 	revision, _, err := common.FindGitRevision(".")
