@@ -39,7 +39,7 @@ require (
 	gopkg.in/ini.v1 v1.41.0 // indirect
 	gopkg.in/src-d/go-git.v4 v4.8.1
 	gopkg.in/yaml.v2 v2.2.2
-	gotest.tools v2.2.0+incompatible // indirect
+	gotest.tools v2.2.0+incompatible
 )
 
 replace github.com/docker/docker => github.com/docker/engine v0.0.0-20181106193140-f5749085e9cb
