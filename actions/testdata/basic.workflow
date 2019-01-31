@@ -10,7 +10,7 @@ action "build" {
 
 action "test" {
   uses = "docker://ubuntu:18.04"
-  args = "echo 'test'"
+  args = "env"
   needs = ["build"]
 }
 

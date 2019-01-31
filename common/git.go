@@ -194,7 +194,7 @@ type NewGitCloneExecutorInput struct {
 // NewGitCloneExecutor creates an executor to clone git repos
 func NewGitCloneExecutor(input NewGitCloneExecutorInput) Executor {
 	return func() error {
-		input.Logger.Infof("git clone '%s'", input.URL)
+		input.Logger.Infof("git clone '%s' # ref=%s", input.URL, input.Ref)
 		input.Logger.Debugf("  cloning %s to %s", input.URL, input.Dir)
 
 		if input.Dryrun {
@@ -209,11 +209,12 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) Executor {
 		r, err := git.PlainOpen(input.Dir)
 		if err != nil {
 			r, err = git.PlainClone(input.Dir, false, &git.CloneOptions{
-				URL:           input.URL,
-				Progress:      input.Logger.WriterLevel(log.DebugLevel),
-				ReferenceName: refName,
+				URL:      input.URL,
+				Progress: input.Logger.WriterLevel(log.DebugLevel),
+				//ReferenceName: refName,
 			})
 			if err != nil {
+				input.Logger.Errorf("Unable to clone %v %s: %v", input.URL, refName, err)
 				return err
 			}
 		}
@@ -224,17 +225,24 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) Executor {
 		}
 
 		err = w.Pull(&git.PullOptions{
-			ReferenceName: refName,
-			Force:         true,
+			//ReferenceName: refName,
+			Force: true,
 		})
 		if err != nil && err.Error() != "already up-to-date" {
 			input.Logger.Errorf("Unable to pull %s: %v", refName, err)
 		}
 		input.Logger.Debugf("Cloned %s to %s", input.URL, input.Dir)
 
+		hash, err := r.ResolveRevision(plumbing.Revision(input.Ref))
+		if err != nil {
+			input.Logger.Errorf("Unable to resolve %s: %v", input.Ref, err)
+			return err
+		}
+
 		err = w.Checkout(&git.CheckoutOptions{
-			Branch: refName,
-			Force:  true,
+			//Branch: refName,
+			Hash:  *hash,
+			Force: true,
 		})
 		if err != nil {
 			input.Logger.Errorf("Unable to checkout %s: %v", refName, err)
