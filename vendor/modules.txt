@@ -1,5 +1,8 @@
 # github.com/Microsoft/go-winio v0.4.11
 github.com/Microsoft/go-winio
+# github.com/actions/workflow-parser v0.0.0-20190130154146-aac54e2ba131
+github.com/actions/workflow-parser/model
+github.com/actions/workflow-parser/parser
 # github.com/containerd/continuity v0.0.0-20181203112020-004b46473808
 github.com/containerd/continuity/pathdriver
 # github.com/davecgh/go-spew v1.1.1
@@ -55,11 +58,11 @@ github.com/gogo/protobuf/proto
 # github.com/hashicorp/hcl v1.0.0
 github.com/hashicorp/hcl
 github.com/hashicorp/hcl/hcl/ast
-github.com/hashicorp/hcl/hcl/token
 github.com/hashicorp/hcl/hcl/parser
+github.com/hashicorp/hcl/hcl/token
 github.com/hashicorp/hcl/json/parser
-github.com/hashicorp/hcl/hcl/strconv
 github.com/hashicorp/hcl/hcl/scanner
+github.com/hashicorp/hcl/hcl/strconv
 github.com/hashicorp/hcl/json/scanner
 github.com/hashicorp/hcl/json/token
 # github.com/howeyc/gopass v0.0.0-20170109162249-bf9dde6d0d2c
@@ -92,6 +95,10 @@ github.com/pmezard/go-difflib/difflib
 github.com/sergi/go-diff/diffmatchpatch
 # github.com/sirupsen/logrus v1.3.0
 github.com/sirupsen/logrus
+# github.com/soniakeys/bits v1.0.0
+github.com/soniakeys/bits
+# github.com/soniakeys/graph v0.0.0
+github.com/soniakeys/graph
 # github.com/spf13/cobra v0.0.3
 github.com/spf13/cobra
 # github.com/spf13/pflag v1.0.3

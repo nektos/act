@@ -1,0 +1,11 @@
+sudo: false
+language: go
+go:
+ - "1.9.x"
+ - master
+before_script:
+ - go tool vet -composites=false -printf=false -shift=false .
+ - go get github.com/client9/misspell/cmd/misspell
+ - go get github.com/soniakeys/vetc
+ - misspell -error * */* */*/*
+ - vetc

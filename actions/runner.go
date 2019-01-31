@@ -1,20 +1,23 @@
 package actions
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sort"
 
+	"github.com/actions/workflow-parser/model"
+	"github.com/actions/workflow-parser/parser"
 	"github.com/nektos/act/common"
 	log "github.com/sirupsen/logrus"
 )
 
 type runnerImpl struct {
-	config    *RunnerConfig
-	workflows *workflowsFile
-	tempDir   string
-	eventJSON string
+	config         *RunnerConfig
+	workflowConfig *model.Configuration
+	tempDir        string
+	eventJSON      string
 }
 
 // NewRunner Creates a new Runner
@@ -56,7 +59,13 @@ func (runner *runnerImpl) setupWorkflows() error {
 
 	defer workflowReader.Close()
 
-	runner.workflows, err = parseWorkflowsFile(workflowReader)
+	runner.workflowConfig, err = parser.Parse(workflowReader)
+	if err != nil {
+		parserError := err.(*parser.ParserError)
+		for _, e := range parserError.Errors {
+			fmt.Fprintln(os.Stderr, e)
+		}
+	}
 	return err
 }
 
@@ -88,7 +97,7 @@ func (runner *runnerImpl) resolvePath(path string) string {
 func (runner *runnerImpl) ListEvents() []string {
 	log.Debugf("Listing all events")
 	events := make([]string, 0)
-	for _, w := range runner.workflows.Workflow {
+	for _, w := range runner.workflowConfig.Workflows {
 		events = append(events, w.On)
 	}
 
@@ -103,17 +112,14 @@ func (runner *runnerImpl) ListEvents() []string {
 // GraphEvent builds an execution path
 func (runner *runnerImpl) GraphEvent(eventName string) ([][]string, error) {
 	log.Debugf("Listing actions for event '%s'", eventName)
-	workflow, _, err := runner.workflows.getWorkflow(eventName)
-	if err != nil {
-		return nil, err
-	}
-	return runner.workflows.newExecutionGraph(workflow.Resolves...), nil
+	resolves := runner.resolveEvent(runner.config.EventName)
+	return newExecutionGraph(runner.workflowConfig, resolves...), nil
 }
 
 // RunAction runs a set of actions in parallel, and their dependencies
 func (runner *runnerImpl) RunActions(actionNames ...string) error {
 	log.Debugf("Running actions %+q", actionNames)
-	graph := runner.workflows.newExecutionGraph(actionNames...)
+	graph := newExecutionGraph(runner.workflowConfig, actionNames...)
 
 	pipeline := make([]common.Executor, 0)
 	for _, actions := range graph {
@@ -131,15 +137,32 @@ func (runner *runnerImpl) RunActions(actionNames ...string) error {
 // RunEvent runs the actions for a single event
 func (runner *runnerImpl) RunEvent() error {
 	log.Debugf("Running event '%s'", runner.config.EventName)
-	workflow, _, err := runner.workflows.getWorkflow(runner.config.EventName)
-	if err != nil {
-		return err
-	}
-
-	log.Debugf("Running actions %s -> %s", runner.config.EventName, workflow.Resolves)
-	return runner.RunActions(workflow.Resolves...)
+	resolves := runner.resolveEvent(runner.config.EventName)
+	log.Debugf("Running actions %s -> %s", runner.config.EventName, resolves)
+	return runner.RunActions(resolves...)
 }
 
 func (runner *runnerImpl) Close() error {
 	return os.RemoveAll(runner.tempDir)
+}
+
+// get list of resolves for an event
+func (runner *runnerImpl) resolveEvent(eventName string) []string {
+	workflows := runner.workflowConfig.GetWorkflows(runner.config.EventName)
+	resolves := make([]string, 0)
+	for _, workflow := range workflows {
+		for _, resolve := range workflow.Resolves {
+			found := false
+			for _, r := range resolves {
+				if r == resolve {
+					found = true
+					break
+				}
+			}
+			if !found {
+				resolves = append(resolves, resolve)
+			}
+		}
+	}
+	return resolves
 }

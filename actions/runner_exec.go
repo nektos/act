@@ -9,19 +9,20 @@ import (
 	"path/filepath"
 	"regexp"
 
+	"github.com/actions/workflow-parser/model"
 	"github.com/nektos/act/common"
 	"github.com/nektos/act/container"
 	log "github.com/sirupsen/logrus"
 )
 
 func (runner *runnerImpl) newActionExecutor(actionName string) common.Executor {
-	action, err := runner.workflows.getAction(actionName)
-	if err != nil {
-		return common.NewErrorExecutor(err)
+	action := runner.workflowConfig.GetAction(actionName)
+	if action == nil {
+		return common.NewErrorExecutor(fmt.Errorf("Unable to find action named '%s'", actionName))
 	}
 
 	env := make(map[string]string)
-	for _, applier := range []environmentApplier{action, runner} {
+	for _, applier := range []environmentApplier{newActionEnvironmentApplier(action), runner} {
 		applier.applyEnvironment(env)
 	}
 	env["GITHUB_ACTION"] = actionName
@@ -37,39 +38,51 @@ func (runner *runnerImpl) newActionExecutor(actionName string) common.Executor {
 
 	var image string
 	executors := make([]common.Executor, 0)
-	if imageRef, ok := parseImageReference(action.Uses); ok {
+	switch uses := action.Uses.(type) {
+
+	case *model.UsesDockerImage:
+		image = uses.Image
 		executors = append(executors, container.NewDockerPullExecutor(container.NewDockerPullExecutorInput{
 			DockerExecutorInput: in,
-			Image:               imageRef,
+			Image:               image,
 		}))
-		image = imageRef
-	} else if contextDir, imageTag, ok := parseImageLocal(runner.config.WorkingDir, action.Uses); ok {
+
+	case *model.UsesPath:
+		contextDir := filepath.Join(runner.config.WorkingDir, uses.String())
+		sha, _, err := common.FindGitRevision(contextDir)
+		if err != nil {
+			log.Warnf("Unable to determine git revision: %v", err)
+			sha = "latest"
+		}
+		image = fmt.Sprintf("%s:%s", filepath.Base(contextDir), sha)
+
 		executors = append(executors, container.NewDockerBuildExecutor(container.NewDockerBuildExecutorInput{
 			DockerExecutorInput: in,
 			ContextDir:          contextDir,
-			ImageTag:            imageTag,
+			ImageTag:            image,
 		}))
-		image = imageTag
-	} else if cloneURL, ref, path, ok := parseImageGithub(action.Uses); ok {
-		cloneDir := filepath.Join(os.TempDir(), "act", action.Uses)
+
+	case *model.UsesRepository:
+		image = fmt.Sprintf("%s:%s", filepath.Base(uses.Repository), uses.Ref)
+		cloneURL := fmt.Sprintf("https://github.com/%s", uses.Repository)
+
+		cloneDir := filepath.Join(os.TempDir(), "act", action.Uses.String())
 		executors = append(executors, common.NewGitCloneExecutor(common.NewGitCloneExecutorInput{
 			URL:    cloneURL,
-			Ref:    ref,
+			Ref:    uses.Ref,
 			Dir:    cloneDir,
 			Logger: logger,
 			Dryrun: runner.config.Dryrun,
 		}))
 
-		contextDir := filepath.Join(cloneDir, path)
-		imageTag := fmt.Sprintf("%s:%s", filepath.Base(cloneURL.Path), ref)
-
+		contextDir := filepath.Join(cloneDir, uses.Path)
 		executors = append(executors, container.NewDockerBuildExecutor(container.NewDockerBuildExecutorInput{
 			DockerExecutorInput: in,
 			ContextDir:          contextDir,
-			ImageTag:            imageTag,
+			ImageTag:            image,
 		}))
-		image = imageTag
-	} else {
+
+	default:
 		return common.NewErrorExecutor(fmt.Errorf("unable to determine executor type for image '%s'", action.Uses))
 	}
 
@@ -84,8 +97,8 @@ func (runner *runnerImpl) newActionExecutor(actionName string) common.Executor {
 	}
 	executors = append(executors, container.NewDockerRunExecutor(container.NewDockerRunExecutorInput{
 		DockerExecutorInput: in,
-		Cmd:                 action.Args,
-		Entrypoint:          action.Runs,
+		Cmd:                 action.Args.Parsed,
+		Entrypoint:          action.Runs.Parsed,
 		Image:               image,
 		WorkingDir:          "/github/workspace",
 		Env:                 envList,
@@ -105,7 +118,11 @@ func (runner *runnerImpl) newActionExecutor(actionName string) common.Executor {
 func (runner *runnerImpl) applyEnvironment(env map[string]string) {
 	repoPath := runner.config.WorkingDir
 
-	_, workflowName, _ := runner.workflows.getWorkflow(runner.config.EventName)
+	workflows := runner.workflowConfig.GetWorkflows(runner.config.EventName)
+	if len(workflows) == 0 {
+		return
+	}
+	workflowName := workflows[0].Identifier
 
 	env["HOME"] = "/github/home"
 	env["GITHUB_ACTOR"] = "nektos/act"

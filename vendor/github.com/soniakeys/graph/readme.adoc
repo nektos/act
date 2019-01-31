@@ -1,0 +1,50 @@
+= Graph
+
+A graph library with goals of speed and simplicity, Graph implements
+graph algorithms on graphs of zero-based integer node IDs.
+
+image:https://godoc.org/github.com/soniakeys/graph?status.svg[link=https://godoc.org/github.com/soniakeys/graph]
+image:http://gowalker.org/api/v1/badge[link=https://gowalker.org/github.com/soniakeys/graph]
+image:http://go-search.org/badge?id=github.com%2Fsoniakeys%2Fgraph[link=http://go-search.org/view?id=github.com%2Fsoniakeys%2Fgraph]
+image:https://travis-ci.org/soniakeys/graph.svg?branch=master[link=https://travis-ci.org/soniakeys/graph]
+
+The library provides efficient graph representations and many methods on
+graph types.  It can be imported and used directly in many applications that
+require or can benefit from graph algorithms.
+
+The library should also be considered as library of source code that can serve
+as starting material for coding variant or more complex algorithms.
+
+== Ancillary material of interest
+
+The directory link:tutorials[tutorials] is a work in progress - there are only
+a few tutorials there yet - but the concept is to provide some topical
+walk-throughs to supplement godoc.  The source-based godoc documentation
+remains the primary documentation.
+
+The directory link:anecdote[anecdote] contains a stand-alone program that
+performs single runs of a number of methods, collecting one-off or "anecdotal"
+timings.  It currently runs only a small fraction of the library methods but
+may still be of interest for giving a general idea of how fast some methods
+run.
+
+The directory link:bench[bench] is another work in progress.  The concept is
+to present some plots showing benchmark performance approaching some
+theoretical asymptote.
+
+link:hacking.adoc[hacking.adoc] has some information about how the library is
+developed, built, and tested.  It might be of interest if for example you
+plan to fork or contribute to the the repository.
+
+== Test coverage
+1 Jul 2017
+....
+graph          93.7%
+graph/alt      88.0%
+graph/dot      77.7%
+graph/treevis  79.4%
+....
+
+== License
+All files in the repository are licensed with the MIT License,
+https://opensource.org/licenses/MIT.
