@@ -43,7 +43,7 @@ func Parse(reader io.Reader, options ...OptionFunc) (*model.Configuration, error
 			pos := ErrorPos{File: pe.Pos.Filename, Line: pe.Pos.Line, Column: pe.Pos.Column}
 			errors := ErrorList{newFatal(pos, pe.Err.Error())}
 			return nil, &ParserError{
-				message: pe.Err.Error(),
+				message: "unable to parse",
 				Errors:  errors,
 			}
 		}
@@ -548,24 +548,25 @@ func (ps *parseState) parseActionAttribute(name string, action *model.Action, va
 	case "uses":
 		ps.parseUses(action, val)
 	case "needs":
-		needs, ok := ps.literalToStringArray(val, true)
-		if ok {
+		if needs, ok := ps.literalToStringArray(val, true); ok {
 			action.Needs = needs
 			ps.posMap[&action.Needs] = val
 		}
 	case "runs":
-		ps.parseCommand(action, &action.Runs, name, val, false)
+		if runs := ps.parseCommand(action, action.Runs, name, val, false); runs != nil {
+			action.Runs = runs
+		}
 	case "args":
-		ps.parseCommand(action, &action.Args, name, val, true)
+		if args := ps.parseCommand(action, action.Args, name, val, true); args != nil {
+			action.Args = args
+		}
 	case "env":
-		env := ps.literalToStringMap(val)
-		if env != nil {
+		if env := ps.literalToStringMap(val); env != nil {
 			action.Env = env
 		}
 		ps.posMap[&action.Env] = val
 	case "secrets":
-		secrets, ok := ps.literalToStringArray(val, false)
-		if ok {
+		if secrets, ok := ps.literalToStringArray(val, false); ok {
 			action.Secrets = secrets
 			ps.posMap[&action.Secrets] = val
 		}
@@ -621,11 +622,11 @@ func (ps *parseState) parseUses(action *model.Action, node ast.Node) {
 	}
 }
 
-// parseUses sets the action.Runs or action.Command value based on the
+// parseUses sets the action.Runs or action.Args value based on the
 // contents of the AST node.  This function enforces formatting
 // requirements on the value.
-func (ps *parseState) parseCommand(action *model.Action, dest *model.ActionCommand, name string, node ast.Node, allowBlank bool) {
-	if len(dest.Parsed) > 0 {
+func (ps *parseState) parseCommand(action *model.Action, cmd model.Command, name string, node ast.Node, allowBlank bool) model.Command {
+	if cmd != nil {
 		ps.addWarning(node, "`%s' redefined in action `%s'", name, action.Identifier)
 		// continue, allowing the redefinition
 	}
@@ -633,9 +634,9 @@ func (ps *parseState) parseCommand(action *model.Action, dest *model.ActionComma
 	// Is it a list?
 	if _, ok := node.(*ast.ListType); ok {
 		if parsed, ok := ps.literalToStringArray(node, false); ok {
-			dest.Parsed = parsed
+			return &model.ListCommand{Values: parsed}
 		}
-		return
+		return nil
 	}
 
 	// If not, parse a whitespace-separated string into a list.
@@ -643,14 +644,13 @@ func (ps *parseState) parseCommand(action *model.Action, dest *model.ActionComma
 	var ok bool
 	if raw, ok = ps.literalToString(node); !ok {
 		ps.addError(node, "The `%s' attribute must be a string or a list", name)
-		return
+		return nil
 	}
 	if raw == "" && !allowBlank {
 		ps.addError(node, "`%s' value in action `%s' cannot be blank", name, action.Identifier)
-		return
+		return nil
 	}
-	dest.Raw = raw
-	dest.Parsed = strings.Fields(raw)
+	return &model.StringCommand{Value: raw}
 }
 
 func typename(val interface{}) string {

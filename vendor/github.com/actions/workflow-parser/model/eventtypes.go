@@ -12,7 +12,7 @@ func IsAllowedEventType(eventType string) bool {
 
 // IsMatchingEventType checks to see if the "flowOn" string from a flow's on attribute matches the incoming webhook of type eventType.
 func IsMatchingEventType(flowOn, eventType string) bool {
-	return strings.ToLower(flowOn) == strings.ToLower(eventType)
+	return strings.EqualFold(flowOn, eventType)
 }
 
 // https://developer.github.com/actions/creating-workflows/workflow-configuration-options/#events-supported-in-workflow-files

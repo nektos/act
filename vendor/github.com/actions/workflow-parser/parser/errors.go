@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"bytes"
 	"fmt"
 	"sort"
 	"strconv"
@@ -17,7 +18,13 @@ type ParserError struct {
 }
 
 func (p *ParserError) Error() string {
-	return p.message
+	buffer := bytes.NewBuffer(nil)
+	buffer.WriteString(p.message)
+	for _, e := range p.Errors {
+		buffer.WriteString("\n  ")
+		buffer.WriteString(e.Error())
+	}
+	return buffer.String()
 }
 
 // Error represents an error identified by the parser, either syntactic

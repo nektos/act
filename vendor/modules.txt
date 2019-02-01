@@ -1,6 +1,6 @@
 # github.com/Microsoft/go-winio v0.4.11
 github.com/Microsoft/go-winio
-# github.com/actions/workflow-parser v0.0.0-20190130154146-aac54e2ba131
+# github.com/actions/workflow-parser v0.0.0-20190131180005-9cb71d183680
 github.com/actions/workflow-parser/model
 github.com/actions/workflow-parser/parser
 # github.com/containerd/continuity v0.0.0-20181203112020-004b46473808

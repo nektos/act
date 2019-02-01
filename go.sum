@@ -5,8 +5,10 @@ github.com/Microsoft/go-winio v0.4.11 h1:zoIOcVf0xPN1tnMVbTtEdI+P8OofVk3NObnwOQ6
 github.com/Microsoft/go-winio v0.4.11/go.mod h1:VhR8bwka0BXejwEJY73c50VrPtXAaKcyvVC4A4RozmA=
 github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 h1:TngWCqHvy9oXAN6lEVMRuU21PR1EtLVZJmdB18Gu3Rw=
 github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5/go.mod h1:lmUJ/7eu/Q8D7ML55dXQrVaamCz2vxCfdQBasLZfHKk=
-github.com/actions/workflow-parser v0.0.0-20190130154146-aac54e2ba131 h1:f81A6l1wPc9LdSZ85yJb+YuZxHiweb6D3p1l/bKDbJg=
-github.com/actions/workflow-parser v0.0.0-20190130154146-aac54e2ba131/go.mod h1:jz9ZVl8zUIcjMfDQearQjvUHIBhx9l1ys4keDd6be34=
+github.com/actions/workflow-parser v0.0.0-20190131170132-f9c507444936 h1:n7QhjGKV6TSvqiSJdRx2yZ7go8FihDG7ksqi/M1RUF8=
+github.com/actions/workflow-parser v0.0.0-20190131170132-f9c507444936/go.mod h1:jz9ZVl8zUIcjMfDQearQjvUHIBhx9l1ys4keDd6be34=
+github.com/actions/workflow-parser v0.0.0-20190131180005-9cb71d183680 h1:MIHTh+XAfOwshi2enD7FwYkGgFpNWYx2mSzYG9LJQeg=
+github.com/actions/workflow-parser v0.0.0-20190131180005-9cb71d183680/go.mod h1:jz9ZVl8zUIcjMfDQearQjvUHIBhx9l1ys4keDd6be34=
 github.com/alcortesm/tgz v0.0.0-20161220082320-9c5fe88206d7 h1:uSoVVbwJiQipAclBbw+8quDsfcvFjOpI5iCf4p/cqCs=
 github.com/alcortesm/tgz v0.0.0-20161220082320-9c5fe88206d7/go.mod h1:6zEj6s6u/ghQa61ZWa/C2Aw3RkjiTBOix7dkqa1VLIs=
 github.com/anmitsu/go-shlex v0.0.0-20161002113705-648efa622239 h1:kFOfPq6dUM1hTo4JG6LR5AXSUEsOjtdm0kw0FtQtMJA=

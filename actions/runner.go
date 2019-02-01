@@ -1,7 +1,6 @@
 package actions
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -60,12 +59,14 @@ func (runner *runnerImpl) setupWorkflows() error {
 	defer workflowReader.Close()
 
 	runner.workflowConfig, err = parser.Parse(workflowReader)
-	if err != nil {
-		parserError := err.(*parser.ParserError)
-		for _, e := range parserError.Errors {
-			fmt.Fprintln(os.Stderr, e)
+	/*
+		if err != nil {
+			parserError := err.(*parser.ParserError)
+			for _, e := range parserError.Errors {
+				fmt.Fprintln(os.Stderr, e)
+			}
 		}
-	}
+	*/
 	return err
 }
 

@@ -95,10 +95,18 @@ func (runner *runnerImpl) newActionExecutor(actionName string) common.Executor {
 	for k, v := range env {
 		envList = append(envList, fmt.Sprintf("%s=%s", k, v))
 	}
+
+	var cmd, entrypoint []string
+	if action.Args != nil {
+		cmd = action.Args.Split()
+	}
+	if action.Runs != nil {
+		entrypoint = action.Runs.Split()
+	}
 	executors = append(executors, container.NewDockerRunExecutor(container.NewDockerRunExecutorInput{
 		DockerExecutorInput: in,
-		Cmd:                 action.Args.Parsed,
-		Entrypoint:          action.Runs.Parsed,
+		Cmd:                 cmd,
+		Entrypoint:          entrypoint,
 		Image:               image,
 		WorkingDir:          "/github/workspace",
 		Env:                 envList,
