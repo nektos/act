@@ -10,7 +10,7 @@ action "check" {
 action "release-filter" {
   needs = ["check"]
   uses = "actions/bin/filter@master"
-  args = "tag v*"
+  args = "tag 'v*'"
 }
 
 # only release on `v*` tags

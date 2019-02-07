@@ -13,6 +13,7 @@ IS_SNAPSHOT = $(if $(findstring -, $(VERSION)),true,false)
 TAG_VERSION = v$(VERSION)
 
 ACT ?= go run -mod=vendor main.go
+export GITHUB_TOKEN = $(shell cat ~/.config/github/token)
 
 default: check
 
