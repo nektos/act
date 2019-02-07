@@ -106,7 +106,7 @@ func main() {
 
 	file := strings.TrimSpace(os.Args[1])
 	var syscalls io.Reader
-	if strings.HasPrefix(file, "http://") {
+	if strings.HasPrefix(file, "https://") || strings.HasPrefix(file, "http://") {
 		// Download syscalls.master file
 		syscalls = fetchFile(file)
 	} else {

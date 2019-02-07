@@ -1,0 +1,9 @@
+sudo: false
+language: go
+go: master
+before_script:
+ - go vet
+ - go get github.com/client9/misspell/cmd/misspell
+ - misspell -error *
+ - go get github.com/soniakeys/vetc
+ - vetc

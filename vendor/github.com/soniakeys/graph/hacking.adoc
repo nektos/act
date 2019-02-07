@@ -1,0 +1,135 @@
+= Hacking
+
+== Get, install
+Basic use of the package is just go get, or git clone; go install.  There are
+no dependencies outside the standard library.
+
+== Build
+CI is currently on travis-ci.org.
+
+The build runs go vet with a few exceptions for things I'm not a big fan of.
+
+https://github.com/client9/misspell has been valuable.
+
+Also I wrote https://github.com/soniakeys/vetc to validate that each source
+file has copyright/license statement.
+
+Then, it’s not in the ci script, but I wrote https://github.com/soniakeys/rcv
+to put coverage stats in the readme.  Maybe it could be commit hook or
+something but for now I’ll try just running it manually now and then.
+
+Go fmt is not in the ci script, but I have at least one editor set up to run
+it on save, so code should stay formatted pretty well.
+
+== Examples with random output
+The math/rand generators with constant seeds used to give consistent numbers
+across Go versions and so some examples relied on this.  Sometime after Go 1.9
+though the numbers changed.  The technique for now is to go ahead and write
+those examples, get them working, then change the `// Output:` line to
+`// Random output:`.  This keeps them showing in go doc but keeps them from
+being run by go test.  This works for now.  It might be revisited at some
+point.
+
+== Plans
+The primary to-do list is the issue tracker on Github.
+
+== Direction, focus, features
+The project started with no real goal or purpose, just as a place for some code
+that might be useful.  Here are some elements that characterize the direction.
+
+* The focus has been on algorithms on adjacency lists.  That is, adjacency list
+  is the fundamental representation for most implemented algorithms.  There are
+  many other interesting representations, many reasons to use them, but
+  adjacency list is common in literature and practice.  It has been useful to
+  focus on this data representation, at first anyway.
+
+* The focus has been on single threaded algorithms.  Again, there is much new
+  and interesting work being done with concurrent, parallel, and distributed
+  graph algorithms, and Go might be an excellent language to implement some of
+  these algorithms.  But as a preliminary step, more traditional
+  single-threaded algorithms are implemented.
+
+* The focus has been on static finite graphs.  Again there is much interesting
+  work in online algorithms, dynamic graphs, and infinite graphs, but these
+  are not generally considered here.
+
+* Algorithms selected for implementation are generally ones commonly appearing
+  in beginning graph theory discussions and in general purpose graph libraries
+  in other programming languages.  With these as drivers, there's a big risk
+  developing a library of curiosities and academic exercises rather than a
+  library of practical utility.  But well, it's a start.  The hope is that
+  there are some practical drivers behind graph theory and behind other graph
+  libraries.
+
+* There is active current research going on in graph algorithm development.
+  One goal for this library is to implement newer and faster algorithms.
+  In some cases where it seems not too much work, older/classic/traditional
+  algorithms may be implemented for comparison.  These generally go in the
+  alt subdirectory.
+
+== General principles
+* The API is rather low level.
+
+* Slices instead of maps.  Maps are pretty efficient, and the property of
+  unique keys can be useful, But slices are still faster and more efficient,
+  and the unique key property is not always needed or wanted.  The Adjacency
+  list implementation of this library is all done in slices.  Slices are used
+  in algorithms where possible, in preference to maps.  Maps are still used in
+  some cases where uniqueness is needed.
+
+* Interfaces not generally used.  Algorithms are implemented directly on
+  concrete data types and not on interfaces describing the capabilities of
+  the data types.  The abstraction of interfaces is a nice match to graph
+  theory and the convenience of running graph algorithms on any type that
+  implements an interface is appealing, but the costs seem too high to me.
+  Slices are rich with capababilites that get hidden behind interfaces and
+  direct slice manipulation is always faster than going through interfaces.
+  An impedance for programs using the library is that they will generally
+  have to implement a mapping from slice indexes to their application data,
+  often including for example, some other form of node ID.  This seems fair
+  to push this burden outside the graph library; the library cannot know
+  the needs of this mapping.
+
+* Bitsets are widely used, particularly to store one bit of information per
+  node of a graph.  I used math/big at first but then moved to a dense bitset
+  of my own.  Yes, I considered other third-party bitsets but had my own
+  feature set I wanted.  A slice of bools is another alternative.  Bools will
+  be faster in almost all cases but the bitset will use less memory.  I'm
+  chosing size over speed for now.
+
+* Code generation is used to provide methods that work on both labeled and
+  unlabeled graphs.  Code is written to labeled types, then transformations
+  generate the unlabled equivalents.
+
+* Methods are named for what they return rather than what they do, where
+  reasonable anyway.
+
+* Consistency in method signature and behavior across corresponding methods,
+  for example directed/undirected, labeled/unlabeled, again, as long as it's
+  reasonable.
+
+* Sometimes in tension with the consistency principle, methods are lazy about
+  datatypes of parameters and return values.  Sometimes a vale might have
+  different reasonable representations, a set might be a bitset, map, slice
+  of bools, or slice of set members for example.  Methods will take and return
+  whatever is convenient for them and not convert the form just for consistency
+  or to try to guess what a caller would prefer.
+
+* Methods return multiple results for whatever the algorithm produces that
+  might be of interest.  Sometimes an algorithm will have a primary result but
+  then some secondary values that also might be of interest.  If they are
+  already computed as a byproduct of the algorithm, or can be computed at
+  negligible cost, return them.
+
+* Sometimes in conflict with the multiple result principle, methods will not
+  speculatively compute secondary results if there is any significant cost
+  and if the secondary result can be just as easily computed later.
+
+== Code Maintenance
+There are tons of cut and paste variants.  There's the basic AdjacencyList,
+then Directed and Undirected variants, then Labeled variants of each of those.
+Code gen helps avoid some cut and paste but there's a bunch that doesn't
+code gen very well and so is duplicated with cut and paste.  In particular
+the testable examples in the _test files don't cg well and so are pretty much
+all duplicated by hand.  If you change code, think about where there should
+be variants and go look to see if the variants need similar changes.

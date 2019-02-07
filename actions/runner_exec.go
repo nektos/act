@@ -9,25 +9,96 @@ import (
 	"path/filepath"
 	"regexp"
 
+	"github.com/actions/workflow-parser/model"
 	"github.com/nektos/act/common"
 	"github.com/nektos/act/container"
 	log "github.com/sirupsen/logrus"
 )
 
 func (runner *runnerImpl) newActionExecutor(actionName string) common.Executor {
-	action, err := runner.workflows.getAction(actionName)
+	action := runner.workflowConfig.GetAction(actionName)
+	if action == nil {
+		return common.NewErrorExecutor(fmt.Errorf("Unable to find action named '%s'", actionName))
+	}
+
+	executors := make([]common.Executor, 0)
+	image, err := runner.addImageExecutor(action, &executors)
 	if err != nil {
 		return common.NewErrorExecutor(err)
 	}
 
-	env := make(map[string]string)
-	for _, applier := range []environmentApplier{action, runner} {
-		applier.applyEnvironment(env)
+	err = runner.addRunExecutor(action, image, &executors)
+	if err != nil {
+		return common.NewErrorExecutor(err)
 	}
-	env["GITHUB_ACTION"] = actionName
 
-	logger := newActionLogger(actionName, runner.config.Dryrun)
-	log.Debugf("Using '%s' for action '%s'", action.Uses, actionName)
+	return common.NewPipelineExecutor(executors...)
+}
+
+func (runner *runnerImpl) addImageExecutor(action *model.Action, executors *[]common.Executor) (string, error) {
+	var image string
+	logger := newActionLogger(action.Identifier, runner.config.Dryrun)
+	log.Debugf("Using '%s' for action '%s'", action.Uses, action.Identifier)
+
+	in := container.DockerExecutorInput{
+		Ctx:    runner.config.Ctx,
+		Logger: logger,
+		Dryrun: runner.config.Dryrun,
+	}
+	switch uses := action.Uses.(type) {
+
+	case *model.UsesDockerImage:
+		image = uses.Image
+		*executors = append(*executors, container.NewDockerPullExecutor(container.NewDockerPullExecutorInput{
+			DockerExecutorInput: in,
+			Image:               image,
+		}))
+
+	case *model.UsesPath:
+		contextDir := filepath.Join(runner.config.WorkingDir, uses.String())
+		sha, _, err := common.FindGitRevision(contextDir)
+		if err != nil {
+			log.Warnf("Unable to determine git revision: %v", err)
+			sha = "latest"
+		}
+		image = fmt.Sprintf("%s:%s", filepath.Base(contextDir), sha)
+
+		*executors = append(*executors, container.NewDockerBuildExecutor(container.NewDockerBuildExecutorInput{
+			DockerExecutorInput: in,
+			ContextDir:          contextDir,
+			ImageTag:            image,
+		}))
+
+	case *model.UsesRepository:
+		image = fmt.Sprintf("%s:%s", filepath.Base(uses.Repository), uses.Ref)
+		cloneURL := fmt.Sprintf("https://github.com/%s", uses.Repository)
+
+		cloneDir := filepath.Join(os.TempDir(), "act", action.Uses.String())
+		*executors = append(*executors, common.NewGitCloneExecutor(common.NewGitCloneExecutorInput{
+			URL:    cloneURL,
+			Ref:    uses.Ref,
+			Dir:    cloneDir,
+			Logger: logger,
+			Dryrun: runner.config.Dryrun,
+		}))
+
+		contextDir := filepath.Join(cloneDir, uses.Path)
+		*executors = append(*executors, container.NewDockerBuildExecutor(container.NewDockerBuildExecutorInput{
+			DockerExecutorInput: in,
+			ContextDir:          contextDir,
+			ImageTag:            image,
+		}))
+
+	default:
+		return "", fmt.Errorf("unable to determine executor type for image '%s'", action.Uses)
+	}
+
+	return image, nil
+}
+
+func (runner *runnerImpl) addRunExecutor(action *model.Action, image string, executors *[]common.Executor) error {
+	logger := newActionLogger(action.Identifier, runner.config.Dryrun)
+	log.Debugf("Using '%s' for action '%s'", action.Uses, action.Identifier)
 
 	in := container.DockerExecutorInput{
 		Ctx:    runner.config.Ctx,
@@ -35,61 +106,37 @@ func (runner *runnerImpl) newActionExecutor(actionName string) common.Executor {
 		Dryrun: runner.config.Dryrun,
 	}
 
-	var image string
-	executors := make([]common.Executor, 0)
-	if imageRef, ok := parseImageReference(action.Uses); ok {
-		executors = append(executors, container.NewDockerPullExecutor(container.NewDockerPullExecutorInput{
-			DockerExecutorInput: in,
-			Image:               imageRef,
-		}))
-		image = imageRef
-	} else if contextDir, imageTag, ok := parseImageLocal(runner.config.WorkingDir, action.Uses); ok {
-		executors = append(executors, container.NewDockerBuildExecutor(container.NewDockerBuildExecutorInput{
-			DockerExecutorInput: in,
-			ContextDir:          contextDir,
-			ImageTag:            imageTag,
-		}))
-		image = imageTag
-	} else if cloneURL, ref, path, ok := parseImageGithub(action.Uses); ok {
-		cloneDir := filepath.Join(os.TempDir(), "act", action.Uses)
-		executors = append(executors, common.NewGitCloneExecutor(common.NewGitCloneExecutorInput{
-			URL:    cloneURL,
-			Ref:    ref,
-			Dir:    cloneDir,
-			Logger: logger,
-			Dryrun: runner.config.Dryrun,
-		}))
-
-		contextDir := filepath.Join(cloneDir, path)
-		imageTag := fmt.Sprintf("%s:%s", filepath.Base(cloneURL.Path), ref)
-
-		executors = append(executors, container.NewDockerBuildExecutor(container.NewDockerBuildExecutorInput{
-			DockerExecutorInput: in,
-			ContextDir:          contextDir,
-			ImageTag:            imageTag,
-		}))
-		image = imageTag
-	} else {
-		return common.NewErrorExecutor(fmt.Errorf("unable to determine executor type for image '%s'", action.Uses))
+	env := make(map[string]string)
+	for _, applier := range []environmentApplier{newActionEnvironmentApplier(action), runner} {
+		applier.applyEnvironment(env)
 	}
+	env["GITHUB_ACTION"] = action.Identifier
 
 	ghReader, err := runner.createGithubTarball()
 	if err != nil {
-		return common.NewErrorExecutor(err)
+		return err
 	}
 
 	envList := make([]string, 0)
 	for k, v := range env {
 		envList = append(envList, fmt.Sprintf("%s=%s", k, v))
 	}
-	executors = append(executors, container.NewDockerRunExecutor(container.NewDockerRunExecutorInput{
+
+	var cmd, entrypoint []string
+	if action.Args != nil {
+		cmd = action.Args.Split()
+	}
+	if action.Runs != nil {
+		entrypoint = action.Runs.Split()
+	}
+	*executors = append(*executors, container.NewDockerRunExecutor(container.NewDockerRunExecutorInput{
 		DockerExecutorInput: in,
-		Cmd:                 action.Args,
-		Entrypoint:          action.Runs,
+		Cmd:                 cmd,
+		Entrypoint:          entrypoint,
 		Image:               image,
 		WorkingDir:          "/github/workspace",
 		Env:                 envList,
-		Name:                runner.createContainerName(actionName),
+		Name:                runner.createContainerName(action.Identifier),
 		Binds: []string{
 			fmt.Sprintf("%s:%s", runner.config.WorkingDir, "/github/workspace"),
 			fmt.Sprintf("%s:%s", runner.tempDir, "/github/home"),
@@ -99,13 +146,17 @@ func (runner *runnerImpl) newActionExecutor(actionName string) common.Executor {
 		ReuseContainers: runner.config.ReuseContainers,
 	}))
 
-	return common.NewPipelineExecutor(executors...)
+	return nil
 }
 
 func (runner *runnerImpl) applyEnvironment(env map[string]string) {
 	repoPath := runner.config.WorkingDir
 
-	_, workflowName, _ := runner.workflows.getWorkflow(runner.config.EventName)
+	workflows := runner.workflowConfig.GetWorkflows(runner.config.EventName)
+	if len(workflows) == 0 {
+		return
+	}
+	workflowName := workflows[0].Identifier
 
 	env["HOME"] = "/github/home"
 	env["GITHUB_ACTOR"] = "nektos/act"

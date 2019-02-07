@@ -1,23 +1,30 @@
 package object
 
 import (
-	"gopkg.in/src-d/go-git.v4/plumbing/storer"
 	"io"
+
+	"gopkg.in/src-d/go-git.v4/plumbing"
+
+	"gopkg.in/src-d/go-git.v4/plumbing/storer"
 )
 
 type commitFileIter struct {
 	fileName      string
 	sourceIter    CommitIter
 	currentCommit *Commit
+	checkParent   bool
 }
 
 // NewCommitFileIterFromIter returns a commit iterator which performs diffTree between
 // successive trees returned from the commit iterator from the argument. The purpose of this is
 // to find the commits that explain how the files that match the path came to be.
-func NewCommitFileIterFromIter(fileName string, commitIter CommitIter) CommitIter {
+// If checkParent is true then the function double checks if potential parent (next commit in a path)
+// is one of the parents in the tree (it's used by `git log --all`).
+func NewCommitFileIterFromIter(fileName string, commitIter CommitIter, checkParent bool) CommitIter {
 	iterator := new(commitFileIter)
 	iterator.sourceIter = commitIter
 	iterator.fileName = fileName
+	iterator.checkParent = checkParent
 	return iterator
 }
 
@@ -71,20 +78,14 @@ func (c *commitFileIter) getNextFileCommit() (*Commit, error) {
 			return nil, diffErr
 		}
 
-		foundChangeForFile := false
-		for _, change := range changes {
-			if change.name() == c.fileName {
-				foundChangeForFile = true
-				break
-			}
-		}
+		found := c.hasFileChange(changes, parentCommit)
 
 		// Storing the current-commit in-case a change is found, and
 		// Updating the current-commit for the next-iteration
 		prevCommit := c.currentCommit
 		c.currentCommit = parentCommit
 
-		if foundChangeForFile == true {
+		if found {
 			return prevCommit, nil
 		}
 
@@ -93,6 +94,35 @@ func (c *commitFileIter) getNextFileCommit() (*Commit, error) {
 			return nil, io.EOF
 		}
 	}
+}
+
+func (c *commitFileIter) hasFileChange(changes Changes, parent *Commit) bool {
+	for _, change := range changes {
+		if change.name() != c.fileName {
+			continue
+		}
+
+		// filename matches, now check if source iterator contains all commits (from all refs)
+		if c.checkParent {
+			if parent != nil && isParentHash(parent.Hash, c.currentCommit) {
+				return true
+			}
+			continue
+		}
+
+		return true
+	}
+
+	return false
+}
+
+func isParentHash(hash plumbing.Hash, commit *Commit) bool {
+	for _, h := range commit.ParentHashes {
+		if h == hash {
+			return true
+		}
+	}
+	return false
 }
 
 func (c *commitFileIter) ForEach(cb func(*Commit) error) error {

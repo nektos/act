@@ -2,81 +2,46 @@ package actions
 
 import (
 	"fmt"
-	"net/http"
-	"net/url"
+	"log"
 	"os"
-	"path/filepath"
-	"regexp"
-	"strings"
 
-	"github.com/nektos/act/common"
-	log "github.com/sirupsen/logrus"
+	"github.com/actions/workflow-parser/model"
+	"github.com/howeyc/gopass"
 )
 
-// imageURL is the directory where a `Dockerfile` should exist
-func parseImageLocal(workingDir string, contextDir string) (contextDirOut string, tag string, ok bool) {
-	if !strings.HasPrefix(contextDir, "./") {
-		return "", "", false
-	}
-	contextDir = filepath.Join(workingDir, contextDir)
-	if _, err := os.Stat(filepath.Join(contextDir, "Dockerfile")); os.IsNotExist(err) {
-		log.Debugf("Ignoring missing Dockerfile '%s/Dockerfile'", contextDir)
-		return "", "", false
-	}
+var secretCache map[string]string
 
-	sha, _, err := common.FindGitRevision(contextDir)
-	if err != nil {
-		log.Warnf("Unable to determine git revision: %v", err)
-		sha = "latest"
-	}
-	return contextDir, fmt.Sprintf("%s:%s", filepath.Base(contextDir), sha), true
+type actionEnvironmentApplier struct {
+	*model.Action
 }
 
-// imageURL is the URL for a docker repo
-func parseImageReference(image string) (ref string, ok bool) {
-	imageURL, err := url.Parse(image)
-	if err != nil {
-		log.Debugf("Unable to parse image as url: %v", err)
-		return "", false
-	}
-	if imageURL.Scheme != "docker" {
-		log.Debugf("Ignoring non-docker ref '%s'", imageURL.String())
-		return "", false
-	}
-
-	return fmt.Sprintf("%s%s", imageURL.Host, imageURL.Path), true
+func newActionEnvironmentApplier(action *model.Action) environmentApplier {
+	return &actionEnvironmentApplier{action}
 }
 
-// imageURL is the directory where a `Dockerfile` should exist
-func parseImageGithub(image string) (cloneURL *url.URL, ref string, path string, ok bool) {
-	re := regexp.MustCompile("^([^/@]+)/([^/@]+)(/([^@]*))?(@(.*))?$")
-	matches := re.FindStringSubmatch(image)
-
-	if matches == nil {
-		return nil, "", "", false
+func (action *actionEnvironmentApplier) applyEnvironment(env map[string]string) {
+	for envKey, envValue := range action.Env {
+		env[envKey] = envValue
 	}
 
-	cloneURL, err := url.Parse(fmt.Sprintf("https://github.com/%s/%s", matches[1], matches[2]))
-	if err != nil {
-		log.Debugf("Unable to parse as URL: %v", err)
-		return nil, "", "", false
-	}
+	for _, secret := range action.Secrets {
+		if secretVal, ok := os.LookupEnv(secret); ok {
+			env[secret] = secretVal
+		} else {
+			if secretCache == nil {
+				secretCache = make(map[string]string)
+			}
 
-	resp, err := http.Head(cloneURL.String())
-	if resp.StatusCode >= 400 || err != nil {
-		log.Debugf("Unable to HEAD URL %s status=%v err=%v", cloneURL.String(), resp.StatusCode, err)
-		return nil, "", "", false
-	}
+			if _, ok := secretCache[secret]; !ok {
+				fmt.Printf("Provide value for '%s': ", secret)
+				val, err := gopass.GetPasswdMasked()
+				if err != nil {
+					log.Fatal("abort")
+				}
 
-	ref = matches[6]
-	if ref == "" {
-		ref = "master"
+				secretCache[secret] = string(val)
+			}
+			env[secret] = secretCache[secret]
+		}
 	}
-
-	path = matches[4]
-	if path == "" {
-		path = "."
-	}
-
-	return cloneURL, ref, path, true
 }

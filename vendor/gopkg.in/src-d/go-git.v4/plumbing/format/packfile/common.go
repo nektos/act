@@ -51,7 +51,13 @@ func WritePackfileToObjectStorage(
 	}
 
 	defer ioutil.CheckClose(w, &err)
-	_, err = io.Copy(w, packfile)
+
+	var n int64
+	n, err = io.Copy(w, packfile)
+	if err == nil && n == 0 {
+		return ErrEmptyPackfile
+	}
+
 	return err
 }
 

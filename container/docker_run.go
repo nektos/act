@@ -204,7 +204,7 @@ func waitContainer(input NewDockerRunExecutorInput, cli *client.Client, containe
 	if statusCode == 0 {
 		return nil
 	} else if statusCode == 78 {
-		return fmt.Errorf("exiting with `NEUTRAL`: 78")
+		return fmt.Errorf("exit with `NEUTRAL`: 78")
 	}
 
 	return fmt.Errorf("exit with `FAILURE`: %v", statusCode)

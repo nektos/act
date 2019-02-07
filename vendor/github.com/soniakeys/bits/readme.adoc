@@ -1,0 +1,38 @@
+= Bits
+
+Bits provides methods on a bit array type.
+
+The Bits type holds a fixed size array of bits, numbered consecutively
+from zero.  Some set-like operations are possible, but the API is more
+array-like or register-like.
+
+image:https://godoc.org/github.com/soniakeys/bits?status.svg[link=https://godoc.org/github.com/soniakeys/bits] image:https://travis-ci.org/soniakeys/bits.svg[link=https://travis-ci.org/soniakeys/bits]
+
+== Motivation and history
+
+This package evolved from needs of my library of
+https://github.com/soniakeys/graph[graph algorithms].  For graph algorithms
+a common need is to store a single bit of information per node in a way that
+is both fast and memory efficient.  I began by using `big.Int` from the standard
+library, then wrapped big.Int in a type.  From time to time I considered
+other publicly available bit array or bit set packages, such as Will
+Fitzgerald's popular https://github.com/willf/bitset[bitset], but there were
+always little reasons I preferred my own type and methods.  My type that
+wrapped `big.Int` met my needs until some simple benchmarks indicated it
+might be causing performance problems.  Some further experiments supported
+this hypothesis so I ran further tests with a prototype bit array written
+from scratch.  Then satisfied that my custom bit array was solving the graph
+performance problems, I decided to move it to a separate package with the
+idea it might have more general utility.  For the initial version of this
+package I did the following:
+
+- implemented a few tests to demonstrate fundamental correctness
+- brought over most methods of my type that wrapped big.Int
+- changed the index type from the graph-specific node index to a general `int`
+- replaced some custom bit-twiddling with use of the new `math/bits` package
+  in the standard library
+- renamed a few methods for clarity
+- added a few methods for symmetry
+- added a few new methods I had seen a need for in my graph library
+- added doc, examples, tests, and more tests for 100% coverage
+- added this readme

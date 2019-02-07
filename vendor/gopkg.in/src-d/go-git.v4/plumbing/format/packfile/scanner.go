@@ -138,13 +138,51 @@ func (s *Scanner) readCount() (uint32, error) {
 	return binary.ReadUint32(s.r)
 }
 
+// SeekObjectHeader seeks to specified offset and returns the ObjectHeader
+// for the next object in the reader
+func (s *Scanner) SeekObjectHeader(offset int64) (*ObjectHeader, error) {
+	// if seeking we assume that you are not interested in the header
+	if s.version == 0 {
+		s.version = VersionSupported
+	}
+
+	if _, err := s.r.Seek(offset, io.SeekStart); err != nil {
+		return nil, err
+	}
+
+	h, err := s.nextObjectHeader()
+	if err != nil {
+		return nil, err
+	}
+
+	h.Offset = offset
+	return h, nil
+}
+
 // NextObjectHeader returns the ObjectHeader for the next object in the reader
 func (s *Scanner) NextObjectHeader() (*ObjectHeader, error) {
-	defer s.Flush()
-
 	if err := s.doPending(); err != nil {
 		return nil, err
 	}
+
+	offset, err := s.r.Seek(0, io.SeekCurrent)
+	if err != nil {
+		return nil, err
+	}
+
+	h, err := s.nextObjectHeader()
+	if err != nil {
+		return nil, err
+	}
+
+	h.Offset = offset
+	return h, nil
+}
+
+// nextObjectHeader returns the ObjectHeader for the next object in the reader
+// without the Offset field
+func (s *Scanner) nextObjectHeader() (*ObjectHeader, error) {
+	defer s.Flush()
 
 	s.crc.Reset()
 
@@ -308,7 +346,7 @@ var byteSlicePool = sync.Pool{
 // SeekFromStart sets a new offset from start, returns the old position before
 // the change.
 func (s *Scanner) SeekFromStart(offset int64) (previous int64, err error) {
-	// if seeking we assume that you are not interested on the header
+	// if seeking we assume that you are not interested in the header
 	if s.version == 0 {
 		s.version = VersionSupported
 	}
@@ -385,7 +423,7 @@ type bufferedSeeker struct {
 }
 
 func (r *bufferedSeeker) Seek(offset int64, whence int) (int64, error) {
-	if whence == io.SeekCurrent {
+	if whence == io.SeekCurrent && offset == 0 {
 		current, err := r.r.Seek(offset, whence)
 		if err != nil {
 			return current, err

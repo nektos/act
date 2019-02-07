@@ -20,24 +20,25 @@ import (
 type ObjectStorage struct {
 	options Options
 
-	// deltaBaseCache is an object cache uses to cache delta's bases when
-	deltaBaseCache cache.Object
+	// objectCache is an object cache uses to cache delta's bases and also recently
+	// loaded loose objects
+	objectCache cache.Object
 
 	dir   *dotgit.DotGit
 	index map[plumbing.Hash]idxfile.Index
 }
 
 // NewObjectStorage creates a new ObjectStorage with the given .git directory and cache.
-func NewObjectStorage(dir *dotgit.DotGit, cache cache.Object) *ObjectStorage {
-	return NewObjectStorageWithOptions(dir, cache, Options{})
+func NewObjectStorage(dir *dotgit.DotGit, objectCache cache.Object) *ObjectStorage {
+	return NewObjectStorageWithOptions(dir, objectCache, Options{})
 }
 
 // NewObjectStorageWithOptions creates a new ObjectStorage with the given .git directory, cache and extra options
-func NewObjectStorageWithOptions(dir *dotgit.DotGit, cache cache.Object, ops Options) *ObjectStorage {
+func NewObjectStorageWithOptions(dir *dotgit.DotGit, objectCache cache.Object, ops Options) *ObjectStorage {
 	return &ObjectStorage{
-		options:        ops,
-		deltaBaseCache: cache,
-		dir:            dir,
+		options:     ops,
+		objectCache: objectCache,
+		dir:         dir,
 	}
 }
 
@@ -206,7 +207,7 @@ func (s *ObjectStorage) encodedObjectSizeFromPackfile(h plumbing.Hash) (
 	idx := s.index[pack]
 	hash, err := idx.FindHash(offset)
 	if err == nil {
-		obj, ok := s.deltaBaseCache.Get(hash)
+		obj, ok := s.objectCache.Get(hash)
 		if ok {
 			return obj.Size(), nil
 		}
@@ -215,8 +216,8 @@ func (s *ObjectStorage) encodedObjectSizeFromPackfile(h plumbing.Hash) (
 	}
 
 	var p *packfile.Packfile
-	if s.deltaBaseCache != nil {
-		p = packfile.NewPackfileWithCache(idx, s.dir.Fs(), f, s.deltaBaseCache)
+	if s.objectCache != nil {
+		p = packfile.NewPackfileWithCache(idx, s.dir.Fs(), f, s.objectCache)
 	} else {
 		p = packfile.NewPackfile(idx, s.dir.Fs(), f)
 	}
@@ -241,9 +242,19 @@ func (s *ObjectStorage) EncodedObjectSize(h plumbing.Hash) (
 // EncodedObject returns the object with the given hash, by searching for it in
 // the packfile and the git object directories.
 func (s *ObjectStorage) EncodedObject(t plumbing.ObjectType, h plumbing.Hash) (plumbing.EncodedObject, error) {
-	obj, err := s.getFromUnpacked(h)
-	if err == plumbing.ErrObjectNotFound {
+	var obj plumbing.EncodedObject
+	var err error
+
+	if s.index != nil {
 		obj, err = s.getFromPackfile(h, false)
+		if err == plumbing.ErrObjectNotFound {
+			obj, err = s.getFromUnpacked(h)
+		}
+	} else {
+		obj, err = s.getFromUnpacked(h)
+		if err == plumbing.ErrObjectNotFound {
+			obj, err = s.getFromPackfile(h, false)
+		}
 	}
 
 	// If the error is still object not found, check if it's a shared object
@@ -254,7 +265,7 @@ func (s *ObjectStorage) EncodedObject(t plumbing.ObjectType, h plumbing.Hash) (p
 			// Create a new object storage with the DotGit(s) and check for the
 			// required hash object. Skip when not found.
 			for _, dg := range dotgits {
-				o := NewObjectStorage(dg, s.deltaBaseCache)
+				o := NewObjectStorage(dg, s.objectCache)
 				enobj, enerr := o.EncodedObject(t, h)
 				if enerr != nil {
 					continue
@@ -304,8 +315,11 @@ func (s *ObjectStorage) getFromUnpacked(h plumbing.Hash) (obj plumbing.EncodedOb
 
 		return nil, err
 	}
-
 	defer ioutil.CheckClose(f, &err)
+
+	if cacheObj, found := s.objectCache.Get(h); found {
+		return cacheObj, nil
+	}
 
 	obj = s.NewEncodedObject()
 	r, err := objfile.NewReader(f)
@@ -326,6 +340,8 @@ func (s *ObjectStorage) getFromUnpacked(h plumbing.Hash) (obj plumbing.EncodedOb
 	if err != nil {
 		return nil, err
 	}
+
+	s.objectCache.Put(obj)
 
 	_, err = io.Copy(w, r)
 	return obj, err
@@ -369,7 +385,7 @@ func (s *ObjectStorage) decodeObjectAt(
 ) (plumbing.EncodedObject, error) {
 	hash, err := idx.FindHash(offset)
 	if err == nil {
-		obj, ok := s.deltaBaseCache.Get(hash)
+		obj, ok := s.objectCache.Get(hash)
 		if ok {
 			return obj, nil
 		}
@@ -380,8 +396,8 @@ func (s *ObjectStorage) decodeObjectAt(
 	}
 
 	var p *packfile.Packfile
-	if s.deltaBaseCache != nil {
-		p = packfile.NewPackfileWithCache(idx, s.dir.Fs(), f, s.deltaBaseCache)
+	if s.objectCache != nil {
+		p = packfile.NewPackfileWithCache(idx, s.dir.Fs(), f, s.objectCache)
 	} else {
 		p = packfile.NewPackfile(idx, s.dir.Fs(), f)
 	}
@@ -400,11 +416,7 @@ func (s *ObjectStorage) decodeDeltaObjectAt(
 	}
 
 	p := packfile.NewScanner(f)
-	if _, err := p.SeekFromStart(offset); err != nil {
-		return nil, err
-	}
-
-	header, err := p.NextObjectHeader()
+	header, err := p.SeekObjectHeader(offset)
 	if err != nil {
 		return nil, err
 	}
@@ -495,7 +507,7 @@ func (s *ObjectStorage) buildPackfileIters(
 			}
 			return newPackfileIter(
 				s.dir.Fs(), pack, t, seen, s.index[h],
-				s.deltaBaseCache, s.options.KeepDescriptors,
+				s.objectCache, s.options.KeepDescriptors,
 			)
 		},
 	}, nil

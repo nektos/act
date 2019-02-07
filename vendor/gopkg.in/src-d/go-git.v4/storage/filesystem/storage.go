@@ -51,11 +51,7 @@ func NewStorageWithOptions(fs billy.Filesystem, cache cache.Object, ops Options)
 		fs:  fs,
 		dir: dir,
 
-		ObjectStorage: ObjectStorage{
-			options:        ops,
-			deltaBaseCache: cache,
-			dir:            dir,
-		},
+		ObjectStorage:    *NewObjectStorageWithOptions(dir, cache, ops),
 		ReferenceStorage: ReferenceStorage{dir: dir},
 		IndexStorage:     IndexStorage{dir: dir},
 		ShallowStorage:   ShallowStorage{dir: dir},

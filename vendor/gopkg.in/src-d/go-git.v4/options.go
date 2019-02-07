@@ -335,6 +335,11 @@ type LogOptions struct {
 	// Show only those commits in which the specified file was inserted/updated.
 	// It is equivalent to running `git log -- <file-name>`.
 	FileName *string
+
+	// Pretend as if all the refs in refs/, along with HEAD, are listed on the command line as <commit>.
+	// It is equivalent to running `git log --all`.
+	// If set on true, the From option will be ignored.
+	All bool
 }
 
 var (
