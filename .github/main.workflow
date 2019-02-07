@@ -33,3 +33,16 @@ action "vendor" {
   uses = "docker://golang:1.11.4"
   args = "go mod vendor"
 }
+
+action "integration-tests" {
+  needs = ["check"]
+  uses = "./.github/actions/integration"
+}
+
+# local release
+action "local-release" {
+  needs = ["integration-tests"]
+  uses = "docker://goreleaser/goreleaser:v0.98"
+  args = "release"
+  secrets = ["GITHUB_TOKEN"]
+}

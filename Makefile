@@ -25,7 +25,7 @@ build: check
 	$(ACT) -ra build
 
 release:
-	$(ACT) -ra release
+	$(ACT) -ra local-release
 
 install: build
 	@cp dist/$(shell go env GOOS)_$(shell go env GOARCH)/act /usr/local/bin/act
