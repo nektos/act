@@ -18,7 +18,7 @@ Let's see it in action with a [sample repo](https://github.com/cplee/github-acti
 # Installation
 To install with [Homebrew](https://brew.sh/), run: 
 
-```brew install nektos/tap/act```
+```brew tap nektos/tap && brew install nektos/tap/act```
 
 Alternatively, you can use the following: 
 
