@@ -1,15 +1,15 @@
 package parser
 
-type OptionFunc func(*parseState)
+type OptionFunc func(*Parser)
 
 func WithSuppressWarnings() OptionFunc {
-	return func(ps *parseState) {
+	return func(ps *Parser) {
 		ps.suppressSeverity = WARNING
 	}
 }
 
 func WithSuppressErrors() OptionFunc {
-	return func(ps *parseState) {
+	return func(ps *Parser) {
 		ps.suppressSeverity = ERROR
 	}
 }

@@ -1,18 +1,13 @@
-package model
+package parser
 
 import (
 	"strings"
 )
 
-// IsAllowedEventType returns true if the event type is supported.
-func IsAllowedEventType(eventType string) bool {
+// isAllowedEventType returns true if the event type is supported.
+func isAllowedEventType(eventType string) bool {
 	_, ok := eventTypeWhitelist[strings.ToLower(eventType)]
 	return ok
-}
-
-// IsMatchingEventType checks to see if the "flowOn" string from a flow's on attribute matches the incoming webhook of type eventType.
-func IsMatchingEventType(flowOn, eventType string) bool {
-	return strings.EqualFold(flowOn, eventType)
 }
 
 // https://developer.github.com/actions/creating-workflows/workflow-configuration-options/#events-supported-in-workflow-files
@@ -44,12 +39,4 @@ var eventTypeWhitelist = map[string]struct{}{
 	"repository_dispatch":         {},
 	"status":                      {},
 	"watch":                       {},
-}
-
-func AddAllowedEventType(s string) {
-	eventTypeWhitelist[s] = struct{}{}
-}
-
-func RemoveAllowedEventType(s string) {
-	delete(eventTypeWhitelist, s)
 }

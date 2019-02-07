@@ -398,11 +398,7 @@ func (p *Parser) readData(o *objectInfo) ([]byte, error) {
 		return data, nil
 	}
 
-	if _, err := p.scanner.SeekFromStart(o.Offset); err != nil {
-		return nil, err
-	}
-
-	if _, err := p.scanner.NextObjectHeader(); err != nil {
+	if _, err := p.scanner.SeekObjectHeader(o.Offset); err != nil {
 		return nil, err
 	}
 

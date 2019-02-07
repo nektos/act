@@ -407,7 +407,7 @@ func decomposeHangul(buf []byte, r rune) int {
 
 // decomposeHangul algorithmically decomposes a Hangul rune into
 // its Jamo components.
-// See http://unicode.org/reports/tr15/#Hangul for details on decomposing Hangul.
+// See https://unicode.org/reports/tr15/#Hangul for details on decomposing Hangul.
 func (rb *reorderBuffer) decomposeHangul(r rune) {
 	r -= hangulBase
 	x := r % jamoTCount
@@ -420,7 +420,7 @@ func (rb *reorderBuffer) decomposeHangul(r rune) {
 }
 
 // combineHangul algorithmically combines Jamo character components into Hangul.
-// See http://unicode.org/reports/tr15/#Hangul for details on combining Hangul.
+// See https://unicode.org/reports/tr15/#Hangul for details on combining Hangul.
 func (rb *reorderBuffer) combineHangul(s, i, k int) {
 	b := rb.rune[:]
 	bn := rb.nrune

@@ -21,28 +21,35 @@ func (runner *runnerImpl) newActionExecutor(actionName string) common.Executor {
 		return common.NewErrorExecutor(fmt.Errorf("Unable to find action named '%s'", actionName))
 	}
 
-	env := make(map[string]string)
-	for _, applier := range []environmentApplier{newActionEnvironmentApplier(action), runner} {
-		applier.applyEnvironment(env)
+	executors := make([]common.Executor, 0)
+	image, err := runner.addImageExecutor(action, &executors)
+	if err != nil {
+		return common.NewErrorExecutor(err)
 	}
-	env["GITHUB_ACTION"] = actionName
 
-	logger := newActionLogger(actionName, runner.config.Dryrun)
-	log.Debugf("Using '%s' for action '%s'", action.Uses, actionName)
+	err = runner.addRunExecutor(action, image, &executors)
+	if err != nil {
+		return common.NewErrorExecutor(err)
+	}
+
+	return common.NewPipelineExecutor(executors...)
+}
+
+func (runner *runnerImpl) addImageExecutor(action *model.Action, executors *[]common.Executor) (string, error) {
+	var image string
+	logger := newActionLogger(action.Identifier, runner.config.Dryrun)
+	log.Debugf("Using '%s' for action '%s'", action.Uses, action.Identifier)
 
 	in := container.DockerExecutorInput{
 		Ctx:    runner.config.Ctx,
 		Logger: logger,
 		Dryrun: runner.config.Dryrun,
 	}
-
-	var image string
-	executors := make([]common.Executor, 0)
 	switch uses := action.Uses.(type) {
 
 	case *model.UsesDockerImage:
 		image = uses.Image
-		executors = append(executors, container.NewDockerPullExecutor(container.NewDockerPullExecutorInput{
+		*executors = append(*executors, container.NewDockerPullExecutor(container.NewDockerPullExecutorInput{
 			DockerExecutorInput: in,
 			Image:               image,
 		}))
@@ -56,7 +63,7 @@ func (runner *runnerImpl) newActionExecutor(actionName string) common.Executor {
 		}
 		image = fmt.Sprintf("%s:%s", filepath.Base(contextDir), sha)
 
-		executors = append(executors, container.NewDockerBuildExecutor(container.NewDockerBuildExecutorInput{
+		*executors = append(*executors, container.NewDockerBuildExecutor(container.NewDockerBuildExecutorInput{
 			DockerExecutorInput: in,
 			ContextDir:          contextDir,
 			ImageTag:            image,
@@ -67,7 +74,7 @@ func (runner *runnerImpl) newActionExecutor(actionName string) common.Executor {
 		cloneURL := fmt.Sprintf("https://github.com/%s", uses.Repository)
 
 		cloneDir := filepath.Join(os.TempDir(), "act", action.Uses.String())
-		executors = append(executors, common.NewGitCloneExecutor(common.NewGitCloneExecutorInput{
+		*executors = append(*executors, common.NewGitCloneExecutor(common.NewGitCloneExecutorInput{
 			URL:    cloneURL,
 			Ref:    uses.Ref,
 			Dir:    cloneDir,
@@ -76,19 +83,38 @@ func (runner *runnerImpl) newActionExecutor(actionName string) common.Executor {
 		}))
 
 		contextDir := filepath.Join(cloneDir, uses.Path)
-		executors = append(executors, container.NewDockerBuildExecutor(container.NewDockerBuildExecutorInput{
+		*executors = append(*executors, container.NewDockerBuildExecutor(container.NewDockerBuildExecutorInput{
 			DockerExecutorInput: in,
 			ContextDir:          contextDir,
 			ImageTag:            image,
 		}))
 
 	default:
-		return common.NewErrorExecutor(fmt.Errorf("unable to determine executor type for image '%s'", action.Uses))
+		return "", fmt.Errorf("unable to determine executor type for image '%s'", action.Uses)
 	}
+
+	return image, nil
+}
+
+func (runner *runnerImpl) addRunExecutor(action *model.Action, image string, executors *[]common.Executor) error {
+	logger := newActionLogger(action.Identifier, runner.config.Dryrun)
+	log.Debugf("Using '%s' for action '%s'", action.Uses, action.Identifier)
+
+	in := container.DockerExecutorInput{
+		Ctx:    runner.config.Ctx,
+		Logger: logger,
+		Dryrun: runner.config.Dryrun,
+	}
+
+	env := make(map[string]string)
+	for _, applier := range []environmentApplier{newActionEnvironmentApplier(action), runner} {
+		applier.applyEnvironment(env)
+	}
+	env["GITHUB_ACTION"] = action.Identifier
 
 	ghReader, err := runner.createGithubTarball()
 	if err != nil {
-		return common.NewErrorExecutor(err)
+		return err
 	}
 
 	envList := make([]string, 0)
@@ -103,14 +129,14 @@ func (runner *runnerImpl) newActionExecutor(actionName string) common.Executor {
 	if action.Runs != nil {
 		entrypoint = action.Runs.Split()
 	}
-	executors = append(executors, container.NewDockerRunExecutor(container.NewDockerRunExecutorInput{
+	*executors = append(*executors, container.NewDockerRunExecutor(container.NewDockerRunExecutorInput{
 		DockerExecutorInput: in,
 		Cmd:                 cmd,
 		Entrypoint:          entrypoint,
 		Image:               image,
 		WorkingDir:          "/github/workspace",
 		Env:                 envList,
-		Name:                runner.createContainerName(actionName),
+		Name:                runner.createContainerName(action.Identifier),
 		Binds: []string{
 			fmt.Sprintf("%s:%s", runner.config.WorkingDir, "/github/workspace"),
 			fmt.Sprintf("%s:%s", runner.tempDir, "/github/home"),
@@ -120,7 +146,7 @@ func (runner *runnerImpl) newActionExecutor(actionName string) common.Executor {
 		ReuseContainers: runner.config.ReuseContainers,
 	}))
 
-	return common.NewPipelineExecutor(executors...)
+	return nil
 }
 
 func (runner *runnerImpl) applyEnvironment(env map[string]string) {

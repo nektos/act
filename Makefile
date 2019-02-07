@@ -50,6 +50,6 @@ endif
 	git push origin $(NEW_VERSION)
 
 vendor:
-	go run main.go -ra vendor
+	go mod vendor
 
 .PHONY: vendor

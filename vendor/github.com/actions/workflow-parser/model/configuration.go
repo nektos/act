@@ -1,5 +1,9 @@
 package model
 
+import (
+	"strings"
+)
+
 // Configuration is a parsed main.workflow file
 type Configuration struct {
 	Actions   []*Action
@@ -52,7 +56,7 @@ func (c *Configuration) GetWorkflow(id string) *Workflow {
 func (c *Configuration) GetWorkflows(eventType string) []*Workflow {
 	var ret []*Workflow
 	for _, workflow := range c.Workflows {
-		if IsMatchingEventType(workflow.On, eventType) {
+		if strings.EqualFold(workflow.On, eventType) {
 			ret = append(ret, workflow)
 		}
 	}

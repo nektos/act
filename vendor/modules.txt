@@ -1,13 +1,13 @@
 # github.com/Microsoft/go-winio v0.4.11
 github.com/Microsoft/go-winio
-# github.com/actions/workflow-parser v0.0.0-20190131180005-9cb71d183680
+# github.com/actions/workflow-parser v1.0.0
 github.com/actions/workflow-parser/model
 github.com/actions/workflow-parser/parser
 # github.com/containerd/continuity v0.0.0-20181203112020-004b46473808
 github.com/containerd/continuity/pathdriver
 # github.com/davecgh/go-spew v1.1.1
 github.com/davecgh/go-spew/spew
-# github.com/docker/distribution v2.7.0+incompatible
+# github.com/docker/distribution v2.7.1+incompatible
 github.com/docker/distribution/reference
 github.com/docker/distribution/digestset
 # github.com/docker/docker v1.13.1 => github.com/docker/engine v0.0.0-20181106193140-f5749085e9cb
@@ -44,7 +44,7 @@ github.com/docker/go-connections/sockets
 github.com/docker/go-connections/tlsconfig
 # github.com/docker/go-units v0.3.3
 github.com/docker/go-units
-# github.com/emirpasic/gods v1.9.0
+# github.com/emirpasic/gods v1.12.0
 github.com/emirpasic/gods/trees/binaryheap
 github.com/emirpasic/gods/containers
 github.com/emirpasic/gods/lists/arraylist
@@ -80,7 +80,7 @@ github.com/jbenet/go-context/io
 github.com/kevinburke/ssh_config
 # github.com/konsorten/go-windows-terminal-sequences v1.0.1
 github.com/konsorten/go-windows-terminal-sequences
-# github.com/mitchellh/go-homedir v1.0.0
+# github.com/mitchellh/go-homedir v1.1.0
 github.com/mitchellh/go-homedir
 # github.com/opencontainers/go-digest v1.0.0-rc1
 github.com/opencontainers/go-digest
@@ -117,7 +117,7 @@ github.com/src-d/gcfg/types
 github.com/stretchr/testify/assert
 # github.com/xanzy/ssh-agent v0.2.0
 github.com/xanzy/ssh-agent
-# golang.org/x/crypto v0.0.0-20190103213133-ff983b9c42bc
+# golang.org/x/crypto v0.0.0-20190131182504-b8fe1690c613
 golang.org/x/crypto/ssh/terminal
 golang.org/x/crypto/openpgp
 golang.org/x/crypto/openpgp/armor
@@ -135,24 +135,24 @@ golang.org/x/crypto/internal/chacha20
 golang.org/x/crypto/poly1305
 golang.org/x/crypto/ed25519/internal/edwards25519
 golang.org/x/crypto/internal/subtle
-# golang.org/x/net v0.0.0-20181220203305-927f97764cc3
+# golang.org/x/net v0.0.0-20190125091013-d26f9f9a57f3
 golang.org/x/net/context/ctxhttp
 golang.org/x/net/proxy
 golang.org/x/net/context
 golang.org/x/net/internal/socks
-# golang.org/x/sys v0.0.0-20190102155601-82a175fd1598
+# golang.org/x/sys v0.0.0-20190201152629-afcc84fd7533
 golang.org/x/sys/unix
 golang.org/x/sys/windows
-# golang.org/x/text v0.3.0
+# golang.org/x/text v0.3.1-0.20180807135948-17ff2d5776d2
 golang.org/x/text/unicode/norm
 golang.org/x/text/transform
-# gopkg.in/src-d/go-billy.v4 v4.2.1
+# gopkg.in/src-d/go-billy.v4 v4.3.0
 gopkg.in/src-d/go-billy.v4
 gopkg.in/src-d/go-billy.v4/osfs
 gopkg.in/src-d/go-billy.v4/util
 gopkg.in/src-d/go-billy.v4/helper/chroot
 gopkg.in/src-d/go-billy.v4/helper/polyfill
-# gopkg.in/src-d/go-git.v4 v4.8.1
+# gopkg.in/src-d/go-git.v4 v4.9.1
 gopkg.in/src-d/go-git.v4
 gopkg.in/src-d/go-git.v4/plumbing
 gopkg.in/src-d/go-git.v4/config

@@ -10,29 +10,44 @@ import (
 	"github.com/actions/workflow-parser/model"
 )
 
-type ParserError struct {
+type Error struct {
 	message   string
-	Errors    ErrorList
+	Errors    []*ParseError
 	Actions   []*model.Action
 	Workflows []*model.Workflow
 }
 
-func (p *ParserError) Error() string {
+func (e *Error) Error() string {
 	buffer := bytes.NewBuffer(nil)
-	buffer.WriteString(p.message)
-	for _, e := range p.Errors {
+	buffer.WriteString(e.message)
+	for _, pe := range e.Errors {
 		buffer.WriteString("\n  ")
-		buffer.WriteString(e.Error())
+		buffer.WriteString(pe.Error())
 	}
 	return buffer.String()
 }
 
-// Error represents an error identified by the parser, either syntactic
+// FirstError searches a Configuration for the first error at or above a
+// given severity level.  Checking the return value against nil is a good
+// way to see if the file has any errors at or above the given severity.
+// A caller intending to execute the file might check for
+// `errors.FirstError(parser.WARNING)`, while a caller intending to
+// display the file might check for `errors.FirstError(parser.FATAL)`.
+func (e *Error) FirstError(severity Severity) error {
+	for _, pe := range e.Errors {
+		if pe.Severity >= severity {
+			return pe
+		}
+	}
+	return nil
+}
+
+// ParseError represents an error identified by the parser, either syntactic
 // (HCL) or semantic (.workflow) in nature.  There are fields for location
 // (File, Line, Column), severity, and base error string.  The `Error()`
 // function on this type concatenates whatever bits of the location are
 // available with the message.  The severity is only used for filtering.
-type Error struct {
+type ParseError struct {
 	message  string
 	Pos      ErrorPos
 	Severity Severity
@@ -48,8 +63,8 @@ type ErrorPos struct {
 
 // newFatal creates a new error at the FATAL level, indicating that the
 // file is so broken it should not be displayed.
-func newFatal(pos ErrorPos, format string, a ...interface{}) *Error {
-	return &Error{
+func newFatal(pos ErrorPos, format string, a ...interface{}) *ParseError {
+	return &ParseError{
 		message:  fmt.Sprintf(format, a...),
 		Pos:      pos,
 		Severity: FATAL,
@@ -58,8 +73,8 @@ func newFatal(pos ErrorPos, format string, a ...interface{}) *Error {
 
 // newError creates a new error at the ERROR level, indicating that the
 // file can be displayed but cannot be run.
-func newError(pos ErrorPos, format string, a ...interface{}) *Error {
-	return &Error{
+func newError(pos ErrorPos, format string, a ...interface{}) *ParseError {
+	return &ParseError{
 		message:  fmt.Sprintf(format, a...),
 		Pos:      pos,
 		Severity: ERROR,
@@ -68,15 +83,15 @@ func newError(pos ErrorPos, format string, a ...interface{}) *Error {
 
 // newWarning creates a new error at the WARNING level, indicating that
 // the file might be runnable but might not execute as intended.
-func newWarning(pos ErrorPos, format string, a ...interface{}) *Error {
-	return &Error{
+func newWarning(pos ErrorPos, format string, a ...interface{}) *ParseError {
+	return &ParseError{
 		message:  fmt.Sprintf(format, a...),
 		Pos:      pos,
 		Severity: WARNING,
 	}
 }
 
-func (e *Error) Error() string {
+func (e *ParseError) Error() string {
 	var sb strings.Builder
 	if e.Pos.Line != 0 {
 		sb.WriteString("Line ")                  // nolint: errcheck
@@ -107,30 +122,15 @@ const (
 // workflow file.  See the comments for WARNING, ERROR, and FATAL, above.
 type Severity int
 
-// FirstError searches a Configuration for the first error at or above a
-// given severity level.  Checking the return value against nil is a good
-// way to see if the file has any errors at or above the given severity.
-// A caller intending to execute the file might check for
-// `errors.FirstError(parser.WARNING)`, while a caller intending to
-// display the file might check for `errors.FirstError(parser.FATAL)`.
-func (errors ErrorList) FirstError(severity Severity) error {
-	for _, e := range errors {
-		if e.Severity >= severity {
-			return e
-		}
-	}
-	return nil
-}
+type errorList []*ParseError
 
-type ErrorList []*Error
-
-func (a ErrorList) Len() int           { return len(a) }
-func (a ErrorList) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a ErrorList) Less(i, j int) bool { return a[i].Pos.Line < a[j].Pos.Line }
+func (a errorList) Len() int           { return len(a) }
+func (a errorList) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a errorList) Less(i, j int) bool { return a[i].Pos.Line < a[j].Pos.Line }
 
 // sortErrors sorts the errors reported by the parser.  Do this after
 // parsing is complete.  The sort is stable, so order is preserved within
 // a single line: left to right, syntax errors before validation errors.
-func (errors ErrorList) sort() {
+func (errors errorList) sort() {
 	sort.Stable(errors)
 }
