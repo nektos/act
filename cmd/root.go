@@ -9,6 +9,9 @@ import (
 
 	"github.com/nektos/act/actions"
 	"github.com/nektos/act/common"
+
+	fswatch "github.com/andreaskoch/go-fswatch"
+	gitignore "github.com/sabhiram/go-gitignore"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -17,6 +20,7 @@ var verbose bool
 var workflowPath string
 var workingDir string
 var list bool
+var watch bool
 var actionName string
 var dryrun bool
 var eventPath string
@@ -31,6 +35,7 @@ func Execute(ctx context.Context, version string) {
 		Version:      version,
 		SilenceUsage: true,
 	}
+	rootCmd.Flags().BoolVarP(&watch, "watch", "w", false, "watch the contents of the local repo and run when files change")
 	rootCmd.Flags().BoolVarP(&list, "list", "l", false, "list actions")
 	rootCmd.Flags().StringVarP(&actionName, "action", "a", "", "run action")
 	rootCmd.Flags().StringVarP(&eventPath, "event", "e", "", "path to event JSON file")
@@ -44,44 +49,96 @@ func Execute(ctx context.Context, version string) {
 
 }
 
-func newRunAction(ctx context.Context) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, args []string) error {
-		if verbose {
-			log.SetLevel(log.DebugLevel)
-		}
+func watchAndRun(ctx context.Context, fn func()) error {
+	recurse := true
+	checkIntervalInSeconds := 2
+	dir, err := os.Getwd()
+	if err != nil {
+		return err
+	}
 
-		workflows, err := actions.ParseWorkflows(workingDir, workflowPath)
+	var ignore *gitignore.GitIgnore
+	if _, err := os.Stat(filepath.Join(dir, ".gitignore")); !os.IsNotExist(err) {
+		ignore, _ = gitignore.CompileIgnoreFile(filepath.Join(dir, ".gitignore"))
+	} else {
+		ignore = &gitignore.GitIgnore{}
+	}
+
+	folderWatcher := fswatch.NewFolderWatcher(
+		dir,
+		recurse,
+		ignore.MatchesPath,
+		checkIntervalInSeconds,
+	)
+
+	folderWatcher.Start()
+	log.Debugf("Watching %s for changes", dir)
+
+	go func() {
+		for folderWatcher.IsRunning() {
+			for changes := range folderWatcher.ChangeDetails() {
+				log.Debugf("%s", changes.String())
+				fn()
+				log.Debugf("Watching %s for changes", dir)
+			}
+		}
+	}()
+	<-ctx.Done()
+	folderWatcher.Stop()
+	return nil
+}
+
+func parseAndRun(ctx context.Context, args []string) error {
+	if verbose {
+		log.SetLevel(log.DebugLevel)
+	}
+
+	workflows, err := actions.ParseWorkflows(workingDir, workflowPath)
+	if err != nil {
+		return err
+	}
+
+	defer workflows.Close()
+
+	if list {
+		return listEvents(workflows)
+	}
+
+	eventJSON := "{}"
+	if eventPath != "" {
+		if !filepath.IsAbs(eventPath) {
+			eventPath = filepath.Join(workingDir, eventPath)
+		}
+		log.Debugf("Reading event.json from %s", eventPath)
+		eventJSONBytes, err := ioutil.ReadFile(eventPath)
 		if err != nil {
 			return err
 		}
+		eventJSON = string(eventJSONBytes)
+	}
 
-		defer workflows.Close()
+	if actionName != "" {
+		return workflows.RunAction(ctx, dryrun, actionName, eventJSON)
+	}
 
-		if list {
-			return listEvents(workflows)
+	if len(args) == 0 {
+		return workflows.RunEvent(ctx, dryrun, "push", eventJSON)
+	}
+	return workflows.RunEvent(ctx, dryrun, args[0], eventJSON)
+
+}
+
+func newRunAction(ctx context.Context) func(*cobra.Command, []string) error {
+	return func(cmd *cobra.Command, args []string) error {
+		err := parseAndRun(ctx, args)
+
+		if err == nil && watch {
+			return watchAndRun(ctx, func() {
+				err = parseAndRun(ctx, args)
+			})
 		}
 
-		eventJSON := "{}"
-		if eventPath != "" {
-			if !filepath.IsAbs(eventPath) {
-				eventPath = filepath.Join(workingDir, eventPath)
-			}
-			log.Debugf("Reading event.json from %s", eventPath)
-			eventJSONBytes, err := ioutil.ReadFile(eventPath)
-			if err != nil {
-				return err
-			}
-			eventJSON = string(eventJSONBytes)
-		}
-
-		if actionName != "" {
-			return workflows.RunAction(ctx, dryrun, actionName, eventJSON)
-		}
-
-		if len(args) == 0 {
-			return workflows.RunEvent(ctx, dryrun, "push", eventJSON)
-		}
-		return workflows.RunEvent(ctx, dryrun, args[0], eventJSON)
+		return err
 	}
 }
 
