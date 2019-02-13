@@ -137,7 +137,7 @@ func findGitSlug(url string) (string, string, error) {
 	codeCommitHTTPRegex := regexp.MustCompile(`^http(s?)://git-codecommit\.(.+)\.amazonaws.com/v1/repos/(.+)$`)
 	codeCommitSSHRegex := regexp.MustCompile(`ssh://git-codecommit\.(.+)\.amazonaws.com/v1/repos/(.+)$`)
 	httpRegex := regexp.MustCompile("^http(s?)://.*github.com.*/(.+)/(.+).git$")
-	sshRegex := regexp.MustCompile("github.com:(.+)/(.+).git$")
+	sshRegex := regexp.MustCompile("github.com[:/](.+)/(.+).git$")
 
 	if matches := codeCommitHTTPRegex.FindStringSubmatch(url); matches != nil {
 		return "CodeCommit", matches[3], nil
