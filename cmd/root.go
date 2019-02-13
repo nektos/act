@@ -56,21 +56,16 @@ func newRunCommand(runnerConfig *actions.RunnerConfig) func(*cobra.Command, []st
 			runnerConfig.EventName = args[0]
 		}
 
-		err := parseAndRun(cmd, runnerConfig)
-		if err != nil {
-			return err
-		}
 		watch, err := cmd.Flags().GetBool("watch")
 		if err != nil {
 			return err
 		}
 		if watch {
-			return watchAndRun(runnerConfig.Ctx, func() {
-				err = parseAndRun(cmd, runnerConfig)
+			return watchAndRun(runnerConfig.Ctx, func() error {
+				return parseAndRun(cmd, runnerConfig)
 			})
 		}
-
-		return err
+		return parseAndRun(cmd, runnerConfig)
 	}
 }
 
@@ -104,7 +99,7 @@ func parseAndRun(cmd *cobra.Command, runnerConfig *actions.RunnerConfig) error {
 	return runner.RunEvent()
 }
 
-func watchAndRun(ctx context.Context, fn func()) error {
+func watchAndRun(ctx context.Context, fn func() error) error {
 	recurse := true
 	checkIntervalInSeconds := 2
 	dir, err := os.Getwd()
@@ -127,20 +122,25 @@ func watchAndRun(ctx context.Context, fn func()) error {
 	)
 
 	folderWatcher.Start()
-	log.Debugf("Watching %s for changes", dir)
 
 	go func() {
 		for folderWatcher.IsRunning() {
+			if err = fn(); err != nil {
+				break
+			}
+			log.Debugf("Watching %s for changes", dir)
 			for changes := range folderWatcher.ChangeDetails() {
 				log.Debugf("%s", changes.String())
-				fn()
+				if err = fn(); err != nil {
+					break
+				}
 				log.Debugf("Watching %s for changes", dir)
 			}
 		}
 	}()
 	<-ctx.Done()
 	folderWatcher.Stop()
-	return nil
+	return err
 }
 
 func drawGraph(runner actions.Runner) error {
