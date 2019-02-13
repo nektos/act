@@ -46,7 +46,7 @@ func FindGitRevision(file string) (shortSha string, sha string, err error) {
 	}
 
 	log.Debugf("Found revision: %s", refBuf)
-	return string(refBuf[:7]), string(refBuf), nil
+	return string(refBuf[:7]), strings.TrimSpace(string(refBuf)), nil
 }
 
 // FindGitBranch get the current git branch
@@ -90,14 +90,14 @@ func FindGitRef(file string) (string, error) {
 	head := make(map[string]string)
 	err = yaml.Unmarshal(headBytes, head)
 	if err != nil {
-		ref = strings.TrimRight(string(headBytes), "\r\n")
+		ref = string(headBytes)
 	} else {
 		ref = head["ref"]
 	}
 
 	log.Debugf("HEAD points to '%s'", ref)
 
-	return ref, nil
+	return strings.TrimSpace(ref), nil
 }
 
 // FindGithubRepo get the repo
