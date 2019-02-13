@@ -3,6 +3,8 @@ github.com/Microsoft/go-winio
 # github.com/actions/workflow-parser v1.0.0
 github.com/actions/workflow-parser/model
 github.com/actions/workflow-parser/parser
+# github.com/andreaskoch/go-fswatch v1.0.0
+github.com/andreaskoch/go-fswatch
 # github.com/containerd/continuity v0.0.0-20181203112020-004b46473808
 github.com/containerd/continuity/pathdriver
 # github.com/davecgh/go-spew v1.1.1
@@ -96,6 +98,8 @@ github.com/pelletier/go-buffruneio
 github.com/pkg/errors
 # github.com/pmezard/go-difflib v1.0.0
 github.com/pmezard/go-difflib/difflib
+# github.com/sabhiram/go-gitignore v0.0.0-20180611051255-d3107576ba94
+github.com/sabhiram/go-gitignore
 # github.com/sergi/go-diff v1.0.0
 github.com/sergi/go-diff/diffmatchpatch
 # github.com/sirupsen/logrus v1.3.0
