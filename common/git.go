@@ -46,7 +46,7 @@ func FindGitRevision(file string) (shortSha string, sha string, err error) {
 	}
 
 	log.Debugf("Found revision: %s", refBuf)
-	return string(refBuf[:7]), string(refBuf), nil
+	return string(refBuf[:7]), strings.TrimSpace(string(refBuf)), nil
 }
 
 // FindGitBranch get the current git branch
@@ -90,14 +90,14 @@ func FindGitRef(file string) (string, error) {
 	head := make(map[string]string)
 	err = yaml.Unmarshal(headBytes, head)
 	if err != nil {
-		ref = strings.TrimRight(string(headBytes), "\r\n")
+		ref = string(headBytes)
 	} else {
 		ref = head["ref"]
 	}
 
 	log.Debugf("HEAD points to '%s'", ref)
 
-	return ref, nil
+	return strings.TrimSpace(ref), nil
 }
 
 // FindGithubRepo get the repo
@@ -137,7 +137,7 @@ func findGitSlug(url string) (string, string, error) {
 	codeCommitHTTPRegex := regexp.MustCompile(`^http(s?)://git-codecommit\.(.+)\.amazonaws.com/v1/repos/(.+)$`)
 	codeCommitSSHRegex := regexp.MustCompile(`ssh://git-codecommit\.(.+)\.amazonaws.com/v1/repos/(.+)$`)
 	httpRegex := regexp.MustCompile("^http(s?)://.*github.com.*/(.+)/(.+).git$")
-	sshRegex := regexp.MustCompile("github.com:(.+)/(.+).git$")
+	sshRegex := regexp.MustCompile("github.com[:/](.+)/(.+).git$")
 
 	if matches := codeCommitHTTPRegex.FindStringSubmatch(url); matches != nil {
 		return "CodeCommit", matches[3], nil
