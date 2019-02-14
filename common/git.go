@@ -20,7 +20,14 @@ import (
 	yaml "gopkg.in/yaml.v2"
 )
 
-var cloneLock sync.Mutex
+var (
+	codeCommitHTTPRegex = regexp.MustCompile(`^https?://git-codecommit\.(.+)\.amazonaws.com/v1/repos/(.+)$`)
+	codeCommitSSHRegex  = regexp.MustCompile(`ssh://git-codecommit\.(.+)\.amazonaws.com/v1/repos/(.+)$`)
+	githubHTTPRegex     = regexp.MustCompile(`^https?://.*github.com.*/(.+)/(.+?)(?:.git)?$`)
+	githubSSHRegex      = regexp.MustCompile(`github.com[:/](.+)/(.+).git$`)
+
+	cloneLock sync.Mutex
+)
 
 // FindGitRevision get the current git revision
 func FindGitRevision(file string) (shortSha string, sha string, err error) {
@@ -134,18 +141,13 @@ func findGitRemoteURL(file string) (string, error) {
 }
 
 func findGitSlug(url string) (string, string, error) {
-	codeCommitHTTPRegex := regexp.MustCompile(`^http(s?)://git-codecommit\.(.+)\.amazonaws.com/v1/repos/(.+)$`)
-	codeCommitSSHRegex := regexp.MustCompile(`ssh://git-codecommit\.(.+)\.amazonaws.com/v1/repos/(.+)$`)
-	httpRegex := regexp.MustCompile("^http(s?)://.*github.com.*/(.+)/(.+).git$")
-	sshRegex := regexp.MustCompile("github.com[:/](.+)/(.+).git$")
-
 	if matches := codeCommitHTTPRegex.FindStringSubmatch(url); matches != nil {
-		return "CodeCommit", matches[3], nil
+		return "CodeCommit", matches[2], nil
 	} else if matches := codeCommitSSHRegex.FindStringSubmatch(url); matches != nil {
 		return "CodeCommit", matches[2], nil
-	} else if matches := httpRegex.FindStringSubmatch(url); matches != nil {
-		return "GitHub", fmt.Sprintf("%s/%s", matches[2], matches[3]), nil
-	} else if matches := sshRegex.FindStringSubmatch(url); matches != nil {
+	} else if matches := githubHTTPRegex.FindStringSubmatch(url); matches != nil {
+		return "GitHub", fmt.Sprintf("%s/%s", matches[1], matches[2]), nil
+	} else if matches := githubSSHRegex.FindStringSubmatch(url); matches != nil {
 		return "GitHub", fmt.Sprintf("%s/%s", matches[1], matches[2]), nil
 	}
 	return "", url, nil
