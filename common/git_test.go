@@ -25,6 +25,8 @@ func TestFindGitSlug(t *testing.T) {
 		{"git@github.com:nektos/act.git", "GitHub", "nektos/act"},
 		{"https://github.com/nektos/act.git", "GitHub", "nektos/act"},
 		{"http://github.com/nektos/act.git", "GitHub", "nektos/act"},
+		{"https://github.com/nektos/act", "GitHub", "nektos/act"},
+		{"http://github.com/nektos/act", "GitHub", "nektos/act"},
 		{"git+ssh://git@github.com/owner/repo.git", "GitHub", "owner/repo"},
 		{"http://myotherrepo.com/act.git", "", "http://myotherrepo.com/act.git"},
 	}
