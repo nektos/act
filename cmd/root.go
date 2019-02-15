@@ -50,9 +50,7 @@ func setupLogging(cmd *cobra.Command, args []string) {
 
 func newRunCommand(runnerConfig *actions.RunnerConfig) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, args []string) error {
-		if len(args) == 0 {
-			runnerConfig.EventName = "push"
-		} else {
+		if len(args) > 0 {
 			runnerConfig.EventName = args[0]
 		}
 
@@ -76,6 +74,20 @@ func parseAndRun(cmd *cobra.Command, runnerConfig *actions.RunnerConfig) error {
 		return err
 	}
 	defer runner.Close()
+
+	// set default event type if we only have a single workflow in the file.
+	// this way user dont have to specify the event.
+	if runnerConfig.EventName == "" {
+		if events := runner.ListEvents(); len(events) == 1 {
+			log.Debugf("Using detected workflow event: %s", events[0])
+			runnerConfig.EventName = events[0]
+		}
+	}
+
+	// fall back to default event name if we could not detect one.
+	if runnerConfig.EventName == "" {
+		runnerConfig.EventName = "push"
+	}
 
 	// check if we should just print the graph
 	list, err := cmd.Flags().GetBool("list")
