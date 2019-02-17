@@ -24,6 +24,7 @@ func TestRunEvent(t *testing.T) {
 		{"regex.workflow", "push", "exit with `NEUTRAL`: 78"},
 		{"gitref.workflow", "push", ""},
 		{"env.workflow", "push", ""},
+		{"detect_event.workflow", "", ""},
 	}
 	log.SetLevel(log.DebugLevel)
 

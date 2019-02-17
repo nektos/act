@@ -55,18 +55,9 @@ func (runner *runnerImpl) setupWorkflows() error {
 	if err != nil {
 		return err
 	}
-
 	defer workflowReader.Close()
 
 	runner.workflowConfig, err = parser.Parse(workflowReader)
-	/*
-		if err != nil {
-			parserError := err.(*parser.ParserError)
-			for _, e := range parserError.Errors {
-				fmt.Fprintln(os.Stderr, e)
-			}
-		}
-	*/
 	return err
 }
 
