@@ -44,6 +44,9 @@ act -n
 
 # Run in reuse mode to save state:
 act -r
+
+# Enable verbose-logging (can be used with any of the above commands)
+act -v
 ```
 
 # Support
