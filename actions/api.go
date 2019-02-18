@@ -43,6 +43,7 @@ type RunnerConfig struct {
 	EventName       string          // name of event to run
 	EventPath       string          // path to JSON file to use for event.json in containers, relative to WorkingDir
 	ReuseContainers bool            // reuse containers to maintain state
+	ForcePull       bool            // force pulling of the image, if already present
 }
 
 type environmentApplier interface {

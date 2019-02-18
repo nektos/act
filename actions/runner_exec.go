@@ -49,10 +49,25 @@ func (runner *runnerImpl) addImageExecutor(action *model.Action, executors *[]co
 
 	case *model.UsesDockerImage:
 		image = uses.Image
-		*executors = append(*executors, container.NewDockerPullExecutor(container.NewDockerPullExecutorInput{
-			DockerExecutorInput: in,
-			Image:               image,
-		}))
+
+		pull := runner.config.ForcePull
+		if !pull {
+			imageExists, err := container.ImageExistsLocally(runner.config.Ctx, image)
+			if err != nil {
+				return "", fmt.Errorf("unable to determine if image already exists for image %q", image)
+			}
+
+			if imageExists {
+				pull = false
+			}
+		}
+
+		if pull {
+			*executors = append(*executors, container.NewDockerPullExecutor(container.NewDockerPullExecutorInput{
+				DockerExecutorInput: in,
+				Image:               image,
+			}))
+		}
 
 	case *model.UsesPath:
 		contextDir := filepath.Join(runner.config.WorkingDir, uses.String())
