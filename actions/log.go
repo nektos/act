@@ -32,6 +32,7 @@ const (
 func newActionLogger(actionName string, dryrun bool) *logrus.Entry {
 	logger := logrus.New()
 	logger.SetFormatter(formatter)
+	logger.SetOutput(os.Stdout)
 	logger.SetLevel(logrus.GetLevel())
 	rtn := logger.WithFields(logrus.Fields{"action_name": actionName, "dryrun": dryrun})
 	return rtn
