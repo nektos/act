@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -26,9 +27,11 @@ func Execute(ctx context.Context, version string) {
 		Version:          version,
 		SilenceUsage:     true,
 	}
+
 	rootCmd.Flags().BoolP("watch", "w", false, "watch the contents of the local repo and run when files change")
 	rootCmd.Flags().BoolP("list", "l", false, "list actions")
 	rootCmd.Flags().StringP("action", "a", "", "run action")
+	rootCmd.Flags().BoolP("init", "i", false, "init the local action")
 	rootCmd.Flags().BoolVarP(&runnerConfig.ReuseContainers, "reuse", "r", false, "reuse action containers to maintain state")
 	rootCmd.Flags().StringVarP(&runnerConfig.EventPath, "event", "e", "", "path to event JSON file")
 	rootCmd.Flags().BoolVarP(&runnerConfig.ForcePull, "pull", "p", false, "pull docker image(s) if already present")
@@ -36,10 +39,10 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.PersistentFlags().BoolVarP(&runnerConfig.Dryrun, "dryrun", "n", false, "dryrun mode")
 	rootCmd.PersistentFlags().StringVarP(&runnerConfig.WorkflowPath, "file", "f", "./.github/main.workflow", "path to workflow file")
 	rootCmd.PersistentFlags().StringVarP(&runnerConfig.WorkingDir, "directory", "C", ".", "working directory")
+
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}
-
 }
 
 func setupLogging(cmd *cobra.Command, args []string) {
@@ -69,6 +72,15 @@ func newRunCommand(runnerConfig *actions.RunnerConfig) func(*cobra.Command, []st
 }
 
 func parseAndRun(cmd *cobra.Command, runnerConfig *actions.RunnerConfig) error {
+	// check if we should scaffold a new action
+	init, err := cmd.Flags().GetBool("init")
+	if err != nil {
+		return err
+	}
+	if init {
+		return initAction(runnerConfig)
+	}
+
 	// create the runner
 	runner, err := actions.NewRunner(runnerConfig)
 	if err != nil {
@@ -154,6 +166,67 @@ func watchAndRun(ctx context.Context, fn func() error) error {
 	<-ctx.Done()
 	folderWatcher.Stop()
 	return err
+}
+
+func initAction(config *actions.RunnerConfig) error {
+	// use the default event name if we don't have one
+	if config.EventName == "" {
+		config.EventName = "push"
+	}
+	log.Printf("Setting up a new action for %s event\n", config.EventName)
+	baseDir := filepath.Dir(config.WorkflowPath)
+
+	// check if workflow directory exists, skip setup if it's already configured
+	if _, err := os.Stat(baseDir); err == nil {
+		log.Println("Workspace directory already exists, skipping")
+		return nil
+	}
+
+	// setup workflow directory
+	if err := os.MkdirAll(baseDir, 0755); err != nil {
+		return err
+	}
+
+	// basic workflow template
+	template := `workflow "basic workflow" {
+	on = "%s"
+	resolves = ["example"]
+}
+
+action "example" {
+  uses = "./.github/example-action"
+}`
+
+	dockerFile := `FROM alpine:latest
+COPY entrypoint.sh /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]
+`
+
+	dockerEntrypoint := `#!/bin/sh
+echo "Hello World"
+`
+
+	// create workflow file
+	data := fmt.Sprintf(template, config.EventName)
+	if err := ioutil.WriteFile(config.WorkflowPath, []byte(data), 0666); err != nil {
+		return err
+	}
+
+	// setup example forkflow docker action
+	actionDir := filepath.Join(baseDir, "example-action")
+	if err := os.MkdirAll(actionDir, 0755); err != nil {
+		return err
+	}
+	if err := ioutil.WriteFile(filepath.Join(actionDir, "Dockerfile"), []byte(dockerFile), 0666); err != nil {
+		return err
+	}
+	if err := ioutil.WriteFile(filepath.Join(actionDir, "entrypoint.sh"), []byte(dockerEntrypoint), 0777); err != nil {
+		return err
+	}
+
+	log.Println("Done.")
+	log.Println("You can now run `act` to test things out!")
+	return nil
 }
 
 func drawGraph(runner actions.Runner) error {
