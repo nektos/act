@@ -21,6 +21,7 @@ func TestRunEvent(t *testing.T) {
 		{"basic.workflow", "push", ""},
 		{"pipe.workflow", "push", ""},
 		{"fail.workflow", "push", "exit with `FAILURE`: 1"},
+		{"buildfail.workflow", "push", "COPY failed"},
 		{"regex.workflow", "push", "exit with `NEUTRAL`: 78"},
 		{"gitref.workflow", "push", ""},
 		{"env.workflow", "push", ""},
@@ -42,7 +43,7 @@ func TestRunEvent(t *testing.T) {
 		if table.errorMessage == "" {
 			assert.NilError(t, err, table.workflowPath)
 		} else {
-			assert.Error(t, err, table.errorMessage)
+			assert.ErrorContains(t, err, table.errorMessage)
 		}
 	}
 }

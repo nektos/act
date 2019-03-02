@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -64,42 +65,52 @@ func (i *DockerExecutorInput) writeLog(isError bool, format string, args ...inte
 
 }
 
-func (i *DockerExecutorInput) logDockerResponse(dockerResponse io.ReadCloser, isError bool) {
+func (i *DockerExecutorInput) logDockerResponse(dockerResponse io.ReadCloser, isError bool) error {
 	if dockerResponse == nil {
-		return
+		return nil
 	}
 	defer dockerResponse.Close()
 
 	scanner := bufio.NewScanner(dockerResponse)
 	msg := dockerMessage{}
+
 	for scanner.Scan() {
 		line := scanner.Bytes()
+
 		msg.ID = ""
 		msg.Stream = ""
 		msg.Error = ""
 		msg.ErrorDetail.Message = ""
 		msg.Status = ""
 		msg.Progress = ""
-		if err := json.Unmarshal(line, &msg); err == nil {
-			if msg.Error != "" {
-				i.writeLog(isError, "%s", msg.Error)
-				return
-			}
 
-			if msg.Status != "" {
-				if msg.Progress != "" {
-					i.writeLog(isError, "%s :: %s :: %s\n", msg.Status, msg.ID, msg.Progress)
-				} else {
-					i.writeLog(isError, "%s :: %s\n", msg.Status, msg.ID)
-				}
-			} else if msg.Stream != "" {
-				i.writeLog(isError, msg.Stream)
-			} else {
-				i.writeLog(false, "Unable to handle line: %s", string(line))
-			}
-		} else {
+		if err := json.Unmarshal(line, &msg); err != nil {
 			i.writeLog(false, "Unable to unmarshal line [%s] ==> %v", string(line), err)
+			continue
+		}
+
+		if msg.Error != "" {
+			i.writeLog(isError, "%s", msg.Error)
+			return errors.New(msg.Error)
+		}
+
+		if msg.ErrorDetail.Message != "" {
+			i.writeLog(isError, "%s", msg.ErrorDetail.Message)
+			return errors.New(msg.Error)
+		}
+
+		if msg.Status != "" {
+			if msg.Progress != "" {
+				i.writeLog(isError, "%s :: %s :: %s\n", msg.Status, msg.ID, msg.Progress)
+			} else {
+				i.writeLog(isError, "%s :: %s\n", msg.Status, msg.ID)
+			}
+		} else if msg.Stream != "" {
+			i.writeLog(isError, msg.Stream)
+		} else {
+			i.writeLog(false, "Unable to handle line: %s", string(line))
 		}
 	}
 
+	return nil
 }
