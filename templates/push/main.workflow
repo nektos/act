@@ -4,5 +4,5 @@ workflow "basic workflow" {
 }
 
 action "example" {
-  uses = "docker://.github/action"
+  uses = "./.github/action"
 }
