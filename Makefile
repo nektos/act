@@ -17,6 +17,9 @@ export GITHUB_TOKEN = $(shell cat ~/.config/github/token)
 
 default: check
 
+test:
+	go test -cover -short ./...
+
 check:
 	$(ACT) -ra check
 
