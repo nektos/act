@@ -13,6 +13,7 @@ import (
 	gitignore "github.com/sabhiram/go-gitignore"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	git "gopkg.in/src-d/go-git.v4"
 )
 
 // Execute is the entry point to running the CLI
@@ -31,7 +32,8 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.Flags().BoolP("watch", "w", false, "watch the contents of the local repo and run when files change")
 	rootCmd.Flags().BoolP("list", "l", false, "list actions")
 	rootCmd.Flags().StringP("action", "a", "", "run action")
-	rootCmd.Flags().BoolP("init", "i", false, "init the local action")
+	rootCmd.Flags().BoolVarP(&runnerConfig.Init, "init", "i", false, "init the local action")
+	rootCmd.Flags().StringVarP(&runnerConfig.InitRepo, "init-repo", "", "https://github.com/nektos/act", "init template repository")
 	rootCmd.Flags().BoolVarP(&runnerConfig.ReuseContainers, "reuse", "r", false, "reuse action containers to maintain state")
 	rootCmd.Flags().StringVarP(&runnerConfig.EventPath, "event", "e", "", "path to event JSON file")
 	rootCmd.Flags().BoolVarP(&runnerConfig.ForcePull, "pull", "p", false, "pull docker image(s) if already present")
@@ -173,6 +175,7 @@ func initAction(config *actions.RunnerConfig) error {
 	if config.EventName == "" {
 		config.EventName = "push"
 	}
+
 	log.Printf("Setting up a new action for %s event\n", config.EventName)
 	baseDir := filepath.Dir(config.WorkflowPath)
 
@@ -182,50 +185,32 @@ func initAction(config *actions.RunnerConfig) error {
 		return nil
 	}
 
-	// setup workflow directory
-	if err := os.MkdirAll(baseDir, 0755); err != nil {
+	// prepare clone repository
+	repoCloneDir, err := ioutil.TempDir("", "act")
+	if err != nil {
+		log.Println("Can't get temp directory for clone:", err)
+		return err
+	}
+	defer os.RemoveAll(repoCloneDir)
+
+	// clone repository
+	_, err = git.PlainClone(repoCloneDir, false, &git.CloneOptions{
+		URL: config.InitRepo,
+	})
+	if err != nil {
+		log.Println("Can't clone repository:", err)
 		return err
 	}
 
-	// basic workflow template
-	template := `workflow "basic workflow" {
-	on = "%s"
-	resolves = ["example"]
-}
-
-action "example" {
-  uses = "./.github/example-action"
-}`
-
-	dockerFile := `FROM alpine:latest
-COPY entrypoint.sh /entrypoint.sh
-ENTRYPOINT ["/entrypoint.sh"]
-`
-
-	dockerEntrypoint := `#!/bin/sh
-echo "Hello World"
-`
-
-	// create workflow file
-	data := fmt.Sprintf(template, config.EventName)
-	if err := ioutil.WriteFile(config.WorkflowPath, []byte(data), 0666); err != nil {
+	// copy template
+	templateDir := filepath.Join(repoCloneDir, "templates/"+config.EventName)
+	if err := common.CopyDir(templateDir, baseDir); err != nil {
+		log.Println("Can't copy template:", err)
 		return err
 	}
 
-	// setup example forkflow docker action
-	actionDir := filepath.Join(baseDir, "example-action")
-	if err := os.MkdirAll(actionDir, 0755); err != nil {
-		return err
-	}
-	if err := ioutil.WriteFile(filepath.Join(actionDir, "Dockerfile"), []byte(dockerFile), 0666); err != nil {
-		return err
-	}
-	if err := ioutil.WriteFile(filepath.Join(actionDir, "entrypoint.sh"), []byte(dockerEntrypoint), 0777); err != nil {
-		return err
-	}
+	log.Printf("Done. You can now run `act %s` to test things out!", config.EventName)
 
-	log.Println("Done.")
-	log.Println("You can now run `act` to test things out!")
 	return nil
 }
 

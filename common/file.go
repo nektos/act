@@ -7,31 +7,29 @@ import (
 )
 
 // CopyFile copy file
-func CopyFile(source string, dest string) (err error) {
+func CopyFile(source string, dest string) error {
 	sourcefile, err := os.Open(source)
 	if err != nil {
 		return err
 	}
-
 	defer sourcefile.Close()
 
 	destfile, err := os.Create(dest)
 	if err != nil {
 		return err
 	}
-
 	defer destfile.Close()
 
-	_, err = io.Copy(destfile, sourcefile)
-	if err == nil {
-		sourceinfo, err := os.Stat(source)
-		if err != nil {
-			_ = os.Chmod(dest, sourceinfo.Mode())
-		}
-
+	if _, err = io.Copy(destfile, sourcefile); err != nil {
+		return err
 	}
 
-	return
+	sourceinfo, err := os.Stat(source)
+	if err != nil {
+		return err
+	}
+
+	return os.Chmod(dest, sourceinfo.Mode())
 }
 
 // CopyDir recursive copy of directory
