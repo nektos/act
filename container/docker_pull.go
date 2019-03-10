@@ -34,7 +34,7 @@ func NewDockerPullExecutor(input NewDockerPullExecutorInput) common.Executor {
 		cli.NegotiateAPIVersion(input.Ctx)
 
 		reader, err := cli.ImagePull(input.Ctx, imageRef, types.ImagePullOptions{})
-		input.logDockerResponse(reader, err != nil)
+		_ = input.logDockerResponse(reader, err != nil)
 		if err != nil {
 			return err
 		}
