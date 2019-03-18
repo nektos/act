@@ -53,12 +53,13 @@ func (runner *runnerImpl) addImageExecutor(action *model.Action, executors *[]co
 		pull := runner.config.ForcePull
 		if !pull {
 			imageExists, err := container.ImageExistsLocally(runner.config.Ctx, image)
+			log.Debugf("Image exists? %v", imageExists)
 			if err != nil {
 				return "", fmt.Errorf("unable to determine if image already exists for image %q", image)
 			}
 
-			if imageExists {
-				pull = false
+			if !imageExists {
+				pull = true
 			}
 		}
 
