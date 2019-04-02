@@ -34,7 +34,7 @@ act -l
 act
 
 # Run a specific event:
-act pull-request
+act pull_request
 
 # Run a specific action:
 act -a test
