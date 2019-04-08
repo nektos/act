@@ -8,6 +8,25 @@ import (
 	"gotest.tools/assert"
 )
 
+func TestGraphEvent(t *testing.T) {
+	runnerConfig := &RunnerConfig{
+		Ctx:          context.Background(),
+		WorkflowPath: "multi.workflow",
+		WorkingDir:   "testdata",
+		EventName:    "push",
+	}
+	runner, err := NewRunner(runnerConfig)
+	assert.NilError(t, err)
+
+	graph, err := runner.GraphEvent("push")
+	assert.NilError(t, err)
+	assert.DeepEqual(t, graph, [][]string{{"build"}})
+
+	graph, err = runner.GraphEvent("release")
+	assert.NilError(t, err)
+	assert.DeepEqual(t, graph, [][]string{{"deploy"}})
+}
+
 func TestRunEvent(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
