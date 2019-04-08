@@ -104,7 +104,7 @@ func (runner *runnerImpl) ListEvents() []string {
 // GraphEvent builds an execution path
 func (runner *runnerImpl) GraphEvent(eventName string) ([][]string, error) {
 	log.Debugf("Listing actions for event '%s'", eventName)
-	resolves := runner.resolveEvent(runner.config.EventName)
+	resolves := runner.resolveEvent(eventName)
 	return newExecutionGraph(runner.workflowConfig, resolves...), nil
 }
 
@@ -140,7 +140,7 @@ func (runner *runnerImpl) Close() error {
 
 // get list of resolves for an event
 func (runner *runnerImpl) resolveEvent(eventName string) []string {
-	workflows := runner.workflowConfig.GetWorkflows(runner.config.EventName)
+	workflows := runner.workflowConfig.GetWorkflows(eventName)
 	resolves := make([]string, 0)
 	for _, workflow := range workflows {
 		for _, resolve := range workflow.Resolves {
