@@ -1,13 +1,10 @@
 package common
 
 import (
-	"bufio"
-	"bytes"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -17,7 +14,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	git "gopkg.in/src-d/go-git.v4"
 	"gopkg.in/src-d/go-git.v4/plumbing"
-	yaml "gopkg.in/yaml.v2"
 )
 
 var (
@@ -36,15 +32,16 @@ func FindGitRevision(file string) (shortSha string, sha string, err error) {
 		return "", "", err
 	}
 
-	ref, err := FindGitRef(file)
+	bts, err := ioutil.ReadFile(filepath.Join(gitDir, "HEAD"))
 	if err != nil {
 		return "", "", err
 	}
 
+	var ref = strings.TrimSpace(strings.TrimPrefix(string(bts), "ref:"))
 	var refBuf []byte
 	if strings.HasPrefix(ref, "refs/") {
 		// load commitid ref
-		refBuf, err = ioutil.ReadFile(fmt.Sprintf("%s/%s", gitDir, ref))
+		refBuf, err = ioutil.ReadFile(filepath.Join(gitDir, ref))
 		if err != nil {
 			return "", "", err
 		}
@@ -56,19 +53,6 @@ func FindGitRevision(file string) (shortSha string, sha string, err error) {
 	return string(refBuf[:7]), strings.TrimSpace(string(refBuf)), nil
 }
 
-// FindGitBranch get the current git branch
-func FindGitBranch(file string) (string, error) {
-	ref, err := FindGitRef(file)
-	if err != nil {
-		return "", err
-	}
-
-	// get branch name
-	branch := strings.TrimPrefix(ref, "refs/heads/")
-	log.Debugf("Found branch: %s", branch)
-	return branch, nil
-}
-
 // FindGitRef get the current git ref
 func FindGitRef(file string) (string, error) {
 	gitDir, err := findGitDirectory(file)
@@ -77,34 +61,46 @@ func FindGitRef(file string) (string, error) {
 	}
 	log.Debugf("Loading revision from git directory '%s'", gitDir)
 
-	// load HEAD ref
-	headFile, err := os.Open(fmt.Sprintf("%s/HEAD", gitDir))
+	_, ref, err := FindGitRevision(file)
 	if err != nil {
 		return "", err
-	}
-	defer func() {
-		headFile.Close()
-	}()
-
-	headBuffer := new(bytes.Buffer)
-	_, err = headBuffer.ReadFrom(bufio.NewReader(headFile))
-	if err != nil {
-		log.Error(err)
-	}
-	headBytes := headBuffer.Bytes()
-
-	var ref string
-	head := make(map[string]string)
-	err = yaml.Unmarshal(headBytes, head)
-	if err != nil {
-		ref = string(headBytes)
-	} else {
-		ref = head["ref"]
 	}
 
 	log.Debugf("HEAD points to '%s'", ref)
 
-	return strings.TrimSpace(ref), nil
+	// try tags first
+	tag, err := findGitPrettyRef(ref, gitDir, "refs/tags")
+	if err != nil || tag != "" {
+		return tag, err
+	}
+	// and then branches
+	return findGitPrettyRef(ref, gitDir, "refs/heads")
+}
+
+func findGitPrettyRef(head, root, sub string) (string, error) {
+	var name string
+	var err = filepath.Walk(filepath.Join(root, sub), func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		if name != "" {
+			return nil
+		}
+		if info.IsDir() {
+			return nil
+		}
+		bts, err := ioutil.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		var pointsTo = strings.TrimSpace(string(bts))
+		if head == pointsTo {
+			name = strings.TrimPrefix(strings.Replace(path, root, "", 1), "/")
+			log.Debugf("HEAD matches %s", name)
+		}
+		return nil
+	})
+	return name, err
 }
 
 // FindGithubRepo get the repo
@@ -169,10 +165,10 @@ func findGitDirectory(fromFile string) (string, error) {
 	if fi.Mode().IsDir() {
 		dir = absPath
 	} else {
-		dir = path.Dir(absPath)
+		dir = filepath.Dir(absPath)
 	}
 
-	gitPath := path.Join(dir, ".git")
+	gitPath := filepath.Join(dir, ".git")
 	fi, err = os.Stat(gitPath)
 	if err == nil && fi.Mode().IsDir() {
 		return gitPath, nil
@@ -181,7 +177,6 @@ func findGitDirectory(fromFile string) (string, error) {
 	}
 
 	return findGitDirectory(filepath.Dir(dir))
-
 }
 
 // NewGitCloneExecutorInput the input for the NewGitCloneExecutor
