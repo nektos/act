@@ -49,6 +49,21 @@ act -r
 act -v
 ```
 
+# Skip Actions When Run in `act`
+
+You may sometimes want to skip some actions when you're running a `main.workflow` in act, such as deployment.
+You can achieve something similar by using a [filter](https://github.com/actions/bin/tree/master/filter) action, filtering on all [`GITHUB_ACTOR`](https://developer.github.com/actions/creating-github-actions/accessing-the-runtime-environment/#environment-variables)s *except* `nektos/act`, which is the `GITHUB_ACTOR` set by `act`.
+
+```
+action "Filter Not Act" {
+  uses = "actions/bin/filter@3c0b4f0e63ea54ea5df2914b4fabf383368cd0da"
+  args = "not actor nektos/act"
+}
+```
+
+Just remember that GitHub actions will cancel all upcoming and concurrent actions on a neutral exit code.
+To avoid prematurely cancelling actions, place this filter at the latest possible point in the build graph.
+
 # Support
 
 Need help? Ask on [Gitter](https://gitter.im/nektos/act)!
