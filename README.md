@@ -49,6 +49,32 @@ act -r
 act -v
 ```
 
+# Secrets
+
+To run `act` with secrets, you can enter them interactively or supply them as environment variables.
+If you have a secret called `FOO` in your `main.workflow`, `act` will take whatever you have set as `FOO` in the session from which you are running `act`.
+If `FOO` is unset, it will ask you interactively.
+
+You can set environment variables for the current session by running `export FOO="zap"`, or globally in your `.profile`.
+You can also set environment variables *per directory* using a tool such as [direnv](https://direnv.net/).
+**Be careful not to expose secrets**:
+You may want to `.gitignore` any files or folders containing secrets, and/or encrypt secrets.
+
+# Skip Actions When Run in `act`
+
+You may sometimes want to skip some actions when you're running a `main.workflow` in act, such as deployment.
+You can achieve something similar by using a [filter](https://github.com/actions/bin/tree/master/filter) action, filtering on all [`GITHUB_ACTOR`](https://developer.github.com/actions/creating-github-actions/accessing-the-runtime-environment/#environment-variables)s *except* `nektos/act`, which is the `GITHUB_ACTOR` set by `act`.
+
+```
+action "Filter Not Act" {
+  uses = "actions/bin/filter@3c0b4f0e63ea54ea5df2914b4fabf383368cd0da"
+  args = "not actor nektos/act"
+}
+```
+
+Just remember that GitHub actions will cancel all upcoming and concurrent actions on a neutral exit code.
+To avoid prematurely cancelling actions, place this filter at the latest possible point in the build graph.
+
 # Support
 
 Need help? Ask on [Gitter](https://gitter.im/nektos/act)!
