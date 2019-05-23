@@ -68,24 +68,16 @@ func FindGitRef(file string) (string, error) {
 
 	log.Debugf("HEAD points to '%s'", ref)
 
-	tag, err := findGitPrettyRef(ref, gitDir)
-	if err != nil || tag != "" {
-		return tag, err
-	}
-	return ref, nil
-}
-
-func findGitPrettyRef(head, gitDir string) (string, error) {
 	// try tags first
-	tag, err := findGitPrettyRefOn(head, gitDir, "refs/tags")
+	tag, err := findGitPrettyRef(ref, gitDir, "refs/tags")
 	if err != nil || tag != "" {
 		return tag, err
 	}
 	// and then branches
-	return findGitPrettyRefOn(head, gitDir, "refs/heads")
+	return findGitPrettyRef(ref, gitDir, "refs/heads")
 }
 
-func findGitPrettyRefOn(head, root, sub string) (string, error) {
+func findGitPrettyRef(head, root, sub string) (string, error) {
 	var name string
 	var err = filepath.Walk(filepath.Join(root, sub), func(path string, info os.FileInfo, err error) error {
 		if err != nil {
