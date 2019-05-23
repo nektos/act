@@ -56,26 +56,13 @@ func FindGitRevision(file string) (shortSha string, sha string, err error) {
 	return string(refBuf[:7]), strings.TrimSpace(string(refBuf)), nil
 }
 
-// FindGitBranch get the current git branch
-func FindGitBranch(file string) (string, error) {
-	ref, err := FindGitRef(file)
-	if err != nil {
-		return "", err
-	}
-
-	// get branch name
-	branch := strings.TrimPrefix(ref, "refs/heads/")
-	log.Debugf("Found branch: %s", branch)
-	return branch, nil
-}
-
 // FindGitRef get the current git ref
 func FindGitRef(file string) (string, error) {
 	gitDir, err := findGitDirectory(file)
 	if err != nil {
 		return "", err
 	}
-	log.Debugf("Loading revision from git directory '%s'", gitDir)
+	log.Infof("Loading revision from git directory '%s'", gitDir)
 
 	// load HEAD ref
 	headFile, err := os.Open(fmt.Sprintf("%s/HEAD", gitDir))
@@ -102,9 +89,50 @@ func FindGitRef(file string) (string, error) {
 		ref = head["ref"]
 	}
 
+	ref = strings.TrimSpace(ref)
 	log.Debugf("HEAD points to '%s'", ref)
 
-	return strings.TrimSpace(ref), nil
+	tag, err := findGitPrettyRef(ref, gitDir)
+	if err != nil || tag != "" {
+		return tag, err
+	}
+	return ref, nil
+}
+
+func findGitPrettyRef(head, gitDir string) (string, error) {
+	// try tags first
+	tag, err := findGitPrettyRefOn(head, gitDir, "refs/tags")
+	if err != nil || tag != "" {
+		return tag, err
+	}
+	// and then branches
+	return findGitPrettyRefOn(head, gitDir, "refs/heads")
+}
+
+func findGitPrettyRefOn(head, root, sub string) (string, error) {
+	var name string
+	var err = filepath.Walk(filepath.Join(root, sub), func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		if name != "" {
+			return nil
+		}
+		if info.IsDir() {
+			return nil
+		}
+		bts, err := ioutil.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		var pointsTo = strings.TrimSpace(string(bts))
+		if head == pointsTo {
+			name = strings.TrimPrefix(strings.Replace(path, root, "", 1), "/")
+			log.Debugf("HEAD matches %s", name)
+		}
+		return nil
+	})
+	return name, err
 }
 
 // FindGithubRepo get the repo

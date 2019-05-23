@@ -199,9 +199,9 @@ func (runner *runnerImpl) applyEnvironment(env map[string]string) {
 	if err != nil {
 		log.Warningf("unable to get git ref: %v", err)
 	} else {
+		log.Infof("using github ref: %s", ref)
 		env["GITHUB_REF"] = ref
 	}
-
 }
 
 func (runner *runnerImpl) createGithubTarball() (io.Reader, error) {
