@@ -1,8 +1,6 @@
 package common
 
 import (
-	"bufio"
-	"bytes"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -17,7 +15,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	git "gopkg.in/src-d/go-git.v4"
 	"gopkg.in/src-d/go-git.v4/plumbing"
-	yaml "gopkg.in/yaml.v2"
 )
 
 var (
@@ -36,15 +33,16 @@ func FindGitRevision(file string) (shortSha string, sha string, err error) {
 		return "", "", err
 	}
 
-	ref, err := FindGitRef(file)
+	bts, err := ioutil.ReadFile(filepath.Join(gitDir, "HEAD"))
 	if err != nil {
 		return "", "", err
 	}
 
+	var ref = strings.TrimSpace(strings.TrimPrefix(string(bts), "ref:"))
 	var refBuf []byte
 	if strings.HasPrefix(ref, "refs/") {
 		// load commitid ref
-		refBuf, err = ioutil.ReadFile(fmt.Sprintf("%s/%s", gitDir, ref))
+		refBuf, err = ioutil.ReadFile(filepath.Join(gitDir, ref))
 		if err != nil {
 			return "", "", err
 		}
@@ -62,34 +60,13 @@ func FindGitRef(file string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	log.Infof("Loading revision from git directory '%s'", gitDir)
+	log.Debugf("Loading revision from git directory '%s'", gitDir)
 
-	// load HEAD ref
-	headFile, err := os.Open(fmt.Sprintf("%s/HEAD", gitDir))
+	_, ref, err := FindGitRevision(file)
 	if err != nil {
 		return "", err
 	}
-	defer func() {
-		headFile.Close()
-	}()
 
-	headBuffer := new(bytes.Buffer)
-	_, err = headBuffer.ReadFrom(bufio.NewReader(headFile))
-	if err != nil {
-		log.Error(err)
-	}
-	headBytes := headBuffer.Bytes()
-
-	var ref string
-	head := make(map[string]string)
-	err = yaml.Unmarshal(headBytes, head)
-	if err != nil {
-		ref = string(headBytes)
-	} else {
-		ref = head["ref"]
-	}
-
-	ref = strings.TrimSpace(ref)
 	log.Debugf("HEAD points to '%s'", ref)
 
 	tag, err := findGitPrettyRef(ref, gitDir)
@@ -200,7 +177,7 @@ func findGitDirectory(fromFile string) (string, error) {
 		dir = path.Dir(absPath)
 	}
 
-	gitPath := path.Join(dir, ".git")
+	gitPath := filepath.Join(dir, ".git")
 	fi, err = os.Stat(gitPath)
 	if err == nil && fi.Mode().IsDir() {
 		return gitPath, nil
@@ -209,7 +186,6 @@ func findGitDirectory(fromFile string) (string, error) {
 	}
 
 	return findGitDirectory(filepath.Dir(dir))
-
 }
 
 // NewGitCloneExecutorInput the input for the NewGitCloneExecutor

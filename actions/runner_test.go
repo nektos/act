@@ -49,20 +49,23 @@ func TestRunEvent(t *testing.T) {
 	log.SetLevel(log.DebugLevel)
 
 	for _, table := range tables {
-		runnerConfig := &RunnerConfig{
-			Ctx:          context.Background(),
-			WorkflowPath: table.workflowPath,
-			WorkingDir:   "testdata",
-			EventName:    table.eventName,
-		}
-		runner, err := NewRunner(runnerConfig)
-		assert.NilError(t, err, table.workflowPath)
-
-		err = runner.RunEvent()
-		if table.errorMessage == "" {
+		table := table
+		t.Run(table.workflowPath, func(t *testing.T) {
+			runnerConfig := &RunnerConfig{
+				Ctx:          context.Background(),
+				WorkflowPath: table.workflowPath,
+				WorkingDir:   "testdata",
+				EventName:    table.eventName,
+			}
+			runner, err := NewRunner(runnerConfig)
 			assert.NilError(t, err, table.workflowPath)
-		} else {
-			assert.ErrorContains(t, err, table.errorMessage)
-		}
+
+			err = runner.RunEvent()
+			if table.errorMessage == "" {
+				assert.NilError(t, err, table.workflowPath)
+			} else {
+				assert.ErrorContains(t, err, table.errorMessage)
+			}
+		})
 	}
 }

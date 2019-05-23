@@ -6,10 +6,12 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"syscall"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestFindGitSlug(t *testing.T) {
@@ -59,6 +61,86 @@ func TestFindGitRemoteURL(t *testing.T) {
 	u, err := findGitRemoteURL(basedir)
 	assert.Nil(err)
 	assert.Equal(remoteURL, u)
+}
+
+func TestGitFindRef(t *testing.T) {
+	basedir, err := ioutil.TempDir("", "act-test")
+	defer os.RemoveAll(basedir)
+	assert.NoError(t, err)
+
+	for name, tt := range map[string]struct {
+		Prepare func(t *testing.T, dir string)
+		Assert  func(t *testing.T, ref string, err error)
+	}{
+		"new_repo": {
+			Prepare: func(t *testing.T, dir string) {},
+			Assert: func(t *testing.T, ref string, err error) {
+				require.Error(t, err)
+			},
+		},
+		"new_repo_with_commit": {
+			Prepare: func(t *testing.T, dir string) {
+				require.NoError(t, gitCmd("-C", dir, "commit", "--allow-empty", "-m", "msg"))
+			},
+			Assert: func(t *testing.T, ref string, err error) {
+				require.NoError(t, err)
+				require.Equal(t, "refs/heads/master", ref)
+			},
+		},
+		"current_head_is_tag": {
+			Prepare: func(t *testing.T, dir string) {
+				require.NoError(t, gitCmd("-C", dir, "commit", "--allow-empty", "-m", "commit msg"))
+				require.NoError(t, gitCmd("-C", dir, "tag", "v1.2.3"))
+				require.NoError(t, gitCmd("-C", dir, "checkout", "v1.2.3"))
+			},
+			Assert: func(t *testing.T, ref string, err error) {
+				require.NoError(t, err)
+				require.Equal(t, "refs/tags/v1.2.3", ref)
+			},
+		},
+		"current_head_is_same_as_tag": {
+			Prepare: func(t *testing.T, dir string) {
+				require.NoError(t, gitCmd("-C", dir, "commit", "--allow-empty", "-m", "1.4.2 release"))
+				require.NoError(t, gitCmd("-C", dir, "tag", "v1.4.2"))
+			},
+			Assert: func(t *testing.T, ref string, err error) {
+				require.NoError(t, err)
+				require.Equal(t, "refs/tags/v1.4.2", ref)
+			},
+		},
+		"current_head_is_not_tag": {
+			Prepare: func(t *testing.T, dir string) {
+				require.NoError(t, gitCmd("-C", dir, "commit", "--allow-empty", "-m", "msg"))
+				require.NoError(t, gitCmd("-C", dir, "tag", "v1.4.2"))
+				require.NoError(t, gitCmd("-C", dir, "commit", "--allow-empty", "-m", "msg2"))
+			},
+			Assert: func(t *testing.T, ref string, err error) {
+				require.NoError(t, err)
+				require.Equal(t, "refs/heads/master", ref)
+			},
+		},
+		"current_head_is_another_branch": {
+			Prepare: func(t *testing.T, dir string) {
+				require.NoError(t, gitCmd("-C", dir, "checkout", "-b", "mybranch"))
+				require.NoError(t, gitCmd("-C", dir, "commit", "--allow-empty", "-m", "msg"))
+			},
+			Assert: func(t *testing.T, ref string, err error) {
+				require.NoError(t, err)
+				require.Equal(t, "refs/heads/mybranch", ref)
+			},
+		},
+	} {
+		tt := tt
+		name := name
+		t.Run(name, func(t *testing.T) {
+			dir := filepath.Join(basedir, name)
+			require.NoError(t, os.MkdirAll(dir, 0755))
+			require.NoError(t, gitCmd("-C", dir, "init"))
+			tt.Prepare(t, dir)
+			ref, err := FindGitRef(dir)
+			tt.Assert(t, ref, err)
+		})
+	}
 }
 
 func gitCmd(args ...string) error {
