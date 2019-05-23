@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -174,7 +173,7 @@ func findGitDirectory(fromFile string) (string, error) {
 	if fi.Mode().IsDir() {
 		dir = absPath
 	} else {
-		dir = path.Dir(absPath)
+		dir = filepath.Dir(absPath)
 	}
 
 	gitPath := filepath.Join(dir, ".git")
