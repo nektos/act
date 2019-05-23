@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/docker/docker/pkg/stdcopy"
 	"io"
 	"os"
 
@@ -31,12 +32,10 @@ type dockerMessage struct {
 }
 
 func (i *DockerExecutorInput) logDockerOutput(dockerResponse io.Reader) {
-	scanner := bufio.NewScanner(dockerResponse)
-	if i.Logger == nil {
-		return
-	}
-	for scanner.Scan() {
-		i.Logger.Infof(scanner.Text())
+	w := i.Logger.Writer()
+	_, err := stdcopy.StdCopy(w, w, dockerResponse)
+	if err != nil {
+		i.Logger.Error(err)
 	}
 }
 
