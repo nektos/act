@@ -1,7 +1,6 @@
 package common
 
 import (
-	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -13,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
 
 func TestFindGitSlug(t *testing.T) {
 	assert := assert.New(t)
@@ -51,6 +51,7 @@ func TestFindGitRemoteURL(t *testing.T) {
 
 	assert.Nil(err)
 
+  gitConfig()
 	err = gitCmd("init", basedir)
 	assert.Nil(err)
 
@@ -67,6 +68,8 @@ func TestGitFindRef(t *testing.T) {
 	basedir, err := ioutil.TempDir("", "act-test")
 	defer os.RemoveAll(basedir)
 	assert.NoError(t, err)
+
+  gitConfig()
 
 	for name, tt := range map[string]struct {
 		Prepare func(t *testing.T, dir string)
@@ -143,11 +146,15 @@ func TestGitFindRef(t *testing.T) {
 	}
 }
 
+func gitConfig() {
+	_ = gitCmd("config","--global","user.email","test@test.com")
+	_ = gitCmd("config","--global","user.name","Unit Test")
+}
+
 func gitCmd(args ...string) error {
-	var stdout bytes.Buffer
 	cmd := exec.Command("git", args...)
-	cmd.Stdout = &stdout
-	cmd.Stderr = ioutil.Discard
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 
 	err := cmd.Run()
 	if exitError, ok := err.(*exec.ExitError); ok {
