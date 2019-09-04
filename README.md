@@ -24,6 +24,10 @@ Alternatively, you can use the following:
 
 ```curl  https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash```
 
+If you are running Arch Linux, you can install the [act](https://aur.archlinux.org/packages/act/) package with your favorite package manager:
+
+```yay -S act```
+
 # Commands
 
 ```
