@@ -2,13 +2,11 @@ package cmd
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 
 	fswatch "github.com/andreaskoch/go-fswatch"
-	"github.com/nektos/act/actions"
-	"github.com/nektos/act/common"
+	"github.com/nektos/act/pkg/model"
 	gitignore "github.com/sabhiram/go-gitignore"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -16,26 +14,26 @@ import (
 
 // Execute is the entry point to running the CLI
 func Execute(ctx context.Context, version string) {
-	runnerConfig := &actions.RunnerConfig{Ctx: ctx}
+	input := new(Input)
 	var rootCmd = &cobra.Command{
 		Use:              "act [event name to run]",
 		Short:            "Run Github actions locally by specifying the event name (e.g. `push`) or an action name directly.",
 		Args:             cobra.MaximumNArgs(1),
-		RunE:             newRunCommand(runnerConfig),
+		RunE:             newRunCommand(ctx, input),
 		PersistentPreRun: setupLogging,
 		Version:          version,
 		SilenceUsage:     true,
 	}
 	rootCmd.Flags().BoolP("watch", "w", false, "watch the contents of the local repo and run when files change")
-	rootCmd.Flags().BoolP("list", "l", false, "list actions")
-	rootCmd.Flags().StringP("action", "a", "", "run action")
-	rootCmd.Flags().BoolVarP(&runnerConfig.ReuseContainers, "reuse", "r", false, "reuse action containers to maintain state")
-	rootCmd.Flags().StringVarP(&runnerConfig.EventPath, "event", "e", "", "path to event JSON file")
-	rootCmd.Flags().BoolVarP(&runnerConfig.ForcePull, "pull", "p", false, "pull docker image(s) if already present")
+	rootCmd.Flags().BoolP("list", "l", false, "list workflows")
+	rootCmd.Flags().StringP("job", "j", "", "run job")
+	rootCmd.Flags().BoolVarP(&input.reuseContainers, "reuse", "r", false, "reuse action containers to maintain state")
+	rootCmd.Flags().BoolVarP(&input.forcePull, "pull", "p", false, "pull docker image(s) if already present")
+	rootCmd.Flags().StringVarP(&input.eventPath, "event", "e", "", "path to event JSON file")
+	rootCmd.PersistentFlags().StringVarP(&input.workflowsPath, "workflows", "W", "./.github/workflows/", "path to workflow files")
+	rootCmd.PersistentFlags().StringVarP(&input.workingDir, "directory", "C", ".", "working directory")
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "verbose output")
-	rootCmd.PersistentFlags().BoolVarP(&runnerConfig.Dryrun, "dryrun", "n", false, "dryrun mode")
-	rootCmd.PersistentFlags().StringVarP(&runnerConfig.WorkflowPath, "file", "f", "./.github/main.workflow", "path to workflow file")
-	rootCmd.PersistentFlags().StringVarP(&runnerConfig.WorkingDir, "directory", "C", ".", "working directory")
+	rootCmd.PersistentFlags().BoolVarP(&input.dryrun, "dryrun", "n", false, "dryrun mode")
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}
@@ -49,67 +47,63 @@ func setupLogging(cmd *cobra.Command, args []string) {
 	}
 }
 
-func newRunCommand(runnerConfig *actions.RunnerConfig) func(*cobra.Command, []string) error {
+func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, args []string) error {
-		if len(args) > 0 {
-			runnerConfig.EventName = args[0]
-		}
-
-		watch, err := cmd.Flags().GetBool("watch")
+		planner, err := model.NewWorkflowPlanner(input.WorkflowsPath())
 		if err != nil {
 			return err
 		}
-		if watch {
-			return watchAndRun(runnerConfig.Ctx, func() error {
-				return parseAndRun(cmd, runnerConfig)
-			})
+
+		// Determine the event name
+		var eventName string
+		if len(args) > 0 {
+			eventName = args[0]
+		} else {
+			// set default event type if we only have a single workflow in the file.
+			// this way user dont have to specify the event.
+			if events := planner.GetEvents(); len(events) == 1 {
+				log.Debugf("Using detected workflow event: %s", events[0])
+				eventName = events[0]
+			}
 		}
-		return parseAndRun(cmd, runnerConfig)
-	}
-}
 
-func parseAndRun(cmd *cobra.Command, runnerConfig *actions.RunnerConfig) error {
-	// create the runner
-	runner, err := actions.NewRunner(runnerConfig)
-	if err != nil {
-		return err
-	}
-	defer runner.Close()
-
-	// set default event type if we only have a single workflow in the file.
-	// this way user dont have to specify the event.
-	if runnerConfig.EventName == "" {
-		if events := runner.ListEvents(); len(events) == 1 {
-			log.Debugf("Using detected workflow event: %s", events[0])
-			runnerConfig.EventName = events[0]
+		// build the plan for this run
+		var plan *model.Plan
+		if jobID, err := cmd.Flags().GetString("job"); err != nil {
+			return err
+		} else if jobID != "" {
+			log.Debugf("Planning job: %s", jobID)
+			plan = planner.PlanJob(jobID)
+		} else {
+			log.Debugf("Planning event: %s", eventName)
+			plan = planner.PlanEvent(eventName)
 		}
-	}
 
-	// fall back to default event name if we could not detect one.
-	if runnerConfig.EventName == "" {
-		runnerConfig.EventName = "push"
-	}
+		// check if we should just print the graph
+		if list, err := cmd.Flags().GetBool("list"); err != nil {
+			return err
+		} else if list {
+			return drawGraph(plan)
+		}
 
-	// check if we should just print the graph
-	list, err := cmd.Flags().GetBool("list")
-	if err != nil {
-		return err
-	}
-	if list {
-		return drawGraph(runner)
-	}
+		// run the plan
+		// runner, err := runner.New(config)
+		// if err != nil {
+		// 	return err
+		// }
+		// defer runner.Close()
 
-	// check if we are running just a single action
-	actionName, err := cmd.Flags().GetString("action")
-	if err != nil {
-		return err
-	}
-	if actionName != "" {
-		return runner.RunActions(actionName)
-	}
+		// if watch, err := cmd.Flags().GetBool("watch"); err != nil {
+		// 	return err
+		// } else if watch {
+		// 	return watchAndRun(ctx, func() error {
+		// 		return runner.RunPlan(plan)
+		// 	})
+		// }
 
-	// run the event in the RunnerRonfig
-	return runner.RunEvent()
+		// return runner.RunPlan(plan)
+		return nil
+	}
 }
 
 func watchAndRun(ctx context.Context, fn func() error) error {
@@ -154,41 +148,4 @@ func watchAndRun(ctx context.Context, fn func() error) error {
 	<-ctx.Done()
 	folderWatcher.Stop()
 	return err
-}
-
-func drawGraph(runner actions.Runner) error {
-	eventNames := runner.ListEvents()
-	for _, eventName := range eventNames {
-		graph, err := runner.GraphEvent(eventName)
-		if err != nil {
-			return err
-		}
-
-		drawings := make([]*common.Drawing, 0)
-		eventPen := common.NewPen(common.StyleDoubleLine, 91 /*34*/)
-
-		drawings = append(drawings, eventPen.DrawBoxes(fmt.Sprintf("EVENT: %s", eventName)))
-
-		actionPen := common.NewPen(common.StyleSingleLine, 96)
-		arrowPen := common.NewPen(common.StyleNoLine, 97)
-		drawings = append(drawings, arrowPen.DrawArrow())
-		for i, stage := range graph {
-			if i > 0 {
-				drawings = append(drawings, arrowPen.DrawArrow())
-			}
-			drawings = append(drawings, actionPen.DrawBoxes(stage...))
-		}
-
-		maxWidth := 0
-		for _, d := range drawings {
-			if d.GetWidth() > maxWidth {
-				maxWidth = d.GetWidth()
-			}
-		}
-
-		for _, d := range drawings {
-			d.Draw(os.Stdout, maxWidth)
-		}
-	}
-	return nil
 }

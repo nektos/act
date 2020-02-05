@@ -3,11 +3,12 @@ package container
 import (
 	"bytes"
 	"context"
-	"github.com/nektos/act/common"
-	"github.com/sirupsen/logrus"
-	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"testing"
+
+	"github.com/nektos/act/pkg/common"
+	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
 )
 
 type rawFormatter struct{}

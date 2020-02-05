@@ -1,21 +1,20 @@
-package actions
+package runner
 
 import (
 	"archive/tar"
 	"bytes"
 	"fmt"
 	"io"
-	"os"
 	"path/filepath"
 	"regexp"
 
-	"github.com/actions/workflow-parser/model"
-	"github.com/nektos/act/common"
-	"github.com/nektos/act/container"
+	"github.com/nektos/act/pkg/common"
+	"github.com/nektos/act/pkg/container"
+	"github.com/nektos/act/pkg/model"
 	log "github.com/sirupsen/logrus"
 )
 
-func (runner *runnerImpl) newActionExecutor(actionName string) common.Executor {
+func (runner *runnerImpl) newRunExecutor(run *model.Run) common.Executor {
 	action := runner.workflowConfig.GetAction(actionName)
 	if action == nil {
 		return common.NewErrorExecutor(fmt.Errorf("Unable to find action named '%s'", actionName))
@@ -35,7 +34,8 @@ func (runner *runnerImpl) newActionExecutor(actionName string) common.Executor {
 	return common.NewPipelineExecutor(executors...)
 }
 
-func (runner *runnerImpl) addImageExecutor(action *model.Action, executors *[]common.Executor) (string, error) {
+/*
+func (runner *runnerImpl) addImageExecutor(action *Action, executors *[]common.Executor) (string, error) {
 	var image string
 	logger := newActionLogger(action.Identifier, runner.config.Dryrun)
 	log.Debugf("Using '%s' for action '%s'", action.Uses, action.Identifier)
@@ -111,8 +111,9 @@ func (runner *runnerImpl) addImageExecutor(action *model.Action, executors *[]co
 
 	return image, nil
 }
+*/
 
-func (runner *runnerImpl) addRunExecutor(action *model.Action, image string, executors *[]common.Executor) error {
+func (runner *runnerImpl) addRunExecutor(action *Action, image string, executors *[]common.Executor) error {
 	logger := newActionLogger(action.Identifier, runner.config.Dryrun)
 	log.Debugf("Using '%s' for action '%s'", action.Uses, action.Identifier)
 

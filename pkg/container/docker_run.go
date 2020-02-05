@@ -9,7 +9,7 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
-	"github.com/nektos/act/common"
+	"github.com/nektos/act/pkg/common"
 	"golang.org/x/crypto/ssh/terminal"
 )
 

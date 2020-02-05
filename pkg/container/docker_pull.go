@@ -6,7 +6,7 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
-	"github.com/nektos/act/common"
+	"github.com/nektos/act/pkg/common"
 )
 
 // NewDockerPullExecutorInput the input for the NewDockerPullExecutor function

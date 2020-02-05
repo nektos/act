@@ -10,7 +10,7 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/archive"
 	"github.com/docker/docker/pkg/fileutils"
-	"github.com/nektos/act/common"
+	"github.com/nektos/act/pkg/common"
 	log "github.com/sirupsen/logrus"
 )
 

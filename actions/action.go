@@ -5,17 +5,18 @@ import (
 	"log"
 	"os"
 
-	"github.com/actions/workflow-parser/model"
 	"github.com/howeyc/gopass"
 )
 
 var secretCache map[string]string
 
 type actionEnvironmentApplier struct {
-	*model.Action
+	*Action
 }
 
-func newActionEnvironmentApplier(action *model.Action) environmentApplier {
+type Action struct{}
+
+func newActionEnvironmentApplier(action *Action) environmentApplier {
 	return &actionEnvironmentApplier{action}
 }
 
