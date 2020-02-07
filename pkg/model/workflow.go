@@ -1,7 +1,9 @@
 package model
 
 import (
+	"fmt"
 	"io"
+	"strings"
 
 	"gopkg.in/yaml.v2"
 )
@@ -16,13 +18,26 @@ type Workflow struct {
 
 // Job is the structure of one job in a workflow
 type Job struct {
-	Name           string            `yaml:"name"`
-	Needs          []string          `yaml:"needs"`
-	RunsOn         string            `yaml:"runs-on"`
-	Env            map[string]string `yaml:"env"`
-	If             string            `yaml:"if"`
-	Steps          []*Step           `yaml:"steps"`
-	TimeoutMinutes int64             `yaml:"timeout-minutes"`
+	Name           string                    `yaml:"name"`
+	Needs          []string                  `yaml:"needs"`
+	RunsOn         string                    `yaml:"runs-on"`
+	Env            map[string]string         `yaml:"env"`
+	If             string                    `yaml:"if"`
+	Steps          []*Step                   `yaml:"steps"`
+	TimeoutMinutes int64                     `yaml:"timeout-minutes"`
+	Container      *ContainerSpec            `yaml:"container"`
+	Services       map[string]*ContainerSpec `yaml:"services"`
+}
+
+// ContainerSpec is the specification of the container to use for the job
+type ContainerSpec struct {
+	Image      string            `yaml:"image"`
+	Env        map[string]string `yaml:"env"`
+	Ports      []int             `yaml:"ports"`
+	Volumes    []string          `yaml:"volumes"`
+	Options    string            `yaml:"options"`
+	Entrypoint string
+	Args       string
 }
 
 // Step is the structure of one step in a job
@@ -38,6 +53,19 @@ type Step struct {
 	With             map[string]string `yaml:"with"`
 	ContinueOnError  bool              `yaml:"continue-on-error"`
 	TimeoutMinutes   int64             `yaml:"timeout-minutes"`
+}
+
+// GetEnv gets the env for a step
+func (s *Step) GetEnv() map[string]string {
+	rtnEnv := make(map[string]string)
+	for k, v := range s.Env {
+		rtnEnv[k] = v
+	}
+	for k, v := range s.With {
+		envKey := fmt.Sprintf("INPUT_%s", strings.ToUpper(k))
+		rtnEnv[envKey] = v
+	}
+	return rtnEnv
 }
 
 // ReadWorkflow returns a list of jobs for a given workflow file reader

@@ -1,4 +1,4 @@
-package actions
+package runner
 
 import (
 	"bytes"
@@ -11,15 +11,6 @@ import (
 	"golang.org/x/crypto/ssh/terminal"
 )
 
-type actionLogFormatter struct {
-}
-
-var formatter *actionLogFormatter
-
-func init() {
-	formatter = new(actionLogFormatter)
-}
-
 const (
 	//nocolor = 0
 	red    = 31
@@ -29,16 +20,20 @@ const (
 	gray   = 37
 )
 
-func newActionLogger(actionName string, dryrun bool) *logrus.Entry {
+// NewJobLogger gets the logger for the Job
+func NewJobLogger(jobName string, dryrun bool) logrus.FieldLogger {
 	logger := logrus.New()
-	logger.SetFormatter(formatter)
+	logger.SetFormatter(new(jobLogFormatter))
 	logger.SetOutput(os.Stdout)
 	logger.SetLevel(logrus.GetLevel())
-	rtn := logger.WithFields(logrus.Fields{"action_name": actionName, "dryrun": dryrun})
+	rtn := logger.WithFields(logrus.Fields{"job_name": jobName, "dryrun": dryrun})
 	return rtn
 }
 
-func (f *actionLogFormatter) Format(entry *logrus.Entry) ([]byte, error) {
+type jobLogFormatter struct {
+}
+
+func (f *jobLogFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	b := &bytes.Buffer{}
 
 	if f.isColored(entry) {
@@ -51,7 +46,7 @@ func (f *actionLogFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	return b.Bytes(), nil
 }
 
-func (f *actionLogFormatter) printColored(b *bytes.Buffer, entry *logrus.Entry) {
+func (f *jobLogFormatter) printColored(b *bytes.Buffer, entry *logrus.Entry) {
 	var levelColor int
 	switch entry.Level {
 	case logrus.DebugLevel, logrus.TraceLevel:
@@ -65,27 +60,27 @@ func (f *actionLogFormatter) printColored(b *bytes.Buffer, entry *logrus.Entry) 
 	}
 
 	entry.Message = strings.TrimSuffix(entry.Message, "\n")
-	actionName := entry.Data["action_name"]
+	jobName := entry.Data["job_name"]
 
 	if entry.Data["dryrun"] == true {
-		fmt.Fprintf(b, "\x1b[%dm*DRYRUN* \x1b[%dm[%s] \x1b[0m%s", green, levelColor, actionName, entry.Message)
+		fmt.Fprintf(b, "\x1b[%dm*DRYRUN* \x1b[%dm[%s] \x1b[0m%s", green, levelColor, jobName, entry.Message)
 	} else {
-		fmt.Fprintf(b, "\x1b[%dm[%s] \x1b[0m%s", levelColor, actionName, entry.Message)
+		fmt.Fprintf(b, "\x1b[%dm[%s] \x1b[0m%s", levelColor, jobName, entry.Message)
 	}
 }
 
-func (f *actionLogFormatter) print(b *bytes.Buffer, entry *logrus.Entry) {
+func (f *jobLogFormatter) print(b *bytes.Buffer, entry *logrus.Entry) {
 	entry.Message = strings.TrimSuffix(entry.Message, "\n")
-	actionName := entry.Data["action_name"]
+	jobName := entry.Data["job_name"]
 
 	if entry.Data["dryrun"] == true {
-		fmt.Fprintf(b, "*DRYRUN* [%s] %s", actionName, entry.Message)
+		fmt.Fprintf(b, "*DRYRUN* [%s] %s", jobName, entry.Message)
 	} else {
-		fmt.Fprintf(b, "[%s] %s", actionName, entry.Message)
+		fmt.Fprintf(b, "[%s] %s", jobName, entry.Message)
 	}
 }
 
-func (f *actionLogFormatter) isColored(entry *logrus.Entry) bool {
+func (f *jobLogFormatter) isColored(entry *logrus.Entry) bool {
 
 	isColored := checkIfTerminal(entry.Logger.Out)
 

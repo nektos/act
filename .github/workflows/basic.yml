@@ -4,5 +4,15 @@ on: push
 jobs:
   build:
     runs-on: ubuntu-latest
+    container: 
+      image: node:10.16-jessie
+      env:
+        NODE_ENV: development
     steps:
-    - run: echo hello world!
+      - run: env
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - run: cp $GITHUB_EVENT_PATH $HOME/foo.json
+    - run: ls $HOME
+    - run: cat $HOME/foo.json

@@ -1,40 +1,60 @@
 package container
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 	"github.com/nektos/act/pkg/common"
+	log "github.com/sirupsen/logrus"
 )
 
 // NewDockerPullExecutorInput the input for the NewDockerPullExecutor function
 type NewDockerPullExecutorInput struct {
-	DockerExecutorInput
-	Image string
+	Image     string
+	ForcePull bool
 }
 
 // NewDockerPullExecutor function to create a run executor for the container
 func NewDockerPullExecutor(input NewDockerPullExecutorInput) common.Executor {
-	return func() error {
-		input.Logger.Infof("docker pull %v", input.Image)
+	return func(ctx context.Context) error {
+		logger := common.Logger(ctx)
+		logger.Infof("docker pull %v", input.Image)
 
-		if input.Dryrun {
+		if common.Dryrun(ctx) {
+			return nil
+		}
+
+		pull := input.ForcePull
+		if !pull {
+			imageExists, err := ImageExistsLocally(ctx, input.Image)
+			log.Debugf("Image exists? %v", imageExists)
+			if err != nil {
+				return fmt.Errorf("unable to determine if image already exists for image %q", input.Image)
+			}
+
+			if !imageExists {
+				pull = true
+			}
+		}
+
+		if !pull {
 			return nil
 		}
 
 		imageRef := cleanImage(input.Image)
-		input.Logger.Debugf("pulling image '%v'", imageRef)
+		logger.Debugf("pulling image '%v'", imageRef)
 
 		cli, err := client.NewClientWithOpts(client.FromEnv)
 		if err != nil {
 			return err
 		}
-		cli.NegotiateAPIVersion(input.Ctx)
+		cli.NegotiateAPIVersion(ctx)
 
-		reader, err := cli.ImagePull(input.Ctx, imageRef, types.ImagePullOptions{})
-		_ = input.logDockerResponse(reader, err != nil)
+		reader, err := cli.ImagePull(ctx, imageRef, types.ImagePullOptions{})
+		_ = logDockerResponse(logger, reader, err != nil)
 		if err != nil {
 			return err
 		}

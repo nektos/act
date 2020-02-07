@@ -10,7 +10,6 @@ import (
 
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/container"
-	"github.com/nektos/act/pkg/model"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -34,7 +33,6 @@ func (runner *runnerImpl) newRunExecutor(run *model.Run) common.Executor {
 	return common.NewPipelineExecutor(executors...)
 }
 
-/*
 func (runner *runnerImpl) addImageExecutor(action *Action, executors *[]common.Executor) (string, error) {
 	var image string
 	logger := newActionLogger(action.Identifier, runner.config.Dryrun)
@@ -111,7 +109,6 @@ func (runner *runnerImpl) addImageExecutor(action *Action, executors *[]common.E
 
 	return image, nil
 }
-*/
 
 func (runner *runnerImpl) addRunExecutor(action *Action, image string, executors *[]common.Executor) error {
 	logger := newActionLogger(action.Identifier, runner.config.Dryrun)
@@ -141,7 +138,11 @@ func (runner *runnerImpl) addRunExecutor(action *Action, image string, executors
 
 	var cmd, entrypoint []string
 	if action.Args != nil {
-		cmd = action.Args.Split()
+		cmd = []string{
+			"/bin/sh", 
+			"-c",
+			action.Args,
+		}
 	}
 	if action.Runs != nil {
 		entrypoint = action.Runs.Split()
