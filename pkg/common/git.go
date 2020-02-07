@@ -1,6 +1,7 @@
 package common
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -190,7 +191,7 @@ type NewGitCloneExecutorInput struct {
 
 // NewGitCloneExecutor creates an executor to clone git repos
 func NewGitCloneExecutor(input NewGitCloneExecutorInput) Executor {
-	return func() error {
+	return func(ctx context.Context) error {
 		input.Logger.Infof("git clone '%s' # ref=%s", input.URL, input.Ref)
 		input.Logger.Debugf("  cloning %s to %s", input.URL, input.Dir)
 

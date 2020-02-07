@@ -7,7 +7,7 @@ import (
 
 // Input contains the input for the root command
 type Input struct {
-	workingDir      string
+	workdir         string
 	workflowsPath   string
 	eventPath       string
 	reuseContainers bool
@@ -16,7 +16,7 @@ type Input struct {
 }
 
 func (i *Input) resolve(path string) string {
-	basedir, err := filepath.Abs(i.workingDir)
+	basedir, err := filepath.Abs(i.workdir)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -27,6 +27,11 @@ func (i *Input) resolve(path string) string {
 		path = filepath.Join(basedir, path)
 	}
 	return path
+}
+
+// Workdir returns path to workdir
+func (i *Input) Workdir() string {
+	return i.resolve(".")
 }
 
 // WorkflowsPath returns path to workflows

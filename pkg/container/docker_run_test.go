@@ -30,27 +30,21 @@ func TestNewDockerRunExecutor(t *testing.T) {
 	logger.SetOutput(buf)
 	logger.SetFormatter(&rawFormatter{})
 
+	ctx := common.WithLogger(context.Background(), logger)
+
 	runner := NewDockerRunExecutor(NewDockerRunExecutorInput{
-		DockerExecutorInput: DockerExecutorInput{
-			Ctx:    context.TODO(),
-			Logger: logrus.NewEntry(logger),
-		},
 		Image: "hello-world",
 	})
 
 	puller := NewDockerPullExecutor(NewDockerPullExecutorInput{
-		DockerExecutorInput: DockerExecutorInput{
-			Ctx:    context.TODO(),
-			Logger: logrus.NewEntry(noopLogger),
-		},
 		Image: "hello-world",
 	})
 
 	pipeline := common.NewPipelineExecutor(puller, runner)
-	err := pipeline()
+	err := pipeline(ctx)
 	assert.NoError(t, err)
 
-	expected := `docker run image=hello-world entrypoint=[] cmd=[]Hello from Docker!`
+	expected := `docker pull hello-worlddocker run image=hello-world entrypoint=[] cmd=[]Hello from Docker!`
 	actual := buf.String()
 	assert.Equal(t, expected, actual[:len(expected)])
 }

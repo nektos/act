@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/nektos/act/pkg/common"
@@ -21,7 +20,7 @@ func drawGraph(plan *model.Plan) error {
 
 		ids := make([]string, 0)
 		for _, r := range stage.Runs {
-			ids = append(ids, fmt.Sprintf("%s/%s", r.Workflow.Name, r.JobID))
+			ids = append(ids, r.String())
 		}
 		drawings = append(drawings, jobPen.DrawBoxes(ids...))
 	}

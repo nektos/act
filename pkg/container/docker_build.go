@@ -1,6 +1,7 @@
 package container
 
 import (
+	"context"
 	"io"
 	"os"
 	"path/filepath"
@@ -16,16 +17,16 @@ import (
 
 // NewDockerBuildExecutorInput the input for the NewDockerBuildExecutor function
 type NewDockerBuildExecutorInput struct {
-	DockerExecutorInput
 	ContextDir string
 	ImageTag   string
 }
 
 // NewDockerBuildExecutor function to create a run executor for the container
 func NewDockerBuildExecutor(input NewDockerBuildExecutorInput) common.Executor {
-	return func() error {
-		input.Logger.Infof("docker build -t %s %s", input.ImageTag, input.ContextDir)
-		if input.Dryrun {
+	return func(ctx context.Context) error {
+		logger := common.Logger(ctx)
+		logger.Infof("docker build -t %s %s", input.ImageTag, input.ContextDir)
+		if common.Dryrun(ctx) {
 			return nil
 		}
 
@@ -33,9 +34,9 @@ func NewDockerBuildExecutor(input NewDockerBuildExecutorInput) common.Executor {
 		if err != nil {
 			return err
 		}
-		cli.NegotiateAPIVersion(input.Ctx)
+		cli.NegotiateAPIVersion(ctx)
 
-		input.Logger.Debugf("Building image from '%v'", input.ContextDir)
+		logger.Debugf("Building image from '%v'", input.ContextDir)
 
 		tags := []string{input.ImageTag}
 		options := types.ImageBuildOptions{
@@ -49,10 +50,10 @@ func NewDockerBuildExecutor(input NewDockerBuildExecutorInput) common.Executor {
 
 		defer buildContext.Close()
 
-		input.Logger.Debugf("Creating image from context dir '%s' with tag '%s'", input.ContextDir, input.ImageTag)
-		resp, err := cli.ImageBuild(input.Ctx, buildContext, options)
+		logger.Debugf("Creating image from context dir '%s' with tag '%s'", input.ContextDir, input.ImageTag)
+		resp, err := cli.ImageBuild(ctx, buildContext, options)
 
-		err = input.logDockerResponse(resp.Body, err != nil)
+		err = logDockerResponse(logger, resp.Body, err != nil)
 		if err != nil {
 			return err
 		}

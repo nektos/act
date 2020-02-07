@@ -5,8 +5,11 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/nektos/act/pkg/common"
+
 	fswatch "github.com/andreaskoch/go-fswatch"
 	"github.com/nektos/act/pkg/model"
+	"github.com/nektos/act/pkg/runner"
 	gitignore "github.com/sabhiram/go-gitignore"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -31,7 +34,7 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.Flags().BoolVarP(&input.forcePull, "pull", "p", false, "pull docker image(s) if already present")
 	rootCmd.Flags().StringVarP(&input.eventPath, "event", "e", "", "path to event JSON file")
 	rootCmd.PersistentFlags().StringVarP(&input.workflowsPath, "workflows", "W", "./.github/workflows/", "path to workflow files")
-	rootCmd.PersistentFlags().StringVarP(&input.workingDir, "directory", "C", ".", "working directory")
+	rootCmd.PersistentFlags().StringVarP(&input.workdir, "directory", "C", ".", "working directory")
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "verbose output")
 	rootCmd.PersistentFlags().BoolVarP(&input.dryrun, "dryrun", "n", false, "dryrun mode")
 	if err := rootCmd.Execute(); err != nil {
@@ -87,26 +90,30 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 		}
 
 		// run the plan
-		// runner, err := runner.New(config)
-		// if err != nil {
-		// 	return err
-		// }
-		// defer runner.Close()
+		config := &runner.Config{
+			EventName:       eventName,
+			EventPath:       input.EventPath(),
+			ForcePull:       input.forcePull,
+			ReuseContainers: input.reuseContainers,
+			Workdir:         input.Workdir(),
+		}
+		runner, err := runner.New(config)
+		if err != nil {
+			return err
+		}
 
-		// if watch, err := cmd.Flags().GetBool("watch"); err != nil {
-		// 	return err
-		// } else if watch {
-		// 	return watchAndRun(ctx, func() error {
-		// 		return runner.RunPlan(plan)
-		// 	})
-		// }
+		ctx = common.WithDryrun(ctx, input.dryrun)
+		if watch, err := cmd.Flags().GetBool("watch"); err != nil {
+			return err
+		} else if watch {
+			return watchAndRun(ctx, runner.NewPlanExecutor(plan))
+		}
 
-		// return runner.RunPlan(plan)
-		return nil
+		return runner.NewPlanExecutor(plan)(ctx)
 	}
 }
 
-func watchAndRun(ctx context.Context, fn func() error) error {
+func watchAndRun(ctx context.Context, fn common.Executor) error {
 	recurse := true
 	checkIntervalInSeconds := 2
 	dir, err := os.Getwd()
@@ -132,13 +139,13 @@ func watchAndRun(ctx context.Context, fn func() error) error {
 
 	go func() {
 		for folderWatcher.IsRunning() {
-			if err = fn(); err != nil {
+			if err = fn(ctx); err != nil {
 				break
 			}
 			log.Debugf("Watching %s for changes", dir)
 			for changes := range folderWatcher.ChangeDetails() {
 				log.Debugf("%s", changes.String())
-				if err = fn(); err != nil {
+				if err = fn(ctx); err != nil {
 					break
 				}
 				log.Debugf("Watching %s for changes", dir)

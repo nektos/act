@@ -1,9 +1,7 @@
 package runner
 
 import (
-	"io"
 	"io/ioutil"
-	"os"
 
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/model"
@@ -12,18 +10,13 @@ import (
 
 // Runner provides capabilities to run GitHub actions
 type Runner interface {
-	PlanRunner
-	io.Closer
-}
-
-// PlanRunner to run a specific actions
-type PlanRunner interface {
-	RunPlan(plan *model.Plan) error
+	NewPlanExecutor(plan *model.Plan) common.Executor
+	NewRunExecutor(run *model.Run) common.Executor
 }
 
 // Config contains the config for a new runner
 type Config struct {
-	Dryrun          bool   // don't start any of the containers
+	Workdir         string // path to working directory
 	EventName       string // name of event to run
 	EventPath       string // path to JSON file to use for event.json in containers
 	ReuseContainers bool   // reuse containers to maintain state
@@ -32,57 +25,44 @@ type Config struct {
 
 type runnerImpl struct {
 	config    *Config
-	tempDir   string
 	eventJSON string
 }
 
-// NewRunner Creates a new Runner
-func NewRunner(runnerConfig *Config) (Runner, error) {
+// New Creates a new Runner
+func New(runnerConfig *Config) (Runner, error) {
 	runner := &runnerImpl{
 		config: runnerConfig,
 	}
 
-	init := common.NewPipelineExecutor(
-		runner.setupTempDir,
-		runner.setupEvent,
-	)
-
-	return runner, init()
-}
-
-func (runner *runnerImpl) setupTempDir() error {
-	var err error
-	runner.tempDir, err = ioutil.TempDir("", "act-")
-	return err
-}
-
-func (runner *runnerImpl) setupEvent() error {
 	runner.eventJSON = "{}"
-	if runner.config.EventPath != "" {
+	if runnerConfig.EventPath != "" {
 		log.Debugf("Reading event.json from %s", runner.config.EventPath)
 		eventJSONBytes, err := ioutil.ReadFile(runner.config.EventPath)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		runner.eventJSON = string(eventJSONBytes)
 	}
-	return nil
+	return runner, nil
 }
 
-func (runner *runnerImpl) RunPlan(plan *model.Plan) error {
+func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 	pipeline := make([]common.Executor, 0)
 	for _, stage := range plan.Stages {
 		stageExecutor := make([]common.Executor, 0)
 		for _, run := range stage.Runs {
-			stageExecutor = append(stageExecutor, runner.newRunExecutor(run))
+			stageExecutor = append(stageExecutor, runner.NewRunExecutor(run))
 		}
 		pipeline = append(pipeline, common.NewParallelExecutor(stageExecutor...))
 	}
 
-	executor := common.NewPipelineExecutor(pipeline...)
-	return executor()
+	return common.NewPipelineExecutor(pipeline...)
 }
 
-func (runner *runnerImpl) Close() error {
-	return os.RemoveAll(runner.tempDir)
+func (runner *runnerImpl) NewRunExecutor(run *model.Run) common.Executor {
+	rc := new(RunContext)
+	rc.Config = runner.config
+	rc.Run = run
+	rc.EventJSON = runner.eventJSON
+	return rc.Executor()
 }

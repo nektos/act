@@ -1,6 +1,7 @@
 package model
 
 import (
+	"fmt"
 	"io/ioutil"
 	"math"
 	"os"
@@ -33,6 +34,19 @@ type Run struct {
 	JobID    string
 }
 
+func (r *Run) String() string {
+	jobName := r.Job().Name
+	if jobName == "" {
+		jobName = r.JobID
+	}
+	return fmt.Sprintf("%s/%s", r.Workflow.Name, jobName)
+}
+
+// Job returns the job for this Run
+func (r *Run) Job() *Job {
+	return r.Workflow.GetJob(r.JobID)
+}
+
 // NewWorkflowPlanner will load all workflows from a directory
 func NewWorkflowPlanner(dirname string) (WorkflowPlanner, error) {
 	log.Debugf("Loading workflows from '%s'", dirname)
@@ -54,6 +68,9 @@ func NewWorkflowPlanner(dirname string) (WorkflowPlanner, error) {
 			if err != nil {
 				f.Close()
 				return nil, err
+			}
+			if workflow.Name == "" {
+				workflow.Name = file.Name()
 			}
 			wp.workflows = append(wp.workflows, workflow)
 			f.Close()
