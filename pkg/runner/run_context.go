@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 
 	"github.com/nektos/act/pkg/container"
@@ -105,8 +106,7 @@ func (rc *RunContext) Executor() common.Executor {
 			// read action.yaml
 			// if runs.using == node12, start node12 container and run `main`
 			// if runs.using == docker, pull `image` and run
-			// set inputs as env
-			// caputre output
+			// caputre output/commands
 		} else {
 			stepExecutor = common.NewErrorExecutor(fmt.Errorf("Unable to determine how to run job:%s step:%+v", rc.Run, step))
 		}
@@ -125,18 +125,56 @@ func (rc *RunContext) setupContainerSpec(step *model.Step, containerSpec *model.
 			containerSpec.Image = step.Uses
 		} else if job.Container != nil {
 			containerSpec.Image = job.Container.Image
-			containerSpec.Args = step.Run
+			containerSpec.Args = rc.shellCommand(step.Shell, step.Run)
 			containerSpec.Ports = job.Container.Ports
 			containerSpec.Volumes = job.Container.Volumes
 			containerSpec.Options = job.Container.Options
 		} else if step.Run != "" {
 			containerSpec.Image = platformImage(job.RunsOn)
-			containerSpec.Args = step.Run
+			containerSpec.Args = rc.shellCommand(step.Shell, step.Run)
 		} else {
 			return fmt.Errorf("Unable to setup container for %s", step)
 		}
 		return nil
 	}
+}
+
+func (rc *RunContext) shellCommand(shell string, run string) string {
+	shellCommand := ""
+
+	switch shell {
+	case "", "bash":
+		shellCommand = "bash --noprofile --norc -eo pipefail {0}"
+	case "pwsh":
+		shellCommand = "pwsh -command \"& '{0}'\""
+	case "python":
+		shellCommand = "python {0}"
+	case "sh":
+		shellCommand = "sh -e -c {0}"
+	case "cmd":
+		shellCommand = "%ComSpec% /D /E:ON /V:OFF /S /C \"CALL \"{0}\"\""
+	case "powershell":
+		shellCommand = "powershell -command \"& '{0}'\""
+	default:
+		shellCommand = shell
+	}
+
+	tempScript, err := ioutil.TempFile(rc.Tempdir, ".temp-script-")
+	if err != nil {
+		log.Fatalf("Unable to create temp script %v", err)
+	}
+
+	if _, err := tempScript.Write([]byte(run)); err != nil {
+		log.Fatal(err)
+	}
+	log.Debugf("Wrote command '%s' to '%s'", run, tempScript.Name())
+	if err := tempScript.Close(); err != nil {
+		log.Fatal(err)
+	}
+	containerPath := fmt.Sprintf("/github/home/%s", filepath.Base(tempScript.Name()))
+	cmd := strings.Replace(shellCommand, "{0}", containerPath, 1)
+	log.Debugf("about to run %s", cmd)
+	return cmd
 }
 
 func platformImage(platform string) string {
@@ -165,7 +203,11 @@ func mergeMaps(maps ...map[string]string) map[string]string {
 func (rc *RunContext) setupTempDir() common.Executor {
 	return func(ctx context.Context) error {
 		var err error
-		rc.Tempdir, err = ioutil.TempDir("", "act-")
+		tempBase := ""
+		if runtime.GOOS == "darwin" {
+			tempBase = "/tmp"
+		}
+		rc.Tempdir, err = ioutil.TempDir(tempBase, "act-")
 		return err
 	}
 }
@@ -192,11 +234,7 @@ func (rc *RunContext) runContainer(containerSpec *model.ContainerSpec) common.Ex
 		}
 		var cmd, entrypoint []string
 		if containerSpec.Args != "" {
-			cmd = []string{
-				"/bin/sh",
-				"-c",
-				containerSpec.Args,
-			}
+			cmd = strings.Fields(containerSpec.Args)
 		}
 		if containerSpec.Entrypoint != "" {
 			entrypoint = strings.Fields(containerSpec.Entrypoint)
