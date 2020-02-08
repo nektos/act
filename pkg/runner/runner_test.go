@@ -9,8 +9,7 @@ import (
 )
 
 func TestGraphEvent(t *testing.T) {
-	runnerConfig := &RunnerConfig{
-		Ctx:          context.Background(),
+	runnerConfig := &Config{
 		WorkflowPath: "multi.workflow",
 		WorkingDir:   "testdata",
 		EventName:    "push",

@@ -2,6 +2,10 @@ name: basic
 on: push
 
 jobs:
+  action:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
   build:
     runs-on: ubuntu-latest
     container: 
@@ -12,6 +16,7 @@ jobs:
       - run: env
   test:
     runs-on: ubuntu-latest
+    needs: [build]
     steps:
     - run: cp $GITHUB_EVENT_PATH $HOME/foo.json
     - run: ls $HOME
