@@ -40,7 +40,8 @@ func NewDockerBuildExecutor(input NewDockerBuildExecutorInput) common.Executor {
 
 		tags := []string{input.ImageTag}
 		options := types.ImageBuildOptions{
-			Tags: tags,
+			Tags:   tags,
+			Remove: true,
 		}
 
 		buildContext, err := createBuildContext(input.ContextDir, "Dockerfile")

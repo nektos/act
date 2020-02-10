@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/nektos/act/pkg/common"
+	"github.com/nektos/act/pkg/container"
 	"github.com/nektos/act/pkg/model"
 	log "github.com/sirupsen/logrus"
 )
@@ -18,6 +19,7 @@ func (rc *RunContext) newStepExecutor(step *model.Step) common.Executor {
 	job := rc.Run.Job()
 	containerSpec := new(model.ContainerSpec)
 	containerSpec.Env = rc.StepEnv(step)
+	containerSpec.Name = rc.createContainerName(step.ID)
 
 	switch step.Type() {
 	case model.StepTypeRun:
@@ -45,15 +47,26 @@ func (rc *RunContext) newStepExecutor(step *model.Step) common.Executor {
 		)
 
 	case model.StepTypeUsesActionLocal:
+		containerSpec.Image = fmt.Sprintf("%s:%s", containerSpec.Name, "latest")
 		return common.NewPipelineExecutor(
 			rc.setupAction(containerSpec, filepath.Join(rc.Config.Workdir, step.Uses)),
 			rc.pullImage(containerSpec),
 			rc.runContainer(containerSpec),
 		)
 	case model.StepTypeUsesActionRemote:
+		remoteAction := newRemoteAction(step.Uses)
+		cloneDir, err := ioutil.TempDir(rc.Tempdir, remoteAction.Repo)
+		if err != nil {
+			return common.NewErrorExecutor(err)
+		}
+		containerSpec.Image = fmt.Sprintf("%s:%s", remoteAction.Repo, remoteAction.Ref)
 		return common.NewPipelineExecutor(
-			rc.cloneAction(step.Uses),
-			rc.setupAction(containerSpec, step.Uses),
+			common.NewGitCloneExecutor(common.NewGitCloneExecutorInput{
+				URL: remoteAction.CloneURL(),
+				Ref: remoteAction.Ref,
+				Dir: cloneDir,
+			}),
+			rc.setupAction(containerSpec, filepath.Join(cloneDir, remoteAction.Path)),
 			rc.pullImage(containerSpec),
 			rc.runContainer(containerSpec),
 		)
@@ -174,8 +187,8 @@ func (rc *RunContext) setupAction(containerSpec *model.ContainerSpec, actionDir 
 		}
 
 		for inputID, input := range action.Inputs {
-			envKey := fmt.Sprintf("INPUT_%s", strings.ToUpper(inputID))
-			envKey = regexp.MustCompile("[^A-Z0-9]").ReplaceAllString(envKey, "_")
+			envKey := regexp.MustCompile("[^A-Z0-9-]").ReplaceAllString(strings.ToUpper(inputID), "_")
+			envKey = fmt.Sprintf("INPUT_%s", envKey)
 			if _, ok := containerSpec.Env[envKey]; !ok {
 				containerSpec.Env[envKey] = input.Default
 			}
@@ -183,23 +196,54 @@ func (rc *RunContext) setupAction(containerSpec *model.ContainerSpec, actionDir 
 
 		switch action.Runs.Using {
 		case model.ActionRunsUsingNode12:
-			containerSpec.Image = "node:12"
-			containerSpec.Args = action.Runs.Main
+			containerSpec.Image = "node:12-alpine"
+			if strings.HasPrefix(actionDir, rc.Config.Workdir) {
+				containerSpec.Args = fmt.Sprintf("node /github/workspace/%s/%s", strings.TrimPrefix(actionDir, rc.Config.Workdir), action.Runs.Main)
+			} else if strings.HasPrefix(actionDir, rc.Tempdir) {
+				containerSpec.Args = fmt.Sprintf("node /github/home/%s/%s", strings.TrimPrefix(actionDir, rc.Tempdir), action.Runs.Main)
+			}
 		case model.ActionRunsUsingDocker:
 			if strings.HasPrefix(action.Runs.Image, "docker://") {
 				containerSpec.Image = strings.TrimPrefix(action.Runs.Image, "docker://")
 				containerSpec.Entrypoint = strings.Join(action.Runs.Entrypoint, " ")
 				containerSpec.Args = strings.Join(action.Runs.Args, " ")
 			} else {
-				// TODO: docker build
+				contextDir := filepath.Join(actionDir, action.Runs.Main)
+				return container.NewDockerBuildExecutor(container.NewDockerBuildExecutorInput{
+					ContextDir: contextDir,
+					ImageTag:   containerSpec.Image,
+				})(ctx)
 			}
 		}
 		return nil
 	}
 }
 
-func (rc *RunContext) cloneAction(action string) common.Executor {
-	return func(ctx context.Context) error {
-		return nil
+type remoteAction struct {
+	Org  string
+	Repo string
+	Path string
+	Ref  string
+}
+
+func (ra *remoteAction) CloneURL() string {
+	return fmt.Sprintf("https://github.com/%s/%s", ra.Org, ra.Repo)
+}
+
+func newRemoteAction(action string) *remoteAction {
+	r := regexp.MustCompile(`^([^/@]+)/([^/@]+)(/([^@]*))?(@(.*))?$`)
+	matches := r.FindStringSubmatch(action)
+
+	ra := new(remoteAction)
+	ra.Org = matches[1]
+	ra.Repo = matches[2]
+	ra.Path = ""
+	ra.Ref = "master"
+	if len(matches) >= 5 {
+		ra.Path = matches[4]
 	}
+	if len(matches) >= 7 {
+		ra.Ref = matches[6]
+	}
+	return ra
 }

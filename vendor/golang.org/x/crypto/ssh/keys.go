@@ -30,12 +30,14 @@ import (
 // These constants represent the algorithm names for key types supported by this
 // package.
 const (
-	KeyAlgoRSA      = "ssh-rsa"
-	KeyAlgoDSA      = "ssh-dss"
-	KeyAlgoECDSA256 = "ecdsa-sha2-nistp256"
-	KeyAlgoECDSA384 = "ecdsa-sha2-nistp384"
-	KeyAlgoECDSA521 = "ecdsa-sha2-nistp521"
-	KeyAlgoED25519  = "ssh-ed25519"
+	KeyAlgoRSA        = "ssh-rsa"
+	KeyAlgoDSA        = "ssh-dss"
+	KeyAlgoECDSA256   = "ecdsa-sha2-nistp256"
+	KeyAlgoSKECDSA256 = "sk-ecdsa-sha2-nistp256@openssh.com"
+	KeyAlgoECDSA384   = "ecdsa-sha2-nistp384"
+	KeyAlgoECDSA521   = "ecdsa-sha2-nistp521"
+	KeyAlgoED25519    = "ssh-ed25519"
+	KeyAlgoSKED25519  = "sk-ssh-ed25519@openssh.com"
 )
 
 // These constants represent non-default signature algorithms that are supported
@@ -58,9 +60,13 @@ func parsePubKey(in []byte, algo string) (pubKey PublicKey, rest []byte, err err
 		return parseDSA(in)
 	case KeyAlgoECDSA256, KeyAlgoECDSA384, KeyAlgoECDSA521:
 		return parseECDSA(in)
+	case KeyAlgoSKECDSA256:
+		return parseSKECDSA(in)
 	case KeyAlgoED25519:
 		return parseED25519(in)
-	case CertAlgoRSAv01, CertAlgoDSAv01, CertAlgoECDSA256v01, CertAlgoECDSA384v01, CertAlgoECDSA521v01, CertAlgoED25519v01:
+	case KeyAlgoSKED25519:
+		return parseSKEd25519(in)
+	case CertAlgoRSAv01, CertAlgoDSAv01, CertAlgoECDSA256v01, CertAlgoECDSA384v01, CertAlgoECDSA521v01, CertAlgoSKECDSA256v01, CertAlgoED25519v01, CertAlgoSKED25519v01:
 		cert, err := parseCert(in, certToPrivAlgo(algo))
 		if err != nil {
 			return nil, nil, err
@@ -683,6 +689,218 @@ func (k *ecdsaPublicKey) Verify(data []byte, sig *Signature) error {
 
 func (k *ecdsaPublicKey) CryptoPublicKey() crypto.PublicKey {
 	return (*ecdsa.PublicKey)(k)
+}
+
+// skFields holds the additional fields present in U2F/FIDO2 signatures.
+// See openssh/PROTOCOL.u2f 'SSH U2F Signatures' for details.
+type skFields struct {
+	// Flags contains U2F/FIDO2 flags such as 'user present'
+	Flags byte
+	// Counter is a monotonic signature counter which can be
+	// used to detect concurrent use of a private key, should
+	// it be extracted from hardware.
+	Counter uint32
+}
+
+type skECDSAPublicKey struct {
+	// application is a URL-like string, typically "ssh:" for SSH.
+	// see openssh/PROTOCOL.u2f for details.
+	application string
+	ecdsa.PublicKey
+}
+
+func (k *skECDSAPublicKey) Type() string {
+	return KeyAlgoSKECDSA256
+}
+
+func (k *skECDSAPublicKey) nistID() string {
+	return "nistp256"
+}
+
+func parseSKECDSA(in []byte) (out PublicKey, rest []byte, err error) {
+	var w struct {
+		Curve       string
+		KeyBytes    []byte
+		Application string
+		Rest        []byte `ssh:"rest"`
+	}
+
+	if err := Unmarshal(in, &w); err != nil {
+		return nil, nil, err
+	}
+
+	key := new(skECDSAPublicKey)
+	key.application = w.Application
+
+	if w.Curve != "nistp256" {
+		return nil, nil, errors.New("ssh: unsupported curve")
+	}
+	key.Curve = elliptic.P256()
+
+	key.X, key.Y = elliptic.Unmarshal(key.Curve, w.KeyBytes)
+	if key.X == nil || key.Y == nil {
+		return nil, nil, errors.New("ssh: invalid curve point")
+	}
+
+	return key, w.Rest, nil
+}
+
+func (k *skECDSAPublicKey) Marshal() []byte {
+	// See RFC 5656, section 3.1.
+	keyBytes := elliptic.Marshal(k.Curve, k.X, k.Y)
+	w := struct {
+		Name        string
+		ID          string
+		Key         []byte
+		Application string
+	}{
+		k.Type(),
+		k.nistID(),
+		keyBytes,
+		k.application,
+	}
+
+	return Marshal(&w)
+}
+
+func (k *skECDSAPublicKey) Verify(data []byte, sig *Signature) error {
+	if sig.Format != k.Type() {
+		return fmt.Errorf("ssh: signature type %s for key type %s", sig.Format, k.Type())
+	}
+
+	h := ecHash(k.Curve).New()
+	h.Write([]byte(k.application))
+	appDigest := h.Sum(nil)
+
+	h.Reset()
+	h.Write(data)
+	dataDigest := h.Sum(nil)
+
+	var ecSig struct {
+		R *big.Int
+		S *big.Int
+	}
+	if err := Unmarshal(sig.Blob, &ecSig); err != nil {
+		return err
+	}
+
+	var skf skFields
+	if err := Unmarshal(sig.Rest, &skf); err != nil {
+		return err
+	}
+
+	blob := struct {
+		ApplicationDigest []byte `ssh:"rest"`
+		Flags             byte
+		Counter           uint32
+		MessageDigest     []byte `ssh:"rest"`
+	}{
+		appDigest,
+		skf.Flags,
+		skf.Counter,
+		dataDigest,
+	}
+
+	original := Marshal(blob)
+
+	h.Reset()
+	h.Write(original)
+	digest := h.Sum(nil)
+
+	if ecdsa.Verify((*ecdsa.PublicKey)(&k.PublicKey), digest, ecSig.R, ecSig.S) {
+		return nil
+	}
+	return errors.New("ssh: signature did not verify")
+}
+
+type skEd25519PublicKey struct {
+	// application is a URL-like string, typically "ssh:" for SSH.
+	// see openssh/PROTOCOL.u2f for details.
+	application string
+	ed25519.PublicKey
+}
+
+func (k *skEd25519PublicKey) Type() string {
+	return KeyAlgoSKED25519
+}
+
+func parseSKEd25519(in []byte) (out PublicKey, rest []byte, err error) {
+	var w struct {
+		KeyBytes    []byte
+		Application string
+		Rest        []byte `ssh:"rest"`
+	}
+
+	if err := Unmarshal(in, &w); err != nil {
+		return nil, nil, err
+	}
+
+	key := new(skEd25519PublicKey)
+	key.application = w.Application
+	key.PublicKey = ed25519.PublicKey(w.KeyBytes)
+
+	return key, w.Rest, nil
+}
+
+func (k *skEd25519PublicKey) Marshal() []byte {
+	w := struct {
+		Name        string
+		KeyBytes    []byte
+		Application string
+	}{
+		KeyAlgoSKED25519,
+		[]byte(k.PublicKey),
+		k.application,
+	}
+	return Marshal(&w)
+}
+
+func (k *skEd25519PublicKey) Verify(data []byte, sig *Signature) error {
+	if sig.Format != k.Type() {
+		return fmt.Errorf("ssh: signature type %s for key type %s", sig.Format, k.Type())
+	}
+
+	h := sha256.New()
+	h.Write([]byte(k.application))
+	appDigest := h.Sum(nil)
+
+	h.Reset()
+	h.Write(data)
+	dataDigest := h.Sum(nil)
+
+	var edSig struct {
+		Signature []byte `ssh:"rest"`
+	}
+
+	if err := Unmarshal(sig.Blob, &edSig); err != nil {
+		return err
+	}
+
+	var skf skFields
+	if err := Unmarshal(sig.Rest, &skf); err != nil {
+		return err
+	}
+
+	blob := struct {
+		ApplicationDigest []byte `ssh:"rest"`
+		Flags             byte
+		Counter           uint32
+		MessageDigest     []byte `ssh:"rest"`
+	}{
+		appDigest,
+		skf.Flags,
+		skf.Counter,
+		dataDigest,
+	}
+
+	original := Marshal(blob)
+
+	edKey := (ed25519.PublicKey)(k.PublicKey)
+	if ok := ed25519.Verify(edKey, original, edSig.Signature); !ok {
+		return errors.New("ssh: signature did not verify")
+	}
+
+	return nil
 }
 
 // NewSignerFromKey takes an *rsa.PrivateKey, *dsa.PrivateKey,

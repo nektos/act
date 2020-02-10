@@ -1,0 +1,8 @@
+name: Check
+description: Run static analysis and unit tests
+branding:
+  icon: check-circle
+  color: green
+runs:
+  using: 'docker'
+  image: 'Dockerfile'

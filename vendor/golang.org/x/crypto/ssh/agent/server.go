@@ -541,6 +541,9 @@ func ServeAgent(agent Agent, c io.ReadWriter) error {
 			return err
 		}
 		l := binary.BigEndian.Uint32(length[:])
+		if l == 0 {
+			return fmt.Errorf("agent: request size is 0")
+		}
 		if l > maxAgentResponseBytes {
 			// We also cap requests.
 			return fmt.Errorf("agent: request too large: %d", l)
