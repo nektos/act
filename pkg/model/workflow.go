@@ -3,6 +3,7 @@ package model
 import (
 	"fmt"
 	"io"
+	"regexp"
 	"strings"
 
 	"gopkg.in/yaml.v2"
@@ -63,9 +64,39 @@ func (s *Step) GetEnv() map[string]string {
 	}
 	for k, v := range s.With {
 		envKey := fmt.Sprintf("INPUT_%s", strings.ToUpper(k))
+		envKey = regexp.MustCompile("[^A-Z0-9]").ReplaceAllString(envKey, "_")
 		rtnEnv[envKey] = v
 	}
 	return rtnEnv
+}
+
+// StepType describes what type of step we are about to run
+type StepType int
+
+const (
+	// StepTypeRun is all steps that have a `run` attribute
+	StepTypeRun StepType = iota
+
+	//StepTypeUsesDockerURL is all steps that have a `uses` that is of the form `docker://...`
+	StepTypeUsesDockerURL
+
+	//StepTypeUsesActionLocal is all steps that have a `uses` that is a reference to a github repo
+	StepTypeUsesActionLocal
+
+	//StepTypeUsesActionRemote is all steps that have a `uses` that is a local action in a subdirectory
+	StepTypeUsesActionRemote
+)
+
+// Type returns the type of the step
+func (s *Step) Type() StepType {
+	if s.Run != "" {
+		return StepTypeRun
+	} else if strings.HasPrefix(s.Uses, "docker://") {
+		return StepTypeUsesDockerURL
+	} else if strings.HasPrefix(s.Uses, "./") {
+		return StepTypeUsesActionLocal
+	}
+	return StepTypeUsesActionRemote
 }
 
 // ReadWorkflow returns a list of jobs for a given workflow file reader

@@ -21,3 +21,11 @@ jobs:
     - run: cp $GITHUB_EVENT_PATH $HOME/foo.json
     - run: ls $HOME
     - run: cat $HOME/foo.json
+    - uses: docker://alpine:3.8
+      with:
+        args: uname -a
+  local-action:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: ./.github/workflows/docker-url
+
