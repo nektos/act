@@ -21,7 +21,6 @@ github.com/docker/distribution v2.7.1+incompatible h1:a5mlkVzth6W5A4fOsS3D2EO5BU
 github.com/docker/distribution v2.7.1+incompatible/go.mod h1:J2gT2udsDAN96Uj4KfcMRqY0/ypR+oyYUYmja8H+y+w=
 github.com/docker/engine v0.0.0-20181106193140-f5749085e9cb h1:PyjxRdW1mqCmSoxy/6uP01P7CGbsD+woX+oOWbaUPwQ=
 github.com/docker/engine v0.0.0-20181106193140-f5749085e9cb/go.mod h1:3CPr2caMgTHxxIAZgEMd3uLYPDlRvPqCpyeRf6ncPcY=
-github.com/docker/engine v1.13.1 h1:Cks33UT9YBW5Xyc3MtGDq2IPgqfJtJ+qkFaxc2b0Euc=
 github.com/docker/go-connections v0.4.0 h1:El9xVISelRB7BuFusrZozjnkIM5YnzCViNKohAFqRJQ=
 github.com/docker/go-connections v0.4.0/go.mod h1:Gbd7IOopHjR8Iph03tsViu4nIes5XhDvyHbTtUxmeec=
 github.com/docker/go-units v0.3.3 h1:Xk8S3Xj5sLGlG5g67hJmYMmUgXv5N4PhkjJHHqrwnTk=

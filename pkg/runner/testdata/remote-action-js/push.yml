@@ -1,0 +1,10 @@
+name: remote-action-js
+on: push
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/hello-world-javascript-action@master
+      with:
+        who-to-greet: 'Mona the Octocat'

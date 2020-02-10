@@ -21,7 +21,7 @@ test:
 	go test -cover -short ./...
 
 check:
-	$(ACT) -ra check
+	$(ACT) -rj ci
 
 build: check
 	$(eval export SNAPSHOT_VERSION=$(VERSION))

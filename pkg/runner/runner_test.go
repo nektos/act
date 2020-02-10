@@ -2,28 +2,29 @@ package runner
 
 import (
 	"context"
+	"fmt"
 	"testing"
+
+	"github.com/nektos/act/pkg/model"
 
 	log "github.com/sirupsen/logrus"
 	"gotest.tools/assert"
 )
 
 func TestGraphEvent(t *testing.T) {
-	runnerConfig := &Config{
-		WorkflowPath: "multi.workflow",
-		WorkingDir:   "testdata",
-		EventName:    "push",
-	}
-	runner, err := NewRunner(runnerConfig)
+	planner, err := model.NewWorkflowPlanner("testdata/basic")
 	assert.NilError(t, err)
 
-	graph, err := runner.GraphEvent("push")
+	plan := planner.PlanEvent("push")
 	assert.NilError(t, err)
-	assert.DeepEqual(t, graph, [][]string{{"build"}})
+	assert.Equal(t, len(plan.Stages), 2, "stages")
+	assert.Equal(t, len(plan.Stages[0].Runs), 1, "stage0.runs")
+	assert.Equal(t, len(plan.Stages[1].Runs), 1, "stage1.runs")
+	assert.Equal(t, plan.Stages[0].Runs[0].JobID, "build", "jobid")
+	assert.Equal(t, plan.Stages[1].Runs[0].JobID, "test", "jobid")
 
-	graph, err = runner.GraphEvent("release")
-	assert.NilError(t, err)
-	assert.DeepEqual(t, graph, [][]string{{"deploy"}})
+	plan = planner.PlanEvent("release")
+	assert.Equal(t, len(plan.Stages), 0, "stages")
 }
 
 func TestRunEvent(t *testing.T) {
@@ -36,30 +37,36 @@ func TestRunEvent(t *testing.T) {
 		eventName    string
 		errorMessage string
 	}{
-		{"basic.workflow", "push", ""},
-		{"pipe.workflow", "push", ""},
-		{"fail.workflow", "push", "exit with `FAILURE`: 1"},
-		{"buildfail.workflow", "push", "COPY failed"},
-		{"regex.workflow", "push", "exit with `NEUTRAL`: 78"},
-		{"gitref.workflow", "push", ""},
-		{"env.workflow", "push", ""},
-		{"detect_event.workflow", "", ""},
+		{"basic", "push", ""},
+		{"fail", "push", "exit with `FAILURE`: 1"},
+		{"runs-on", "push", ""},
+		{"job-container", "push", ""},
+		{"uses-docker-url", "push", ""},
+		{"remote-action-docker", "push", ""},
+		{"remote-action-js", "push", ""},
+		{"local-action-docker-url", "push", ""},
+		{"local-action-dockerfile", "push", ""},
 	}
 	log.SetLevel(log.DebugLevel)
+
+	ctx := context.Background()
 
 	for _, table := range tables {
 		table := table
 		t.Run(table.workflowPath, func(t *testing.T) {
-			runnerConfig := &RunnerConfig{
-				Ctx:          context.Background(),
-				WorkflowPath: table.workflowPath,
-				WorkingDir:   "testdata",
-				EventName:    table.eventName,
+			runnerConfig := &Config{
+				Workdir:   "testdata",
+				EventName: table.eventName,
 			}
-			runner, err := NewRunner(runnerConfig)
+			runner, err := New(runnerConfig)
 			assert.NilError(t, err, table.workflowPath)
 
-			err = runner.RunEvent()
+			planner, err := model.NewWorkflowPlanner(fmt.Sprintf("testdata/%s", table.workflowPath))
+			assert.NilError(t, err, table.workflowPath)
+
+			plan := planner.PlanEvent(table.eventName)
+
+			err = runner.NewPlanExecutor(plan)(ctx)
 			if table.errorMessage == "" {
 				assert.NilError(t, err, table.workflowPath)
 			} else {

@@ -1,0 +1,10 @@
+name: local-action-dockerfile
+on: push
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: ./actions/docker-local
+      with:
+        who-to-greet: 'Mona the Octocat'

@@ -1,0 +1,9 @@
+name: push
+on: push
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: ./.github/workflows/check
+    - uses: ./.github/workflows/integration

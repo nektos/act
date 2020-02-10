@@ -45,10 +45,13 @@ func (rc *RunContext) Close(ctx context.Context) error {
 
 // Executor returns a pipeline executor for all the steps in the job
 func (rc *RunContext) Executor() common.Executor {
+	rc.setupTempDir()
 	steps := make([]common.Executor, 0)
-	steps = append(steps, rc.setupTempDir())
 
-	for _, step := range rc.Run.Job().Steps {
+	for i, step := range rc.Run.Job().Steps {
+		if step.ID == "" {
+			step.ID = fmt.Sprintf("%d", i)
+		}
 		steps = append(steps, rc.newStepExecutor(step))
 	}
 	return common.NewPipelineExecutor(steps...).Finally(rc.Close)
@@ -64,17 +67,16 @@ func mergeMaps(maps ...map[string]string) map[string]string {
 	return rtnMap
 }
 
-func (rc *RunContext) setupTempDir() common.Executor {
-	return func(ctx context.Context) error {
-		var err error
-		tempBase := ""
-		if runtime.GOOS == "darwin" {
-			tempBase = "/tmp"
-		}
-		rc.Tempdir, err = ioutil.TempDir(tempBase, "act-")
-		log.Debugf("Setup tempdir %s", rc.Tempdir)
-		return err
+func (rc *RunContext) setupTempDir() error {
+	var err error
+	tempBase := ""
+	if runtime.GOOS == "darwin" {
+		tempBase = "/tmp"
 	}
+	rc.Tempdir, err = ioutil.TempDir(tempBase, "act-")
+	os.Chmod(rc.Tempdir, 0755)
+	log.Debugf("Setup tempdir %s", rc.Tempdir)
+	return err
 }
 
 func (rc *RunContext) pullImage(containerSpec *model.ContainerSpec) common.Executor {
@@ -111,7 +113,7 @@ func (rc *RunContext) runContainer(containerSpec *model.ContainerSpec) common.Ex
 			Image:      containerSpec.Image,
 			WorkingDir: "/github/workspace",
 			Env:        envList,
-			Name:       rc.createContainerName(),
+			Name:       containerSpec.Name,
 			Binds: []string{
 				fmt.Sprintf("%s:%s", rc.Config.Workdir, "/github/workspace"),
 				fmt.Sprintf("%s:%s", rc.Tempdir, "/github/home"),
@@ -155,8 +157,9 @@ func (rc *RunContext) createGithubTarball() (io.Reader, error) {
 
 }
 
-func (rc *RunContext) createContainerName() string {
-	containerName := regexp.MustCompile("[^a-zA-Z0-9]").ReplaceAllString(rc.Run.String(), "-")
+func (rc *RunContext) createContainerName(stepID string) string {
+	containerName := fmt.Sprintf("%s-%s", stepID, rc.Tempdir)
+	containerName = regexp.MustCompile("[^a-zA-Z0-9]").ReplaceAllString(containerName, "-")
 
 	prefix := fmt.Sprintf("%s-", trimToLen(filepath.Base(rc.Config.Workdir), 10))
 	suffix := ""

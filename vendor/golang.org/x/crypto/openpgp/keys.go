@@ -504,7 +504,7 @@ const defaultRSAKeyBits = 2048
 // which may be empty but must not contain any of "()<>\x00".
 // If config is nil, sensible defaults will be used.
 func NewEntity(name, comment, email string, config *packet.Config) (*Entity, error) {
-	currentTime := config.Now()
+	creationTime := config.Now()
 
 	bits := defaultRSAKeyBits
 	if config != nil && config.RSABits != 0 {
@@ -525,8 +525,8 @@ func NewEntity(name, comment, email string, config *packet.Config) (*Entity, err
 	}
 
 	e := &Entity{
-		PrimaryKey: packet.NewRSAPublicKey(currentTime, &signingPriv.PublicKey),
-		PrivateKey: packet.NewRSAPrivateKey(currentTime, signingPriv),
+		PrimaryKey: packet.NewRSAPublicKey(creationTime, &signingPriv.PublicKey),
+		PrivateKey: packet.NewRSAPrivateKey(creationTime, signingPriv),
 		Identities: make(map[string]*Identity),
 	}
 	isPrimaryId := true
@@ -534,7 +534,7 @@ func NewEntity(name, comment, email string, config *packet.Config) (*Entity, err
 		Name:   uid.Id,
 		UserId: uid,
 		SelfSignature: &packet.Signature{
-			CreationTime: currentTime,
+			CreationTime: creationTime,
 			SigType:      packet.SigTypePositiveCert,
 			PubKeyAlgo:   packet.PubKeyAlgoRSA,
 			Hash:         config.Hash(),
@@ -563,10 +563,10 @@ func NewEntity(name, comment, email string, config *packet.Config) (*Entity, err
 
 	e.Subkeys = make([]Subkey, 1)
 	e.Subkeys[0] = Subkey{
-		PublicKey:  packet.NewRSAPublicKey(currentTime, &encryptingPriv.PublicKey),
-		PrivateKey: packet.NewRSAPrivateKey(currentTime, encryptingPriv),
+		PublicKey:  packet.NewRSAPublicKey(creationTime, &encryptingPriv.PublicKey),
+		PrivateKey: packet.NewRSAPrivateKey(creationTime, encryptingPriv),
 		Sig: &packet.Signature{
-			CreationTime:              currentTime,
+			CreationTime:              creationTime,
 			SigType:                   packet.SigTypeSubkeyBinding,
 			PubKeyAlgo:                packet.PubKeyAlgoRSA,
 			Hash:                      config.Hash(),

@@ -39,6 +39,7 @@ type ContainerSpec struct {
 	Options    string            `yaml:"options"`
 	Entrypoint string
 	Args       string
+	Name       string
 }
 
 // Step is the structure of one step in a job
@@ -63,8 +64,8 @@ func (s *Step) GetEnv() map[string]string {
 		rtnEnv[k] = v
 	}
 	for k, v := range s.With {
-		envKey := fmt.Sprintf("INPUT_%s", strings.ToUpper(k))
-		envKey = regexp.MustCompile("[^A-Z0-9]").ReplaceAllString(envKey, "_")
+		envKey := regexp.MustCompile("[^A-Z0-9-]").ReplaceAllString(strings.ToUpper(k), "_")
+		envKey = fmt.Sprintf("INPUT_%s", strings.ToUpper(envKey))
 		rtnEnv[envKey] = v
 	}
 	return rtnEnv
