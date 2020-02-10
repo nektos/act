@@ -38,48 +38,6 @@ func (rc *RunContext) GetEnv() map[string]string {
 	return rc.Env
 }
 
-// StepEnv returns the env for a step
-func (rc *RunContext) StepEnv(step *model.Step) map[string]string {
-	env := make(map[string]string)
-	env["HOME"] = "/github/home"
-	env["GITHUB_WORKFLOW"] = rc.Run.Workflow.Name
-	env["GITHUB_RUN_ID"] = "1"
-	env["GITHUB_RUN_NUMBER"] = "1"
-	env["GITHUB_ACTION"] = step.ID
-	env["GITHUB_ACTOR"] = "nektos/act"
-
-	repoPath := rc.Config.Workdir
-	repo, err := common.FindGithubRepo(repoPath)
-	if err != nil {
-		log.Warningf("unable to get git repo: %v", err)
-	} else {
-		env["GITHUB_REPOSITORY"] = repo
-	}
-	env["GITHUB_EVENT_NAME"] = rc.Config.EventName
-	env["GITHUB_EVENT_PATH"] = "/github/workflow/event.json"
-	env["GITHUB_WORKSPACE"] = "/github/workspace"
-
-	_, rev, err := common.FindGitRevision(repoPath)
-	if err != nil {
-		log.Warningf("unable to get git revision: %v", err)
-	} else {
-		env["GITHUB_SHA"] = rev
-	}
-
-	ref, err := common.FindGitRef(repoPath)
-	if err != nil {
-		log.Warningf("unable to get git ref: %v", err)
-	} else {
-		log.Infof("using github ref: %s", ref)
-		env["GITHUB_REF"] = ref
-	}
-	job := rc.Run.Job()
-	if job.Container != nil {
-		return mergeMaps(rc.GetEnv(), job.Container.Env, step.GetEnv(), env)
-	}
-	return mergeMaps(rc.GetEnv(), step.GetEnv(), env)
-}
-
 // Close cleans up temp dir
 func (rc *RunContext) Close(ctx context.Context) error {
 	return os.RemoveAll(rc.Tempdir)
@@ -91,103 +49,9 @@ func (rc *RunContext) Executor() common.Executor {
 	steps = append(steps, rc.setupTempDir())
 
 	for _, step := range rc.Run.Job().Steps {
-		containerSpec := new(model.ContainerSpec)
-
-		var stepExecutor common.Executor
-		if step.Run != "" {
-			stepExecutor = common.NewPipelineExecutor(
-				rc.setupContainerSpec(step, containerSpec),
-				rc.pullImage(containerSpec),
-				rc.runContainer(containerSpec),
-			)
-		} else if step.Uses != "" {
-			stepExecutor = common.NewErrorExecutor(fmt.Errorf("Not yet implemented - job:%s step:%+v", rc.Run, step))
-			// clone action repo
-			// read action.yaml
-			// if runs.using == node12, start node12 container and run `main`
-			// if runs.using == docker, pull `image` and run
-			// caputre output/commands
-		} else {
-			stepExecutor = common.NewErrorExecutor(fmt.Errorf("Unable to determine how to run job:%s step:%+v", rc.Run, step))
-		}
-		steps = append(steps, stepExecutor)
+		steps = append(steps, rc.newStepExecutor(step))
 	}
 	return common.NewPipelineExecutor(steps...).Finally(rc.Close)
-}
-
-func (rc *RunContext) setupContainerSpec(step *model.Step, containerSpec *model.ContainerSpec) common.Executor {
-	return func(ctx context.Context) error {
-		job := rc.Run.Job()
-
-		containerSpec.Env = rc.StepEnv(step)
-
-		if step.Uses != "" {
-			containerSpec.Image = step.Uses
-		} else if job.Container != nil {
-			containerSpec.Image = job.Container.Image
-			containerSpec.Args = rc.shellCommand(step.Shell, step.Run)
-			containerSpec.Ports = job.Container.Ports
-			containerSpec.Volumes = job.Container.Volumes
-			containerSpec.Options = job.Container.Options
-		} else if step.Run != "" {
-			containerSpec.Image = platformImage(job.RunsOn)
-			containerSpec.Args = rc.shellCommand(step.Shell, step.Run)
-		} else {
-			return fmt.Errorf("Unable to setup container for %s", step)
-		}
-		return nil
-	}
-}
-
-func (rc *RunContext) shellCommand(shell string, run string) string {
-	shellCommand := ""
-
-	switch shell {
-	case "", "bash":
-		shellCommand = "bash --noprofile --norc -eo pipefail {0}"
-	case "pwsh":
-		shellCommand = "pwsh -command \"& '{0}'\""
-	case "python":
-		shellCommand = "python {0}"
-	case "sh":
-		shellCommand = "sh -e -c {0}"
-	case "cmd":
-		shellCommand = "%ComSpec% /D /E:ON /V:OFF /S /C \"CALL \"{0}\"\""
-	case "powershell":
-		shellCommand = "powershell -command \"& '{0}'\""
-	default:
-		shellCommand = shell
-	}
-
-	tempScript, err := ioutil.TempFile(rc.Tempdir, ".temp-script-")
-	if err != nil {
-		log.Fatalf("Unable to create temp script %v", err)
-	}
-
-	if _, err := tempScript.Write([]byte(run)); err != nil {
-		log.Fatal(err)
-	}
-	log.Debugf("Wrote command '%s' to '%s'", run, tempScript.Name())
-	if err := tempScript.Close(); err != nil {
-		log.Fatal(err)
-	}
-	containerPath := fmt.Sprintf("/github/home/%s", filepath.Base(tempScript.Name()))
-	cmd := strings.Replace(shellCommand, "{0}", containerPath, 1)
-	log.Debugf("about to run %s", cmd)
-	return cmd
-}
-
-func platformImage(platform string) string {
-	switch platform {
-	case "ubuntu-latest", "ubuntu-18.04":
-		return "ubuntu:18.04"
-	case "ubuntu-16.04":
-		return "ubuntu:16.04"
-	case "windows-latest", "windows-2019", "macos-latest", "macos-10.15":
-		return ""
-	default:
-		return ""
-	}
 }
 
 func mergeMaps(maps ...map[string]string) map[string]string {
@@ -208,6 +72,7 @@ func (rc *RunContext) setupTempDir() common.Executor {
 			tempBase = "/tmp"
 		}
 		rc.Tempdir, err = ioutil.TempDir(tempBase, "act-")
+		log.Debugf("Setup tempdir %s", rc.Tempdir)
 		return err
 	}
 }
