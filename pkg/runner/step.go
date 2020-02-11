@@ -55,6 +55,12 @@ func (rc *RunContext) newStepExecutor(step *model.Step) common.Executor {
 		)
 	case model.StepTypeUsesActionRemote:
 		remoteAction := newRemoteAction(step.Uses)
+		if remoteAction.Org == "actions" && remoteAction.Repo == "checkout" {
+			return func(ctx context.Context) error {
+				common.Logger(ctx).Debugf("Skipping actions/checkout")
+				return nil
+			}
+		}
 		cloneDir, err := ioutil.TempDir(rc.Tempdir, remoteAction.Repo)
 		if err != nil {
 			return common.NewErrorExecutor(err)
