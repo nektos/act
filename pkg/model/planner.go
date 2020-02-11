@@ -151,11 +151,12 @@ func (p *Plan) mergeStages(stages []*Stage) {
 	for i := 0; i < len(newStages); i++ {
 		newStages[i] = new(Stage)
 		if i >= len(p.Stages) {
-			newStages[i].Runs = append(stages[i].Runs)
+			newStages[i].Runs = append(newStages[i].Runs, stages[i].Runs...)
 		} else if i >= len(stages) {
-			newStages[i].Runs = append(p.Stages[i].Runs)
+			newStages[i].Runs = append(newStages[i].Runs, p.Stages[i].Runs...)
 		} else {
-			newStages[i].Runs = append(p.Stages[i].Runs, stages[i].Runs...)
+			newStages[i].Runs = append(newStages[i].Runs, p.Stages[i].Runs...)
+			newStages[i].Runs = append(newStages[i].Runs, stages[i].Runs...)
 		}
 	}
 	p.Stages = newStages

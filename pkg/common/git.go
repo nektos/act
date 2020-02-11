@@ -225,7 +225,7 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) Executor {
 				logger.Errorf("Unable to clone %v %s: %v", input.URL, refName, err)
 				return err
 			}
-			os.Chmod(input.Dir, 0755)
+			_ = os.Chmod(input.Dir, 0755)
 		}
 
 		w, err := r.Worktree()

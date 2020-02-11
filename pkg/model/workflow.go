@@ -3,6 +3,7 @@ package model
 import (
 	"fmt"
 	"io"
+	"log"
 	"regexp"
 	"strings"
 
@@ -23,15 +24,24 @@ func (w *Workflow) On() []string {
 	switch w.RawOn.Kind {
 	case yaml.ScalarNode:
 		var val string
-		w.RawOn.Decode(&val)
+		err := w.RawOn.Decode(&val)
+		if err != nil {
+			log.Fatal(err)
+		}
 		return []string{val}
 	case yaml.SequenceNode:
 		var val []string
-		w.RawOn.Decode(&val)
+		err := w.RawOn.Decode(&val)
+		if err != nil {
+			log.Fatal(err)
+		}
 		return val
 	case yaml.MappingNode:
 		var val map[string]interface{}
-		w.RawOn.Decode(&val)
+		err := w.RawOn.Decode(&val)
+		if err != nil {
+			log.Fatal(err)
+		}
 		var keys []string
 		for k := range val {
 			keys = append(keys, k)
@@ -60,11 +70,17 @@ func (j *Job) Needs() []string {
 	switch j.RawNeeds.Kind {
 	case yaml.ScalarNode:
 		var val string
-		j.RawNeeds.Decode(&val)
+		err := j.RawNeeds.Decode(&val)
+		if err != nil {
+			log.Fatal(err)
+		}
 		return []string{val}
 	case yaml.SequenceNode:
 		var val []string
-		j.RawNeeds.Decode(&val)
+		err := j.RawNeeds.Decode(&val)
+		if err != nil {
+			log.Fatal(err)
+		}
 		return val
 	}
 	return nil

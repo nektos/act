@@ -87,7 +87,13 @@ func NewParallelExecutor(executors ...Executor) Executor {
 		errChan := make(chan error)
 
 		for _, executor := range executors {
-			go executor.ChannelError(errChan)(ctx)
+			e := executor
+			go func() {
+				err := e.ChannelError(errChan)(ctx)
+				if err != nil {
+					log.Fatal(err)
+				}
+			}()
 		}
 
 		for i := 0; i < len(executors); i++ {
