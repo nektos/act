@@ -1,3 +1,18 @@
+//
+// Copyright (c) 2011-2019 Canonical Ltd
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package yaml
 
 import (
@@ -34,18 +49,14 @@ func init() {
 		tag string
 		l   []string
 	}{
-		{true, yaml_BOOL_TAG, []string{"y", "Y", "yes", "Yes", "YES"}},
-		{true, yaml_BOOL_TAG, []string{"true", "True", "TRUE"}},
-		{true, yaml_BOOL_TAG, []string{"on", "On", "ON"}},
-		{false, yaml_BOOL_TAG, []string{"n", "N", "no", "No", "NO"}},
-		{false, yaml_BOOL_TAG, []string{"false", "False", "FALSE"}},
-		{false, yaml_BOOL_TAG, []string{"off", "Off", "OFF"}},
-		{nil, yaml_NULL_TAG, []string{"", "~", "null", "Null", "NULL"}},
-		{math.NaN(), yaml_FLOAT_TAG, []string{".nan", ".NaN", ".NAN"}},
-		{math.Inf(+1), yaml_FLOAT_TAG, []string{".inf", ".Inf", ".INF"}},
-		{math.Inf(+1), yaml_FLOAT_TAG, []string{"+.inf", "+.Inf", "+.INF"}},
-		{math.Inf(-1), yaml_FLOAT_TAG, []string{"-.inf", "-.Inf", "-.INF"}},
-		{"<<", yaml_MERGE_TAG, []string{"<<"}},
+		{true, boolTag, []string{"true", "True", "TRUE"}},
+		{false, boolTag, []string{"false", "False", "FALSE"}},
+		{nil, nullTag, []string{"", "~", "null", "Null", "NULL"}},
+		{math.NaN(), floatTag, []string{".nan", ".NaN", ".NAN"}},
+		{math.Inf(+1), floatTag, []string{".inf", ".Inf", ".INF"}},
+		{math.Inf(+1), floatTag, []string{"+.inf", "+.Inf", "+.INF"}},
+		{math.Inf(-1), floatTag, []string{"-.inf", "-.Inf", "-.INF"}},
+		{"<<", mergeTag, []string{"<<"}},
 	}
 
 	m := resolveMap
@@ -56,11 +67,37 @@ func init() {
 	}
 }
 
+const (
+	nullTag      = "!!null"
+	boolTag      = "!!bool"
+	strTag       = "!!str"
+	intTag       = "!!int"
+	floatTag     = "!!float"
+	timestampTag = "!!timestamp"
+	seqTag       = "!!seq"
+	mapTag       = "!!map"
+	binaryTag    = "!!binary"
+	mergeTag     = "!!merge"
+)
+
+var longTags = make(map[string]string)
+var shortTags = make(map[string]string)
+
+func init() {
+	for _, stag := range []string{nullTag, boolTag, strTag, intTag, floatTag, timestampTag, seqTag, mapTag, binaryTag, mergeTag} {
+		ltag := longTag(stag)
+		longTags[stag] = ltag
+		shortTags[ltag] = stag
+	}
+}
+
 const longTagPrefix = "tag:yaml.org,2002:"
 
 func shortTag(tag string) string {
-	// TODO This can easily be made faster and produce less garbage.
 	if strings.HasPrefix(tag, longTagPrefix) {
+		if stag, ok := shortTags[tag]; ok {
+			return stag
+		}
 		return "!!" + tag[len(longTagPrefix):]
 	}
 	return tag
@@ -68,6 +105,9 @@ func shortTag(tag string) string {
 
 func longTag(tag string) string {
 	if strings.HasPrefix(tag, "!!") {
+		if ltag, ok := longTags[tag]; ok {
+			return ltag
+		}
 		return longTagPrefix + tag[2:]
 	}
 	return tag
@@ -75,7 +115,7 @@ func longTag(tag string) string {
 
 func resolvableTag(tag string) bool {
 	switch tag {
-	case "", yaml_STR_TAG, yaml_BOOL_TAG, yaml_INT_TAG, yaml_FLOAT_TAG, yaml_NULL_TAG, yaml_TIMESTAMP_TAG:
+	case "", strTag, boolTag, intTag, floatTag, nullTag, timestampTag:
 		return true
 	}
 	return false
@@ -84,23 +124,24 @@ func resolvableTag(tag string) bool {
 var yamlStyleFloat = regexp.MustCompile(`^[-+]?(\.[0-9]+|[0-9]+(\.[0-9]*)?)([eE][-+]?[0-9]+)?$`)
 
 func resolve(tag string, in string) (rtag string, out interface{}) {
+	tag = shortTag(tag)
 	if !resolvableTag(tag) {
 		return tag, in
 	}
 
 	defer func() {
 		switch tag {
-		case "", rtag, yaml_STR_TAG, yaml_BINARY_TAG:
+		case "", rtag, strTag, binaryTag:
 			return
-		case yaml_FLOAT_TAG:
-			if rtag == yaml_INT_TAG {
+		case floatTag:
+			if rtag == intTag {
 				switch v := out.(type) {
 				case int64:
-					rtag = yaml_FLOAT_TAG
+					rtag = floatTag
 					out = float64(v)
 					return
 				case int:
-					rtag = yaml_FLOAT_TAG
+					rtag = floatTag
 					out = float64(v)
 					return
 				}
@@ -115,7 +156,7 @@ func resolve(tag string, in string) (rtag string, out interface{}) {
 	if in != "" {
 		hint = resolveTable[in[0]]
 	}
-	if hint != 0 && tag != yaml_STR_TAG && tag != yaml_BINARY_TAG {
+	if hint != 0 && tag != strTag && tag != binaryTag {
 		// Handle things we can lookup in a map.
 		if item, ok := resolveMap[in]; ok {
 			return item.tag, item.value
@@ -133,17 +174,17 @@ func resolve(tag string, in string) (rtag string, out interface{}) {
 			// Not in the map, so maybe a normal float.
 			floatv, err := strconv.ParseFloat(in, 64)
 			if err == nil {
-				return yaml_FLOAT_TAG, floatv
+				return floatTag, floatv
 			}
 
 		case 'D', 'S':
 			// Int, float, or timestamp.
 			// Only try values as a timestamp if the value is unquoted or there's an explicit
 			// !!timestamp tag.
-			if tag == "" || tag == yaml_TIMESTAMP_TAG {
+			if tag == "" || tag == timestampTag {
 				t, ok := parseTimestamp(in)
 				if ok {
-					return yaml_TIMESTAMP_TAG, t
+					return timestampTag, t
 				}
 			}
 
@@ -151,49 +192,76 @@ func resolve(tag string, in string) (rtag string, out interface{}) {
 			intv, err := strconv.ParseInt(plain, 0, 64)
 			if err == nil {
 				if intv == int64(int(intv)) {
-					return yaml_INT_TAG, int(intv)
+					return intTag, int(intv)
 				} else {
-					return yaml_INT_TAG, intv
+					return intTag, intv
 				}
 			}
 			uintv, err := strconv.ParseUint(plain, 0, 64)
 			if err == nil {
-				return yaml_INT_TAG, uintv
+				return intTag, uintv
 			}
 			if yamlStyleFloat.MatchString(plain) {
 				floatv, err := strconv.ParseFloat(plain, 64)
 				if err == nil {
-					return yaml_FLOAT_TAG, floatv
+					return floatTag, floatv
 				}
 			}
 			if strings.HasPrefix(plain, "0b") {
 				intv, err := strconv.ParseInt(plain[2:], 2, 64)
 				if err == nil {
 					if intv == int64(int(intv)) {
-						return yaml_INT_TAG, int(intv)
+						return intTag, int(intv)
 					} else {
-						return yaml_INT_TAG, intv
+						return intTag, intv
 					}
 				}
 				uintv, err := strconv.ParseUint(plain[2:], 2, 64)
 				if err == nil {
-					return yaml_INT_TAG, uintv
+					return intTag, uintv
 				}
 			} else if strings.HasPrefix(plain, "-0b") {
-				intv, err := strconv.ParseInt("-" + plain[3:], 2, 64)
+				intv, err := strconv.ParseInt("-"+plain[3:], 2, 64)
 				if err == nil {
 					if true || intv == int64(int(intv)) {
-						return yaml_INT_TAG, int(intv)
+						return intTag, int(intv)
 					} else {
-						return yaml_INT_TAG, intv
+						return intTag, intv
+					}
+				}
+			}
+			// Octals as introduced in version 1.2 of the spec.
+			// Octals from the 1.1 spec, spelled as 0777, are still
+			// decoded by default in v3 as well for compatibility.
+			// May be dropped in v4 depending on how usage evolves.
+			if strings.HasPrefix(plain, "0o") {
+				intv, err := strconv.ParseInt(plain[2:], 8, 64)
+				if err == nil {
+					if intv == int64(int(intv)) {
+						return intTag, int(intv)
+					} else {
+						return intTag, intv
+					}
+				}
+				uintv, err := strconv.ParseUint(plain[2:], 8, 64)
+				if err == nil {
+					return intTag, uintv
+				}
+			} else if strings.HasPrefix(plain, "-0o") {
+				intv, err := strconv.ParseInt("-"+plain[3:], 8, 64)
+				if err == nil {
+					if true || intv == int64(int(intv)) {
+						return intTag, int(intv)
+					} else {
+						return intTag, intv
 					}
 				}
 			}
 		default:
-			panic("resolveTable item not yet handled: " + string(rune(hint)) + " (with " + in + ")")
+			panic("internal error: missing handler for resolver table: " + string(rune(hint)) + " (with " + in + ")")
 		}
 	}
-	return yaml_STR_TAG, in
+	return strTag, in
 }
 
 // encodeBase64 encodes s as base64 that is broken up into multiple lines

@@ -1,3 +1,25 @@
+//
+// Copyright (c) 2011-2019 Canonical Ltd
+// Copyright (c) 2006-2010 Kirill Simonov
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy of
+// this software and associated documentation files (the "Software"), to deal in
+// the Software without restriction, including without limitation the rights to
+// use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+// of the Software, and to permit persons to whom the Software is furnished to do
+// so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
 package yaml
 
 import (
@@ -73,13 +95,13 @@ type yaml_scalar_style_t yaml_style_t
 // Scalar styles.
 const (
 	// Let the emitter choose the style.
-	yaml_ANY_SCALAR_STYLE yaml_scalar_style_t = iota
+	yaml_ANY_SCALAR_STYLE yaml_scalar_style_t = 0
 
-	yaml_PLAIN_SCALAR_STYLE         // The plain scalar style.
-	yaml_SINGLE_QUOTED_SCALAR_STYLE // The single-quoted scalar style.
-	yaml_DOUBLE_QUOTED_SCALAR_STYLE // The double-quoted scalar style.
-	yaml_LITERAL_SCALAR_STYLE       // The literal scalar style.
-	yaml_FOLDED_SCALAR_STYLE        // The folded scalar style.
+	yaml_PLAIN_SCALAR_STYLE         yaml_scalar_style_t = 1 << iota // The plain scalar style.
+	yaml_SINGLE_QUOTED_SCALAR_STYLE                                 // The single-quoted scalar style.
+	yaml_DOUBLE_QUOTED_SCALAR_STYLE                                 // The double-quoted scalar style.
+	yaml_LITERAL_SCALAR_STYLE                                       // The literal scalar style.
+	yaml_FOLDED_SCALAR_STYLE                                        // The folded scalar style.
 )
 
 type yaml_sequence_style_t yaml_style_t
@@ -238,6 +260,7 @@ const (
 	yaml_SEQUENCE_END_EVENT   // A SEQUENCE-END event.
 	yaml_MAPPING_START_EVENT  // A MAPPING-START event.
 	yaml_MAPPING_END_EVENT    // A MAPPING-END event.
+	yaml_TAIL_COMMENT_EVENT
 )
 
 var eventStrings = []string{
@@ -252,6 +275,7 @@ var eventStrings = []string{
 	yaml_SEQUENCE_END_EVENT:   "sequence end",
 	yaml_MAPPING_START_EVENT:  "mapping start",
 	yaml_MAPPING_END_EVENT:    "mapping end",
+	yaml_TAIL_COMMENT_EVENT:   "tail comment",
 }
 
 func (e yaml_event_type_t) String() string {
@@ -278,6 +302,12 @@ type yaml_event_t struct {
 
 	// The list of tag directives (for yaml_DOCUMENT_START_EVENT).
 	tag_directives []yaml_tag_directive_t
+
+	// The comments
+	head_comment []byte
+	line_comment []byte
+	foot_comment []byte
+	tail_comment []byte
 
 	// The anchor (for yaml_SCALAR_EVENT, yaml_SEQUENCE_START_EVENT, yaml_MAPPING_START_EVENT, yaml_ALIAS_EVENT).
 	anchor []byte
@@ -554,6 +584,8 @@ type yaml_parser_t struct {
 
 	unread int // The number of unread characters in the buffer.
 
+	newlines int // The number of line breaks since last non-break/non-blank character
+
 	raw_buffer     []byte // The raw buffer.
 	raw_buffer_pos int    // The current position of the buffer.
 
@@ -561,6 +593,17 @@ type yaml_parser_t struct {
 
 	offset int         // The offset of the current position (in bytes).
 	mark   yaml_mark_t // The mark of the current position.
+
+	// Comments
+
+	head_comment []byte // The current head comments
+	line_comment []byte // The current line comments
+	foot_comment []byte // The current foot comments
+	tail_comment []byte // Foot comment that happens at the end of a block.
+	stem_comment []byte // Comment in item preceding a nested structure (list inside list item, etc)
+
+	comments      []yaml_comment_t // The folded comments for all parsed tokens
+	comments_head int
 
 	// Scanner stuff
 
@@ -595,6 +638,18 @@ type yaml_parser_t struct {
 	document *yaml_document_t // The currently parsed document.
 }
 
+type yaml_comment_t struct {
+
+	scan_mark  yaml_mark_t // Position where scanning for comments started
+	token_mark yaml_mark_t // Position after which tokens will be associated with this comment
+	start_mark yaml_mark_t // Position of '#' comment mark
+	end_mark   yaml_mark_t // Position where comment terminated
+
+	head []byte
+	line []byte
+	foot []byte
+}
+
 // Emitter Definitions
 
 // The prototype of a write handler.
@@ -625,8 +680,10 @@ const (
 	yaml_EMIT_DOCUMENT_CONTENT_STATE           // Expect the content of a document.
 	yaml_EMIT_DOCUMENT_END_STATE               // Expect DOCUMENT-END.
 	yaml_EMIT_FLOW_SEQUENCE_FIRST_ITEM_STATE   // Expect the first item of a flow sequence.
+	yaml_EMIT_FLOW_SEQUENCE_TRAIL_ITEM_STATE   // Expect the next item of a flow sequence, with the comma already written out
 	yaml_EMIT_FLOW_SEQUENCE_ITEM_STATE         // Expect an item of a flow sequence.
 	yaml_EMIT_FLOW_MAPPING_FIRST_KEY_STATE     // Expect the first key of a flow mapping.
+	yaml_EMIT_FLOW_MAPPING_TRAIL_KEY_STATE     // Expect the next key of a flow mapping, with the comma already written out
 	yaml_EMIT_FLOW_MAPPING_KEY_STATE           // Expect a key of a flow mapping.
 	yaml_EMIT_FLOW_MAPPING_SIMPLE_VALUE_STATE  // Expect a value for a simple key of a flow mapping.
 	yaml_EMIT_FLOW_MAPPING_VALUE_STATE         // Expect a value of a flow mapping.
@@ -698,6 +755,9 @@ type yaml_emitter_t struct {
 	indention  bool // If the last character was an indentation character (' ', '-', '?', ':')?
 	open_ended bool // If an explicit document end is required?
 
+	space_above bool // Is there's an empty line above?
+	foot_indent int  // The indent used to write the foot comment above, or -1 if none.
+
 	// Anchor analysis.
 	anchor_data struct {
 		anchor []byte // The anchor value.
@@ -720,6 +780,12 @@ type yaml_emitter_t struct {
 		block_allowed         bool                // Can the scalar be expressed in the literal or folded styles?
 		style                 yaml_scalar_style_t // The output style.
 	}
+
+	// Comments
+	head_comment []byte
+	line_comment []byte
+	foot_comment []byte
+	tail_comment []byte
 
 	// Dumper stuff
 

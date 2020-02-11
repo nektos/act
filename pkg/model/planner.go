@@ -88,8 +88,10 @@ type workflowPlanner struct {
 func (wp *workflowPlanner) PlanEvent(eventName string) *Plan {
 	plan := new(Plan)
 	for _, w := range wp.workflows {
-		if w.On == eventName {
-			plan.mergeStages(createStages(w, w.GetJobIDs()...))
+		for _, e := range w.On() {
+			if e == eventName {
+				plan.mergeStages(createStages(w, w.GetJobIDs()...))
+			}
 		}
 	}
 	return plan
@@ -110,14 +112,19 @@ func (wp *workflowPlanner) GetEvents() []string {
 	for _, w := range wp.workflows {
 		found := false
 		for _, e := range events {
-			if e == w.On {
-				found = true
+			for _, we := range w.On() {
+				if e == we {
+					found = true
+					break
+				}
+			}
+			if found {
 				break
 			}
 		}
 
 		if !found {
-			events = append(events, w.On)
+			events = append(events, w.On()...)
 		}
 	}
 
@@ -163,8 +170,8 @@ func createStages(w *Workflow, jobIDs ...string) []*Stage {
 			// make sure we haven't visited this job yet
 			if _, ok := jobDependencies[jID]; !ok {
 				if job := w.GetJob(jID); job != nil {
-					jobDependencies[jID] = job.Needs
-					newJobIDs = append(newJobIDs, job.Needs...)
+					jobDependencies[jID] = job.Needs()
+					newJobIDs = append(newJobIDs, job.Needs()...)
 				}
 			}
 		}
