@@ -45,7 +45,10 @@ func (rc *RunContext) Close(ctx context.Context) error {
 
 // Executor returns a pipeline executor for all the steps in the job
 func (rc *RunContext) Executor() common.Executor {
-	rc.setupTempDir()
+	err := rc.setupTempDir()
+	if err != nil {
+		return common.NewErrorExecutor(err)
+	}
 	steps := make([]common.Executor, 0)
 
 	for i, step := range rc.Run.Job().Steps {
@@ -74,7 +77,13 @@ func (rc *RunContext) setupTempDir() error {
 		tempBase = "/tmp"
 	}
 	rc.Tempdir, err = ioutil.TempDir(tempBase, "act-")
-	os.Chmod(rc.Tempdir, 0755)
+	if err != nil {
+		return err
+	}
+	err = os.Chmod(rc.Tempdir, 0755)
+	if err != nil {
+		return err
+	}
 	log.Debugf("Setup tempdir %s", rc.Tempdir)
 	return err
 }
