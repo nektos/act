@@ -113,6 +113,18 @@ type Step struct {
 	TimeoutMinutes   int64             `yaml:"timeout-minutes"`
 }
 
+// String gets the name of step
+func (s *Step) String() string {
+	if s.Name != "" {
+		return s.Name
+	} else if s.Uses != "" {
+		return s.Uses
+	} else if s.Run != "" {
+		return s.Run
+	}
+	return s.ID
+}
+
 // GetEnv gets the env for a step
 func (s *Step) GetEnv() map[string]string {
 	rtnEnv := make(map[string]string)

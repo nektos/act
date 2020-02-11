@@ -55,7 +55,19 @@ func (rc *RunContext) Executor() common.Executor {
 		if step.ID == "" {
 			step.ID = fmt.Sprintf("%d", i)
 		}
-		steps = append(steps, rc.newStepExecutor(step))
+		s := step
+		steps = append(steps, func(ctx context.Context) error {
+			//common.Logger(ctx).Infof("\U0001F680  Begin %s", step)
+			//common.Logger(ctx).Infof("\u2728  Begin - %s", step)
+			common.Logger(ctx).Infof("\u2B50  Begin - %s", s)
+			err := rc.newStepExecutor(s)(ctx)
+			if err == nil {
+				common.Logger(ctx).Infof("  \u2705  Success - %s", s)
+			} else {
+				common.Logger(ctx).Errorf("  \u274C  Failure - %s", s)
+			}
+			return err
+		})
 	}
 	return common.NewPipelineExecutor(steps...).Finally(rc.Close)
 }
@@ -116,6 +128,17 @@ func (rc *RunContext) runContainer(containerSpec *model.ContainerSpec) common.Ex
 			entrypoint = strings.Fields(containerSpec.Entrypoint)
 		}
 
+		var logWriter io.Writer
+		logger := common.Logger(ctx)
+		if entry, ok := logger.(*log.Entry); ok {
+			logWriter = entry.Writer()
+		} else if lgr, ok := logger.(*log.Logger); ok {
+			logWriter = lgr.Writer()
+		} else {
+			logger.Errorf("Unable to get writer from logger (type=%T)", logger)
+		}
+		logWriter = os.Stdout
+
 		return container.NewDockerRunExecutor(container.NewDockerRunExecutorInput{
 			Cmd:        cmd,
 			Entrypoint: entrypoint,
@@ -130,6 +153,8 @@ func (rc *RunContext) runContainer(containerSpec *model.ContainerSpec) common.Ex
 			},
 			Content:         map[string]io.Reader{"/github": ghReader},
 			ReuseContainers: rc.Config.ReuseContainers,
+			Stdout:          logWriter,
+			Stderr:          logWriter,
 		})(ctx)
 	}
 }

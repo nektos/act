@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"context"
 	"io/ioutil"
 
 	"github.com/nektos/act/pkg/common"
@@ -64,5 +65,8 @@ func (runner *runnerImpl) NewRunExecutor(run *model.Run) common.Executor {
 	rc.Config = runner.config
 	rc.Run = run
 	rc.EventJSON = runner.eventJSON
-	return rc.Executor()
+	return func(ctx context.Context) error {
+		ctx = WithJobLogger(ctx, rc.Run.String())
+		return rc.Executor()(ctx)
+	}
 }
