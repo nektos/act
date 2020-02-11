@@ -6,21 +6,45 @@ import (
 	"regexp"
 	"strings"
 
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 // Workflow is the structure of the files in .github/workflows
 type Workflow struct {
-	Name string            `yaml:"name"`
-	On   string            `yaml:"on"`
-	Env  map[string]string `yaml:"env"`
-	Jobs map[string]*Job   `yaml:"jobs"`
+	Name  string            `yaml:"name"`
+	RawOn yaml.Node         `yaml:"on"`
+	Env   map[string]string `yaml:"env"`
+	Jobs  map[string]*Job   `yaml:"jobs"`
+}
+
+// On events for the workflow
+func (w *Workflow) On() []string {
+
+	switch w.RawOn.Kind {
+	case yaml.ScalarNode:
+		var val string
+		w.RawOn.Decode(&val)
+		return []string{val}
+	case yaml.SequenceNode:
+		var val []string
+		w.RawOn.Decode(&val)
+		return val
+	case yaml.MappingNode:
+		var val map[string]interface{}
+		w.RawOn.Decode(&val)
+		var keys []string
+		for k := range val {
+			keys = append(keys, k)
+		}
+		return keys
+	}
+	return nil
 }
 
 // Job is the structure of one job in a workflow
 type Job struct {
 	Name           string                    `yaml:"name"`
-	Needs          []string                  `yaml:"needs"`
+	RawNeeds       yaml.Node                 `yaml:"needs"`
 	RunsOn         string                    `yaml:"runs-on"`
 	Env            map[string]string         `yaml:"env"`
 	If             string                    `yaml:"if"`
@@ -28,6 +52,22 @@ type Job struct {
 	TimeoutMinutes int64                     `yaml:"timeout-minutes"`
 	Container      *ContainerSpec            `yaml:"container"`
 	Services       map[string]*ContainerSpec `yaml:"services"`
+}
+
+// Needs list for Job
+func (j *Job) Needs() []string {
+
+	switch j.RawNeeds.Kind {
+	case yaml.ScalarNode:
+		var val string
+		j.RawNeeds.Decode(&val)
+		return []string{val}
+	case yaml.SequenceNode:
+		var val []string
+		j.RawNeeds.Decode(&val)
+		return val
+	}
+	return nil
 }
 
 // ContainerSpec is the specification of the container to use for the job

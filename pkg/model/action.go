@@ -3,7 +3,7 @@ package model
 import (
 	"io"
 
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 // ActionRunsUsing is the type of runner for the action

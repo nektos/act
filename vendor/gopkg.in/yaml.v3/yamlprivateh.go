@@ -1,3 +1,25 @@
+// 
+// Copyright (c) 2011-2019 Canonical Ltd
+// Copyright (c) 2006-2010 Kirill Simonov
+// 
+// Permission is hereby granted, free of charge, to any person obtaining a copy of
+// this software and associated documentation files (the "Software"), to deal in
+// the Software without restriction, including without limitation the rights to
+// use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+// of the Software, and to permit persons to whom the Software is furnished to do
+// so, subject to the following conditions:
+// 
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+// 
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
 package yaml
 
 const (
@@ -114,8 +136,9 @@ func is_crlf(b []byte, i int) bool {
 // Check if the character is a line break or NUL.
 func is_breakz(b []byte, i int) bool {
 	//return is_break(b, i) || is_z(b, i)
-	return (        // is_break:
-	b[i] == '\r' || // CR (#xD)
+	return (
+		// is_break:
+		b[i] == '\r' || // CR (#xD)
 		b[i] == '\n' || // LF (#xA)
 		b[i] == 0xC2 && b[i+1] == 0x85 || // NEL (#x85)
 		b[i] == 0xE2 && b[i+1] == 0x80 && b[i+2] == 0xA8 || // LS (#x2028)
@@ -127,8 +150,9 @@ func is_breakz(b []byte, i int) bool {
 // Check if the character is a line break, space, or NUL.
 func is_spacez(b []byte, i int) bool {
 	//return is_space(b, i) || is_breakz(b, i)
-	return ( // is_space:
-	b[i] == ' ' ||
+	return (
+		// is_space:
+		b[i] == ' ' ||
 		// is_breakz:
 		b[i] == '\r' || // CR (#xD)
 		b[i] == '\n' || // LF (#xA)
@@ -141,8 +165,9 @@ func is_spacez(b []byte, i int) bool {
 // Check if the character is a line break, space, tab, or NUL.
 func is_blankz(b []byte, i int) bool {
 	//return is_blank(b, i) || is_breakz(b, i)
-	return ( // is_blank:
-	b[i] == ' ' || b[i] == '\t' ||
+	return (
+		// is_blank:
+		b[i] == ' ' || b[i] == '\t' ||
 		// is_breakz:
 		b[i] == '\r' || // CR (#xD)
 		b[i] == '\n' || // LF (#xA)
