@@ -50,6 +50,7 @@ func (rc *RunContext) newStepExecutor(step *model.Step) common.Executor {
 		containerSpec.Image = fmt.Sprintf("%s:%s", containerSpec.Name, "latest")
 		return common.NewPipelineExecutor(
 			rc.setupAction(containerSpec, filepath.Join(rc.Config.Workdir, step.Uses)),
+			applyWith(containerSpec, step),
 			rc.pullImage(containerSpec),
 			rc.runContainer(containerSpec),
 		)
@@ -73,12 +74,25 @@ func (rc *RunContext) newStepExecutor(step *model.Step) common.Executor {
 				Dir: cloneDir,
 			}),
 			rc.setupAction(containerSpec, filepath.Join(cloneDir, remoteAction.Path)),
+			applyWith(containerSpec, step),
 			rc.pullImage(containerSpec),
 			rc.runContainer(containerSpec),
 		)
 	}
 
 	return common.NewErrorExecutor(fmt.Errorf("Unable to determine how to run job:%s step:%+v", rc.Run, step))
+}
+
+func applyWith(containerSpec *model.ContainerSpec, step *model.Step) common.Executor {
+	return func(ctx context.Context) error {
+		if entrypoint, ok := step.With["entrypoint"]; ok {
+			containerSpec.Entrypoint = entrypoint
+		}
+		if args, ok := step.With["args"]; ok {
+			containerSpec.Args = args
+		}
+		return nil
+	}
 }
 
 // StepEnv returns the env for a step
@@ -113,7 +127,7 @@ func (rc *RunContext) StepEnv(step *model.Step) map[string]string {
 	if err != nil {
 		log.Warningf("unable to get git ref: %v", err)
 	} else {
-		log.Infof("using github ref: %s", ref)
+		log.Debugf("using github ref: %s", ref)
 		env["GITHUB_REF"] = ref
 	}
 	job := rc.Run.Job()

@@ -2,10 +2,13 @@ package runner
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"os"
 	"strings"
+
+	"github.com/nektos/act/pkg/common"
 
 	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ssh/terminal"
@@ -13,27 +16,45 @@ import (
 
 const (
 	//nocolor = 0
-	red    = 31
-	green  = 32
-	yellow = 33
-	blue   = 36
-	gray   = 37
+	red     = 31
+	green   = 32
+	yellow  = 33
+	blue    = 34
+	magenta = 35
+	cyan    = 36
+	gray    = 37
 )
 
-// NewJobLogger gets the logger for the Job
-func NewJobLogger(jobName string, dryrun bool) logrus.FieldLogger {
+var colors []int
+var nextColor int
+
+func init() {
+	nextColor = 0
+	colors = []int{
+		blue, yellow, green, magenta, red, gray, cyan,
+	}
+}
+
+// WithJobLogger attaches a new logger to context that is aware of steps
+func WithJobLogger(ctx context.Context, jobName string) context.Context {
+	formatter := new(stepLogFormatter)
+	formatter.color = colors[nextColor%len(colors)]
+	nextColor = nextColor + 1
+
 	logger := logrus.New()
-	logger.SetFormatter(new(jobLogFormatter))
+	logger.SetFormatter(formatter)
 	logger.SetOutput(os.Stdout)
 	logger.SetLevel(logrus.GetLevel())
-	rtn := logger.WithFields(logrus.Fields{"job_name": jobName, "dryrun": dryrun})
-	return rtn
+	rtn := logger.WithFields(logrus.Fields{"job": jobName, "dryrun": common.Dryrun(ctx)})
+
+	return common.WithLogger(ctx, rtn)
 }
 
-type jobLogFormatter struct {
+type stepLogFormatter struct {
+	color int
 }
 
-func (f *jobLogFormatter) Format(entry *logrus.Entry) ([]byte, error) {
+func (f *stepLogFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	b := &bytes.Buffer{}
 
 	if f.isColored(entry) {
@@ -46,32 +67,20 @@ func (f *jobLogFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	return b.Bytes(), nil
 }
 
-func (f *jobLogFormatter) printColored(b *bytes.Buffer, entry *logrus.Entry) {
-	var levelColor int
-	switch entry.Level {
-	case logrus.DebugLevel, logrus.TraceLevel:
-		levelColor = gray
-	case logrus.WarnLevel:
-		levelColor = yellow
-	case logrus.ErrorLevel, logrus.FatalLevel, logrus.PanicLevel:
-		levelColor = red
-	default:
-		levelColor = blue
-	}
-
+func (f *stepLogFormatter) printColored(b *bytes.Buffer, entry *logrus.Entry) {
 	entry.Message = strings.TrimSuffix(entry.Message, "\n")
-	jobName := entry.Data["job_name"]
+	jobName := entry.Data["job"]
 
 	if entry.Data["dryrun"] == true {
-		fmt.Fprintf(b, "\x1b[%dm*DRYRUN* \x1b[%dm[%s] \x1b[0m%s", green, levelColor, jobName, entry.Message)
+		fmt.Fprintf(b, "\x1b[1m\x1b[%dm\x1b[7m*DRYRUN*\x1b[0m \x1b[%dm[%s] \x1b[0m%s", gray, f.color, jobName, entry.Message)
 	} else {
-		fmt.Fprintf(b, "\x1b[%dm[%s] \x1b[0m%s", levelColor, jobName, entry.Message)
+		fmt.Fprintf(b, "\x1b[%dm[%s] \x1b[0m%s", f.color, jobName, entry.Message)
 	}
 }
 
-func (f *jobLogFormatter) print(b *bytes.Buffer, entry *logrus.Entry) {
+func (f *stepLogFormatter) print(b *bytes.Buffer, entry *logrus.Entry) {
 	entry.Message = strings.TrimSuffix(entry.Message, "\n")
-	jobName := entry.Data["job_name"]
+	jobName := entry.Data["job"]
 
 	if entry.Data["dryrun"] == true {
 		fmt.Fprintf(b, "*DRYRUN* [%s] %s", jobName, entry.Message)
@@ -80,7 +89,7 @@ func (f *jobLogFormatter) print(b *bytes.Buffer, entry *logrus.Entry) {
 	}
 }
 
-func (f *jobLogFormatter) isColored(entry *logrus.Entry) bool {
+func (f *stepLogFormatter) isColored(entry *logrus.Entry) bool {
 
 	isColored := checkIfTerminal(entry.Logger.Out)
 

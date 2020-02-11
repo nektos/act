@@ -9,6 +9,7 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/nektos/act/pkg/common"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/ssh/terminal"
@@ -26,6 +27,8 @@ type NewDockerRunExecutorInput struct {
 	Volumes         []string
 	Name            string
 	ReuseContainers bool
+	Stdout          io.Writer
+	Stderr          io.Writer
 }
 
 // NewDockerRunExecutor function to create a run executor for the container
@@ -34,7 +37,7 @@ func NewDockerRunExecutor(input NewDockerRunExecutorInput) common.Executor {
 	cr.input = input
 
 	return common.
-		NewInfoExecutor("docker run image=%s entrypoint=%+q cmd=%+q", input.Image, input.Entrypoint, input.Cmd).
+		NewInfoExecutor("%sdocker run image=%s entrypoint=%+q cmd=%+q", logPrefix, input.Image, input.Entrypoint, input.Cmd).
 		Then(
 			common.NewPipelineExecutor(
 				cr.connect(),
@@ -177,11 +180,26 @@ func (cr *containerReference) attach() common.Executor {
 			return errors.WithStack(err)
 		}
 		isTerminal := terminal.IsTerminal(int(os.Stdout.Fd()))
-		if !isTerminal || os.Getenv("NORAW") != "" {
-			go logDockerOutput(ctx, out.Reader)
-		} else {
-			go streamDockerOutput(ctx, out.Reader)
+
+		var outWriter io.Writer
+		outWriter = cr.input.Stdout
+		if outWriter == nil {
+			outWriter = os.Stdout
 		}
+		errWriter := cr.input.Stderr
+		if errWriter == nil {
+			errWriter = os.Stderr
+		}
+		go func() {
+			if !isTerminal || os.Getenv("NORAW") != "" {
+				_, err = stdcopy.StdCopy(outWriter, errWriter, out.Reader)
+			} else {
+				_, err = io.Copy(outWriter, out.Reader)
+			}
+			if err != nil {
+				common.Logger(ctx).Error(err)
+			}
+		}()
 		return nil
 	}
 }
@@ -218,8 +236,6 @@ func (cr *containerReference) wait() common.Executor {
 
 		if statusCode == 0 {
 			return nil
-		} else if statusCode == 78 {
-			return fmt.Errorf("exit with `NEUTRAL`: 78")
 		}
 
 		return fmt.Errorf("exit with `FAILURE`: %v", statusCode)

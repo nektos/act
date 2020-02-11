@@ -192,7 +192,7 @@ type NewGitCloneExecutorInput struct {
 func NewGitCloneExecutor(input NewGitCloneExecutorInput) Executor {
 	return func(ctx context.Context) error {
 		logger := Logger(ctx)
-		logger.Infof("git clone '%s' # ref=%s", input.URL, input.Ref)
+		logger.Infof("  \u2601  git clone '%s' # ref=%s", input.URL, input.Ref)
 		logger.Debugf("  cloning %s to %s", input.URL, input.Dir)
 
 		if Dryrun(ctx) {

@@ -5,9 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
-	"os"
 
 	"github.com/nektos/act/pkg/common"
 	"github.com/sirupsen/logrus"
@@ -25,6 +23,8 @@ type dockerMessage struct {
 	Status   string `json:"status"`
 	Progress string `json:"progress"`
 }
+
+const logPrefix = "  \U0001F433  "
 
 func logDockerOutput(ctx context.Context, dockerResponse io.Reader) {
 	logger := common.Logger(ctx)
@@ -46,16 +46,33 @@ func logDockerOutput(ctx context.Context, dockerResponse io.Reader) {
 }
 
 func streamDockerOutput(ctx context.Context, dockerResponse io.Reader) {
-	out := os.Stdout
-	go func() {
-		<-ctx.Done()
-		fmt.Println()
-	}()
+	/*
+		out := os.Stdout
+		go func() {
+			<-ctx.Done()
+			//fmt.Println()
+		}()
 
-	_, err := io.Copy(out, dockerResponse)
-	if err != nil {
-		logrus.Error(err)
+		_, err := io.Copy(out, dockerResponse)
+		if err != nil {
+			logrus.Error(err)
+		}
+	*/
+
+	logger := common.Logger(ctx)
+	reader := bufio.NewReader(dockerResponse)
+
+	for {
+		if ctx.Err() != nil {
+			break
+		}
+		line, _, err := reader.ReadLine()
+		if err == io.EOF {
+			break
+		}
+		logger.Debugf("%s\n", line)
 	}
+
 }
 
 func logDockerResponse(logger logrus.FieldLogger, dockerResponse io.ReadCloser, isError bool) error {
