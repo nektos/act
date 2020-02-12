@@ -9,7 +9,7 @@ Run your [GitHub Actions](https://developer.github.com/actions/) locally! Why wo
 * **Local Task Runner** - I love [make](https://en.wikipedia.org/wiki/Make_(software)). However, I also hate repeating myself.  With `act`, you can use the GitHub Actions defined in your `main.workflow` file to replace your `Makefile`!  
 
 # How Does It Work?
-When you run `act` it reads in your GitHub Actions from `.github/main.workflow` and determines the set of actions that need to be run. It uses the Docker API to either pull or build the necessary images, as defined in your `main.workflow` file and finally determines the execution path based on the dependencies that were defined. Once it has the execution path, it then uses the Docker API to run containers for each action based on the images prepared earlier. The [environment variables](https://developer.github.com/actions/creating-github-actions/accessing-the-runtime-environment/#environment-variables) and [filesystem](https://developer.github.com/actions/creating-github-actions/accessing-the-runtime-environment/#filesystem) are all configured to match what GitHub provides.
+When you run `act` it reads in your GitHub Actions from `.github/workflow/` and determines the set of actions that need to be run. It uses the Docker API to either pull or build the necessary images, as defined in your workflow files and finally determines the execution path based on the dependencies that were defined. Once it has the execution path, it then uses the Docker API to run containers for each action based on the images prepared earlier. The [environment variables](https://developer.github.com/actions/creating-github-actions/accessing-the-runtime-environment/#environment-variables) and [filesystem](https://developer.github.com/actions/creating-github-actions/accessing-the-runtime-environment/#filesystem) are all configured to match what GitHub provides.
 
 Let's see it in action with a [sample repo](https://github.com/cplee/github-actions-demo)!
 
@@ -40,8 +40,8 @@ act
 # Run a specific event:
 act pull_request
 
-# Run a specific action:
-act -a test
+# Run a specific job:
+act -j test
 
 # Run in dry-run mode:
 act -n

@@ -22,6 +22,7 @@ type Config struct {
 	EventPath       string // path to JSON file to use for event.json in containers
 	ReuseContainers bool   // reuse containers to maintain state
 	ForcePull       bool   // force pulling of the image, if already present
+	LogOutput       bool   // log the output from docker run
 }
 
 type runnerImpl struct {

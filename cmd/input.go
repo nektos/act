@@ -13,6 +13,7 @@ type Input struct {
 	reuseContainers bool
 	dryrun          bool
 	forcePull       bool
+	logOutput       bool
 }
 
 func (i *Input) resolve(path string) string {
