@@ -128,7 +128,11 @@ func (rc *RunContext) runContainer(containerSpec *model.ContainerSpec) common.Ex
 
 		rawLogger := common.Logger(ctx).WithField("raw_output", true)
 		logWriter := common.NewLineWriter(rc.commandHandler(ctx), func(s string) {
-			rawLogger.Debugf(s)
+			if rc.Config.LogOutput {
+				rawLogger.Infof(s)
+			} else {
+				rawLogger.Debugf(s)
+			}
 		})
 
 		return container.NewDockerRunExecutor(container.NewDockerRunExecutorInput{
