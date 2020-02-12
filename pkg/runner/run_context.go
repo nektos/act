@@ -34,6 +34,9 @@ type RunContext struct {
 func (rc *RunContext) GetEnv() map[string]string {
 	if rc.Env == nil {
 		rc.Env = mergeMaps(rc.Run.Workflow.Env, rc.Run.Job().Env)
+		if rc.Env["PATH"] == "" {
+			rc.Env["PATH"] = "/usr/local/bin:/usr/local/sbin:/usr/bin:/bin:/usr/sbin:/sbin"
+		}
 	}
 	return rc.Env
 }
