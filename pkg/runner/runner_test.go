@@ -37,15 +37,18 @@ func TestRunEvent(t *testing.T) {
 		eventName    string
 		errorMessage string
 	}{
-		{"basic", "push", ""},
-		{"fail", "push", "exit with `FAILURE`: 1"},
 		{"runs-on", "push", ""},
-		{"job-container", "push", ""},
-		{"uses-docker-url", "push", ""},
-		{"remote-action-docker", "push", ""},
-		{"remote-action-js", "push", ""},
-		{"local-action-docker-url", "push", ""},
-		{"local-action-dockerfile", "push", ""},
+		/*
+			{"basic", "push", ""},
+			{"fail", "push", "exit with `FAILURE`: 1"},
+			{"runs-on", "push", ""},
+			{"job-container", "push", ""},
+			{"uses-docker-url", "push", ""},
+			{"remote-action-docker", "push", ""},
+			{"remote-action-js", "push", ""},
+			{"local-action-docker-url", "push", ""},
+			{"local-action-dockerfile", "push", ""},
+		*/
 	}
 	log.SetLevel(log.DebugLevel)
 
@@ -55,8 +58,9 @@ func TestRunEvent(t *testing.T) {
 		table := table
 		t.Run(table.workflowPath, func(t *testing.T) {
 			runnerConfig := &Config{
-				Workdir:   "testdata",
-				EventName: table.eventName,
+				Workdir:         "testdata",
+				EventName:       table.eventName,
+				ReuseContainers: true,
 			}
 			runner, err := New(runnerConfig)
 			assert.NilError(t, err, table.workflowPath)

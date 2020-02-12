@@ -5,4 +5,6 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
+    - run: env
+    - run: echo ${GITHUB_ACTOR} 
     - run: echo ${GITHUB_ACTOR} | grep nektos/act
