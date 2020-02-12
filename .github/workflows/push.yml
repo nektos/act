@@ -6,5 +6,5 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - uses: ./.github/workflows/check
+    #- uses: ./.github/workflows/check
     - uses: ./.github/workflows/integration

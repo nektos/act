@@ -2,15 +2,11 @@ package container
 
 import (
 	"bufio"
-	"context"
 	"encoding/json"
 	"errors"
 	"io"
 
-	"github.com/nektos/act/pkg/common"
 	"github.com/sirupsen/logrus"
-
-	"github.com/docker/docker/pkg/stdcopy"
 )
 
 type dockerMessage struct {
@@ -26,6 +22,7 @@ type dockerMessage struct {
 
 const logPrefix = "  \U0001F433  "
 
+/*
 func logDockerOutput(ctx context.Context, dockerResponse io.Reader) {
 	logger := common.Logger(ctx)
 	if entry, ok := logger.(*logrus.Entry); ok {
@@ -44,7 +41,9 @@ func logDockerOutput(ctx context.Context, dockerResponse io.Reader) {
 		logrus.Errorf("Unable to get writer from logger (type=%T)", logger)
 	}
 }
+*/
 
+/*
 func streamDockerOutput(ctx context.Context, dockerResponse io.Reader) {
 	/*
 		out := os.Stdout
@@ -57,7 +56,7 @@ func streamDockerOutput(ctx context.Context, dockerResponse io.Reader) {
 		if err != nil {
 			logrus.Error(err)
 		}
-	*/
+	* /
 
 	logger := common.Logger(ctx)
 	reader := bufio.NewReader(dockerResponse)
@@ -74,6 +73,7 @@ func streamDockerOutput(ctx context.Context, dockerResponse io.Reader) {
 	}
 
 }
+*/
 
 func logDockerResponse(logger logrus.FieldLogger, dockerResponse io.ReadCloser, isError bool) error {
 	if dockerResponse == nil {

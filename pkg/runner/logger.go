@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/nektos/act/pkg/common"
 
@@ -27,6 +28,7 @@ const (
 
 var colors []int
 var nextColor int
+var mux sync.Mutex
 
 func init() {
 	nextColor = 0
@@ -37,9 +39,11 @@ func init() {
 
 // WithJobLogger attaches a new logger to context that is aware of steps
 func WithJobLogger(ctx context.Context, jobName string) context.Context {
+	mux.Lock()
+	defer mux.Unlock()
 	formatter := new(stepLogFormatter)
 	formatter.color = colors[nextColor%len(colors)]
-	nextColor = nextColor + 1
+	nextColor++
 
 	logger := logrus.New()
 	logger.SetFormatter(formatter)
@@ -71,7 +75,9 @@ func (f *stepLogFormatter) printColored(b *bytes.Buffer, entry *logrus.Entry) {
 	entry.Message = strings.TrimSuffix(entry.Message, "\n")
 	jobName := entry.Data["job"]
 
-	if entry.Data["dryrun"] == true {
+	if entry.Data["raw_output"] == true {
+		fmt.Fprintf(b, "\x1b[%dm|\x1b[0m %s", f.color, entry.Message)
+	} else if entry.Data["dryrun"] == true {
 		fmt.Fprintf(b, "\x1b[1m\x1b[%dm\x1b[7m*DRYRUN*\x1b[0m \x1b[%dm[%s] \x1b[0m%s", gray, f.color, jobName, entry.Message)
 	} else {
 		fmt.Fprintf(b, "\x1b[%dm[%s] \x1b[0m%s", f.color, jobName, entry.Message)
@@ -82,7 +88,9 @@ func (f *stepLogFormatter) print(b *bytes.Buffer, entry *logrus.Entry) {
 	entry.Message = strings.TrimSuffix(entry.Message, "\n")
 	jobName := entry.Data["job"]
 
-	if entry.Data["dryrun"] == true {
+	if entry.Data["raw_output"] == true {
+		fmt.Fprintf(b, "[%s]   | %s", jobName, entry.Message)
+	} else if entry.Data["dryrun"] == true {
 		fmt.Fprintf(b, "*DRYRUN* [%s] %s", jobName, entry.Message)
 	} else {
 		fmt.Fprintf(b, "[%s] %s", jobName, entry.Message)

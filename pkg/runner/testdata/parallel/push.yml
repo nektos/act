@@ -20,7 +20,7 @@ jobs:
           args: echo ${GITHUB_REF} | grep nektos/act
       - uses: ./actions/docker-url
         with:
-          args: npm install angular-cli
+          args: npm install -g qs
   test2:
     runs-on: ubuntu-latest
     needs: [build]

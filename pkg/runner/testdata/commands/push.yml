@@ -1,0 +1,33 @@
+name: basic
+on: push
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: TEST set-env
+        run: echo "::set-env name=foo::bar"
+      - name: TEST set-env (cont.)
+        run: echo $foo | grep bar
+
+      - name: TEST set-output
+        run: echo "::set-output name=zoo::zar"
+
+      #- run: echo "::add-path::/zip"
+      #- run: echo $PATH | grep /zip
+
+      - name: TEST debug, warning, error
+        run: |
+          echo "::debug file=app.js,line=100,col=20::Hello debug!"
+          echo "::warning file=app.js,line=100,col=20::Hello warning!"
+          echo "::error file=app.js,line=100,col=30::Hello error!"
+
+      - name: TEST stop-commands
+        run: |
+          echo "::stop-commands::my-end-token" 
+          echo "::set-env name=foo::baz"
+          echo $foo | grep bar
+          echo "::my-end-token::"
+          echo "::set-env name=foo::baz"
+      - name: TEST stop-commands (cont.)
+        run: echo $foo | grep baz
