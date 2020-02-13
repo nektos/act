@@ -2,7 +2,6 @@ package runner
 
 import (
 	"context"
-	"fmt"
 	"regexp"
 	"strings"
 
@@ -72,10 +71,7 @@ func (rc *RunContext) setOutput(ctx context.Context, kvPairs map[string]string, 
 }
 func (rc *RunContext) addPath(ctx context.Context, arg string) {
 	common.Logger(ctx).Infof("  \U00002699  ::add-path:: %s", arg)
-	if rc.Env == nil {
-		rc.Env = make(map[string]string)
-	}
-	rc.Env["PATH"] = fmt.Sprintf("%s:%s", arg, rc.Env["PATH"])
+	rc.ExtraPath = append(rc.ExtraPath, arg)
 }
 
 func parseKeyValuePairs(kvPairs string) map[string]string {

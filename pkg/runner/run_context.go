@@ -22,21 +22,20 @@ import (
 
 // RunContext contains info about current job
 type RunContext struct {
-	Config    *Config
-	Run       *model.Run
-	EventJSON string
-	Env       map[string]string
-	Outputs   map[string]string
-	Tempdir   string
+	Config          *Config
+	Run             *model.Run
+	EventJSON       string
+	Env             map[string]string
+	Outputs         map[string]string
+	Tempdir         string
+	PriorStepFailed bool
+	ExtraPath       []string
 }
 
 // GetEnv returns the env for the context
 func (rc *RunContext) GetEnv() map[string]string {
 	if rc.Env == nil {
 		rc.Env = mergeMaps(rc.Run.Workflow.Env, rc.Run.Job().Env)
-		if rc.Env["PATH"] == "" {
-			rc.Env["PATH"] = "/usr/local/bin:/usr/local/sbin:/usr/bin:/bin:/usr/sbin:/sbin"
-		}
 	}
 	return rc.Env
 }
@@ -64,8 +63,10 @@ func (rc *RunContext) Executor() common.Executor {
 			err := rc.newStepExecutor(s)(ctx)
 			if err == nil {
 				common.Logger(ctx).Infof("  \u2705  Success - %s", s)
+				rc.PriorStepFailed = false
 			} else {
 				common.Logger(ctx).Errorf("  \u274C  Failure - %s", s)
+				rc.PriorStepFailed = true
 			}
 			return err
 		})
