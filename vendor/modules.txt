@@ -1,3 +1,5 @@
+# github.com/MichaelTJones/walk v0.0.0-20161122175330-4748e29d5718
+github.com/MichaelTJones/walk
 # github.com/Microsoft/go-winio v0.4.11
 github.com/Microsoft/go-winio
 # github.com/andreaskoch/go-fswatch v1.0.0
@@ -68,6 +70,8 @@ github.com/jbenet/go-context/io
 github.com/kevinburke/ssh_config
 # github.com/konsorten/go-windows-terminal-sequences v1.0.1
 github.com/konsorten/go-windows-terminal-sequences
+# github.com/mgutz/str v1.2.0
+github.com/mgutz/str
 # github.com/mitchellh/go-homedir v1.1.0
 github.com/mitchellh/go-homedir
 # github.com/opencontainers/go-digest v1.0.0-rc1
@@ -84,6 +88,14 @@ github.com/pelletier/go-buffruneio
 github.com/pkg/errors
 # github.com/pmezard/go-difflib v1.0.0
 github.com/pmezard/go-difflib/difflib
+# github.com/robertkrimen/otto v0.0.0-20191219234010-c382bd3c16ff
+github.com/robertkrimen/otto
+github.com/robertkrimen/otto/ast
+github.com/robertkrimen/otto/dbg
+github.com/robertkrimen/otto/file
+github.com/robertkrimen/otto/parser
+github.com/robertkrimen/otto/registry
+github.com/robertkrimen/otto/token
 # github.com/sabhiram/go-gitignore v0.0.0-20180611051255-d3107576ba94
 github.com/sabhiram/go-gitignore
 # github.com/sergi/go-diff v1.0.0
@@ -134,6 +146,11 @@ golang.org/x/sys/windows
 # golang.org/x/text v0.3.2
 golang.org/x/text/transform
 golang.org/x/text/unicode/norm
+# gopkg.in/godo.v2 v2.0.9
+gopkg.in/godo.v2/glob
+# gopkg.in/sourcemap.v1 v1.0.5
+gopkg.in/sourcemap.v1
+gopkg.in/sourcemap.v1/base64vlq
 # gopkg.in/src-d/go-billy.v4 v4.3.0
 gopkg.in/src-d/go-billy.v4
 gopkg.in/src-d/go-billy.v4/helper/chroot
