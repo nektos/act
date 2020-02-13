@@ -163,7 +163,12 @@ func (rc *RunContext) setupShellCommand(containerSpec *model.ContainerSpec, shel
 			return err
 		}
 
-		if _, err := tempScript.Write([]byte(run)); err != nil {
+		_, err = tempScript.WriteString(fmt.Sprintf("PATH=\"%s:${PATH}\"\n", strings.Join(rc.ExtraPath, ":")))
+		if err != nil {
+			return err
+		}
+
+		if _, err := tempScript.WriteString(run); err != nil {
 			return err
 		}
 		log.Debugf("Wrote command '%s' to '%s'", run, tempScript.Name())

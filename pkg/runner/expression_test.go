@@ -3,6 +3,7 @@ package runner
 import (
 	"testing"
 
+	"github.com/nektos/act/pkg/model"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -11,6 +12,12 @@ func TestEvaluate(t *testing.T) {
 	rc := &RunContext{
 		Config: &Config{
 			Workdir: ".",
+		},
+		Run: &model.Run{
+			JobID: "job1",
+			Workflow: &model.Workflow{
+				Name: "test-workflow",
+			},
 		},
 	}
 	ee := rc.NewExpressionEvaluator()
@@ -36,6 +43,15 @@ func TestEvaluate(t *testing.T) {
 		{"join('hello','mona')", "hello mona", ""},
 		{"toJSON({'foo':'bar'})", "{\n  \"foo\": \"bar\"\n}", ""},
 		{"hashFiles('**/package-lock.json')", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", ""},
+		{"success()", "true", ""},
+		{"failure()", "false", ""},
+		{"always()", "true", ""},
+		{"cancelled()", "false", ""},
+		{"github.workflow", "test-workflow", ""},
+		{"github.actor", "nektos/act", ""},
+		{"github.run_id", "1", ""},
+		{"github.run_number", "1", ""},
+		{"runner.os", "Linux", ""},
 	}
 
 	for _, table := range tables {
@@ -58,6 +74,12 @@ func TestInterpolate(t *testing.T) {
 	rc := &RunContext{
 		Config: &Config{
 			Workdir: ".",
+		},
+		Run: &model.Run{
+			JobID: "job1",
+			Workflow: &model.Workflow{
+				Name: "test-workflow",
+			},
 		},
 	}
 	ee := rc.NewExpressionEvaluator()

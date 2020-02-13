@@ -34,10 +34,10 @@ func TestAddpath(t *testing.T) {
 	handler := rc.commandHandler(ctx)
 
 	handler("::add-path::/zoo\n")
-	assert.Equal("/zoo:", rc.Env["PATH"])
+	assert.Equal("/zoo", rc.ExtraPath[0])
 
-	handler("::add-path::/booo\n")
-	assert.Equal("/booo:/zoo:", rc.Env["PATH"])
+	handler("::add-path::/boo\n")
+	assert.Equal("/boo", rc.ExtraPath[1])
 }
 
 func TestStopCommands(t *testing.T) {
