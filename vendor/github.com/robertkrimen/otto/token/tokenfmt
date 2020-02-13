@@ -1,0 +1,222 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+
+my (%token, @order, @keywords);
+
+{
+    my $keywords;
+    my @const;
+    push @const, <<_END_;
+package token
+
+const(
+    _ Token = iota
+_END_
+
+    for (split m/\n/, <<_END_) {
+ILLEGAL
+EOF
+COMMENT
+KEYWORD
+
+STRING
+BOOLEAN
+NULL
+NUMBER
+IDENTIFIER
+
+PLUS                            +
+MINUS                           -
+MULTIPLY                        *
+SLASH                           /
+REMAINDER                       %
+
+AND                             &
+OR                              |
+EXCLUSIVE_OR                    ^
+SHIFT_LEFT                      <<
+SHIFT_RIGHT                     >>
+UNSIGNED_SHIFT_RIGHT            >>>
+AND_NOT                         &^
+
+ADD_ASSIGN                     +=
+SUBTRACT_ASSIGN                -=
+MULTIPLY_ASSIGN                *=
+QUOTIENT_ASSIGN                /=
+REMAINDER_ASSIGN               %=
+
+AND_ASSIGN                     &=
+OR_ASSIGN                      |=
+EXCLUSIVE_OR_ASSIGN            ^=
+SHIFT_LEFT_ASSIGN              <<=
+SHIFT_RIGHT_ASSIGN             >>=
+UNSIGNED_SHIFT_RIGHT_ASSIGN    >>>=
+AND_NOT_ASSIGN                 &^=
+
+LOGICAL_AND                    &&
+LOGICAL_OR                     ||
+INCREMENT                      ++
+DECREMENT                      --
+
+EQUAL                          ==
+STRICT_EQUAL                   ===
+LESS                           <
+GREATER                        >
+ASSIGN                         =
+NOT                            !
+
+BITWISE_NOT                    ~
+
+NOT_EQUAL                      !=
+STRICT_NOT_EQUAL               !==
+LESS_OR_EQUAL                  <=
+GREATER_OR_EQUAL               <=
+
+LEFT_PARENTHESIS               (
+LEFT_BRACKET                   [
+LEFT_BRACE                     {
+COMMA                          ,
+PERIOD                         .
+
+RIGHT_PARENTHESIS              )
+RIGHT_BRACKET                  ]
+RIGHT_BRACE                    }
+SEMICOLON                      ;
+COLON                          :
+QUESTION_MARK                  ?
+
+firstKeyword
+IF
+IN
+DO
+
+VAR
+FOR
+NEW
+TRY
+
+THIS
+ELSE
+CASE
+VOID
+WITH
+
+WHILE
+BREAK
+CATCH
+THROW
+
+RETURN
+TYPEOF
+DELETE
+SWITCH
+
+DEFAULT
+FINALLY
+
+FUNCTION
+CONTINUE
+DEBUGGER
+
+INSTANCEOF
+lastKeyword
+_END_
+        chomp;
+
+        next if m/^\s*#/;
+
+        my ($name, $symbol) = m/(\w+)\s*(\S+)?/;
+
+        if (defined $symbol) {
+            push @order, $name;
+            push @const, "$name // $symbol";
+            $token{$name} = $symbol;
+        } elsif (defined $name) {
+            $keywords ||= $name eq 'firstKeyword';
+
+            push @const, $name;
+            #$const[-1] .= " Token = iota" if 2 == @const;
+            if ($name =~ m/^([A-Z]+)/) {
+                push @keywords, $name if $keywords;
+                push @order, $name;
+                if ($token{SEMICOLON}) {
+                    $token{$name} = lc $1;
+                } else {
+                    $token{$name} = $name;
+                }
+            }
+        } else {
+            push @const, "";
+        }
+
+    }
+    push @const, ")";
+    print join "\n", @const, "";
+}
+
+{
+    print <<_END_;
+
+var token2string = [...]string{
+_END_
+    for my $name (@order) {
+        print "$name: \"$token{$name}\",\n";
+    }
+    print <<_END_;
+}
+_END_
+
+    print <<_END_;
+
+var keywordTable = map[string]_keyword{
+_END_
+    for my $name (@keywords) {
+        print <<_END_
+			"@{[ lc $name ]}": _keyword{
+				token: $name,
+			},
+_END_
+    }
+
+    for my $name (qw/
+        const
+        class
+        enum
+        export
+        extends
+        import
+        super
+        /) {
+        print <<_END_
+			"$name": _keyword{
+				token: KEYWORD,
+                futureKeyword: true,
+			},
+_END_
+    }
+
+    for my $name (qw/
+        implements
+        interface
+        let
+        package
+        private
+        protected
+        public
+        static
+        /) {
+        print <<_END_
+			"$name": _keyword{
+				token: KEYWORD,
+                futureKeyword: true,
+                strict: true,
+			},
+_END_
+    }
+
+    print <<_END_;
+}
+_END_
+}
