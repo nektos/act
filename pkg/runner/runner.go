@@ -12,7 +12,7 @@ import (
 // Runner provides capabilities to run GitHub actions
 type Runner interface {
 	NewPlanExecutor(plan *model.Plan) common.Executor
-	NewRunExecutor(run *model.Run) common.Executor
+	NewRunExecutor(run *model.Run, matrix map[string]interface{}) common.Executor
 }
 
 // Config contains the config for a new runner
@@ -53,7 +53,18 @@ func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 	for _, stage := range plan.Stages {
 		stageExecutor := make([]common.Executor, 0)
 		for _, run := range stage.Runs {
-			stageExecutor = append(stageExecutor, runner.NewRunExecutor(run))
+			// TODO - don't just grab first index of each dimension
+			matrix := make(map[string]interface{})
+			if run.Job().Strategy != nil {
+				for mkey, mvals := range run.Job().Strategy.Matrix {
+					if mkey == "include" || mkey == "exclude" {
+						continue
+					}
+					matrix[mkey] = mvals[0]
+				}
+			}
+
+			stageExecutor = append(stageExecutor, runner.NewRunExecutor(run, matrix))
 		}
 		pipeline = append(pipeline, common.NewParallelExecutor(stageExecutor...))
 	}
@@ -61,11 +72,13 @@ func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 	return common.NewPipelineExecutor(pipeline...)
 }
 
-func (runner *runnerImpl) NewRunExecutor(run *model.Run) common.Executor {
+func (runner *runnerImpl) NewRunExecutor(run *model.Run, matrix map[string]interface{}) common.Executor {
 	rc := new(RunContext)
 	rc.Config = runner.config
 	rc.Run = run
 	rc.EventJSON = runner.eventJSON
+	rc.StepResults = make(map[string]*stepResult)
+	rc.Matrix = matrix
 	return func(ctx context.Context) error {
 		ctx = WithJobLogger(ctx, rc.Run.String())
 		return rc.Executor()(ctx)
