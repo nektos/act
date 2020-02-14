@@ -21,10 +21,15 @@ func TestSetOutput(t *testing.T) {
 	assert := assert.New(t)
 	ctx := context.Background()
 	rc := new(RunContext)
+	rc.StepResults = make(map[string]*stepResult)
 	handler := rc.commandHandler(ctx)
 
+	rc.CurrentStep = "my-step"
+	rc.StepResults[rc.CurrentStep] = &stepResult{
+		Outputs: make(map[string]string),
+	}
 	handler("::set-output name=x::valz\n")
-	assert.Equal("valz", rc.Outputs["x"])
+	assert.Equal("valz", rc.StepResults["my-step"].Outputs["x"])
 }
 
 func TestAddpath(t *testing.T) {

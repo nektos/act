@@ -64,10 +64,7 @@ func (rc *RunContext) setEnv(ctx context.Context, kvPairs map[string]string, arg
 }
 func (rc *RunContext) setOutput(ctx context.Context, kvPairs map[string]string, arg string) {
 	common.Logger(ctx).Infof("  \U00002699  ::set-output:: %s=%s", kvPairs["name"], arg)
-	if rc.Outputs == nil {
-		rc.Outputs = make(map[string]string)
-	}
-	rc.Outputs[kvPairs["name"]] = arg
+	rc.StepResults[rc.CurrentStep].Outputs[kvPairs["name"]] = arg
 }
 func (rc *RunContext) addPath(ctx context.Context, arg string) {
 	common.Logger(ctx).Infof("  \U00002699  ::add-path:: %s", arg)

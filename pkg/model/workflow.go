@@ -62,6 +62,14 @@ type Job struct {
 	TimeoutMinutes int64                     `yaml:"timeout-minutes"`
 	Container      *ContainerSpec            `yaml:"container"`
 	Services       map[string]*ContainerSpec `yaml:"services"`
+	Strategy       *Strategy                 `yaml:"strategy"`
+}
+
+// Strategy for the job
+type Strategy struct {
+	FailFast    bool                     `yaml:"fail-fast"`
+	MaxParallel int                      `yaml:"max-parallel"`
+	Matrix      map[string][]interface{} `yaml:"matrix"`
 }
 
 // Needs list for Job

@@ -16,10 +16,15 @@ import (
 )
 
 func (rc *RunContext) newStepExecutor(step *model.Step) common.Executor {
+	ee := rc.NewStepExpressionEvaluator(step)
 	job := rc.Run.Job()
 	containerSpec := new(model.ContainerSpec)
-	containerSpec.Env = rc.StepEnv(step)
+	containerSpec.Env = rc.withGithubEnv(rc.StepEnv(step))
 	containerSpec.Name = rc.createContainerName(step.ID)
+
+	for k, v := range containerSpec.Env {
+		containerSpec.Env[k] = ee.Interpolate(v)
+	}
 
 	switch step.Type() {
 	case model.StepTypeRun:
@@ -29,7 +34,7 @@ func (rc *RunContext) newStepExecutor(step *model.Step) common.Executor {
 			containerSpec.Volumes = job.Container.Volumes
 			containerSpec.Options = job.Container.Options
 		} else {
-			containerSpec.Image = platformImage(job.RunsOn)
+			containerSpec.Image = platformImage(ee.Interpolate(job.RunsOn))
 		}
 		return common.NewPipelineExecutor(
 			rc.setupShellCommand(containerSpec, step.Shell, step.Run),
@@ -97,44 +102,11 @@ func applyWith(containerSpec *model.ContainerSpec, step *model.Step) common.Exec
 
 // StepEnv returns the env for a step
 func (rc *RunContext) StepEnv(step *model.Step) map[string]string {
-	env := make(map[string]string)
-	env["HOME"] = "/github/home"
-	env["GITHUB_WORKFLOW"] = rc.Run.Workflow.Name
-	env["GITHUB_RUN_ID"] = "1"
-	env["GITHUB_RUN_NUMBER"] = "1"
-	env["GITHUB_ACTION"] = step.ID
-	env["GITHUB_ACTOR"] = "nektos/act"
-
-	repoPath := rc.Config.Workdir
-	repo, err := common.FindGithubRepo(repoPath)
-	if err != nil {
-		log.Warningf("unable to get git repo: %v", err)
-	} else {
-		env["GITHUB_REPOSITORY"] = repo
-	}
-	env["GITHUB_EVENT_NAME"] = rc.Config.EventName
-	env["GITHUB_EVENT_PATH"] = "/github/workflow/event.json"
-	env["GITHUB_WORKSPACE"] = "/github/workspace"
-
-	_, rev, err := common.FindGitRevision(repoPath)
-	if err != nil {
-		log.Warningf("unable to get git revision: %v", err)
-	} else {
-		env["GITHUB_SHA"] = rev
-	}
-
-	ref, err := common.FindGitRef(repoPath)
-	if err != nil {
-		log.Warningf("unable to get git ref: %v", err)
-	} else {
-		log.Debugf("using github ref: %s", ref)
-		env["GITHUB_REF"] = ref
-	}
 	job := rc.Run.Job()
 	if job.Container != nil {
-		return mergeMaps(rc.GetEnv(), job.Container.Env, step.GetEnv(), env)
+		return mergeMaps(rc.GetEnv(), job.Container.Env, step.GetEnv())
 	}
-	return mergeMaps(rc.GetEnv(), step.GetEnv(), env)
+	return mergeMaps(rc.GetEnv(), step.GetEnv())
 }
 
 func (rc *RunContext) setupShellCommand(containerSpec *model.ContainerSpec, shell string, run string) common.Executor {

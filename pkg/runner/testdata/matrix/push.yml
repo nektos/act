@@ -1,0 +1,14 @@
+name: matrix
+on: push
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    steps:
+      - run: echo ${NODE_VERSION} | grep 4
+        env:
+          NODE_VERSION: ${{ matrix.node }}
+    strategy:
+      matrix:
+        os: [ubuntu-18.04, macos-latest]
+        node: [4, 6, 8, 10]

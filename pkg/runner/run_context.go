@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -17,19 +18,26 @@ import (
 
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/model"
+	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
 )
 
 // RunContext contains info about current job
 type RunContext struct {
-	Config          *Config
-	Run             *model.Run
-	EventJSON       string
-	Env             map[string]string
-	Outputs         map[string]string
-	Tempdir         string
-	PriorStepFailed bool
-	ExtraPath       []string
+	Config      *Config
+	Matrix      map[string]interface{}
+	Run         *model.Run
+	EventJSON   string
+	Env         map[string]string
+	Tempdir     string
+	ExtraPath   []string
+	CurrentStep string
+	StepResults map[string]*stepResult
+}
+
+type stepResult struct {
+	Success bool              `json:"success"`
+	Outputs map[string]string `json:"outputs"`
 }
 
 // GetEnv returns the env for the context
@@ -59,14 +67,18 @@ func (rc *RunContext) Executor() common.Executor {
 		}
 		s := step
 		steps = append(steps, func(ctx context.Context) error {
+			rc.CurrentStep = s.ID
+			rc.StepResults[rc.CurrentStep] = &stepResult{
+				Success: true,
+				Outputs: make(map[string]string),
+			}
 			common.Logger(ctx).Infof("\u2B50  Run %s", s)
 			err := rc.newStepExecutor(s)(ctx)
 			if err == nil {
 				common.Logger(ctx).Infof("  \u2705  Success - %s", s)
-				rc.PriorStepFailed = false
 			} else {
 				common.Logger(ctx).Errorf("  \u274C  Failure - %s", s)
-				rc.PriorStepFailed = true
+				rc.StepResults[rc.CurrentStep].Success = false
 			}
 			return err
 		})
@@ -206,4 +218,111 @@ func trimToLen(s string, l int) string {
 		return s[:l]
 	}
 	return s
+}
+
+type jobContext struct {
+	Status    string `json:"status"`
+	Container struct {
+		ID      string `json:"id"`
+		Network string `json:"network"`
+	} `json:"container"`
+	Services map[string]struct {
+		ID string `json:"id"`
+	} `json:"services"`
+}
+
+func (rc *RunContext) getJobContext() *jobContext {
+	jobStatus := "success"
+	for _, stepStatus := range rc.StepResults {
+		if !stepStatus.Success {
+			jobStatus = "failure"
+			break
+		}
+	}
+	return &jobContext{
+		Status: jobStatus,
+	}
+}
+
+func (rc *RunContext) getStepsContext() map[string]*stepResult {
+	return rc.StepResults
+}
+
+type githubContext struct {
+	Event      map[string]interface{} `json:"event"`
+	EventPath  string                 `json:"event_path"`
+	Workflow   string                 `json:"workflow"`
+	RunID      string                 `json:"run_id"`
+	RunNumber  string                 `json:"run_number"`
+	Actor      string                 `json:"actor"`
+	Repository string                 `json:"repository"`
+	EventName  string                 `json:"event_name"`
+	Sha        string                 `json:"sha"`
+	Ref        string                 `json:"ref"`
+	HeadRef    string                 `json:"head_ref"`
+	BaseRef    string                 `json:"base_ref"`
+	Token      string                 `json:"token"`
+	Workspace  string                 `json:"workspace"`
+	Action     string                 `json:"action"`
+}
+
+func (rc *RunContext) getGithubContext() *githubContext {
+	ghc := &githubContext{
+		Event:     make(map[string]interface{}),
+		EventPath: "/github/workflow/event.json",
+		Workflow:  rc.Run.Workflow.Name,
+		RunID:     "1",
+		RunNumber: "1",
+		Actor:     "nektos/act",
+
+		EventName: rc.Config.EventName,
+		Token:     os.Getenv("GITHUB_TOKEN"),
+		Workspace: "/github/workspace",
+		Action:    rc.CurrentStep,
+	}
+
+	repoPath := rc.Config.Workdir
+	repo, err := common.FindGithubRepo(repoPath)
+	if err != nil {
+		log.Warningf("unable to get git repo: %v", err)
+	} else {
+		ghc.Repository = repo
+	}
+
+	_, sha, err := common.FindGitRevision(repoPath)
+	if err != nil {
+		log.Warningf("unable to get git revision: %v", err)
+	} else {
+		ghc.Sha = sha
+	}
+
+	ref, err := common.FindGitRef(repoPath)
+	if err != nil {
+		log.Warningf("unable to get git ref: %v", err)
+	} else {
+		log.Debugf("using github ref: %s", ref)
+		ghc.Ref = ref
+	}
+	err = json.Unmarshal([]byte(rc.EventJSON), &ghc.Event)
+	if err != nil {
+		logrus.Error(err)
+	}
+	return ghc
+}
+
+func (rc *RunContext) withGithubEnv(env map[string]string) map[string]string {
+	github := rc.getGithubContext()
+	env["HOME"] = "/github/home"
+	env["GITHUB_WORKFLOW"] = github.Workflow
+	env["GITHUB_RUN_ID"] = github.RunID
+	env["GITHUB_RUN_NUMBER"] = github.RunNumber
+	env["GITHUB_ACTION"] = github.Action
+	env["GITHUB_ACTOR"] = github.Actor
+	env["GITHUB_REPOSITORY"] = github.Repository
+	env["GITHUB_EVENT_NAME"] = github.EventName
+	env["GITHUB_EVENT_PATH"] = github.EventPath
+	env["GITHUB_WORKSPACE"] = github.Workspace
+	env["GITHUB_SHA"] = github.Sha
+	env["GITHUB_REF"] = github.Ref
+	return env
 }

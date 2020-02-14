@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/nektos/act/pkg/model"
 	"github.com/robertkrimen/otto"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/godo.v2/glob"
@@ -33,10 +34,25 @@ func (rc *RunContext) NewExpressionEvaluator() ExpressionEvaluator {
 	}
 }
 
+// NewStepExpressionEvaluator creates a new evaluator
+func (rc *RunContext) NewStepExpressionEvaluator(step *model.Step) ExpressionEvaluator {
+	vm := rc.newVM()
+	configers := []func(*otto.Otto){
+		rc.vmEnv(step),
+	}
+	for _, configer := range configers {
+		configer(vm)
+	}
+
+	return &expressionEvaluator{
+		vm,
+	}
+}
+
 // ExpressionEvaluator is the interface for evaluating expressions
 type ExpressionEvaluator interface {
 	Evaluate(string) (string, error)
-	Interpolate(string) (string, error)
+	Interpolate(string) string
 }
 
 type expressionEvaluator struct {
@@ -51,7 +67,7 @@ func (ee *expressionEvaluator) Evaluate(in string) (string, error) {
 	return val.ToString()
 }
 
-func (ee *expressionEvaluator) Interpolate(in string) (string, error) {
+func (ee *expressionEvaluator) Interpolate(in string) string {
 	errList := make([]error, 0)
 	out := pattern.ReplaceAllStringFunc(in, func(match string) string {
 		expression := strings.TrimPrefix(strings.TrimSuffix(match, suffix), prefix)
@@ -62,9 +78,10 @@ func (ee *expressionEvaluator) Interpolate(in string) (string, error) {
 		return evaluated
 	})
 	if len(errList) > 0 {
-		return "", fmt.Errorf("Unable to interpolate string '%s' - %v", in, errList)
+		logrus.Errorf("Unable to interpolate string '%s' - %v", in, errList)
+		return in
 	}
-	return out, nil
+	return out
 }
 
 func (rc *RunContext) newVM() *otto.Otto {
@@ -76,16 +93,19 @@ func (rc *RunContext) newVM() *otto.Otto {
 		vmJoin,
 		vmToJSON,
 		vmAlways,
-		vmCancelled,
-		rc.vmHashFiles(),
+		rc.vmCancelled(),
 		rc.vmSuccess(),
 		rc.vmFailure(),
+		rc.vmHashFiles(),
 
 		rc.vmGithub(),
-		rc.vmEnv(),
 		rc.vmJob(),
 		rc.vmSteps(),
 		rc.vmRunner(),
+
+		rc.vmSecrets(),
+		rc.vmStrategy(),
+		rc.vmMatrix(),
 	}
 	vm := otto.New()
 	for _, configer := range configers {
@@ -183,14 +203,14 @@ func (rc *RunContext) vmHashFiles() func(*otto.Otto) {
 func (rc *RunContext) vmSuccess() func(*otto.Otto) {
 	return func(vm *otto.Otto) {
 		_ = vm.Set("success", func() bool {
-			return !rc.PriorStepFailed
+			return rc.getJobContext().Status == "success"
 		})
 	}
 }
 func (rc *RunContext) vmFailure() func(*otto.Otto) {
 	return func(vm *otto.Otto) {
 		_ = vm.Set("failure", func() bool {
-			return rc.PriorStepFailed
+			return rc.getJobContext().Status == "failure"
 		})
 	}
 }
@@ -200,55 +220,31 @@ func vmAlways(vm *otto.Otto) {
 		return true
 	})
 }
-func vmCancelled(vm *otto.Otto) {
-	_ = vm.Set("cancelled", func() bool {
-		return false
-	})
+func (rc *RunContext) vmCancelled() func(vm *otto.Otto) {
+	return func(vm *otto.Otto) {
+		_ = vm.Set("cancelled", func() bool {
+			return rc.getJobContext().Status == "cancelled"
+		})
+	}
 }
 
 func (rc *RunContext) vmGithub() func(*otto.Otto) {
-	github := map[string]interface{}{
-		"event":      make(map[string]interface{}),
-		"event_path": "/github/workflow/event.json",
-		"workflow":   rc.Run.Workflow.Name,
-		"run_id":     "1",
-		"run_number": "1",
-		"actor":      "nektos/act",
-
-		// TODO
-		"repository": "",
-		"event_name": "",
-		"sha":        "",
-		"ref":        "",
-		"head_ref":   "",
-		"base_ref":   "",
-		"token":      "",
-		"workspace":  rc.Config.Workdir,
-		"action":     "",
-	}
-
-	err := json.Unmarshal([]byte(rc.EventJSON), github["event"])
-	if err != nil {
-		logrus.Error(err)
-	}
+	github := rc.getGithubContext()
 
 	return func(vm *otto.Otto) {
 		_ = vm.Set("github", github)
 	}
 }
 
-func (rc *RunContext) vmEnv() func(*otto.Otto) {
-	env := map[string]interface{}{}
-	// TODO
-
+func (rc *RunContext) vmEnv(step *model.Step) func(*otto.Otto) {
 	return func(vm *otto.Otto) {
+		env := rc.StepEnv(step)
 		_ = vm.Set("env", env)
 	}
 }
 
 func (rc *RunContext) vmJob() func(*otto.Otto) {
-	job := map[string]interface{}{}
-	// TODO
+	job := rc.getJobContext()
 
 	return func(vm *otto.Otto) {
 		_ = vm.Set("job", job)
@@ -256,8 +252,7 @@ func (rc *RunContext) vmJob() func(*otto.Otto) {
 }
 
 func (rc *RunContext) vmSteps() func(*otto.Otto) {
-	steps := map[string]interface{}{}
-	// TODO
+	steps := rc.getStepsContext()
 
 	return func(vm *otto.Otto) {
 		_ = vm.Set("steps", steps)
@@ -273,5 +268,30 @@ func (rc *RunContext) vmRunner() func(*otto.Otto) {
 
 	return func(vm *otto.Otto) {
 		_ = vm.Set("runner", runner)
+	}
+}
+
+func (rc *RunContext) vmSecrets() func(*otto.Otto) {
+	secrets := make(map[string]string)
+	return func(vm *otto.Otto) {
+		_ = vm.Set("secrets", secrets)
+	}
+}
+
+func (rc *RunContext) vmStrategy() func(*otto.Otto) {
+	job := rc.Run.Job()
+	strategy := make(map[string]interface{})
+	if job.Strategy != nil {
+		strategy["fail-fast"] = job.Strategy.FailFast
+		strategy["max-parallel"] = job.Strategy.MaxParallel
+	}
+	return func(vm *otto.Otto) {
+		_ = vm.Set("strategy", strategy)
+	}
+}
+
+func (rc *RunContext) vmMatrix() func(*otto.Otto) {
+	return func(vm *otto.Otto) {
+		_ = vm.Set("matrix", rc.Matrix)
 	}
 }

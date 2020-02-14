@@ -17,6 +17,28 @@ func TestEvaluate(t *testing.T) {
 			JobID: "job1",
 			Workflow: &model.Workflow{
 				Name: "test-workflow",
+				Jobs: map[string]*model.Job{
+					"job1": &model.Job{
+						Strategy: &model.Strategy{
+							Matrix: map[string][]interface{}{
+								"os":  []interface{}{"Linux", "Windows"},
+								"foo": []interface{}{"bar", "baz"},
+							},
+						},
+					},
+				},
+			},
+		},
+		Matrix: map[string]interface{}{
+			"os":  "Linux",
+			"foo": "bar",
+		},
+		StepResults: map[string]*stepResult{
+			"id1": &stepResult{
+				Outputs: map[string]string{
+					"foo": "bar",
+				},
+				Success: true,
 			},
 		},
 	}
@@ -51,7 +73,11 @@ func TestEvaluate(t *testing.T) {
 		{"github.actor", "nektos/act", ""},
 		{"github.run_id", "1", ""},
 		{"github.run_number", "1", ""},
+		{"job.status", "success", ""},
+		{"steps.id1.outputs.foo", "bar", ""},
 		{"runner.os", "Linux", ""},
+		{"matrix.os", "Linux", ""},
+		{"matrix.foo", "bar", ""},
 	}
 
 	for _, table := range tables {
@@ -60,10 +86,10 @@ func TestEvaluate(t *testing.T) {
 			out, err := ee.Evaluate(table.in)
 			if table.errMesg == "" {
 				assert.NoError(err, table.in)
-				assert.Equal(table.out, out)
+				assert.Equal(table.out, out, table.in)
 			} else {
-				assert.Error(err)
-				assert.Equal(table.errMesg, err.Error())
+				assert.Error(err, table.in)
+				assert.Equal(table.errMesg, err.Error(), table.in)
 			}
 		})
 	}
@@ -79,13 +105,15 @@ func TestInterpolate(t *testing.T) {
 			JobID: "job1",
 			Workflow: &model.Workflow{
 				Name: "test-workflow",
+				Jobs: map[string]*model.Job{
+					"job1": &model.Job{},
+				},
 			},
 		},
 	}
 	ee := rc.NewExpressionEvaluator()
 
-	out, err := ee.Interpolate(" ${{1}} to ${{2}} ")
+	out := ee.Interpolate(" ${{1}} to ${{2}} ")
 
-	assert.NoError(err)
 	assert.Equal(" 1 to 2 ", out)
 }
