@@ -137,6 +137,20 @@ func (wp *workflowPlanner) GetEvents() []string {
 	return events
 }
 
+// MaxRunNameLen determines the max name length of all jobs
+func (p *Plan) MaxRunNameLen() int {
+	maxRunNameLen := 0
+	for _, stage := range p.Stages {
+		for _, run := range stage.Runs {
+			runNameLen := len(run.String())
+			if runNameLen > maxRunNameLen {
+				maxRunNameLen = runNameLen
+			}
+		}
+	}
+	return maxRunNameLen
+}
+
 // GetJobIDs will get all the job names in the stage
 func (s *Stage) GetJobIDs() []string {
 	names := make([]string, 0)
