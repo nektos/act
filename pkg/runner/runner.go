@@ -50,15 +50,7 @@ func New(runnerConfig *Config) (Runner, error) {
 }
 
 func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
-	maxJobNameLen := 0
-	for _, stage := range plan.Stages {
-		for _, run := range stage.Runs {
-			jobNameLen := len(run.String())
-			if jobNameLen > maxJobNameLen {
-				maxJobNameLen = jobNameLen
-			}
-		}
-	}
+	maxJobNameLen := plan.MaxRunNameLen()
 
 	pipeline := make([]common.Executor, 0)
 	for _, stage := range plan.Stages {
