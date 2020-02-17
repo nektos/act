@@ -2,6 +2,7 @@ package runner
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 
 	"github.com/nektos/act/pkg/common"
@@ -49,6 +50,16 @@ func New(runnerConfig *Config) (Runner, error) {
 }
 
 func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
+	maxJobNameLen := 0
+	for _, stage := range plan.Stages {
+		for _, run := range stage.Runs {
+			jobNameLen := len(run.String())
+			if jobNameLen > maxJobNameLen {
+				maxJobNameLen = jobNameLen
+			}
+		}
+	}
+
 	pipeline := make([]common.Executor, 0)
 	for _, stage := range plan.Stages {
 		stageExecutor := make([]common.Executor, 0)
@@ -93,8 +104,17 @@ func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 				matrixes = append(matrixes, make(map[string]interface{}))
 			}
 
+			jobName := fmt.Sprintf("%-*s", maxJobNameLen, run.String())
 			for _, matrix := range matrixes {
-				stageExecutor = append(stageExecutor, runner.NewRunExecutor(run, matrix))
+				m := matrix
+				runExecutor := runner.NewRunExecutor(run, matrix)
+				stageExecutor = append(stageExecutor, func(ctx context.Context) error {
+					ctx = WithJobLogger(ctx, jobName)
+					if len(m) > 0 {
+						common.Logger(ctx).Infof("\U0001F9EA  Matrix: %v", m)
+					}
+					return runExecutor(ctx)
+				})
 			}
 		}
 		pipeline = append(pipeline, common.NewParallelExecutor(stageExecutor...))
@@ -120,11 +140,5 @@ func (runner *runnerImpl) NewRunExecutor(run *model.Run, matrix map[string]inter
 	rc.StepResults = make(map[string]*stepResult)
 	rc.Matrix = matrix
 	rc.ExprEval = rc.NewExpressionEvaluator()
-	return func(ctx context.Context) error {
-		ctx = WithJobLogger(ctx, rc.Run.String())
-		if len(rc.Matrix) > 0 {
-			common.Logger(ctx).Infof("\U0001F9EA  Matrix: %v", rc.Matrix)
-		}
-		return rc.Executor()(ctx)
-	}
+	return rc.Executor()
 }
