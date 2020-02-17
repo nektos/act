@@ -5,7 +5,7 @@ jobs:
   build:
     runs-on: ${{ matrix.os }}
     steps:
-      - run: echo ${NODE_VERSION} | grep 4
+      - run: echo ${NODE_VERSION} | grep ${{ matrix.node }}
         env:
           NODE_VERSION: ${{ matrix.node }}
     strategy:

@@ -15,16 +15,32 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+func (rc *RunContext) StepEnv(step *model.Step) map[string]string {
+	var env map[string]string
+	job := rc.Run.Job()
+	if job.Container != nil {
+		env = mergeMaps(rc.GetEnv(), job.Container.Env, step.GetEnv())
+	} else {
+		env = mergeMaps(rc.GetEnv(), step.GetEnv())
+	}
+
+	for k, v := range env {
+		env[k] = rc.ExprEval.Interpolate(v)
+	}
+	return env
+}
+
+func (rc *RunContext) setupEnv(containerSpec *model.ContainerSpec, step *model.Step) common.Executor {
+	return func(ctx context.Context) error {
+		containerSpec.Env = rc.withGithubEnv(rc.StepEnv(step))
+		return nil
+	}
+}
+
 func (rc *RunContext) newStepExecutor(step *model.Step) common.Executor {
-	ee := rc.NewStepExpressionEvaluator(step)
 	job := rc.Run.Job()
 	containerSpec := new(model.ContainerSpec)
-	containerSpec.Env = rc.withGithubEnv(rc.StepEnv(step))
 	containerSpec.Name = rc.createContainerName(step.ID)
-
-	for k, v := range containerSpec.Env {
-		containerSpec.Env[k] = ee.Interpolate(v)
-	}
 
 	switch step.Type() {
 	case model.StepTypeRun:
@@ -34,9 +50,11 @@ func (rc *RunContext) newStepExecutor(step *model.Step) common.Executor {
 			containerSpec.Volumes = job.Container.Volumes
 			containerSpec.Options = job.Container.Options
 		} else {
-			containerSpec.Image = platformImage(rc.PlatformName)
+			platformName := rc.ExprEval.Interpolate(rc.Run.Job().RunsOn)
+			containerSpec.Image = platformImage(platformName)
 		}
 		return common.NewPipelineExecutor(
+			rc.setupEnv(containerSpec, step),
 			rc.setupShellCommand(containerSpec, step.Shell, step.Run),
 			rc.pullImage(containerSpec),
 			rc.runContainer(containerSpec),
@@ -47,6 +65,7 @@ func (rc *RunContext) newStepExecutor(step *model.Step) common.Executor {
 		containerSpec.Entrypoint = step.With["entrypoint"]
 		containerSpec.Args = step.With["args"]
 		return common.NewPipelineExecutor(
+			rc.setupEnv(containerSpec, step),
 			rc.pullImage(containerSpec),
 			rc.runContainer(containerSpec),
 		)
@@ -54,6 +73,7 @@ func (rc *RunContext) newStepExecutor(step *model.Step) common.Executor {
 	case model.StepTypeUsesActionLocal:
 		containerSpec.Image = fmt.Sprintf("%s:%s", containerSpec.Name, "latest")
 		return common.NewPipelineExecutor(
+			rc.setupEnv(containerSpec, step),
 			rc.setupAction(containerSpec, filepath.Join(rc.Config.Workdir, step.Uses)),
 			applyWith(containerSpec, step),
 			rc.pullImage(containerSpec),
@@ -78,6 +98,7 @@ func (rc *RunContext) newStepExecutor(step *model.Step) common.Executor {
 				Ref: remoteAction.Ref,
 				Dir: cloneDir,
 			}),
+			rc.setupEnv(containerSpec, step),
 			rc.setupAction(containerSpec, filepath.Join(cloneDir, remoteAction.Path)),
 			applyWith(containerSpec, step),
 			rc.pullImage(containerSpec),
@@ -98,15 +119,6 @@ func applyWith(containerSpec *model.ContainerSpec, step *model.Step) common.Exec
 		}
 		return nil
 	}
-}
-
-// StepEnv returns the env for a step
-func (rc *RunContext) StepEnv(step *model.Step) map[string]string {
-	job := rc.Run.Job()
-	if job.Container != nil {
-		return mergeMaps(rc.GetEnv(), job.Container.Env, step.GetEnv())
-	}
-	return mergeMaps(rc.GetEnv(), step.GetEnv())
 }
 
 func (rc *RunContext) setupShellCommand(containerSpec *model.ContainerSpec, shell string, run string) common.Executor {
@@ -139,6 +151,8 @@ func (rc *RunContext) setupShellCommand(containerSpec *model.ContainerSpec, shel
 		if err != nil {
 			return err
 		}
+
+		run = rc.ExprEval.Interpolate(run)
 
 		if _, err := tempScript.WriteString(run); err != nil {
 			return err

@@ -24,16 +24,16 @@ import (
 
 // RunContext contains info about current job
 type RunContext struct {
-	Config       *Config
-	Matrix       map[string]interface{}
-	Run          *model.Run
-	EventJSON    string
-	Env          map[string]string
-	Tempdir      string
-	ExtraPath    []string
-	CurrentStep  string
-	StepResults  map[string]*stepResult
-	PlatformName string
+	Config      *Config
+	Matrix      map[string]interface{}
+	Run         *model.Run
+	EventJSON   string
+	Env         map[string]string
+	Tempdir     string
+	ExtraPath   []string
+	CurrentStep string
+	StepResults map[string]*stepResult
+	ExprEval    ExpressionEvaluator
 }
 
 type stepResult struct {
@@ -56,9 +56,6 @@ func (rc *RunContext) Close(ctx context.Context) error {
 
 // Executor returns a pipeline executor for all the steps in the job
 func (rc *RunContext) Executor() common.Executor {
-	if img := platformImage(rc.PlatformName); img == "" {
-		return common.NewInfoExecutor("  \U0001F6A7  Skipping unsupported platform '%s'", rc.PlatformName)
-	}
 
 	err := rc.setupTempDir()
 	if err != nil {
@@ -77,6 +74,13 @@ func (rc *RunContext) Executor() common.Executor {
 				Success: true,
 				Outputs: make(map[string]string),
 			}
+			rc.ExprEval = rc.NewStepExpressionEvaluator(s)
+
+			if !rc.EvalBool(s.If) {
+				log.Debugf("Skipping step '%s' due to '%s'", s.String(), s.If)
+				return nil
+			}
+
 			common.Logger(ctx).Infof("\u2B50  Run %s", s)
 			err := rc.newStepExecutor(s)(ctx)
 			if err == nil {
@@ -88,7 +92,36 @@ func (rc *RunContext) Executor() common.Executor {
 			return err
 		})
 	}
-	return common.NewPipelineExecutor(steps...).Finally(rc.Close)
+	return func(ctx context.Context) error {
+		defer rc.Close(ctx)
+		job := rc.Run.Job()
+		log := common.Logger(ctx)
+		if !rc.EvalBool(job.If) {
+			log.Debugf("Skipping job '%s' due to '%s'", job.Name, job.If)
+			return nil
+		}
+
+		platformName := rc.ExprEval.Interpolate(rc.Run.Job().RunsOn)
+		if img := platformImage(platformName); img == "" {
+			log.Infof("  \U0001F6A7  Skipping unsupported platform '%s'", platformName)
+			return nil
+		}
+
+		return common.NewPipelineExecutor(steps...)(ctx)
+	}
+}
+
+// EvalBool evaluates an expression against current run context
+func (rc *RunContext) EvalBool(expr string) bool {
+	if expr != "" {
+		v, err := rc.ExprEval.Evaluate(expr)
+		if err != nil {
+			log.Errorf("Error evaluating expression '%s' - %v", expr, err)
+			return false
+		}
+		return v == "true"
+	}
+	return true
 }
 
 func mergeMaps(maps ...map[string]string) map[string]string {
@@ -141,10 +174,10 @@ func (rc *RunContext) runContainer(containerSpec *model.ContainerSpec) common.Ex
 		}
 		var cmd, entrypoint []string
 		if containerSpec.Args != "" {
-			cmd = strings.Fields(containerSpec.Args)
+			cmd = strings.Fields(rc.ExprEval.Interpolate(containerSpec.Args))
 		}
 		if containerSpec.Entrypoint != "" {
-			entrypoint = strings.Fields(containerSpec.Entrypoint)
+			entrypoint = strings.Fields(rc.ExprEval.Interpolate(containerSpec.Entrypoint))
 		}
 
 		rawLogger := common.Logger(ctx).WithField("raw_output", true)
