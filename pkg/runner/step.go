@@ -34,7 +34,7 @@ func (rc *RunContext) newStepExecutor(step *model.Step) common.Executor {
 			containerSpec.Volumes = job.Container.Volumes
 			containerSpec.Options = job.Container.Options
 		} else {
-			containerSpec.Image = platformImage(ee.Interpolate(job.RunsOn))
+			containerSpec.Image = platformImage(rc.PlatformName)
 		}
 		return common.NewPipelineExecutor(
 			rc.setupShellCommand(containerSpec, step.Shell, step.Run),
@@ -154,7 +154,7 @@ func (rc *RunContext) setupShellCommand(containerSpec *model.ContainerSpec, shel
 }
 
 func platformImage(platform string) string {
-	switch platform {
+	switch strings.ToLower(platform) {
 	case "ubuntu-latest", "ubuntu-18.04":
 		return "ubuntu:18.04"
 	case "ubuntu-16.04":

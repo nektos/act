@@ -42,7 +42,7 @@ func NewInfoExecutor(format string, args ...interface{}) Executor {
 
 // NewPipelineExecutor creates a new executor from a series of other executors
 func NewPipelineExecutor(executors ...Executor) Executor {
-	if executors == nil {
+	if len(executors) == 0 {
 		return func(ctx context.Context) error {
 			return nil
 		}

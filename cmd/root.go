@@ -62,8 +62,8 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 		var eventName string
 		if len(args) > 0 {
 			eventName = args[0]
-		} else if events := planner.GetEvents(); len(events) == 1 {
-			// set default event type if we only have a single workflow in the file.
+		} else if events := planner.GetEvents(); len(events) > 1 {
+			// set default event type to first event
 			// this way user dont have to specify the event.
 			log.Debugf("Using detected workflow event: %s", events[0])
 			eventName = events[0]
