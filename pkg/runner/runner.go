@@ -53,23 +53,63 @@ func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 	for _, stage := range plan.Stages {
 		stageExecutor := make([]common.Executor, 0)
 		for _, run := range stage.Runs {
-			// TODO - don't just grab first index of each dimension
-			matrix := make(map[string]interface{})
-			if run.Job().Strategy != nil {
-				for mkey, mvals := range run.Job().Strategy.Matrix {
-					if mkey == "include" || mkey == "exclude" {
-						continue
-					}
-					matrix[mkey] = mvals[0]
+			job := run.Job()
+			matrixes := make([]map[string]interface{}, 0)
+			if job.Strategy != nil {
+				includes := make([]map[string]interface{}, 0)
+				for _, v := range job.Strategy.Matrix["include"] {
+					includes = append(includes, v.(map[string]interface{}))
 				}
+				delete(job.Strategy.Matrix, "include")
+
+				excludes := make([]map[string]interface{}, 0)
+				for _, v := range job.Strategy.Matrix["exclude"] {
+					excludes = append(excludes, v.(map[string]interface{}))
+				}
+				delete(job.Strategy.Matrix, "exclude")
+
+				matrixProduct := common.CartesianProduct(job.Strategy.Matrix)
+
+			MATRIX:
+				for _, matrix := range matrixProduct {
+					for _, exclude := range excludes {
+						if commonKeysMatch(matrix, exclude) {
+							log.Debugf("Skipping matrix '%v' due to exclude '%v'", matrix, exclude)
+							continue MATRIX
+						}
+					}
+					for _, include := range includes {
+						if commonKeysMatch(matrix, include) {
+							log.Debugf("Setting add'l values on matrix '%v' due to include '%v'", matrix, include)
+							for k, v := range include {
+								matrix[k] = v
+							}
+						}
+					}
+					matrixes = append(matrixes, matrix)
+				}
+
+			} else {
+				matrixes = append(matrixes, make(map[string]interface{}))
 			}
 
-			stageExecutor = append(stageExecutor, runner.NewRunExecutor(run, matrix))
+			for _, matrix := range matrixes {
+				stageExecutor = append(stageExecutor, runner.NewRunExecutor(run, matrix))
+			}
 		}
 		pipeline = append(pipeline, common.NewParallelExecutor(stageExecutor...))
 	}
 
 	return common.NewPipelineExecutor(pipeline...)
+}
+
+func commonKeysMatch(a map[string]interface{}, b map[string]interface{}) bool {
+	for aKey, aVal := range a {
+		if bVal, ok := b[aKey]; ok && aVal != bVal {
+			return false
+		}
+	}
+	return true
 }
 
 func (runner *runnerImpl) NewRunExecutor(run *model.Run, matrix map[string]interface{}) common.Executor {
@@ -79,11 +119,12 @@ func (runner *runnerImpl) NewRunExecutor(run *model.Run, matrix map[string]inter
 	rc.EventJSON = runner.eventJSON
 	rc.StepResults = make(map[string]*stepResult)
 	rc.Matrix = matrix
-
-	ee := rc.NewExpressionEvaluator()
-	rc.PlatformName = ee.Interpolate(run.Job().RunsOn)
+	rc.ExprEval = rc.NewExpressionEvaluator()
 	return func(ctx context.Context) error {
 		ctx = WithJobLogger(ctx, rc.Run.String())
+		if len(rc.Matrix) > 0 {
+			common.Logger(ctx).Infof("\U0001F9EA  Matrix: %v", rc.Matrix)
+		}
 		return rc.Executor()(ctx)
 	}
 }

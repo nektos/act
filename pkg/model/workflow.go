@@ -187,6 +187,9 @@ func ReadWorkflow(in io.Reader) (*Workflow, error) {
 func (w *Workflow) GetJob(jobID string) *Job {
 	for id, j := range w.Jobs {
 		if jobID == id {
+			if j.Name == "" {
+				j.Name = id
+			}
 			return j
 		}
 	}
