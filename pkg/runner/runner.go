@@ -79,6 +79,9 @@ func (runner *runnerImpl) NewRunExecutor(run *model.Run, matrix map[string]inter
 	rc.EventJSON = runner.eventJSON
 	rc.StepResults = make(map[string]*stepResult)
 	rc.Matrix = matrix
+
+	ee := rc.NewExpressionEvaluator()
+	rc.PlatformName = ee.Interpolate(run.Job().RunsOn)
 	return func(ctx context.Context) error {
 		ctx = WithJobLogger(ctx, rc.Run.String())
 		return rc.Executor()(ctx)

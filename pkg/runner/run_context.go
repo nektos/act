@@ -24,15 +24,16 @@ import (
 
 // RunContext contains info about current job
 type RunContext struct {
-	Config      *Config
-	Matrix      map[string]interface{}
-	Run         *model.Run
-	EventJSON   string
-	Env         map[string]string
-	Tempdir     string
-	ExtraPath   []string
-	CurrentStep string
-	StepResults map[string]*stepResult
+	Config       *Config
+	Matrix       map[string]interface{}
+	Run          *model.Run
+	EventJSON    string
+	Env          map[string]string
+	Tempdir      string
+	ExtraPath    []string
+	CurrentStep  string
+	StepResults  map[string]*stepResult
+	PlatformName string
 }
 
 type stepResult struct {
@@ -55,6 +56,10 @@ func (rc *RunContext) Close(ctx context.Context) error {
 
 // Executor returns a pipeline executor for all the steps in the job
 func (rc *RunContext) Executor() common.Executor {
+	if img := platformImage(rc.PlatformName); img == "" {
+		return common.NewInfoExecutor("  \U0001F6A7  Skipping unsupported platform '%s'", rc.PlatformName)
+	}
+
 	err := rc.setupTempDir()
 	if err != nil {
 		return common.NewErrorExecutor(err)

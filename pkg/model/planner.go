@@ -64,6 +64,7 @@ func NewWorkflowPlanner(dirname string) (WorkflowPlanner, error) {
 				return nil, err
 			}
 
+			log.Debugf("Reading workflow '%s'", f.Name())
 			workflow, err := ReadWorkflow(f)
 			if err != nil {
 				f.Close()
