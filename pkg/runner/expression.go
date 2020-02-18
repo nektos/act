@@ -272,9 +272,8 @@ func (rc *RunContext) vmRunner() func(*otto.Otto) {
 }
 
 func (rc *RunContext) vmSecrets() func(*otto.Otto) {
-	secrets := make(map[string]string)
 	return func(vm *otto.Otto) {
-		_ = vm.Set("secrets", secrets)
+		_ = vm.Set("secrets", rc.Config.Secrets)
 	}
 }
 
