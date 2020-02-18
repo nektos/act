@@ -1,0 +1,4 @@
+name: 'action1'
+runs:
+  using: 'docker'
+  image: 'Dockerfile'

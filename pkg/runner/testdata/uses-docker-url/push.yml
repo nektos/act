@@ -1,0 +1,11 @@
+name: uses-docker-url
+on: push
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: docker://alpine:3.8
+      with:
+        somekey: somevalue
+        args: echo ${INPUT_SOMEKEY} | grep somevalue

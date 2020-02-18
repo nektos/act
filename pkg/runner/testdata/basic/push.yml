@@ -1,0 +1,17 @@
+name: basic
+on: push
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: ./actions/action1
+        with:
+          args: echo 'build'
+  test:
+    runs-on: ubuntu-latest
+    needs: [build]
+    steps:
+      - uses: docker://ubuntu:18.04
+        with:
+          args: echo ${GITHUB_REF} | grep nektos/act

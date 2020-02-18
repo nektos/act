@@ -199,9 +199,14 @@ func buildRecompMap() {
 // Note that the recomposition map for NFC and NFKC are identical.
 
 // combine returns the combined rune or 0 if it doesn't exist.
+//
+// The caller is responsible for calling
+// recompMapOnce.Do(buildRecompMap) sometime before this is called.
 func combine(a, b rune) rune {
 	key := uint32(uint16(a))<<16 + uint32(uint16(b))
-	recompMapOnce.Do(buildRecompMap)
+	if recompMap == nil {
+		panic("caller error") // see func comment
+	}
 	return recompMap[key]
 }
 

@@ -1,0 +1,16 @@
+name: docker-url
+author: nektos
+description: testing
+inputs:
+  who-to-greet:
+    description: who to greet
+    required: true
+    default: World
+runs:
+  using: docker
+  #image: docker://alpine:3.8
+  image: docker://node:12-alpine
+  env:
+    TEST: enabled
+  args: 
+  - env
