@@ -15,20 +15,13 @@ TAG_VERSION = v$(VERSION)
 ACT ?= go run -mod=vendor main.go
 export GITHUB_TOKEN = $(shell cat ~/.config/github/token)
 
-default: check
-
-test:
-	go test -cover -short ./...
-
 check:
-	$(ACT) -orj ci
+	@golangci-lint run
+	@go test -cover  ./...
 
 build: check
 	$(eval export SNAPSHOT_VERSION=$(VERSION))
 	$(ACT) -ra build
-
-release:
-	$(ACT) -ra local-release
 
 install: build
 	@cp dist/$(shell go env GOOS)_$(shell go env GOARCH)/act /usr/local/bin/act
