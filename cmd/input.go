@@ -11,6 +11,7 @@ type Input struct {
 	workflowsPath   string
 	eventPath       string
 	reuseContainers bool
+	secrets         []string
 	dryrun          bool
 	forcePull       bool
 	logOutput       bool

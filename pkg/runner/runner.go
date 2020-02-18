@@ -18,12 +18,13 @@ type Runner interface {
 
 // Config contains the config for a new runner
 type Config struct {
-	Workdir         string // path to working directory
-	EventName       string // name of event to run
-	EventPath       string // path to JSON file to use for event.json in containers
-	ReuseContainers bool   // reuse containers to maintain state
-	ForcePull       bool   // force pulling of the image, if already present
-	LogOutput       bool   // log the output from docker run
+	Workdir         string            // path to working directory
+	EventName       string            // name of event to run
+	EventPath       string            // path to JSON file to use for event.json in containers
+	ReuseContainers bool              // reuse containers to maintain state
+	ForcePull       bool              // force pulling of the image, if already present
+	LogOutput       bool              // log the output from docker run
+	Secrets         map[string]string // list of secrets
 }
 
 type runnerImpl struct {

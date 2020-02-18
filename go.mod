@@ -16,6 +16,7 @@ require (
 	github.com/gogo/protobuf v1.2.0 // indirect
 	github.com/gopherjs/gopherjs v0.0.0-20181103185306-d547d1d9531e // indirect
 	github.com/gorilla/mux v1.7.0 // indirect
+	github.com/howeyc/gopass v0.0.0-20190910152052-7cb4b85ec19c
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/jtolds/gls v4.2.1+incompatible // indirect
 	github.com/mgutz/str v1.2.0 // indirect

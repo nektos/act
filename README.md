@@ -56,14 +56,10 @@ act -v
 
 # Secrets
 
-To run `act` with secrets, you can enter them interactively or supply them as environment variables.
-If you have a secret called `FOO` in your workflow, `act` will take whatever you have set as `FOO` in the session from which you are running `act`.
-If `FOO` is unset, it will ask you interactively.
+To run `act` with secrets, you can enter them interactively or supply them as environment variables. The following options are available for providing secrets:
 
-You can set environment variables for the current session by running `export FOO="zap"`, or globally in your `.profile`.
-You can also set environment variables *per directory* using a tool such as [direnv](https://direnv.net/).
-**Be careful not to expose secrets**:
-You may want to `.gitignore` any files or folders containing secrets, and/or encrypt secrets.
+* `act -s MY_SECRET=somevalue` - use `somevalue` as the value for `MY_SECRET`. 
+* `act -s MY_SECRET` - check for an environment variable named `MY_SECRET` and use it if it exists.  If environment variable is not defined, prompt the user for a value.
 
 # Support
 
