@@ -68,6 +68,8 @@ These default images do not contain all the tools that GitHub Actions offers by 
 
 * [nektos/act-environments-ubuntu:18.04](https://hub.docker.com/r/nektos/act-environments-ubuntu/tags) - built from the Packer file GitHub uses in [actions/virtual-environments](https://github.com/actions/runner).
 
+`*** WARNING - this image is >18GB 😱***`
+
 To use a different image for the runner, use the `-P` option:
 
 ```
