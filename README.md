@@ -14,7 +14,7 @@ When you run `act` it reads in your GitHub Actions from `.github/workflows/` and
 
 Let's see it in action with a [sample repo](https://github.com/cplee/github-actions-demo)!
 
-![Demo](https://github.com/nektos/act/wiki/quickstart/act-quickstart.gif)
+![Demo](https://github.com/nektos/act/wiki/quickstart/act-quickstart-2.gif)
 
 # Installation
 To install with [Homebrew](https://brew.sh/), run: 
