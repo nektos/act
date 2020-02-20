@@ -102,7 +102,7 @@ func (rc *RunContext) Executor() common.Executor {
 		}
 
 		platformName := rc.ExprEval.Interpolate(rc.Run.Job().RunsOn)
-		if img := platformImage(platformName); img == "" {
+		if img, ok := rc.Config.Platforms[strings.ToLower(platformName)]; !ok || img == "" {
 			log.Infof("  \U0001F6A7  Skipping unsupported platform '%s'", platformName)
 			return nil
 		}
