@@ -17,11 +17,13 @@ func TestGraphEvent(t *testing.T) {
 
 	plan := planner.PlanEvent("push")
 	assert.NilError(t, err)
-	assert.Equal(t, len(plan.Stages), 2, "stages")
+	assert.Equal(t, len(plan.Stages), 3, "stages")
 	assert.Equal(t, len(plan.Stages[0].Runs), 1, "stage0.runs")
 	assert.Equal(t, len(plan.Stages[1].Runs), 1, "stage1.runs")
-	assert.Equal(t, plan.Stages[0].Runs[0].JobID, "build", "jobid")
-	assert.Equal(t, plan.Stages[1].Runs[0].JobID, "test", "jobid")
+	assert.Equal(t, len(plan.Stages[2].Runs), 1, "stage2.runs")
+	assert.Equal(t, plan.Stages[0].Runs[0].JobID, "check", "jobid")
+	assert.Equal(t, plan.Stages[1].Runs[0].JobID, "build", "jobid")
+	assert.Equal(t, plan.Stages[2].Runs[0].JobID, "test", "jobid")
 
 	plan = planner.PlanEvent("release")
 	assert.Equal(t, len(plan.Stages), 0, "stages")
@@ -54,9 +56,13 @@ func TestRunEvent(t *testing.T) {
 	for _, table := range tables {
 		table := table
 		t.Run(table.workflowPath, func(t *testing.T) {
+			platforms := map[string]string{
+				"ubuntu-latest": "ubuntu:18.04",
+			}
 			runnerConfig := &Config{
 				Workdir:         "testdata",
 				EventName:       table.eventName,
+				Platforms:       platforms,
 				ReuseContainers: true,
 			}
 			runner, err := New(runnerConfig)
