@@ -38,7 +38,7 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.PersistentFlags().StringVarP(&input.workflowsPath, "workflows", "W", "./.github/workflows/", "path to workflow files")
 	rootCmd.PersistentFlags().StringVarP(&input.workdir, "directory", "C", ".", "working directory")
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "verbose output")
-	rootCmd.PersistentFlags().BoolVarP(&input.logOutput, "output", "o", false, "log output from steps")
+	rootCmd.PersistentFlags().BoolVarP(&input.noOutput, "quiet", "q", false, "disable logging of output from steps")
 	rootCmd.PersistentFlags().BoolVarP(&input.dryrun, "dryrun", "n", false, "dryrun mode")
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
@@ -97,7 +97,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			ForcePull:       input.forcePull,
 			ReuseContainers: input.reuseContainers,
 			Workdir:         input.Workdir(),
-			LogOutput:       input.logOutput,
+			LogOutput:       !input.noOutput,
 			Secrets:         newSecrets(input.secrets),
 			Platforms:       input.newPlatforms(),
 		}
