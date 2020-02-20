@@ -2,8 +2,14 @@ name: basic
 on: push
 
 jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo 'hello world'
+
   build:
     runs-on: ubuntu-latest
+    needs: [check]
     steps:
       - uses: ./actions/action1
         with:

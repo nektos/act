@@ -25,6 +25,7 @@ type Config struct {
 	ForcePull       bool              // force pulling of the image, if already present
 	LogOutput       bool              // log the output from docker run
 	Secrets         map[string]string // list of secrets
+	Platforms       map[string]string // list of platforms
 }
 
 type runnerImpl struct {

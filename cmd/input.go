@@ -12,9 +12,10 @@ type Input struct {
 	eventPath       string
 	reuseContainers bool
 	secrets         []string
+	platforms       []string
 	dryrun          bool
 	forcePull       bool
-	logOutput       bool
+	noOutput        bool
 }
 
 func (i *Input) resolve(path string) string {
