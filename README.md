@@ -47,11 +47,31 @@ act -j test
 # Run in dry-run mode:
 act -n
 
-# Run in reuse mode to save state:
-act -r
-
 # Enable verbose-logging (can be used with any of the above commands)
 act -v
+```
+
+# Platforms
+GitHub Actions offers managed [virtual environments](https://help.github.com/en/actions/reference/virtual-environments-for-github-hosted-runners) for running workflows.  In order for `act` to run your workflows locally, it must run a container for the runner defined in your workflow file.  Here are the images that `act` uses for each runner type:
+
+| GitHub Runner   | Docker Image |
+| --------------- | ------------ |
+| ubuntu-latest   | [ubuntu:18.04](https://hub.docker.com/_/ubuntu) |
+| ubuntu-18.04    | [ubuntu:18.04](https://hub.docker.com/_/ubuntu) |
+| ubuntu-16.04    | [ubuntu:16.04](https://hub.docker.com/_/ubuntu) |
+| windows-latest  | `unsupported` |
+| windows-2019    | `unsupported` |
+| macos-latest    | `unsupported` |
+| macos-10.15     | `unsupported` |
+
+These default images do not contain all the tools that GitHub Actions offers by default in their runners.  If you need an environment that works just like the corresponding GitHub runner then consider using an image provided by [nektos/act-environments](https://github.com/nektos/act-environments):
+
+* [nektos/act-environments-ubuntu:18.04](https://hub.docker.com/r/nektos/act-environments-ubuntu/tags) - built from the Packer file GitHub uses in [actions/virtual-environments](https://github.com/actions/runner).
+
+To use a different image for the runner, use the `-P` option:
+
+```
+act -P ubuntu-latest=nektos/act-environments-ubuntu:18.04
 ```
 
 # Secrets
