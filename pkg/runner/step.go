@@ -51,7 +51,7 @@ func (rc *RunContext) newStepExecutor(step *model.Step) common.Executor {
 			containerSpec.Options = job.Container.Options
 		} else {
 			platformName := rc.ExprEval.Interpolate(rc.Run.Job().RunsOn)
-			containerSpec.Image = platformImage(platformName)
+			containerSpec.Image = rc.Config.Platforms[strings.ToLower(platformName)]
 		}
 		return common.NewPipelineExecutor(
 			rc.setupEnv(containerSpec, step),
@@ -162,21 +162,8 @@ func (rc *RunContext) setupShellCommand(containerSpec *model.ContainerSpec, shel
 			return err
 		}
 		containerPath := fmt.Sprintf("/github/home/%s", filepath.Base(tempScript.Name()))
-		containerSpec.Args = strings.Replace(shellCommand, "{0}", containerPath, 1)
+		containerSpec.Entrypoint = strings.Replace(shellCommand, "{0}", containerPath, 1)
 		return nil
-	}
-}
-
-func platformImage(platform string) string {
-	switch strings.ToLower(platform) {
-	case "ubuntu-latest", "ubuntu-18.04":
-		return "ubuntu:18.04"
-	case "ubuntu-16.04":
-		return "ubuntu:16.04"
-	case "windows-latest", "windows-2019", "macos-latest", "macos-10.15":
-		return ""
-	default:
-		return ""
 	}
 }
 

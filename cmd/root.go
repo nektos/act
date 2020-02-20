@@ -31,6 +31,7 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.Flags().BoolP("list", "l", false, "list workflows")
 	rootCmd.Flags().StringP("job", "j", "", "run job")
 	rootCmd.Flags().StringArrayVarP(&input.secrets, "secret", "s", []string{}, "secret to make available to actions with optional value (e.g. -s mysecret=foo or -s mysecret)")
+	rootCmd.Flags().StringArrayVarP(&input.platforms, "platform", "P", []string{}, "custom image to use per platform (e.g. -P ubuntu-18.04=nektos/act-environments-ubuntu:18.04)")
 	rootCmd.Flags().BoolVarP(&input.reuseContainers, "reuse", "r", false, "reuse action containers to maintain state")
 	rootCmd.Flags().BoolVarP(&input.forcePull, "pull", "p", false, "pull docker image(s) if already present")
 	rootCmd.Flags().StringVarP(&input.eventPath, "eventpath", "e", "", "path to event JSON file")
@@ -98,6 +99,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			Workdir:         input.Workdir(),
 			LogOutput:       input.logOutput,
 			Secrets:         newSecrets(input.secrets),
+			Platforms:       input.newPlatforms(),
 		}
 		runner, err := runner.New(config)
 		if err != nil {
