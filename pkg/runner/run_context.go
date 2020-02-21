@@ -109,13 +109,13 @@ func (rc *RunContext) Executor() common.Executor {
 		nullLogger := logrus.New()
 		nullLogger.Out = ioutil.Discard
 		if !rc.Config.ReuseContainers {
-			rc.newContainerCleaner()(common.WithLogger(ctx, nullLogger))
+			_ = rc.newContainerCleaner()(common.WithLogger(ctx, nullLogger))
 		}
 
 		err := common.NewPipelineExecutor(steps...)(ctx)
 
 		if !rc.Config.ReuseContainers {
-			rc.newContainerCleaner()(common.WithLogger(ctx, nullLogger))
+			_ = rc.newContainerCleaner()(common.WithLogger(ctx, nullLogger))
 		}
 
 		return err
