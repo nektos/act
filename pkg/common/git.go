@@ -258,6 +258,15 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) Executor {
 			return err
 		}
 
+		err = w.Reset(&git.ResetOptions{
+			Mode:   git.HardReset,
+			Commit: *hash,
+		})
+		if err != nil {
+			logger.Errorf("Unable to reset to %s: %v", hash.String(), err)
+			return err
+		}
+
 		logger.Debugf("Checked out %s", input.Ref)
 		return nil
 	}
