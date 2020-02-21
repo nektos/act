@@ -9,7 +9,6 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"path/filepath"
 	"regexp"
 	"runtime"
 	"strings"
@@ -107,7 +106,19 @@ func (rc *RunContext) Executor() common.Executor {
 			return nil
 		}
 
-		return common.NewPipelineExecutor(steps...)(ctx)
+		nullLogger := logrus.New()
+		nullLogger.Out = ioutil.Discard
+		if !rc.Config.ReuseContainers {
+			rc.newContainerCleaner()(common.WithLogger(ctx, nullLogger))
+		}
+
+		err := common.NewPipelineExecutor(steps...)(ctx)
+
+		if !rc.Config.ReuseContainers {
+			rc.newContainerCleaner()(common.WithLogger(ctx, nullLogger))
+		}
+
+		return err
 	}
 }
 
@@ -202,7 +213,7 @@ func (rc *RunContext) runContainer(containerSpec *model.ContainerSpec) common.Ex
 				fmt.Sprintf("%s:%s", "/var/run/docker.sock", "/var/run/docker.sock"),
 			},
 			Content:         map[string]io.Reader{"/github": ghReader},
-			ReuseContainers: rc.Config.ReuseContainers,
+			ReuseContainers: containerSpec.Reuse,
 			Stdout:          logWriter,
 			Stderr:          logWriter,
 		})(ctx)
@@ -241,17 +252,29 @@ func (rc *RunContext) createGithubTarball() (io.Reader, error) {
 
 }
 
-func (rc *RunContext) createContainerName(stepID string) string {
-	containerName := fmt.Sprintf("%s-%s", stepID, rc.Tempdir)
+func (rc *RunContext) createContainerName() string {
+	containerName := rc.Run.String()
 	containerName = regexp.MustCompile("[^a-zA-Z0-9]").ReplaceAllString(containerName, "-")
 
-	prefix := fmt.Sprintf("%s-", trimToLen(filepath.Base(rc.Config.Workdir), 10))
+	prefix := ""
 	suffix := ""
 	containerName = trimToLen(containerName, 30-(len(prefix)+len(suffix)))
+	return fmt.Sprintf("%s%s%s", prefix, containerName, suffix)
+
+}
+
+func (rc *RunContext) createStepContainerName(stepID string) string {
+
+	prefix := regexp.MustCompile("[^a-zA-Z0-9]").ReplaceAllString(rc.createContainerName(), "-")
+	suffix := regexp.MustCompile("[^a-zA-Z0-9]").ReplaceAllString(stepID, "-")
+	containerName := trimToLen(prefix, 30-len(suffix))
 	return fmt.Sprintf("%s%s%s", prefix, containerName, suffix)
 }
 
 func trimToLen(s string, l int) string {
+	if l < 0 {
+		l = 0
+	}
 	if len(s) > l {
 		return s[:l]
 	}

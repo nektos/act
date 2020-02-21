@@ -37,21 +37,44 @@ func (rc *RunContext) setupEnv(containerSpec *model.ContainerSpec, step *model.S
 	}
 }
 
+func (rc *RunContext) newContainerCleaner() common.Executor {
+	job := rc.Run.Job()
+	containerSpec := new(model.ContainerSpec)
+	containerSpec.Name = rc.createContainerName()
+	containerSpec.Reuse = false
+
+	if job.Container != nil {
+		containerSpec.Image = job.Container.Image
+	} else {
+		platformName := rc.ExprEval.Interpolate(rc.Run.Job().RunsOn)
+		containerSpec.Image = rc.Config.Platforms[strings.ToLower(platformName)]
+	}
+	containerSpec.Entrypoint = "bash --noprofile --norc -o pipefail -c echo 'cleaning up'"
+	return common.NewPipelineExecutor(
+		rc.pullImage(containerSpec),
+		rc.runContainer(containerSpec),
+	)
+}
+
 func (rc *RunContext) newStepExecutor(step *model.Step) common.Executor {
 	job := rc.Run.Job()
 	containerSpec := new(model.ContainerSpec)
-	containerSpec.Name = rc.createContainerName(step.ID)
+	containerSpec.Name = rc.createContainerName()
+	containerSpec.Reuse = true
+
+	if job.Container != nil {
+		containerSpec.Image = job.Container.Image
+	} else {
+		platformName := rc.ExprEval.Interpolate(rc.Run.Job().RunsOn)
+		containerSpec.Image = rc.Config.Platforms[strings.ToLower(platformName)]
+	}
 
 	switch step.Type() {
 	case model.StepTypeRun:
 		if job.Container != nil {
-			containerSpec.Image = job.Container.Image
 			containerSpec.Ports = job.Container.Ports
 			containerSpec.Volumes = job.Container.Volumes
 			containerSpec.Options = job.Container.Options
-		} else {
-			platformName := rc.ExprEval.Interpolate(rc.Run.Job().RunsOn)
-			containerSpec.Image = rc.Config.Platforms[strings.ToLower(platformName)]
 		}
 		return common.NewPipelineExecutor(
 			rc.setupEnv(containerSpec, step),
@@ -62,8 +85,10 @@ func (rc *RunContext) newStepExecutor(step *model.Step) common.Executor {
 
 	case model.StepTypeUsesDockerURL:
 		containerSpec.Image = strings.TrimPrefix(step.Uses, "docker://")
+		containerSpec.Name = rc.createStepContainerName(step.ID)
 		containerSpec.Entrypoint = step.With["entrypoint"]
 		containerSpec.Args = step.With["args"]
+		containerSpec.Reuse = rc.Config.ReuseContainers
 		return common.NewPipelineExecutor(
 			rc.setupEnv(containerSpec, step),
 			rc.pullImage(containerSpec),
@@ -71,7 +96,6 @@ func (rc *RunContext) newStepExecutor(step *model.Step) common.Executor {
 		)
 
 	case model.StepTypeUsesActionLocal:
-		containerSpec.Image = fmt.Sprintf("%s:%s", containerSpec.Name, "latest")
 		return common.NewPipelineExecutor(
 			rc.setupEnv(containerSpec, step),
 			rc.setupAction(containerSpec, filepath.Join(rc.Config.Workdir, step.Uses)),
@@ -91,7 +115,6 @@ func (rc *RunContext) newStepExecutor(step *model.Step) common.Executor {
 		if err != nil {
 			return common.NewErrorExecutor(err)
 		}
-		containerSpec.Image = fmt.Sprintf("%s:%s", remoteAction.Repo, remoteAction.Ref)
 		return common.NewPipelineExecutor(
 			common.NewGitCloneExecutor(common.NewGitCloneExecutorInput{
 				URL: remoteAction.CloneURL(),
@@ -194,18 +217,24 @@ func (rc *RunContext) setupAction(containerSpec *model.ContainerSpec, actionDir 
 
 		switch action.Runs.Using {
 		case model.ActionRunsUsingNode12:
-			containerSpec.Image = "node:12-alpine"
 			if strings.HasPrefix(actionDir, rc.Config.Workdir) {
-				containerSpec.Args = fmt.Sprintf("node /github/workspace/%s/%s", strings.TrimPrefix(actionDir, rc.Config.Workdir), action.Runs.Main)
+				containerSpec.Entrypoint = fmt.Sprintf("node /github/workspace/%s/%s", strings.TrimPrefix(actionDir, rc.Config.Workdir), action.Runs.Main)
 			} else if strings.HasPrefix(actionDir, rc.Tempdir) {
-				containerSpec.Args = fmt.Sprintf("node /github/home/%s/%s", strings.TrimPrefix(actionDir, rc.Tempdir), action.Runs.Main)
+				containerSpec.Entrypoint = fmt.Sprintf("node /github/home/%s/%s", strings.TrimPrefix(actionDir, rc.Tempdir), action.Runs.Main)
 			}
 		case model.ActionRunsUsingDocker:
+			if strings.HasPrefix(actionDir, rc.Config.Workdir) {
+				containerSpec.Name = rc.createStepContainerName(strings.TrimPrefix(actionDir, rc.Config.Workdir))
+			} else if strings.HasPrefix(actionDir, rc.Tempdir) {
+				containerSpec.Name = rc.createStepContainerName(strings.TrimPrefix(actionDir, rc.Tempdir))
+			}
+			containerSpec.Reuse = rc.Config.ReuseContainers
 			if strings.HasPrefix(action.Runs.Image, "docker://") {
 				containerSpec.Image = strings.TrimPrefix(action.Runs.Image, "docker://")
 				containerSpec.Entrypoint = strings.Join(action.Runs.Entrypoint, " ")
 				containerSpec.Args = strings.Join(action.Runs.Args, " ")
 			} else {
+				containerSpec.Image = fmt.Sprintf("%s:%s", containerSpec.Name, "latest")
 				contextDir := filepath.Join(actionDir, action.Runs.Main)
 				return container.NewDockerBuildExecutor(container.NewDockerBuildExecutorInput{
 					ContextDir: contextDir,

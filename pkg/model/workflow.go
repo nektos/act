@@ -104,6 +104,7 @@ type ContainerSpec struct {
 	Entrypoint string
 	Args       string
 	Name       string
+	Reuse      bool
 }
 
 // Step is the structure of one step in a job
