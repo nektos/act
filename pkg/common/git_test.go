@@ -13,7 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-
 func TestFindGitSlug(t *testing.T) {
 	assert := assert.New(t)
 
@@ -51,7 +50,7 @@ func TestFindGitRemoteURL(t *testing.T) {
 
 	assert.Nil(err)
 
-  gitConfig()
+	gitConfig()
 	err = gitCmd("init", basedir)
 	assert.Nil(err)
 
@@ -69,7 +68,7 @@ func TestGitFindRef(t *testing.T) {
 	defer os.RemoveAll(basedir)
 	assert.NoError(t, err)
 
-  gitConfig()
+	gitConfig()
 
 	for name, tt := range map[string]struct {
 		Prepare func(t *testing.T, dir string)
@@ -147,8 +146,10 @@ func TestGitFindRef(t *testing.T) {
 }
 
 func gitConfig() {
-	_ = gitCmd("config","--global","user.email","test@test.com")
-	_ = gitCmd("config","--global","user.name","Unit Test")
+	if os.Getenv("GITHUB_ACTIONS") == "true" {
+		_ = gitCmd("config", "--global", "user.email", "test@test.com")
+		_ = gitCmd("config", "--global", "user.name", "Unit Test")
+	}
 }
 
 func gitCmd(args ...string) error {
