@@ -57,13 +57,13 @@ func TestRunEvent(t *testing.T) {
 		table := table
 		t.Run(table.workflowPath, func(t *testing.T) {
 			platforms := map[string]string{
-				"ubuntu-latest": "ubuntu:18.04",
+				"ubuntu-latest": "node:12.6-buster-slim",
 			}
 			runnerConfig := &Config{
 				Workdir:         "testdata",
 				EventName:       table.eventName,
 				Platforms:       platforms,
-				ReuseContainers: true,
+				ReuseContainers: false,
 			}
 			runner, err := New(runnerConfig)
 			assert.NilError(t, err, table.workflowPath)

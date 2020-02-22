@@ -267,8 +267,9 @@ func (rc *RunContext) createStepContainerName(stepID string) string {
 
 	prefix := regexp.MustCompile("[^a-zA-Z0-9]").ReplaceAllString(rc.createContainerName(), "-")
 	suffix := regexp.MustCompile("[^a-zA-Z0-9]").ReplaceAllString(stepID, "-")
-	containerName := trimToLen(prefix, 30-len(suffix))
-	return fmt.Sprintf("%s%s%s", prefix, containerName, suffix)
+	prefix = trimToLen(prefix, 30-(1+len(suffix)))
+	name := strings.Trim(fmt.Sprintf("%s-%s", prefix, suffix), "-")
+	return name
 }
 
 func trimToLen(s string, l int) string {
