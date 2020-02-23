@@ -1,16 +1,12 @@
 package runner
 
 import (
-	"archive/tar"
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
-	"io/ioutil"
 	"os"
+	"path/filepath"
 	"regexp"
-	"runtime"
 	"strings"
 
 	"github.com/nektos/act/pkg/container"
@@ -23,16 +19,16 @@ import (
 
 // RunContext contains info about current job
 type RunContext struct {
-	Config      *Config
-	Matrix      map[string]interface{}
-	Run         *model.Run
-	EventJSON   string
-	Env         map[string]string
-	Tempdir     string
-	ExtraPath   []string
-	CurrentStep string
-	StepResults map[string]*stepResult
-	ExprEval    ExpressionEvaluator
+	Config       *Config
+	Matrix       map[string]interface{}
+	Run          *model.Run
+	EventJSON    string
+	Env          map[string]string
+	ExtraPath    []string
+	CurrentStep  string
+	StepResults  map[string]*stepResult
+	ExprEval     ExpressionEvaluator
+	JobContainer container.Container
 }
 
 type stepResult struct {
@@ -48,78 +44,139 @@ func (rc *RunContext) GetEnv() map[string]string {
 	return rc.Env
 }
 
-// Close cleans up temp dir
-func (rc *RunContext) Close(ctx context.Context) error {
-	return os.RemoveAll(rc.Tempdir)
+func (rc *RunContext) jobContainerName() string {
+	return createContainerName(filepath.Base(rc.Config.Workdir), rc.Run.String())
+}
+
+func (rc *RunContext) startJobContainer() common.Executor {
+	job := rc.Run.Job()
+
+	var image string
+	if job.Container != nil {
+		image = job.Container.Image
+	} else {
+		platformName := rc.ExprEval.Interpolate(job.RunsOn)
+		image = rc.Config.Platforms[strings.ToLower(platformName)]
+	}
+
+	return func(ctx context.Context) error {
+		rawLogger := common.Logger(ctx).WithField("raw_output", true)
+		logWriter := common.NewLineWriter(rc.commandHandler(ctx), func(s string) {
+			if rc.Config.LogOutput {
+				rawLogger.Infof(s)
+			} else {
+				rawLogger.Debugf(s)
+			}
+		})
+
+		common.Logger(ctx).Infof("\U0001f680  Start image=%s", image)
+		name := rc.jobContainerName()
+
+		rc.JobContainer = container.NewContainer(&container.NewContainerInput{
+			Cmd:        nil,
+			Entrypoint: []string{"/bin/cat"},
+			WorkingDir: "/github/workspace",
+			Image:      image,
+			Name:       name,
+			Mounts: map[string]string{
+				name: "/github",
+			},
+			Binds: []string{
+				fmt.Sprintf("%s:%s", rc.Config.Workdir, "/github/workspace"),
+				fmt.Sprintf("%s:%s", "/var/run/docker.sock", "/var/run/docker.sock"),
+			},
+			Stdout: logWriter,
+			Stderr: logWriter,
+		})
+
+		return common.NewPipelineExecutor(
+			rc.JobContainer.Pull(rc.Config.ForcePull),
+			rc.JobContainer.Remove().IfBool(!rc.Config.ReuseContainers),
+			rc.JobContainer.Create(),
+			rc.JobContainer.Start(false),
+			rc.JobContainer.Copy("/github/", &container.FileEntry{
+				Name: "workflow/event.json",
+				Mode: 644,
+				Body: rc.EventJSON,
+			}),
+		)(ctx)
+	}
+}
+func (rc *RunContext) execJobContainer(cmd []string, env map[string]string) common.Executor {
+	return func(ctx context.Context) error {
+		return rc.JobContainer.Exec(cmd, env)(ctx)
+	}
+}
+func (rc *RunContext) stopJobContainer() common.Executor {
+	return func(ctx context.Context) error {
+		if rc.JobContainer != nil && !rc.Config.ReuseContainers {
+			return rc.JobContainer.Remove().
+				Then(container.NewDockerVolumeRemoveExecutor(rc.jobContainerName(), false))(ctx)
+		}
+		return nil
+	}
 }
 
 // Executor returns a pipeline executor for all the steps in the job
 func (rc *RunContext) Executor() common.Executor {
-
-	err := rc.setupTempDir()
-	if err != nil {
-		return common.NewErrorExecutor(err)
-	}
 	steps := make([]common.Executor, 0)
+	steps = append(steps, rc.startJobContainer())
 
 	for i, step := range rc.Run.Job().Steps {
 		if step.ID == "" {
 			step.ID = fmt.Sprintf("%d", i)
 		}
-		s := step
-		steps = append(steps, func(ctx context.Context) error {
-			rc.CurrentStep = s.ID
-			rc.StepResults[rc.CurrentStep] = &stepResult{
-				Success: true,
-				Outputs: make(map[string]string),
-			}
-			rc.ExprEval = rc.NewStepExpressionEvaluator(s)
+		steps = append(steps, rc.newStepExecutor(step))
+	}
+	steps = append(steps, rc.stopJobContainer())
 
-			if !rc.EvalBool(s.If) {
-				log.Debugf("Skipping step '%s' due to '%s'", s.String(), s.If)
-				return nil
-			}
+	return common.NewPipelineExecutor(steps...).If(rc.isEnabled)
+}
 
-			common.Logger(ctx).Infof("\u2B50  Run %s", s)
-			err := rc.newStepExecutor(s)(ctx)
-			if err == nil {
-				common.Logger(ctx).Infof("  \u2705  Success - %s", s)
-			} else {
-				common.Logger(ctx).Errorf("  \u274C  Failure - %s", s)
-				rc.StepResults[rc.CurrentStep].Success = false
-			}
-			return err
-		})
+func (rc *RunContext) newStepExecutor(step *model.Step) common.Executor {
+	sc := &StepContext{
+		RunContext: rc,
+		Step:       step,
 	}
 	return func(ctx context.Context) error {
-		defer rc.Close(ctx)
-		job := rc.Run.Job()
-		log := common.Logger(ctx)
-		if !rc.EvalBool(job.If) {
-			log.Debugf("Skipping job '%s' due to '%s'", job.Name, job.If)
+		rc.CurrentStep = sc.Step.ID
+		rc.StepResults[rc.CurrentStep] = &stepResult{
+			Success: true,
+			Outputs: make(map[string]string),
+		}
+		rc.ExprEval = sc.NewExpressionEvaluator()
+
+		if !rc.EvalBool(sc.Step.If) {
+			log.Debugf("Skipping step '%s' due to '%s'", sc.Step.String(), sc.Step.If)
 			return nil
 		}
 
-		platformName := rc.ExprEval.Interpolate(rc.Run.Job().RunsOn)
-		if img, ok := rc.Config.Platforms[strings.ToLower(platformName)]; !ok || img == "" {
-			log.Infof("  \U0001F6A7  Skipping unsupported platform '%s'", platformName)
-			return nil
+		common.Logger(ctx).Infof("\u2B50  Run %s", sc.Step)
+		err := sc.Executor()(ctx)
+		if err == nil {
+			common.Logger(ctx).Infof("  \u2705  Success - %s", sc.Step)
+		} else {
+			common.Logger(ctx).Errorf("  \u274C  Failure - %s", sc.Step)
+			rc.StepResults[rc.CurrentStep].Success = false
 		}
-
-		nullLogger := logrus.New()
-		nullLogger.Out = ioutil.Discard
-		if !rc.Config.ReuseContainers {
-			_ = rc.newContainerCleaner()(common.WithLogger(ctx, nullLogger))
-		}
-
-		err := common.NewPipelineExecutor(steps...)(ctx)
-
-		if !rc.Config.ReuseContainers {
-			_ = rc.newContainerCleaner()(common.WithLogger(ctx, nullLogger))
-		}
-
 		return err
 	}
+}
+
+func (rc *RunContext) isEnabled(ctx context.Context) bool {
+	job := rc.Run.Job()
+	log := common.Logger(ctx)
+	if !rc.EvalBool(job.If) {
+		log.Debugf("Skipping job '%s' due to '%s'", job.Name, job.If)
+		return false
+	}
+
+	platformName := rc.ExprEval.Interpolate(rc.Run.Job().RunsOn)
+	if img, ok := rc.Config.Platforms[strings.ToLower(platformName)]; !ok || img == "" {
+		log.Infof("  \U0001F6A7  Skipping unsupported platform '%s'", platformName)
+		return false
+	}
+	return true
 }
 
 // EvalBool evaluates an expression against current run context
@@ -145,33 +202,7 @@ func mergeMaps(maps ...map[string]string) map[string]string {
 	return rtnMap
 }
 
-func (rc *RunContext) setupTempDir() error {
-	var err error
-	tempBase := ""
-	if runtime.GOOS == "darwin" {
-		tempBase = "/tmp"
-	}
-	rc.Tempdir, err = ioutil.TempDir(tempBase, "act-")
-	if err != nil {
-		return err
-	}
-	err = os.Chmod(rc.Tempdir, 0755)
-	if err != nil {
-		return err
-	}
-	log.Debugf("Setup tempdir %s", rc.Tempdir)
-	return err
-}
-
-func (rc *RunContext) pullImage(containerSpec *model.ContainerSpec) common.Executor {
-	return func(ctx context.Context) error {
-		return container.NewDockerPullExecutor(container.NewDockerPullExecutorInput{
-			Image:     containerSpec.Image,
-			ForcePull: rc.Config.ForcePull,
-		})(ctx)
-	}
-}
-
+/*
 func (rc *RunContext) runContainer(containerSpec *model.ContainerSpec) common.Executor {
 	return func(ctx context.Context) error {
 		ghReader, err := rc.createGithubTarball()
@@ -200,7 +231,7 @@ func (rc *RunContext) runContainer(containerSpec *model.ContainerSpec) common.Ex
 			}
 		})
 
-		return container.NewDockerRunExecutor(container.NewDockerRunExecutorInput{
+		c := container.NewContainer(&container.NewContainerInput{
 			Cmd:        cmd,
 			Entrypoint: entrypoint,
 			Image:      containerSpec.Image,
@@ -212,64 +243,27 @@ func (rc *RunContext) runContainer(containerSpec *model.ContainerSpec) common.Ex
 				fmt.Sprintf("%s:%s", rc.Tempdir, "/github/home"),
 				fmt.Sprintf("%s:%s", "/var/run/docker.sock", "/var/run/docker.sock"),
 			},
-			Content:         map[string]io.Reader{"/github": ghReader},
-			ReuseContainers: containerSpec.Reuse,
-			Stdout:          logWriter,
-			Stderr:          logWriter,
-		})(ctx)
+			Stdout: logWriter,
+			Stderr: logWriter,
+		})
+
+		return c.Create().
+			Then(c.Copy("/github", ghReader)).
+			Then(c.Start()).
+			Finally(c.Remove().IfBool(!rc.Config.ReuseContainers))(ctx)
+
 	}
 }
 
-func (rc *RunContext) createGithubTarball() (io.Reader, error) {
-	var buf bytes.Buffer
-	tw := tar.NewWriter(&buf)
-	var files = []struct {
-		Name string
-		Mode int64
-		Body string
-	}{
-		{"workflow/event.json", 0644, rc.EventJSON},
+*/
+
+func createContainerName(parts ...string) string {
+	name := make([]string, 0)
+	pattern := regexp.MustCompile("[^a-zA-Z0-9]")
+	for _, part := range parts {
+		name = append(name, pattern.ReplaceAllString(part, "-"))
 	}
-	for _, file := range files {
-		log.Debugf("Writing entry to tarball %s len:%d", file.Name, len(rc.EventJSON))
-		hdr := &tar.Header{
-			Name: file.Name,
-			Mode: file.Mode,
-			Size: int64(len(rc.EventJSON)),
-		}
-		if err := tw.WriteHeader(hdr); err != nil {
-			return nil, err
-		}
-		if _, err := tw.Write([]byte(rc.EventJSON)); err != nil {
-			return nil, err
-		}
-	}
-	if err := tw.Close(); err != nil {
-		return nil, err
-	}
-
-	return &buf, nil
-
-}
-
-func (rc *RunContext) createContainerName() string {
-	containerName := rc.Run.String()
-	containerName = regexp.MustCompile("[^a-zA-Z0-9]").ReplaceAllString(containerName, "-")
-
-	prefix := ""
-	suffix := ""
-	containerName = trimToLen(containerName, 30-(len(prefix)+len(suffix)))
-	return fmt.Sprintf("%s%s%s", prefix, containerName, suffix)
-
-}
-
-func (rc *RunContext) createStepContainerName(stepID string) string {
-
-	prefix := regexp.MustCompile("[^a-zA-Z0-9]").ReplaceAllString(rc.createContainerName(), "-")
-	suffix := regexp.MustCompile("[^a-zA-Z0-9]").ReplaceAllString(stepID, "-")
-	prefix = trimToLen(prefix, 30-(1+len(suffix)))
-	name := strings.Trim(fmt.Sprintf("%s-%s", prefix, suffix), "-")
-	return name
+	return trimToLen(strings.Join(name, "-"), 30)
 }
 
 func trimToLen(s string, l int) string {
