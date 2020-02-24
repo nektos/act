@@ -3,6 +3,8 @@ package runner
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -18,6 +20,7 @@ type StepContext struct {
 	Step       *model.Step
 	Env        map[string]string
 	Cmd        []string
+	Action     *model.Action
 }
 
 func (sc *StepContext) execJobContainer() common.Executor {
@@ -45,39 +48,37 @@ func (sc *StepContext) Executor() common.Executor {
 			sc.runUsesContainer(),
 		)
 
+	case model.StepTypeUsesActionLocal:
+		return common.NewPipelineExecutor(
+			sc.setupEnv(),
+			sc.setupAction(),
+			sc.runAction(),
+		)
 		/*
-			case model.StepTypeUsesActionLocal:
+			case model.StepTypeUsesActionRemote:
+				remoteAction := newRemoteAction(step.Uses)
+				if remoteAction.Org == "actions" && remoteAction.Repo == "checkout" {
+					return func(ctx context.Context) error {
+						common.Logger(ctx).Debugf("Skipping actions/checkout")
+						return nil
+					}
+				}
+				cloneDir, err := ioutil.TempDir(rc.Tempdir, remoteAction.Repo)
+				if err != nil {
+					return common.NewErrorExecutor(err)
+				}
 				return common.NewPipelineExecutor(
+					common.NewGitCloneExecutor(common.NewGitCloneExecutorInput{
+						URL: remoteAction.CloneURL(),
+						Ref: remoteAction.Ref,
+						Dir: cloneDir,
+					}),
 					sc.setupEnv(),
 					sc.setupAction(),
 					applyWith(containerSpec, step),
 					rc.pullImage(containerSpec),
 					rc.runContainer(containerSpec),
 				)
-					case model.StepTypeUsesActionRemote:
-						remoteAction := newRemoteAction(step.Uses)
-						if remoteAction.Org == "actions" && remoteAction.Repo == "checkout" {
-							return func(ctx context.Context) error {
-								common.Logger(ctx).Debugf("Skipping actions/checkout")
-								return nil
-							}
-						}
-						cloneDir, err := ioutil.TempDir(rc.Tempdir, remoteAction.Repo)
-						if err != nil {
-							return common.NewErrorExecutor(err)
-						}
-						return common.NewPipelineExecutor(
-							common.NewGitCloneExecutor(common.NewGitCloneExecutorInput{
-								URL: remoteAction.CloneURL(),
-								Ref: remoteAction.Ref,
-								Dir: cloneDir,
-							}),
-							sc.setupEnv(),
-							sc.setupAction(),
-							applyWith(containerSpec, step),
-							rc.pullImage(containerSpec),
-							rc.runContainer(containerSpec),
-						)
 		*/
 	}
 
@@ -198,8 +199,6 @@ func (sc *StepContext) runUsesContainer() common.Executor {
 	}
 }
 
-/*
-
 func (sc *StepContext) setupAction() common.Executor {
 	rc := sc.RunContext
 	step := sc.Step
@@ -215,50 +214,94 @@ func (sc *StepContext) setupAction() common.Executor {
 			return err
 		}
 
-		action, err := model.ReadAction(f)
-		if err != nil {
-			return err
-		}
+		sc.Action, err = model.ReadAction(f)
+		log.Debugf("Read action %v from '%s'", sc.Action, f.Name())
+		return err
+	}
+}
 
+func (sc *StepContext) runAction() common.Executor {
+	rc := sc.RunContext
+	step := sc.Step
+	return func(ctx context.Context) error {
+		action := sc.Action
+		log.Debugf("About to run action %v", action)
 		for inputID, input := range action.Inputs {
 			envKey := regexp.MustCompile("[^A-Z0-9-]").ReplaceAllString(strings.ToUpper(inputID), "_")
 			envKey = fmt.Sprintf("INPUT_%s", envKey)
-			if _, ok := containerSpec.Env[envKey]; !ok {
-				containerSpec.Env[envKey] = input.Default
+			if _, ok := sc.Env[envKey]; !ok {
+				sc.Env[envKey] = input.Default
 			}
 		}
 
 		switch action.Runs.Using {
 		case model.ActionRunsUsingNode12:
-			if strings.HasPrefix(actionDir, rc.Config.Workdir) {
-				containerSpec.Entrypoint = fmt.Sprintf("node /github/workspace/%s/%s", strings.TrimPrefix(actionDir, rc.Config.Workdir), action.Runs.Main)
-			} else if strings.HasPrefix(actionDir, rc.Tempdir) {
-				containerSpec.Entrypoint = fmt.Sprintf("node /github/home/%s/%s", strings.TrimPrefix(actionDir, rc.Tempdir), action.Runs.Main)
-			}
+			return rc.execJobContainer([]string{"node", action.Runs.Main}, sc.Env)(ctx)
 		case model.ActionRunsUsingDocker:
-			if strings.HasPrefix(actionDir, rc.Config.Workdir) {
-				containerSpec.Name = rc.createStepContainerName(strings.TrimPrefix(actionDir, rc.Config.Workdir))
-			} else if strings.HasPrefix(actionDir, rc.Tempdir) {
-				containerSpec.Name = rc.createStepContainerName(strings.TrimPrefix(actionDir, rc.Tempdir))
-			}
-			containerSpec.Reuse = rc.Config.ReuseContainers
+			var prepImage common.Executor
+			var image string
 			if strings.HasPrefix(action.Runs.Image, "docker://") {
-				containerSpec.Image = strings.TrimPrefix(action.Runs.Image, "docker://")
-				containerSpec.Entrypoint = strings.Join(action.Runs.Entrypoint, " ")
-				containerSpec.Args = strings.Join(action.Runs.Args, " ")
+				image = strings.TrimPrefix(action.Runs.Image, "docker://")
 			} else {
-				containerSpec.Image = fmt.Sprintf("%s:%s", containerSpec.Name, "latest")
-				contextDir := filepath.Join(actionDir, action.Runs.Main)
-				return container.NewDockerBuildExecutor(container.NewDockerBuildExecutorInput{
+				image = fmt.Sprintf("%s:%s", regexp.MustCompile("[^a-zA-Z0-9]").ReplaceAllString(step.Uses, "-"), "latest")
+				image = strings.TrimLeft(image, "-")
+				contextDir := filepath.Join(rc.Config.Workdir, step.Uses, action.Runs.Main)
+				prepImage = container.NewDockerBuildExecutor(container.NewDockerBuildExecutorInput{
 					ContextDir: contextDir,
-					ImageTag:   containerSpec.Image,
-				})(ctx)
+					ImageTag:   image,
+				})
 			}
+
+			cmd := strings.Fields(step.With["args"])
+			if len(cmd) == 0 {
+				cmd = action.Runs.Args
+			}
+			entrypoint := strings.Fields(step.With["entrypoint"])
+			if len(entrypoint) == 0 {
+				entrypoint = action.Runs.Entrypoint
+			}
+			stepContainer := sc.newStepContainer(ctx, image, cmd, entrypoint)
+			return common.NewPipelineExecutor(
+				prepImage,
+				stepContainer.Pull(rc.Config.ForcePull),
+				stepContainer.Remove().IfBool(!rc.Config.ReuseContainers),
+				stepContainer.Create(),
+				stepContainer.Start(true),
+			).Finally(
+				stepContainer.Remove().IfBool(!rc.Config.ReuseContainers),
+			)(ctx)
+
+			/*
+				case model.ActionRunsUsingNode12:
+					if strings.HasPrefix(actionDir, rc.Config.Workdir) {
+						containerSpec.Entrypoint = fmt.Sprintf("node /github/workspace/%s/%s", strings.TrimPrefix(actionDir, rc.Config.Workdir), action.Runs.Main)
+					} else if strings.HasPrefix(actionDir, rc.Tempdir) {
+						containerSpec.Entrypoint = fmt.Sprintf("node /github/home/%s/%s", strings.TrimPrefix(actionDir, rc.Tempdir), action.Runs.Main)
+					}
+				case model.ActionRunsUsingDocker:
+					if strings.HasPrefix(actionDir, rc.Config.Workdir) {
+						containerSpec.Name = rc.createStepContainerName(strings.TrimPrefix(actionDir, rc.Config.Workdir))
+					} else if strings.HasPrefix(actionDir, rc.Tempdir) {
+						containerSpec.Name = rc.createStepContainerName(strings.TrimPrefix(actionDir, rc.Tempdir))
+					}
+					containerSpec.Reuse = rc.Config.ReuseContainers
+					if strings.HasPrefix(action.Runs.Image, "docker://") {
+						containerSpec.Image = strings.TrimPrefix(action.Runs.Image, "docker://")
+						containerSpec.Entrypoint = strings.Join(action.Runs.Entrypoint, " ")
+						containerSpec.Args = strings.Join(action.Runs.Args, " ")
+					} else {
+						containerSpec.Image = fmt.Sprintf("%s:%s", containerSpec.Name, "latest")
+						contextDir := filepath.Join(actionDir, action.Runs.Main)
+						return container.NewDockerBuildExecutor(container.NewDockerBuildExecutorInput{
+							ContextDir: contextDir,
+							ImageTag:   containerSpec.Image,
+						})(ctx)
+					}
+			*/
 		}
 		return nil
 	}
 }
-*/
 
 type remoteAction struct {
 	Org  string

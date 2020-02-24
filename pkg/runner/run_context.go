@@ -98,6 +98,10 @@ func (rc *RunContext) startJobContainer() common.Executor {
 				Name: "workflow/event.json",
 				Mode: 644,
 				Body: rc.EventJSON,
+			}, &container.FileEntry{
+				Name: "home/.actions/.keep",
+				Mode: 644,
+				Body: "",
 			}),
 		)(ctx)
 	}
@@ -202,68 +206,14 @@ func mergeMaps(maps ...map[string]string) map[string]string {
 	return rtnMap
 }
 
-/*
-func (rc *RunContext) runContainer(containerSpec *model.ContainerSpec) common.Executor {
-	return func(ctx context.Context) error {
-		ghReader, err := rc.createGithubTarball()
-		if err != nil {
-			return err
-		}
-
-		envList := make([]string, 0)
-		for k, v := range containerSpec.Env {
-			envList = append(envList, fmt.Sprintf("%s=%s", k, v))
-		}
-		var cmd, entrypoint []string
-		if containerSpec.Args != "" {
-			cmd = strings.Fields(rc.ExprEval.Interpolate(containerSpec.Args))
-		}
-		if containerSpec.Entrypoint != "" {
-			entrypoint = strings.Fields(rc.ExprEval.Interpolate(containerSpec.Entrypoint))
-		}
-
-		rawLogger := common.Logger(ctx).WithField("raw_output", true)
-		logWriter := common.NewLineWriter(rc.commandHandler(ctx), func(s string) {
-			if rc.Config.LogOutput {
-				rawLogger.Infof(s)
-			} else {
-				rawLogger.Debugf(s)
-			}
-		})
-
-		c := container.NewContainer(&container.NewContainerInput{
-			Cmd:        cmd,
-			Entrypoint: entrypoint,
-			Image:      containerSpec.Image,
-			WorkingDir: "/github/workspace",
-			Env:        envList,
-			Name:       containerSpec.Name,
-			Binds: []string{
-				fmt.Sprintf("%s:%s", rc.Config.Workdir, "/github/workspace"),
-				fmt.Sprintf("%s:%s", rc.Tempdir, "/github/home"),
-				fmt.Sprintf("%s:%s", "/var/run/docker.sock", "/var/run/docker.sock"),
-			},
-			Stdout: logWriter,
-			Stderr: logWriter,
-		})
-
-		return c.Create().
-			Then(c.Copy("/github", ghReader)).
-			Then(c.Start()).
-			Finally(c.Remove().IfBool(!rc.Config.ReuseContainers))(ctx)
-
-	}
-}
-
-*/
-
 func createContainerName(parts ...string) string {
 	name := make([]string, 0)
 	pattern := regexp.MustCompile("[^a-zA-Z0-9]")
+	partLen := (30 / len(parts)) - 1
 	for _, part := range parts {
-		name = append(name, pattern.ReplaceAllString(part, "-"))
+		name = append(name, trimToLen(pattern.ReplaceAllString(part, "-"), partLen))
 	}
-	return trimToLen(strings.Join(name, "-"), 30)
+	return strings.Join(name, "-")
 }
 
 func trimToLen(s string, l int) string {

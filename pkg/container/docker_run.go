@@ -70,7 +70,7 @@ func (cr *containerReference) Create() common.Executor {
 }
 func (cr *containerReference) Start(attach bool) common.Executor {
 	return common.
-		NewDebugExecutor("%sdocker run image=%s entrypoint=%+q cmd=%+q", logPrefix, cr.input.Image, cr.input.Entrypoint, cr.input.Cmd).
+		NewInfoExecutor("%sdocker run image=%s entrypoint=%+q cmd=%+q", logPrefix, cr.input.Image, cr.input.Entrypoint, cr.input.Cmd).
 		Then(
 			common.NewPipelineExecutor(
 				cr.connect(),
@@ -173,9 +173,9 @@ func (cr *containerReference) remove() common.Executor {
 		if err != nil {
 			return errors.WithStack(err)
 		}
-		cr.id = ""
 
 		logger.Debugf("Removed container: %v", cr.id)
+		cr.id = ""
 		return nil
 	}
 }

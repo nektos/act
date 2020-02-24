@@ -10,7 +10,6 @@ jobs:
       - run: cat /github/sha.txt | grep ${GITHUB_SHA}
 
   build:
-    if: false
     runs-on: ubuntu-latest
     needs: [check]
     steps:
