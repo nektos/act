@@ -6,7 +6,7 @@ import (
 )
 
 // LineHandler is a callback function for handling a line
-type LineHandler func(line string)
+type LineHandler func(line string) bool
 
 type lineWriter struct {
 	buffer   bytes.Buffer
@@ -42,6 +42,9 @@ func (lw *lineWriter) Write(p []byte) (n int, err error) {
 
 func (lw *lineWriter) handleLine(line string) {
 	for _, h := range lw.handlers {
-		h(line)
+		ok := h(line)
+		if !ok {
+			break
+		}
 	}
 }

@@ -133,12 +133,13 @@ func (sc *StepContext) newStepContainer(ctx context.Context, image string, cmd [
 	rc := sc.RunContext
 	step := sc.Step
 	rawLogger := common.Logger(ctx).WithField("raw_output", true)
-	logWriter := common.NewLineWriter(rc.commandHandler(ctx), func(s string) {
+	logWriter := common.NewLineWriter(rc.commandHandler(ctx), func(s string) bool {
 		if rc.Config.LogOutput {
 			rawLogger.Infof(s)
 		} else {
 			rawLogger.Debugf(s)
 		}
+		return true
 	})
 	envList := make([]string, 0)
 	for k, v := range sc.Env {
@@ -157,17 +158,7 @@ func (sc *StepContext) newStepContainer(ctx context.Context, image string, cmd [
 		bindModifiers = ":delegated"
 	}
 
-	hostWorkdir := os.Getenv("ACT_HOST_WORKDIR")
-	if hostWorkdir == "" {
-		hostWorkdir = rc.Config.Workdir
-	}
-	envList = append(envList, fmt.Sprintf("%s=%s", "ACT_HOST_WORKDIR", hostWorkdir))
-
-	hostActionCache := os.Getenv("ACT_HOST_ACTIONCACHE")
-	if hostActionCache == "" {
-		hostActionCache = rc.ActionCacheDir()
-	}
-	envList = append(envList, fmt.Sprintf("%s=%s", "ACT_HOST_ACTIONCACHE", hostActionCache))
+	envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_TOOL_CACHE", "/toolcache"))
 
 	stepContainer := container.NewContainer(&container.NewContainerInput{
 		Cmd:        cmd,
@@ -178,9 +169,10 @@ func (sc *StepContext) newStepContainer(ctx context.Context, image string, cmd [
 		Env:        envList,
 		Mounts: map[string]string{
 			rc.jobContainerName(): "/github",
+			"act-toolcache":       "/toolcache",
 		},
 		Binds: []string{
-			fmt.Sprintf("%s:%s%s", hostWorkdir, "/github/workspace", bindModifiers),
+			fmt.Sprintf("%s:%s%s", rc.Config.Workdir, "/github/workspace", bindModifiers),
 			fmt.Sprintf("%s:%s", "/var/run/docker.sock", "/var/run/docker.sock"),
 		},
 		Stdout: logWriter,

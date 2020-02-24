@@ -1,5 +1,5 @@
-name: Check
-description: Run static analysis and unit tests
+name: Lint
+description: Run static analysis 
 branding:
   icon: check-circle
   color: green

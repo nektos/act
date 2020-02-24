@@ -62,12 +62,13 @@ func (rc *RunContext) startJobContainer() common.Executor {
 
 	return func(ctx context.Context) error {
 		rawLogger := common.Logger(ctx).WithField("raw_output", true)
-		logWriter := common.NewLineWriter(rc.commandHandler(ctx), func(s string) {
+		logWriter := common.NewLineWriter(rc.commandHandler(ctx), func(s string) bool {
 			if rc.Config.LogOutput {
 				rawLogger.Infof(s)
 			} else {
 				rawLogger.Debugf(s)
 			}
+			return true
 		})
 
 		common.Logger(ctx).Infof("\U0001f680  Start image=%s", image)
@@ -79,17 +80,12 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			bindModifiers = ":delegated"
 		}
 
-		hostWorkdir := os.Getenv("ACT_HOST_WORKDIR")
-		if hostWorkdir == "" {
-			hostWorkdir = rc.Config.Workdir
-		}
-		envList = append(envList, fmt.Sprintf("%s=%s", "ACT_HOST_WORKDIR", hostWorkdir))
-
-		hostActionCache := os.Getenv("ACT_HOST_ACTIONCACHE")
+		hostActionCache := os.Getenv("ACT_HOST_ACTION_CACHE")
 		if hostActionCache == "" {
 			hostActionCache = rc.ActionCacheDir()
 		}
-		envList = append(envList, fmt.Sprintf("%s=%s", "ACT_HOST_ACTIONCACHE", hostActionCache))
+		envList = append(envList, fmt.Sprintf("%s=%s", "ACT_HOST_ACTION_CACHE", hostActionCache))
+		envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_TOOL_CACHE", "/toolcache"))
 
 		rc.JobContainer = container.NewContainer(&container.NewContainerInput{
 			Cmd:        nil,
@@ -99,11 +95,12 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			Name:       name,
 			Env:        envList,
 			Mounts: map[string]string{
-				name: "/github",
+				name:            "/github",
+				"act-toolcache": "/toolcache",
 			},
 
 			Binds: []string{
-				fmt.Sprintf("%s:%s%s", hostWorkdir, "/github/workspace", bindModifiers),
+				fmt.Sprintf("%s:%s%s", rc.Config.Workdir, "/github/workspace", bindModifiers),
 				fmt.Sprintf("%s:%s%s", hostActionCache, "/github/home/.cache/act", bindModifiers),
 				fmt.Sprintf("%s:%s", "/var/run/docker.sock", "/var/run/docker.sock"),
 			},

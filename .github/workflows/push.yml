@@ -6,5 +6,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - uses: ./.github/workflows/check
-    - uses: ./.github/workflows/integration
+    - uses: ./.github/workflows/lint
+    - uses: actions/setup-go@v1
+      with:
+        go-version: 1.13
+    - run: go test -cover ./...
+      env:
+        CGO_ENABLED: 0
