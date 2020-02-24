@@ -38,6 +38,7 @@ func (sc *StepContext) NewExpressionEvaluator() ExpressionEvaluator {
 	vm := sc.RunContext.newVM()
 	configers := []func(*otto.Otto){
 		sc.vmEnv(),
+		sc.vmInputs(),
 	}
 	for _, configer := range configers {
 		configer(vm)
@@ -238,6 +239,16 @@ func (rc *RunContext) vmGithub() func(*otto.Otto) {
 func (sc *StepContext) vmEnv() func(*otto.Otto) {
 	return func(vm *otto.Otto) {
 		_ = vm.Set("env", sc.Env)
+	}
+}
+
+func (sc *StepContext) vmInputs() func(*otto.Otto) {
+	inputs := make(map[string]string)
+	for k, v := range sc.Step.With {
+		inputs[k] = v
+	}
+	return func(vm *otto.Otto) {
+		_ = vm.Set("inputs", inputs)
 	}
 }
 

@@ -45,7 +45,7 @@ func (rc *RunContext) GetEnv() map[string]string {
 }
 
 func (rc *RunContext) jobContainerName() string {
-	return createContainerName(filepath.Base(rc.Config.Workdir), rc.Run.String())
+	return createContainerName("act", rc.Run.String())
 }
 
 func (rc *RunContext) startJobContainer() common.Executor {
@@ -74,7 +74,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 
 		rc.JobContainer = container.NewContainer(&container.NewContainerInput{
 			Cmd:        nil,
-			Entrypoint: []string{"/bin/cat"},
+			Entrypoint: []string{"/usr/bin/tail", "-f", "/dev/null"},
 			WorkingDir: "/github/workspace",
 			Image:      image,
 			Name:       name,
@@ -83,6 +83,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			},
 			Binds: []string{
 				fmt.Sprintf("%s:%s", rc.Config.Workdir, "/github/workspace"),
+				fmt.Sprintf("%s:%s", rc.ActionDir(), "/github/home/.act"),
 				fmt.Sprintf("%s:%s", "/var/run/docker.sock", "/var/run/docker.sock"),
 			},
 			Stdout: logWriter,
@@ -98,10 +99,6 @@ func (rc *RunContext) startJobContainer() common.Executor {
 				Name: "workflow/event.json",
 				Mode: 644,
 				Body: rc.EventJSON,
-			}, &container.FileEntry{
-				Name: "home/.actions/.keep",
-				Mode: 644,
-				Body: "",
 			}),
 		)(ctx)
 	}
@@ -119,6 +116,18 @@ func (rc *RunContext) stopJobContainer() common.Executor {
 		}
 		return nil
 	}
+}
+
+// ActionDir is for rc
+func (rc *RunContext) ActionDir() string {
+	var xdgCache string
+	var ok bool
+	if xdgCache, ok = os.LookupEnv("XDG_CACHE_HOME"); !ok {
+		if home, ok := os.LookupEnv("HOME"); ok {
+			xdgCache = fmt.Sprintf("%s/.cache", home)
+		}
+	}
+	return filepath.Join(xdgCache, "act")
 }
 
 // Executor returns a pipeline executor for all the steps in the job
@@ -210,10 +219,14 @@ func createContainerName(parts ...string) string {
 	name := make([]string, 0)
 	pattern := regexp.MustCompile("[^a-zA-Z0-9]")
 	partLen := (30 / len(parts)) - 1
-	for _, part := range parts {
-		name = append(name, trimToLen(pattern.ReplaceAllString(part, "-"), partLen))
+	for i, part := range parts {
+		if i == len(parts)-1 {
+			name = append(name, pattern.ReplaceAllString(part, "-"))
+		} else {
+			name = append(name, trimToLen(pattern.ReplaceAllString(part, "-"), partLen))
+		}
 	}
-	return strings.Join(name, "-")
+	return trimToLen(strings.Trim(strings.Join(name, "-"), "-"), 30)
 }
 
 func trimToLen(s string, l int) string {

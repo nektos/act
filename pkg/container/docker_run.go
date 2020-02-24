@@ -171,7 +171,7 @@ func (cr *containerReference) remove() common.Executor {
 			Force:         true,
 		})
 		if err != nil {
-			return errors.WithStack(err)
+			logger.Error(errors.WithStack(err))
 		}
 
 		logger.Debugf("Removed container: %v", cr.id)
