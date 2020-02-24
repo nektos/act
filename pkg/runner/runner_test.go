@@ -3,6 +3,7 @@ package runner
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"testing"
 
 	"github.com/nektos/act/pkg/model"
@@ -59,8 +60,11 @@ func TestRunEvent(t *testing.T) {
 			platforms := map[string]string{
 				"ubuntu-latest": "node:12.6-buster-slim",
 			}
+
+			workdir, err := filepath.Abs("testdata")
+			assert.NilError(t, err, table.workflowPath)
 			runnerConfig := &Config{
-				Workdir:         "testdata",
+				Workdir:         workdir,
 				EventName:       table.eventName,
 				Platforms:       platforms,
 				ReuseContainers: false,

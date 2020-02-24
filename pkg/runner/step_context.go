@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 
 	"github.com/nektos/act/pkg/common"
@@ -64,7 +65,7 @@ func (sc *StepContext) Executor() common.Executor {
 			}
 		}
 
-		actionDir := rc.ActionDir()
+		actionDir := fmt.Sprintf("%s/%s", rc.ActionCacheDir(), remoteAction.Repo)
 		return common.NewPipelineExecutor(
 			common.NewGitCloneExecutor(common.NewGitCloneExecutorInput{
 				URL: remoteAction.CloneURL(),
@@ -150,6 +151,24 @@ func (sc *StepContext) newStepContainer(ctx context.Context, image string, cmd [
 	for i, v := range entrypoint {
 		entrypoint[i] = stepEE.Interpolate(v)
 	}
+
+	bindModifiers := ""
+	if runtime.GOOS == "darwin" {
+		bindModifiers = ":delegated"
+	}
+
+	hostWorkdir := os.Getenv("ACT_HOST_WORKDIR")
+	if hostWorkdir == "" {
+		hostWorkdir = rc.Config.Workdir
+	}
+	envList = append(envList, fmt.Sprintf("%s=%s", "ACT_HOST_WORKDIR", hostWorkdir))
+
+	hostActionCache := os.Getenv("ACT_HOST_ACTIONCACHE")
+	if hostActionCache == "" {
+		hostActionCache = rc.ActionCacheDir()
+	}
+	envList = append(envList, fmt.Sprintf("%s=%s", "ACT_HOST_ACTIONCACHE", hostActionCache))
+
 	stepContainer := container.NewContainer(&container.NewContainerInput{
 		Cmd:        cmd,
 		Entrypoint: entrypoint,
@@ -161,7 +180,7 @@ func (sc *StepContext) newStepContainer(ctx context.Context, image string, cmd [
 			rc.jobContainerName(): "/github",
 		},
 		Binds: []string{
-			fmt.Sprintf("%s:%s", rc.Config.Workdir, "/github/workspace"),
+			fmt.Sprintf("%s:%s%s", hostWorkdir, "/github/workspace", bindModifiers),
 			fmt.Sprintf("%s:%s", "/var/run/docker.sock", "/var/run/docker.sock"),
 		},
 		Stdout: logWriter,
@@ -221,23 +240,27 @@ func (sc *StepContext) runAction(actionDir string) common.Executor {
 			}
 		}
 
+		actionName := ""
+		containerActionDir := "."
+		if strings.HasPrefix(actionDir, rc.Config.Workdir) {
+			actionName = strings.TrimPrefix(actionDir, rc.Config.Workdir)
+			containerActionDir = "/github/workspace"
+		} else if strings.HasPrefix(actionDir, rc.ActionCacheDir()) {
+			actionName = strings.TrimPrefix(actionDir, rc.ActionCacheDir())
+			containerActionDir = "/github/home/.cache/act"
+		}
+
 		switch action.Runs.Using {
 		case model.ActionRunsUsingNode12:
-			basePath := "."
-			if strings.HasPrefix(actionDir, rc.Config.Workdir) {
-				basePath = fmt.Sprintf("/github/workspace/%s", strings.TrimPrefix(actionDir, rc.Config.Workdir))
-			} else if strings.HasPrefix(actionDir, rc.ActionDir()) {
-				basePath = fmt.Sprintf("/github/home/.act/%s", strings.TrimPrefix(actionDir, rc.ActionDir()))
-			}
-			return rc.execJobContainer([]string{"node", fmt.Sprintf("%s/%s", basePath, action.Runs.Main)}, sc.Env)(ctx)
+			return rc.execJobContainer([]string{"node", fmt.Sprintf("%s/%s/%s", containerActionDir, actionName, action.Runs.Main)}, sc.Env)(ctx)
 		case model.ActionRunsUsingDocker:
 			var prepImage common.Executor
 			var image string
 			if strings.HasPrefix(action.Runs.Image, "docker://") {
 				image = strings.TrimPrefix(action.Runs.Image, "docker://")
 			} else {
-				image = fmt.Sprintf("%s:%s", regexp.MustCompile("[^a-zA-Z0-9]").ReplaceAllString(step.Uses, "-"), "latest")
-				image = strings.TrimLeft(image, "-")
+				image = fmt.Sprintf("%s:%s", regexp.MustCompile("[^a-zA-Z0-9]").ReplaceAllString(actionName, "-"), "latest")
+				image = fmt.Sprintf("act-%s", strings.TrimLeft(image, "-"))
 				contextDir := filepath.Join(actionDir, action.Runs.Main)
 				prepImage = container.NewDockerBuildExecutor(container.NewDockerBuildExecutorInput{
 					ContextDir: contextDir,

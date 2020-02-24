@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 
 	"github.com/nektos/act/pkg/container"
@@ -72,18 +73,38 @@ func (rc *RunContext) startJobContainer() common.Executor {
 		common.Logger(ctx).Infof("\U0001f680  Start image=%s", image)
 		name := rc.jobContainerName()
 
+		envList := make([]string, 0)
+		bindModifiers := ""
+		if runtime.GOOS == "darwin" {
+			bindModifiers = ":delegated"
+		}
+
+		hostWorkdir := os.Getenv("ACT_HOST_WORKDIR")
+		if hostWorkdir == "" {
+			hostWorkdir = rc.Config.Workdir
+		}
+		envList = append(envList, fmt.Sprintf("%s=%s", "ACT_HOST_WORKDIR", hostWorkdir))
+
+		hostActionCache := os.Getenv("ACT_HOST_ACTIONCACHE")
+		if hostActionCache == "" {
+			hostActionCache = rc.ActionCacheDir()
+		}
+		envList = append(envList, fmt.Sprintf("%s=%s", "ACT_HOST_ACTIONCACHE", hostActionCache))
+
 		rc.JobContainer = container.NewContainer(&container.NewContainerInput{
 			Cmd:        nil,
 			Entrypoint: []string{"/usr/bin/tail", "-f", "/dev/null"},
 			WorkingDir: "/github/workspace",
 			Image:      image,
 			Name:       name,
+			Env:        envList,
 			Mounts: map[string]string{
 				name: "/github",
 			},
+
 			Binds: []string{
-				fmt.Sprintf("%s:%s", rc.Config.Workdir, "/github/workspace"),
-				fmt.Sprintf("%s:%s", rc.ActionDir(), "/github/home/.act"),
+				fmt.Sprintf("%s:%s%s", hostWorkdir, "/github/workspace", bindModifiers),
+				fmt.Sprintf("%s:%s%s", hostActionCache, "/github/home/.cache/act", bindModifiers),
 				fmt.Sprintf("%s:%s", "/var/run/docker.sock", "/var/run/docker.sock"),
 			},
 			Stdout: logWriter,
@@ -118,8 +139,8 @@ func (rc *RunContext) stopJobContainer() common.Executor {
 	}
 }
 
-// ActionDir is for rc
-func (rc *RunContext) ActionDir() string {
+// ActionCacheDir is for rc
+func (rc *RunContext) ActionCacheDir() string {
 	var xdgCache string
 	var ok bool
 	if xdgCache, ok = os.LookupEnv("XDG_CACHE_HOME"); !ok {
@@ -336,6 +357,7 @@ func (rc *RunContext) withGithubEnv(env map[string]string) map[string]string {
 	env["GITHUB_RUN_ID"] = github.RunID
 	env["GITHUB_RUN_NUMBER"] = github.RunNumber
 	env["GITHUB_ACTION"] = github.Action
+	env["GITHUB_ACTIONS"] = "true"
 	env["GITHUB_ACTOR"] = github.Actor
 	env["GITHUB_REPOSITORY"] = github.Repository
 	env["GITHUB_EVENT_NAME"] = github.EventName
