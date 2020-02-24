@@ -1,8 +1,0 @@
-name: Lint
-description: Run static analysis 
-branding:
-  icon: check-circle
-  color: green
-runs:
-  using: 'docker'
-  image: 'Dockerfile'

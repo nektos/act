@@ -12,12 +12,11 @@ endif
 IS_SNAPSHOT = $(if $(findstring -, $(VERSION)),true,false)
 TAG_VERSION = v$(VERSION)
 
-ACT ?= go run -mod=vendor main.go
+ACT ?= go run main.go
 export GITHUB_TOKEN = $(shell cat ~/.config/github/token)
 
 check:
-	@golangci-lint run
-	@go test -cover  ./...
+	$(ACT) -P ubuntu-latest=nektos/act-environments-ubuntu:18.04 
 
 build: check
 	$(eval export SNAPSHOT_VERSION=$(VERSION))

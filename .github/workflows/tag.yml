@@ -6,10 +6,11 @@ on:
 
 jobs:
   release:
+    if: startsWith(github.ref, "v")
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - name: Run GoReleaser
+    - name: GoReleaser
       uses: goreleaser/goreleaser-action@v1
       with:
         version: latest
