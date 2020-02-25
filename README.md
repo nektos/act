@@ -51,7 +51,7 @@ act -n
 act -v
 ```
 
-# Platforms
+# Runners
 GitHub Actions offers managed [virtual environments](https://help.github.com/en/actions/reference/virtual-environments-for-github-hosted-runners) for running workflows.  In order for `act` to run your workflows locally, it must run a container for the runner defined in your workflow file.  Here are the images that `act` uses for each runner type:
 
 | GitHub Runner   | Docker Image |
@@ -82,6 +82,14 @@ To run `act` with secrets, you can enter them interactively or supply them as en
 
 * `act -s MY_SECRET=somevalue` - use `somevalue` as the value for `MY_SECRET`. 
 * `act -s MY_SECRET` - check for an environment variable named `MY_SECRET` and use it if it exists.  If environment variable is not defined, prompt the user for a value.
+
+# Configuration
+You can provide default configuration flags to `act` by either creating a `./.actrc` or a `~/.actrc` file.  Any flags in the files will be applied before any flags provided directly on the command line.  For example, a file like below will always use the `nektos/act-environments-ubuntu:18.04` image for the `ubuntu-latest` runner:
+
+```
+# sample .actrc file
+-P ubuntu-latest=nektos/act-environments-ubuntu:18.04
+```
 
 # Support
 
