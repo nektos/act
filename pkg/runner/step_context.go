@@ -159,7 +159,7 @@ func (sc *StepContext) newStepContainer(ctx context.Context, image string, cmd [
 		bindModifiers = ":delegated"
 	}
 
-	envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_TOOL_CACHE", "/toolcache"))
+	envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_TOOL_CACHE", "/opt/hostedtoolcache"))
 
 	binds := []string{
 		fmt.Sprintf("%s:%s", "/var/run/docker.sock", "/var/run/docker.sock"),

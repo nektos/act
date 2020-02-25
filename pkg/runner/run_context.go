@@ -81,7 +81,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			bindModifiers = ":delegated"
 		}
 
-		envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_TOOL_CACHE", "/toolcache"))
+		envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_TOOL_CACHE", "/opt/hostedtoolcache"))
 
 		binds := []string{
 			fmt.Sprintf("%s:%s", "/var/run/docker.sock", "/var/run/docker.sock"),
