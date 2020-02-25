@@ -11,3 +11,5 @@ package cpu
 // rules are good enough.
 
 const cacheLineSize = 0
+
+func doinit() {}

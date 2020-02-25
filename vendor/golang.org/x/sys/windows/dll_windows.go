@@ -11,18 +11,6 @@ import (
 	"unsafe"
 )
 
-// We need to use LoadLibrary and GetProcAddress from the Go runtime, because
-// the these symbols are loaded by the system linker and are required to
-// dynamically load additional symbols. Note that in the Go runtime, these
-// return syscall.Handle and syscall.Errno, but these are the same, in fact,
-// as windows.Handle and windows.Errno, and we intend to keep these the same.
-
-//go:linkname syscall_loadlibrary syscall.loadlibrary
-func syscall_loadlibrary(filename *uint16) (handle Handle, err Errno)
-
-//go:linkname syscall_getprocaddress syscall.getprocaddress
-func syscall_getprocaddress(handle Handle, procname *uint8) (proc uintptr, err Errno)
-
 // DLLError describes reasons for DLL load failures.
 type DLLError struct {
 	Err     error
@@ -31,6 +19,10 @@ type DLLError struct {
 }
 
 func (e *DLLError) Error() string { return e.Msg }
+
+// Implemented in runtime/syscall_windows.goc; we provide jumps to them in our assembly file.
+func loadlibrary(filename *uint16) (handle uintptr, err syscall.Errno)
+func getprocaddress(handle uintptr, procname *uint8) (proc uintptr, err syscall.Errno)
 
 // A DLL implements access to a single DLL.
 type DLL struct {
@@ -48,7 +40,7 @@ func LoadDLL(name string) (dll *DLL, err error) {
 	if err != nil {
 		return nil, err
 	}
-	h, e := syscall_loadlibrary(namep)
+	h, e := loadlibrary(namep)
 	if e != 0 {
 		return nil, &DLLError{
 			Err:     e,
@@ -58,7 +50,7 @@ func LoadDLL(name string) (dll *DLL, err error) {
 	}
 	d := &DLL{
 		Name:   name,
-		Handle: h,
+		Handle: Handle(h),
 	}
 	return d, nil
 }
@@ -79,7 +71,7 @@ func (d *DLL) FindProc(name string) (proc *Proc, err error) {
 	if err != nil {
 		return nil, err
 	}
-	a, e := syscall_getprocaddress(d.Handle, namep)
+	a, e := getprocaddress(uintptr(d.Handle), namep)
 	if e != 0 {
 		return nil, &DLLError{
 			Err:     e,

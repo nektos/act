@@ -2,8 +2,10 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package cpu
+#include "textflag.h"
 
-const cacheLineSize = 32
+TEXT ·getprocaddress(SB),NOSPLIT,$0
+	B	syscall·getprocaddress(SB)
 
-func doinit() {}
+TEXT ·loadlibrary(SB),NOSPLIT,$0
+	B	syscall·loadlibrary(SB)
