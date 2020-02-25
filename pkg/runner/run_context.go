@@ -80,11 +80,6 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			bindModifiers = ":delegated"
 		}
 
-		hostActionCache := os.Getenv("ACT_HOST_ACTION_CACHE")
-		if hostActionCache == "" {
-			hostActionCache = rc.ActionCacheDir()
-		}
-		envList = append(envList, fmt.Sprintf("%s=%s", "ACT_HOST_ACTION_CACHE", hostActionCache))
 		envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_TOOL_CACHE", "/toolcache"))
 
 		rc.JobContainer = container.NewContainer(&container.NewContainerInput{
@@ -97,11 +92,11 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			Mounts: map[string]string{
 				name:            "/github",
 				"act-toolcache": "/toolcache",
+				"act-actions":   "/actions",
 			},
 
 			Binds: []string{
 				fmt.Sprintf("%s:%s%s", rc.Config.Workdir, "/github/workspace", bindModifiers),
-				fmt.Sprintf("%s:%s%s", hostActionCache, "/github/home/.cache/act", bindModifiers),
 				fmt.Sprintf("%s:%s", "/var/run/docker.sock", "/var/run/docker.sock"),
 			},
 			Stdout: logWriter,
@@ -117,6 +112,10 @@ func (rc *RunContext) startJobContainer() common.Executor {
 				Name: "workflow/event.json",
 				Mode: 644,
 				Body: rc.EventJSON,
+			}, &container.FileEntry{
+				Name: "home/.act",
+				Mode: 644,
+				Body: "",
 			}),
 		)(ctx)
 	}

@@ -6,7 +6,10 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -44,6 +47,7 @@ type FileEntry struct {
 type Container interface {
 	Create() common.Executor
 	Copy(destPath string, files ...*FileEntry) common.Executor
+	CopyDir(destPath string, srcPath string) common.Executor
 	Pull(forcePull bool) common.Executor
 	Start(attach bool) common.Executor
 	Exec(command []string, env map[string]string) common.Executor
@@ -92,6 +96,14 @@ func (cr *containerReference) Copy(destPath string, files ...*FileEntry) common.
 		cr.connect(),
 		cr.find(),
 		cr.copyContent(destPath, files...),
+	).IfNot(common.Dryrun)
+}
+
+func (cr *containerReference) CopyDir(destPath string, srcPath string) common.Executor {
+	return common.NewPipelineExecutor(
+		cr.connect(),
+		cr.find(),
+		cr.copyDir(destPath, srcPath),
 	).IfNot(common.Dryrun)
 }
 
@@ -286,6 +298,84 @@ func (cr *containerReference) exec(cmd []string, env map[string]string) common.E
 		}
 
 		return fmt.Errorf("exit with `FAILURE`: %v", inspectResp.ExitCode)
+	}
+}
+
+func (cr *containerReference) copyDir(dstPath string, srcPath string) common.Executor {
+	return func(ctx context.Context) error {
+		logger := common.Logger(ctx)
+		tarFile, err := ioutil.TempFile("", "act")
+		if err != nil {
+			return err
+		}
+		log.Debugf("Writing tarball %s from %s", tarFile.Name(), srcPath)
+		defer tarFile.Close()
+		//defer os.Remove(tarFile.Name())
+		tw := tar.NewWriter(tarFile)
+
+		srcPrefix := filepath.Dir(srcPath)
+		if !strings.HasSuffix(srcPrefix, string(filepath.Separator)) {
+			srcPrefix += string(filepath.Separator)
+		}
+
+		err = filepath.Walk(srcPath, func(file string, fi os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+
+			// return on non-regular files (thanks to [kumo](https://medium.com/@komuw/just-like-you-did-fbdd7df829d3) for this suggested update)
+			if !fi.Mode().IsRegular() {
+				return nil
+			}
+
+			// create a new dir/file header
+			header, err := tar.FileInfoHeader(fi, fi.Name())
+			if err != nil {
+				return err
+			}
+
+			// update the name to correctly reflect the desired destination when untaring
+			header.Name = strings.TrimPrefix(file, srcPrefix)
+
+			// write the header
+			if err := tw.WriteHeader(header); err != nil {
+				return err
+			}
+
+			// open files for taring
+			f, err := os.Open(file)
+			if err != nil {
+				return err
+			}
+
+			// copy file data into tar writer
+			if _, err := io.Copy(tw, f); err != nil {
+				return err
+			}
+
+			// manually close here after each file operation; defering would cause each file close
+			// to wait until all operations have completed.
+			f.Close()
+
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+		if err := tw.Close(); err != nil {
+			return err
+		}
+
+		logger.Debugf("Extracting content from '%s' to '%s'", tarFile.Name(), dstPath)
+		_, err = tarFile.Seek(0, 0)
+		if err != nil {
+			return errors.WithStack(err)
+		}
+		err = cr.cli.CopyToContainer(ctx, cr.id, dstPath, tarFile, types.CopyToContainerOptions{})
+		if err != nil {
+			return errors.WithStack(err)
+		}
+		return nil
 	}
 }
 
