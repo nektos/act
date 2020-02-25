@@ -12,7 +12,7 @@ build:
 	go build -ldflags "-X main.version=$(VERSION)" -o dist/local/act main.go
 
 test:
-	$(ACT) -P ubuntu-latest=nektos/act-environments-ubuntu:18.04 
+	$(ACT)
 
 install: build
 	@cp dist/local/act /usr/local/bin/act

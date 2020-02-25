@@ -1,9 +1,12 @@
 package cmd
 
 import (
+	"bufio"
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/nektos/act/pkg/common"
 
@@ -41,9 +44,40 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "verbose output")
 	rootCmd.PersistentFlags().BoolVarP(&input.noOutput, "quiet", "q", false, "disable logging of output from steps")
 	rootCmd.PersistentFlags().BoolVarP(&input.dryrun, "dryrun", "n", false, "dryrun mode")
+	rootCmd.SetArgs(args())
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}
+
+}
+
+func args() []string {
+	args := make([]string, 0)
+	for _, dir := range []string{
+		os.Getenv("HOME"),
+		".",
+	} {
+		args = append(args, readArgsFile(fmt.Sprintf("%s/.actrc", dir))...)
+	}
+	args = append(args, os.Args[1:]...)
+	return args
+}
+
+func readArgsFile(file string) []string {
+	args := make([]string, 0)
+	f, err := os.Open(file)
+	if err != nil {
+		return args
+	}
+	defer f.Close()
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		arg := scanner.Text()
+		if strings.HasPrefix(arg, "-") {
+			args = append(args, strings.Fields(arg)...)
+		}
+	}
+	return args
 
 }
 
