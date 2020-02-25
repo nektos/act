@@ -82,6 +82,13 @@ func (rc *RunContext) startJobContainer() common.Executor {
 
 		envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_TOOL_CACHE", "/toolcache"))
 
+		binds := []string{
+			fmt.Sprintf("%s:%s", "/var/run/docker.sock", "/var/run/docker.sock"),
+		}
+		if rc.Config.BindWorkdir {
+			binds = append(binds, fmt.Sprintf("%s:%s%s", rc.Config.Workdir, "/github/workspace", bindModifiers))
+		}
+
 		rc.JobContainer = container.NewContainer(&container.NewContainerInput{
 			Cmd:        nil,
 			Entrypoint: []string{"/usr/bin/tail", "-f", "/dev/null"},
@@ -95,10 +102,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 				"act-actions":   "/actions",
 			},
 
-			Binds: []string{
-				fmt.Sprintf("%s:%s%s", rc.Config.Workdir, "/github/workspace", bindModifiers),
-				fmt.Sprintf("%s:%s", "/var/run/docker.sock", "/var/run/docker.sock"),
-			},
+			Binds:  binds,
 			Stdout: logWriter,
 			Stderr: logWriter,
 		})
@@ -108,6 +112,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			rc.JobContainer.Remove().IfBool(!rc.Config.ReuseContainers),
 			rc.JobContainer.Create(),
 			rc.JobContainer.Start(false),
+			rc.JobContainer.CopyDir("/github/workspace", rc.Config.Workdir+"/.").IfBool(!rc.Config.BindWorkdir),
 			rc.JobContainer.Copy("/github/", &container.FileEntry{
 				Name: "workflow/event.json",
 				Mode: 644,

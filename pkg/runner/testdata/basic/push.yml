@@ -5,6 +5,7 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
+      - run: ls
       - run: echo 'hello world' 
       - run: echo ${GITHUB_SHA} >> /github/sha.txt
       - run: cat /github/sha.txt | grep ${GITHUB_SHA}

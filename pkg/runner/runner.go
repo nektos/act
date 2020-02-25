@@ -18,6 +18,7 @@ type Runner interface {
 // Config contains the config for a new runner
 type Config struct {
 	Workdir         string            // path to working directory
+	BindWorkdir     bool              // bind the workdir to the job container
 	EventName       string            // name of event to run
 	EventPath       string            // path to JSON file to use for event.json in containers
 	ReuseContainers bool              // reuse containers to maintain state

@@ -160,6 +160,13 @@ func (sc *StepContext) newStepContainer(ctx context.Context, image string, cmd [
 
 	envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_TOOL_CACHE", "/toolcache"))
 
+	binds := []string{
+		fmt.Sprintf("%s:%s", "/var/run/docker.sock", "/var/run/docker.sock"),
+	}
+	if rc.Config.BindWorkdir {
+		binds = append(binds, fmt.Sprintf("%s:%s%s", rc.Config.Workdir, "/github/workspace", bindModifiers))
+	}
+
 	stepContainer := container.NewContainer(&container.NewContainerInput{
 		Cmd:        cmd,
 		Entrypoint: entrypoint,
@@ -172,10 +179,7 @@ func (sc *StepContext) newStepContainer(ctx context.Context, image string, cmd [
 			"act-toolcache":       "/toolcache",
 			"act-actions":         "/actions",
 		},
-		Binds: []string{
-			fmt.Sprintf("%s:%s%s", rc.Config.Workdir, "/github/workspace", bindModifiers),
-			fmt.Sprintf("%s:%s", "/var/run/docker.sock", "/var/run/docker.sock"),
-		},
+		Binds:  binds,
 		Stdout: logWriter,
 		Stderr: logWriter,
 	})

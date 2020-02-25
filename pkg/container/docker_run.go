@@ -101,6 +101,7 @@ func (cr *containerReference) Copy(destPath string, files ...*FileEntry) common.
 
 func (cr *containerReference) CopyDir(destPath string, srcPath string) common.Executor {
 	return common.NewPipelineExecutor(
+		common.NewInfoExecutor("%sdocker cp src=%s dst=%s", logPrefix, srcPath, destPath),
 		cr.connect(),
 		cr.find(),
 		cr.copyDir(destPath, srcPath),
@@ -310,13 +311,14 @@ func (cr *containerReference) copyDir(dstPath string, srcPath string) common.Exe
 		}
 		log.Debugf("Writing tarball %s from %s", tarFile.Name(), srcPath)
 		defer tarFile.Close()
-		//defer os.Remove(tarFile.Name())
+		defer os.Remove(tarFile.Name())
 		tw := tar.NewWriter(tarFile)
 
 		srcPrefix := filepath.Dir(srcPath)
 		if !strings.HasSuffix(srcPrefix, string(filepath.Separator)) {
 			srcPrefix += string(filepath.Separator)
 		}
+		log.Debugf("Stripping prefix:%s src:%s", srcPrefix, srcPath)
 
 		err = filepath.Walk(srcPath, func(file string, fi os.FileInfo, err error) error {
 			if err != nil {
@@ -336,6 +338,7 @@ func (cr *containerReference) copyDir(dstPath string, srcPath string) common.Exe
 
 			// update the name to correctly reflect the desired destination when untaring
 			header.Name = strings.TrimPrefix(file, srcPrefix)
+			log.Debugf("%s -> %s", file, header.Name)
 
 			// write the header
 			if err := tw.WriteHeader(header); err != nil {
