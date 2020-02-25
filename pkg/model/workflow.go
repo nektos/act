@@ -61,9 +61,9 @@ type Job struct {
 	If             string                    `yaml:"if"`
 	Steps          []*Step                   `yaml:"steps"`
 	TimeoutMinutes int64                     `yaml:"timeout-minutes"`
-	Container      *ContainerSpec            `yaml:"container"`
 	Services       map[string]*ContainerSpec `yaml:"services"`
 	Strategy       *Strategy                 `yaml:"strategy"`
+	RawContainer   yaml.Node                 `yaml:"container"`
 }
 
 // Strategy for the job
@@ -71,6 +71,26 @@ type Strategy struct {
 	FailFast    bool                     `yaml:"fail-fast"`
 	MaxParallel int                      `yaml:"max-parallel"`
 	Matrix      map[string][]interface{} `yaml:"matrix"`
+}
+
+// Container details for the job
+func (j *Job) Container() *ContainerSpec {
+	var val *ContainerSpec
+	switch j.RawContainer.Kind {
+	case yaml.ScalarNode:
+		val = new(ContainerSpec)
+		err := j.RawContainer.Decode(&val.Image)
+		if err != nil {
+			log.Fatal(err)
+		}
+	case yaml.MappingNode:
+		val = new(ContainerSpec)
+		err := j.RawContainer.Decode(val)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+	return val
 }
 
 // Needs list for Job

@@ -87,8 +87,9 @@ func (sc *StepContext) setupEnv() common.Executor {
 	step := sc.Step
 	return func(ctx context.Context) error {
 		var env map[string]string
-		if job.Container != nil {
-			env = mergeMaps(rc.GetEnv(), job.Container.Env, step.GetEnv())
+		c := job.Container()
+		if c != nil {
+			env = mergeMaps(rc.GetEnv(), c.Env, step.GetEnv())
 		} else {
 			env = mergeMaps(rc.GetEnv(), step.GetEnv())
 		}

@@ -53,8 +53,9 @@ func (rc *RunContext) startJobContainer() common.Executor {
 	job := rc.Run.Job()
 
 	var image string
-	if job.Container != nil {
-		image = job.Container.Image
+	c := job.Container()
+	if c != nil {
+		image = c.Image
 	} else {
 		platformName := rc.ExprEval.Interpolate(job.RunsOn)
 		image = rc.Config.Platforms[strings.ToLower(platformName)]
