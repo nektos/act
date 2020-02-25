@@ -171,7 +171,7 @@ func commonKeysMatch(a map[string]interface{}, b map[string]interface{}) bool {
 type ContainerSpec struct {
 	Image      string            `yaml:"image"`
 	Env        map[string]string `yaml:"env"`
-	Ports      []int             `yaml:"ports"`
+	Ports      []string          `yaml:"ports"`
 	Volumes    []string          `yaml:"volumes"`
 	Options    string            `yaml:"options"`
 	Entrypoint string
