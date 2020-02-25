@@ -1,8 +1,0 @@
-name: Check
-description: Run integration tests
-branding:
-  icon: check-circle
-  color: green
-runs:
-  using: 'docker'
-  image: 'Dockerfile'

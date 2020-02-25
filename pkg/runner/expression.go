@@ -11,7 +11,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/nektos/act/pkg/model"
 	"github.com/robertkrimen/otto"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/godo.v2/glob"
@@ -34,11 +33,12 @@ func (rc *RunContext) NewExpressionEvaluator() ExpressionEvaluator {
 	}
 }
 
-// NewStepExpressionEvaluator creates a new evaluator
-func (rc *RunContext) NewStepExpressionEvaluator(step *model.Step) ExpressionEvaluator {
-	vm := rc.newVM()
+// NewExpressionEvaluator creates a new evaluator
+func (sc *StepContext) NewExpressionEvaluator() ExpressionEvaluator {
+	vm := sc.RunContext.newVM()
 	configers := []func(*otto.Otto){
-		rc.vmEnv(step),
+		sc.vmEnv(),
+		sc.vmInputs(),
 	}
 	for _, configer := range configers {
 		configer(vm)
@@ -236,10 +236,19 @@ func (rc *RunContext) vmGithub() func(*otto.Otto) {
 	}
 }
 
-func (rc *RunContext) vmEnv(step *model.Step) func(*otto.Otto) {
+func (sc *StepContext) vmEnv() func(*otto.Otto) {
 	return func(vm *otto.Otto) {
-		env := rc.StepEnv(step)
-		_ = vm.Set("env", env)
+		_ = vm.Set("env", sc.Env)
+	}
+}
+
+func (sc *StepContext) vmInputs() func(*otto.Otto) {
+	inputs := make(map[string]string)
+	for k, v := range sc.Step.With {
+		inputs[k] = v
+	}
+	return func(vm *otto.Otto) {
+		_ = vm.Set("inputs", inputs)
 	}
 }
 

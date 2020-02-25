@@ -8,8 +8,9 @@ import (
 
 func TestLineWriter(t *testing.T) {
 	lines := make([]string, 0)
-	lineHandler := func(s string) {
+	lineHandler := func(s string) bool {
 		lines = append(lines, s)
+		return true
 	}
 
 	lineWriter := NewLineWriter(lineHandler)

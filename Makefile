@@ -1,30 +1,21 @@
-LATEST_VERSION := $(shell git tag -l --sort=creatordate | grep "^v[0-9]*.[0-9]*.[0-9]*$$" | tail -1 | cut -c 2-)
-ifeq "$(shell git tag -l v$(LATEST_VERSION) --points-at HEAD)" "v$(LATEST_VERSION)"
-### latest tag points to current commit, this is a release build
-VERSION ?= $(LATEST_VERSION)
-else
-### latest tag points to prior commit, this is a snapshot build
-MAJOR_VERSION := $(word 1, $(subst ., ,$(LATEST_VERSION)))
-MINOR_VERSION := $(word 2, $(subst ., ,$(LATEST_VERSION)))
-PATCH_VERSION := $(word 3, $(subst ., ,$(LATEST_VERSION)))
-VERSION ?= $(MAJOR_VERSION).$(MINOR_VERSION).$(shell echo $$(( $(PATCH_VERSION) + 1)) )-develop
-endif
+VERSION?=$(shell git describe --tags --dirty | cut -c 2-)
 IS_SNAPSHOT = $(if $(findstring -, $(VERSION)),true,false)
-TAG_VERSION = v$(VERSION)
+MAJOR_VERSION = $(word 1, $(subst ., ,$(VERSION)))
+MINOR_VERSION = $(word 2, $(subst ., ,$(VERSION)))
+PATCH_VERSION = $(word 3, $(subst ., ,$(word 1,$(subst -, , $(VERSION)))))
+NEW_VERSION ?= $(MAJOR_VERSION).$(MINOR_VERSION).$(shell echo $$(( $(PATCH_VERSION) + 1)) )
 
-ACT ?= go run -mod=vendor main.go
+ACT ?= go run main.go
 export GITHUB_TOKEN = $(shell cat ~/.config/github/token)
 
-check:
-	@golangci-lint run
-	@go test -cover  ./...
+build: 
+	go build -ldflags "-X main.version=$(VERSION)" -o dist/local/act main.go
 
-build: check
-	$(eval export SNAPSHOT_VERSION=$(VERSION))
-	$(ACT) -ra build
+test:
+	$(ACT) -P ubuntu-latest=nektos/act-environments-ubuntu:18.04 
 
 install: build
-	@cp dist/$(shell go env GOOS)_$(shell go env GOARCH)/act /usr/local/bin/act
+	@cp dist/local/act /usr/local/bin/act
 	@chmod 755 /usr/local/bin/act
 	@act --version
 
@@ -33,7 +24,8 @@ installer:
 	godownloader -r nektos/act -o install.sh
 
 promote: vendor
-	@echo "VERSION:$(VERSION) IS_SNAPSHOT:$(IS_SNAPSHOT) LATEST_VERSION:$(LATEST_VERSION)"
+	@git fetch --tags
+	@echo "VERSION:$(VERSION) IS_SNAPSHOT:$(IS_SNAPSHOT) NEW_VERSION:$(NEW_VERSION)"
 ifeq (false,$(IS_SNAPSHOT))
 	@echo "Unable to promote a non-snapshot"
 	@exit 1
@@ -42,9 +34,8 @@ ifneq ($(shell git status -s),)
 	@echo "Unable to promote a dirty workspace"
 	@exit 1
 endif
-	$(eval NEW_VERSION := $(word 1,$(subst -, , $(TAG_VERSION))))
-	git tag -a -m "releasing $(NEW_VERSION)" $(NEW_VERSION)
-	git push origin $(NEW_VERSION)
+	git tag -a -m "releasing v$(NEW_VERSION)" v$(NEW_VERSION)
+	git push origin v$(NEW_VERSION)
 
 vendor:
 	go mod vendor

@@ -40,6 +40,15 @@ func NewInfoExecutor(format string, args ...interface{}) Executor {
 	}
 }
 
+// NewDebugExecutor is an executor that logs messages
+func NewDebugExecutor(format string, args ...interface{}) Executor {
+	return func(ctx context.Context) error {
+		logger := Logger(ctx)
+		logger.Debugf(format, args...)
+		return nil
+	}
+}
+
 // NewPipelineExecutor creates a new executor from a series of other executors
 func NewPipelineExecutor(executors ...Executor) Executor {
 	if len(executors) == 0 {

@@ -11,6 +11,7 @@ type Input struct {
 	workflowsPath   string
 	eventPath       string
 	reuseContainers bool
+	bindWorkdir     bool
 	secrets         []string
 	platforms       []string
 	dryrun          bool

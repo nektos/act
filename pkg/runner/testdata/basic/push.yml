@@ -5,7 +5,10 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - run: echo 'hello world'
+      - run: ls
+      - run: echo 'hello world' 
+      - run: echo ${GITHUB_SHA} >> /github/sha.txt
+      - run: cat /github/sha.txt | grep ${GITHUB_SHA}
 
   build:
     runs-on: ubuntu-latest
@@ -20,4 +23,8 @@ jobs:
     steps:
       - uses: docker://ubuntu:18.04
         with:
-          args: echo ${GITHUB_REF} | grep nektos/act
+          args: env
+      - uses: docker://ubuntu:18.04
+        with:
+          entrypoint: /bin/echo
+          args: ${{github.event_name}}

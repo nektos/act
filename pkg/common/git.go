@@ -254,7 +254,7 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) Executor {
 			Force: true,
 		})
 		if err != nil {
-			logger.Errorf("Unable to checkout %s: %v", refName, err)
+			logger.Errorf("Unable to checkout %s: %v", *hash, err)
 			return err
 		}
 

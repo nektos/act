@@ -60,3 +60,16 @@ func TestStopCommands(t *testing.T) {
 	handler("::set-env name=x::abcd\n")
 	assert.Equal("abcd", rc.Env["x"])
 }
+
+func TestAddpathADO(t *testing.T) {
+	assert := assert.New(t)
+	ctx := context.Background()
+	rc := new(RunContext)
+	handler := rc.commandHandler(ctx)
+
+	handler("##[add-path]/zoo\n")
+	assert.Equal("/zoo", rc.ExtraPath[0])
+
+	handler("##[add-path]/boo\n")
+	assert.Equal("/boo", rc.ExtraPath[1])
+}

@@ -3,10 +3,11 @@ package model
 import (
 	"fmt"
 	"io"
-	"log"
 	"regexp"
 	"strings"
 
+	"github.com/nektos/act/pkg/common"
+	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 )
 
@@ -94,6 +95,58 @@ func (j *Job) Needs() []string {
 	return nil
 }
 
+// GetMatrixes returns the matrix cross product
+func (j *Job) GetMatrixes() []map[string]interface{} {
+	matrixes := make([]map[string]interface{}, 0)
+	if j.Strategy != nil {
+		includes := make([]map[string]interface{}, 0)
+		for _, v := range j.Strategy.Matrix["include"] {
+			includes = append(includes, v.(map[string]interface{}))
+		}
+		delete(j.Strategy.Matrix, "include")
+
+		excludes := make([]map[string]interface{}, 0)
+		for _, v := range j.Strategy.Matrix["exclude"] {
+			excludes = append(excludes, v.(map[string]interface{}))
+		}
+		delete(j.Strategy.Matrix, "exclude")
+
+		matrixProduct := common.CartesianProduct(j.Strategy.Matrix)
+
+	MATRIX:
+		for _, matrix := range matrixProduct {
+			for _, exclude := range excludes {
+				if commonKeysMatch(matrix, exclude) {
+					log.Debugf("Skipping matrix '%v' due to exclude '%v'", matrix, exclude)
+					continue MATRIX
+				}
+			}
+			for _, include := range includes {
+				if commonKeysMatch(matrix, include) {
+					log.Debugf("Setting add'l values on matrix '%v' due to include '%v'", matrix, include)
+					for k, v := range include {
+						matrix[k] = v
+					}
+				}
+			}
+			matrixes = append(matrixes, matrix)
+		}
+
+	} else {
+		matrixes = append(matrixes, make(map[string]interface{}))
+	}
+	return matrixes
+}
+
+func commonKeysMatch(a map[string]interface{}, b map[string]interface{}) bool {
+	for aKey, aVal := range a {
+		if bVal, ok := b[aKey]; ok && aVal != bVal {
+			return false
+		}
+	}
+	return true
+}
+
 // ContainerSpec is the specification of the container to use for the job
 type ContainerSpec struct {
 	Image      string            `yaml:"image"`
@@ -104,6 +157,7 @@ type ContainerSpec struct {
 	Entrypoint string
 	Args       string
 	Name       string
+	Reuse      bool
 }
 
 // Step is the structure of one step in a job
@@ -145,6 +199,29 @@ func (s *Step) GetEnv() map[string]string {
 		rtnEnv[envKey] = v
 	}
 	return rtnEnv
+}
+
+// ShellCommand returns the command for the shell
+func (s *Step) ShellCommand() string {
+	shellCommand := ""
+
+	switch s.Shell {
+	case "", "bash":
+		shellCommand = "bash --noprofile --norc -eo pipefail {0}"
+	case "pwsh":
+		shellCommand = "pwsh -command \"& '{0}'\""
+	case "python":
+		shellCommand = "python {0}"
+	case "sh":
+		shellCommand = "sh -e -c {0}"
+	case "cmd":
+		shellCommand = "%ComSpec% /D /E:ON /V:OFF /S /C \"CALL \"{0}\"\""
+	case "powershell":
+		shellCommand = "powershell -command \"& '{0}'\""
+	default:
+		shellCommand = s.Shell
+	}
+	return shellCommand
 }
 
 // StepType describes what type of step we are about to run

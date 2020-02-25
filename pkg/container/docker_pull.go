@@ -21,7 +21,7 @@ type NewDockerPullExecutorInput struct {
 func NewDockerPullExecutor(input NewDockerPullExecutorInput) common.Executor {
 	return func(ctx context.Context) error {
 		logger := common.Logger(ctx)
-		logger.Infof("%sdocker pull %v", logPrefix, input.Image)
+		logger.Debugf("%sdocker pull %v", logPrefix, input.Image)
 
 		if common.Dryrun(ctx) {
 			return nil
