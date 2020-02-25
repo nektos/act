@@ -1,0 +1,17 @@
+name: CI
+
+on: [push]
+
+jobs:
+  linter:
+    name: "Linting Python Code"
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/setup-python@v1.1.1
+      with:
+        python-version: 3.7
+
+    - run: python -c "import sys; print(sys.version)"
