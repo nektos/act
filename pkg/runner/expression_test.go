@@ -18,11 +18,11 @@ func TestEvaluate(t *testing.T) {
 			Workflow: &model.Workflow{
 				Name: "test-workflow",
 				Jobs: map[string]*model.Job{
-					"job1": &model.Job{
+					"job1": {
 						Strategy: &model.Strategy{
 							Matrix: map[string][]interface{}{
-								"os":  []interface{}{"Linux", "Windows"},
-								"foo": []interface{}{"bar", "baz"},
+								"os":  {"Linux", "Windows"},
+								"foo": {"bar", "baz"},
 							},
 						},
 					},
@@ -34,7 +34,7 @@ func TestEvaluate(t *testing.T) {
 			"foo": "bar",
 		},
 		StepResults: map[string]*stepResult{
-			"id1": &stepResult{
+			"id1": {
 				Outputs: map[string]string{
 					"foo": "bar",
 				},
@@ -106,7 +106,7 @@ func TestInterpolate(t *testing.T) {
 			Workflow: &model.Workflow{
 				Name: "test-workflow",
 				Jobs: map[string]*model.Job{
-					"job1": &model.Job{},
+					"job1": {},
 				},
 			},
 		},

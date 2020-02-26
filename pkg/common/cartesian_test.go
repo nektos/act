@@ -9,9 +9,9 @@ import (
 func TestCartisianProduct(t *testing.T) {
 	assert := assert.New(t)
 	input := map[string][]interface{}{
-		"foo": []interface{}{1, 2, 3, 4},
-		"bar": []interface{}{"a", "b", "c"},
-		"baz": []interface{}{false, true},
+		"foo": {1, 2, 3, 4},
+		"bar": {"a", "b", "c"},
+		"baz": {false, true},
 	}
 
 	output := CartesianProduct(input)
