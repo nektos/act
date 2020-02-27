@@ -20,6 +20,7 @@ import (
 
 // RunContext contains info about current job
 type RunContext struct {
+	Name         string
 	Config       *Config
 	Matrix       map[string]interface{}
 	Run          *model.Run
@@ -30,6 +31,10 @@ type RunContext struct {
 	StepResults  map[string]*stepResult
 	ExprEval     ExpressionEvaluator
 	JobContainer container.Container
+}
+
+func (rc *RunContext) String() string {
+	return fmt.Sprintf("%s/%s", rc.Run.Workflow.Name, rc.Name)
 }
 
 type stepResult struct {
@@ -46,7 +51,7 @@ func (rc *RunContext) GetEnv() map[string]string {
 }
 
 func (rc *RunContext) jobContainerName() string {
-	return createContainerName("act", rc.Run.String())
+	return createContainerName("act", rc.String())
 }
 
 func (rc *RunContext) startJobContainer() common.Executor {
@@ -156,6 +161,14 @@ func (rc *RunContext) ActionCacheDir() string {
 // Executor returns a pipeline executor for all the steps in the job
 func (rc *RunContext) Executor() common.Executor {
 	steps := make([]common.Executor, 0)
+
+	steps = append(steps, func(ctx context.Context) error {
+		if len(rc.Matrix) > 0 {
+			common.Logger(ctx).Infof("\U0001F9EA  Matrix: %v", rc.Matrix)
+		}
+		return nil
+	})
+
 	steps = append(steps, rc.startJobContainer())
 
 	for i, step := range rc.Run.Job().Steps {
@@ -209,7 +222,7 @@ func (rc *RunContext) isEnabled(ctx context.Context) bool {
 
 	platformName := rc.ExprEval.Interpolate(rc.Run.Job().RunsOn)
 	if img, ok := rc.Config.Platforms[strings.ToLower(platformName)]; !ok || img == "" {
-		log.Infof("  \U0001F6A7  Skipping unsupported platform '%s'", platformName)
+		log.Infof("\U0001F6A7  Skipping unsupported platform '%s'", platformName)
 		return false
 	}
 	return true

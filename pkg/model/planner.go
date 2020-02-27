@@ -1,7 +1,6 @@
 package model
 
 import (
-	"fmt"
 	"io/ioutil"
 	"math"
 	"os"
@@ -39,7 +38,7 @@ func (r *Run) String() string {
 	if jobName == "" {
 		jobName = r.JobID
 	}
-	return fmt.Sprintf("%s/%s", r.Workflow.Name, jobName)
+	return jobName
 }
 
 // Job returns the job for this Run

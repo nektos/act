@@ -272,7 +272,7 @@ func (rc *RunContext) vmRunner() func(*otto.Otto) {
 	runner := map[string]interface{}{
 		"os":         "Linux",
 		"temp":       "/tmp",
-		"tool_cache": "/tmp",
+		"tool_cache": "/opt/hostedtoolcache",
 	}
 
 	return func(vm *otto.Otto) {

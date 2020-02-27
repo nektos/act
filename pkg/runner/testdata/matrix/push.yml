@@ -3,6 +3,7 @@ on: push
 
 jobs:
   build:
+    name: PHP ${{ matrix.os }} ${{ matrix.node}}
     runs-on: ${{ matrix.os }}
     steps:
       - run: echo ${NODE_VERSION} | grep ${{ matrix.node }}
