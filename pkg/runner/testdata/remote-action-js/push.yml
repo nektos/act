@@ -8,3 +8,5 @@ jobs:
     - uses: actions/hello-world-javascript-action@master
       with:
         who-to-greet: 'Mona the Octocat'
+
+    - uses: cloudposse/actions/github/slash-command-dispatch@0.14.0
