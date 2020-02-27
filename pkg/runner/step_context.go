@@ -53,8 +53,8 @@ func (sc *StepContext) Executor() common.Executor {
 		actionDir := filepath.Join(rc.Config.Workdir, step.Uses)
 		return common.NewPipelineExecutor(
 			sc.setupEnv(),
-			sc.setupAction(actionDir),
-			sc.runAction(actionDir),
+			sc.setupAction(actionDir, ""),
+			sc.runAction(actionDir, ""),
 		)
 	case model.StepTypeUsesActionRemote:
 		remoteAction := newRemoteAction(step.Uses)
@@ -73,8 +73,8 @@ func (sc *StepContext) Executor() common.Executor {
 				Dir: actionDir,
 			}),
 			sc.setupEnv(),
-			sc.setupAction(actionDir),
-			sc.runAction(actionDir),
+			sc.setupAction(actionDir, remoteAction.Path),
+			sc.runAction(actionDir, remoteAction.Path),
 		)
 	}
 
@@ -206,11 +206,11 @@ func (sc *StepContext) runUsesContainer() common.Executor {
 	}
 }
 
-func (sc *StepContext) setupAction(actionDir string) common.Executor {
+func (sc *StepContext) setupAction(actionDir string, actionPath string) common.Executor {
 	return func(ctx context.Context) error {
-		f, err := os.Open(filepath.Join(actionDir, "action.yml"))
+		f, err := os.Open(filepath.Join(actionDir, actionPath, "action.yml"))
 		if os.IsNotExist(err) {
-			f, err = os.Open(filepath.Join(actionDir, "action.yaml"))
+			f, err = os.Open(filepath.Join(actionDir, actionPath, "action.yaml"))
 			if err != nil {
 				return err
 			}
@@ -224,7 +224,7 @@ func (sc *StepContext) setupAction(actionDir string) common.Executor {
 	}
 }
 
-func (sc *StepContext) runAction(actionDir string) common.Executor {
+func (sc *StepContext) runAction(actionDir string, actionPath string) common.Executor {
 	rc := sc.RunContext
 	step := sc.Step
 	return func(ctx context.Context) error {
@@ -258,7 +258,7 @@ func (sc *StepContext) runAction(actionDir string) common.Executor {
 					return err
 				}
 			}
-			return rc.execJobContainer([]string{"node", fmt.Sprintf("%s/%s/%s", containerActionDir, actionName, action.Runs.Main)}, sc.Env)(ctx)
+			return rc.execJobContainer([]string{"node", filepath.Join(containerActionDir, actionName, actionPath, action.Runs.Main)}, sc.Env)(ctx)
 		case model.ActionRunsUsingDocker:
 			var prepImage common.Executor
 			var image string
@@ -267,7 +267,7 @@ func (sc *StepContext) runAction(actionDir string) common.Executor {
 			} else {
 				image = fmt.Sprintf("%s:%s", regexp.MustCompile("[^a-zA-Z0-9]").ReplaceAllString(actionName, "-"), "latest")
 				image = fmt.Sprintf("act-%s", strings.TrimLeft(image, "-"))
-				contextDir := filepath.Join(actionDir, action.Runs.Main)
+				contextDir := filepath.Join(actionDir, actionPath, action.Runs.Main)
 				prepImage = container.NewDockerBuildExecutor(container.NewDockerBuildExecutorInput{
 					ContextDir: contextDir,
 					ImageTag:   image,
