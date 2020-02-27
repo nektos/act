@@ -52,7 +52,7 @@ func New(runnerConfig *Config) (Runner, error) {
 }
 
 func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
-	maxJobNameLen := plan.MaxRunNameLen()
+	maxJobNameLen := 0
 
 	pipeline := make([]common.Executor, 0)
 	for _, stage := range plan.Stages {
@@ -61,16 +61,17 @@ func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 			job := run.Job()
 			matrixes := job.GetMatrixes()
 
-			jobName := fmt.Sprintf("%-*s", maxJobNameLen, run.String())
-			for _, matrix := range matrixes {
-				m := matrix
-				runExecutor := runner.newRunExecutor(run, matrix)
+			for i, matrix := range matrixes {
+				rc := runner.newRunContext(run, matrix)
+				if len(matrix) > 1 {
+					rc.Name = fmt.Sprintf("%s-%d", rc.Name, i+1)
+				}
+				if len(rc.String()) > maxJobNameLen {
+					maxJobNameLen = len(rc.String())
+				}
 				stageExecutor = append(stageExecutor, func(ctx context.Context) error {
-					ctx = WithJobLogger(ctx, jobName)
-					if len(m) > 0 {
-						common.Logger(ctx).Infof("\U0001F9EA  Matrix: %v", m)
-					}
-					return runExecutor(ctx)
+					jobName := fmt.Sprintf("%-*s", maxJobNameLen, rc.String())
+					return rc.Executor()(WithJobLogger(ctx, jobName))
 				})
 			}
 		}
@@ -80,7 +81,7 @@ func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 	return common.NewPipelineExecutor(pipeline...)
 }
 
-func (runner *runnerImpl) newRunExecutor(run *model.Run, matrix map[string]interface{}) common.Executor {
+func (runner *runnerImpl) newRunContext(run *model.Run, matrix map[string]interface{}) *RunContext {
 	rc := &RunContext{
 		Config:      runner.config,
 		Run:         run,
@@ -89,5 +90,6 @@ func (runner *runnerImpl) newRunExecutor(run *model.Run, matrix map[string]inter
 		Matrix:      matrix,
 	}
 	rc.ExprEval = rc.NewExpressionEvaluator()
-	return rc.Executor()
+	rc.Name = rc.ExprEval.Interpolate(run.String())
+	return rc
 }

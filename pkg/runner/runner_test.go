@@ -49,6 +49,8 @@ func TestRunEvent(t *testing.T) {
 		{"remote-action-js", "push", ""},
 		{"local-action-docker-url", "push", ""},
 		{"local-action-dockerfile", "push", ""},
+		{"matrix", "push", ""},
+		{"commands", "push", ""},
 	}
 	log.SetLevel(log.DebugLevel)
 
