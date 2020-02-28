@@ -166,14 +166,16 @@ func vmJoin(vm *otto.Otto) {
 }
 
 func vmToJSON(vm *otto.Otto) {
-	_ = vm.Set("toJSON", func(o interface{}) string {
+	toJSON := func(o interface{}) string {
 		rtn, err := json.MarshalIndent(o, "", "  ")
 		if err != nil {
 			logrus.Errorf("Unable to marsal: %v", err)
 			return ""
 		}
 		return string(rtn)
-	})
+	}
+	_ = vm.Set("toJSON", toJSON)
+	_ = vm.Set("toJson", toJSON)
 }
 
 func (rc *RunContext) vmHashFiles() func(*otto.Otto) {
