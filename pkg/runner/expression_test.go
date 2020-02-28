@@ -64,6 +64,7 @@ func TestEvaluate(t *testing.T) {
 		{"join(['hello','mona','the'],'octocat')", "hello mona the octocat", ""},
 		{"join('hello','mona')", "hello mona", ""},
 		{"toJSON({'foo':'bar'})", "{\n  \"foo\": \"bar\"\n}", ""},
+		{"toJson({'foo':'bar'})", "{\n  \"foo\": \"bar\"\n}", ""},
 		{"hashFiles('**/package-lock.json')", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", ""},
 		{"success()", "true", ""},
 		{"failure()", "false", ""},
