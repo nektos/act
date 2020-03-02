@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/nektos/act/pkg/common"
@@ -74,7 +75,7 @@ func readArgsFile(file string) []string {
 	for scanner.Scan() {
 		arg := scanner.Text()
 		if strings.HasPrefix(arg, "-") {
-			args = append(args, strings.Fields(arg)...)
+			args = append(args, regexp.MustCompile(`\s`).Split(arg, 2)...)
 		}
 	}
 	return args
