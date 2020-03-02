@@ -75,7 +75,7 @@ func readArgsFile(file string) []string {
 	for scanner.Scan() {
 		arg := scanner.Text()
 		if strings.HasPrefix(arg, "-") {
-			args = append(args, regexp.MustCompile("\\s").Split(arg, 2)...)
+			args = append(args, regexp.MustCompile(`\s`).Split(arg, 2)...)
 		}
 	}
 	return args
