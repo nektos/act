@@ -14,7 +14,7 @@ type secrets map[string]string
 func newSecrets(secretList []string) secrets {
 	s := make(map[string]string)
 	for _, secretPair := range secretList {
-		secretPairParts := strings.Split(secretPair, "=")
+		secretPairParts := strings.SplitN(secretPair, "=", 2)
 		if len(secretPairParts) == 2 {
 			s[secretPairParts[0]] = secretPairParts[1]
 		} else if env, ok := os.LookupEnv(secretPairParts[0]); ok && env != "" {
