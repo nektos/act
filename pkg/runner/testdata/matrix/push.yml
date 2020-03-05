@@ -13,3 +13,13 @@ jobs:
       matrix:
         os: [ubuntu-18.04, macos-latest]
         node: [4, 6, 8, 10]
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [8.x, 10.x, 12.x, 13.x]
+    steps:
+      - run: echo ${NODE_VERSION} | grep ${{ matrix.node }}
+        env:
+          NODE_VERSION: ${{ matrix.node }}

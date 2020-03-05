@@ -63,7 +63,7 @@ func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 
 			for i, matrix := range matrixes {
 				rc := runner.newRunContext(run, matrix)
-				if len(matrix) > 1 {
+				if len(matrixes) > 1 {
 					rc.Name = fmt.Sprintf("%s-%d", rc.Name, i+1)
 				}
 				if len(rc.String()) > maxJobNameLen {
