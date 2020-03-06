@@ -17,6 +17,7 @@ type Input struct {
 	dryrun          bool
 	forcePull       bool
 	noOutput        bool
+	envfile         string
 }
 
 func (i *Input) resolve(path string) string {
@@ -31,6 +32,11 @@ func (i *Input) resolve(path string) string {
 		path = filepath.Join(basedir, path)
 	}
 	return path
+}
+
+// Envfile returns path to .env
+func (i *Input) Envfile() string {
+	return i.resolve(i.envfile)
 }
 
 // Workdir returns path to workdir
