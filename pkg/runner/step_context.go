@@ -248,7 +248,11 @@ func (sc *StepContext) runAction(actionDir string, actionPath string) common.Exe
 			containerActionDir = "/actions"
 		}
 
-		log.Debugf("actionDir=%s Workdir=%s ActionCacheDir=%s actionName=%s containerActionDir=%s", actionDir, rc.Config.Workdir, rc.ActionCacheDir(), actionName, containerActionDir)
+		if actionName == "" {
+			actionName = filepath.Base(actionDir)
+		}
+
+		log.Debugf("type=%v actionDir=%s Workdir=%s ActionCacheDir=%s actionName=%s containerActionDir=%s", step.Type(), actionDir, rc.Config.Workdir, rc.ActionCacheDir(), actionName, containerActionDir)
 
 		switch action.Runs.Using {
 		case model.ActionRunsUsingNode12:
