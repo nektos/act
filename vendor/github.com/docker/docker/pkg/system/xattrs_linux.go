@@ -6,19 +6,28 @@ import "golang.org/x/sys/unix"
 // and associated with the given path in the file system.
 // It will returns a nil slice and nil error if the xattr is not set.
 func Lgetxattr(path string, attr string) ([]byte, error) {
+	// Start with a 128 length byte array
 	dest := make([]byte, 128)
 	sz, errno := unix.Lgetxattr(path, attr, dest)
-	if errno == unix.ENODATA {
+
+	switch {
+	case errno == unix.ENODATA:
 		return nil, nil
-	}
-	if errno == unix.ERANGE {
+	case errno == unix.ERANGE:
+		// 128 byte array might just not be good enough. A dummy buffer is used
+		// to get the real size of the xattrs on disk
+		sz, errno = unix.Lgetxattr(path, attr, []byte{})
+		if errno != nil {
+			return nil, errno
+		}
 		dest = make([]byte, sz)
 		sz, errno = unix.Lgetxattr(path, attr, dest)
-	}
-	if errno != nil {
+		if errno != nil {
+			return nil, errno
+		}
+	case errno != nil:
 		return nil, errno
 	}
-
 	return dest[:sz], nil
 }
 

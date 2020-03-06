@@ -19,7 +19,7 @@ func SortKeys(vs []reflect.Value) []reflect.Value {
 	}
 
 	// Sort the map keys.
-	sort.Sort(valueSorter(vs))
+	sort.Slice(vs, func(i, j int) bool { return isLess(vs[i], vs[j]) })
 
 	// Deduplicate keys (fails for NaNs).
 	vs2 := vs[:1]
@@ -30,13 +30,6 @@ func SortKeys(vs []reflect.Value) []reflect.Value {
 	}
 	return vs2
 }
-
-// TODO: Use sort.Slice once Google AppEngine is on Go1.8 or above.
-type valueSorter []reflect.Value
-
-func (vs valueSorter) Len() int           { return len(vs) }
-func (vs valueSorter) Less(i, j int) bool { return isLess(vs[i], vs[j]) }
-func (vs valueSorter) Swap(i, j int)      { vs[i], vs[j] = vs[j], vs[i] }
 
 // isLess is a generic function for sorting arbitrary map keys.
 // The inputs must be of the same type and must be comparable.

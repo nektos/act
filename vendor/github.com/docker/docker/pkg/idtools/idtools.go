@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"sort"
 	"strconv"
 	"strings"
 )
@@ -203,8 +202,6 @@ func (i *IdentityMapping) GIDs() []IDMap {
 func createIDMap(subidRanges ranges) []IDMap {
 	idMap := []IDMap{}
 
-	// sort the ranges by lowest ID first
-	sort.Sort(subidRanges)
 	containerID := 0
 	for _, idrange := range subidRanges {
 		idMap = append(idMap, IDMap{

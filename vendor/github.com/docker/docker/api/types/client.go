@@ -50,7 +50,7 @@ type ContainerCommitOptions struct {
 
 // ContainerExecInspect holds information returned by exec inspect.
 type ContainerExecInspect struct {
-	ExecID      string
+	ExecID      string `json:"ID"`
 	ContainerID string
 	Running     bool
 	ExitCode    int
@@ -187,6 +187,15 @@ type ImageBuildOptions struct {
 	// build request. The same identifier can be used to gracefully cancel the
 	// build with the cancel request.
 	BuildID string
+	// Outputs defines configurations for exporting build results. Only supported
+	// in BuildKit mode
+	Outputs []ImageBuildOutput
+}
+
+// ImageBuildOutput defines configuration for exporting a build result
+type ImageBuildOutput struct {
+	Type  string
+	Attrs map[string]string
 }
 
 // BuilderVersion sets the version of underlying builder to use

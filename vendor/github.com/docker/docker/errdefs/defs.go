@@ -43,11 +43,6 @@ type ErrNotModified interface {
 	NotModified()
 }
 
-// ErrAlreadyExists is a special case of ErrConflict which signals that the desired object already exists
-type ErrAlreadyExists interface {
-	AlreadyExists()
-}
-
 // ErrNotImplemented signals that the requested action/feature is not implemented on the system as configured.
 type ErrNotImplemented interface {
 	NotImplemented()

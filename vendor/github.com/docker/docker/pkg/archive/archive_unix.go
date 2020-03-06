@@ -7,6 +7,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"syscall"
 
 	"github.com/docker/docker/pkg/idtools"
@@ -26,7 +27,7 @@ func fixVolumePathPrefix(srcPath string) string {
 // can't use filepath.Join(srcPath,include) because this will clean away
 // a trailing "." or "/" which may be important.
 func getWalkRoot(srcPath string, include string) string {
-	return srcPath + string(filepath.Separator) + include
+	return strings.TrimSuffix(srcPath, string(filepath.Separator)) + string(filepath.Separator) + include
 }
 
 // CanonicalTarNameForPath returns platform-specific filepath

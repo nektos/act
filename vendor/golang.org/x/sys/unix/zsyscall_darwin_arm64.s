@@ -40,8 +40,6 @@ TEXT ·libc_sendmsg_trampoline(SB),NOSPLIT,$0-0
 	JMP	libc_sendmsg(SB)
 TEXT ·libc_kevent_trampoline(SB),NOSPLIT,$0-0
 	JMP	libc_kevent(SB)
-TEXT ·libc___sysctl_trampoline(SB),NOSPLIT,$0-0
-	JMP	libc___sysctl(SB)
 TEXT ·libc_utimes_trampoline(SB),NOSPLIT,$0-0
 	JMP	libc_utimes(SB)
 TEXT ·libc_futimes_trampoline(SB),NOSPLIT,$0-0
@@ -90,6 +88,8 @@ TEXT ·libc_kill_trampoline(SB),NOSPLIT,$0-0
 	JMP	libc_kill(SB)
 TEXT ·libc_ioctl_trampoline(SB),NOSPLIT,$0-0
 	JMP	libc_ioctl(SB)
+TEXT ·libc_sysctl_trampoline(SB),NOSPLIT,$0-0
+	JMP	libc_sysctl(SB)
 TEXT ·libc_sendfile_trampoline(SB),NOSPLIT,$0-0
 	JMP	libc_sendfile(SB)
 TEXT ·libc_access_trampoline(SB),NOSPLIT,$0-0

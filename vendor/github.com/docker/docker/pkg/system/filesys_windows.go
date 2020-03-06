@@ -18,8 +18,6 @@ import (
 const (
 	// SddlAdministratorsLocalSystem is local administrators plus NT AUTHORITY\System
 	SddlAdministratorsLocalSystem = "D:P(A;OICI;GA;;;BA)(A;OICI;GA;;;SY)"
-	// SddlNtvmAdministratorsLocalSystem is NT VIRTUAL MACHINE\Virtual Machines plus local administrators plus NT AUTHORITY\System
-	SddlNtvmAdministratorsLocalSystem = "D:P(A;OICI;GA;;;S-1-5-83-0)(A;OICI;GA;;;BA)(A;OICI;GA;;;SY)"
 )
 
 // MkdirAllWithACL is a wrapper for MkdirAll that creates a directory

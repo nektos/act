@@ -15,7 +15,6 @@ func getImplementer(err error) error {
 		ErrForbidden,
 		ErrSystem,
 		ErrNotModified,
-		ErrAlreadyExists,
 		ErrNotImplemented,
 		ErrCancelled,
 		ErrDeadline,
@@ -74,12 +73,6 @@ func IsSystem(err error) bool {
 // IsNotModified returns if the passed in error is a NotModified error
 func IsNotModified(err error) bool {
 	_, ok := getImplementer(err).(ErrNotModified)
-	return ok
-}
-
-// IsAlreadyExists returns if the passed in error is a AlreadyExists error
-func IsAlreadyExists(err error) bool {
-	_, ok := getImplementer(err).(ErrAlreadyExists)
 	return ok
 }
 
