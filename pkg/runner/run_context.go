@@ -231,11 +231,14 @@ func (rc *RunContext) isEnabled(ctx context.Context) bool {
 // EvalBool evaluates an expression against current run context
 func (rc *RunContext) EvalBool(expr string) bool {
 	if expr != "" {
+		//v, err := rc.ExprEval.Evaluate(fmt.Sprintf("if (%s) { true } else { false }", expr))
+		expr := fmt.Sprintf("Boolean(%s)", expr)
 		v, err := rc.ExprEval.Evaluate(expr)
 		if err != nil {
 			log.Errorf("Error evaluating expression '%s' - %v", expr, err)
 			return false
 		}
+		log.Debugf("expression '%s' evaluated to '%s'", expr, v)
 		return v == "true"
 	}
 	return true

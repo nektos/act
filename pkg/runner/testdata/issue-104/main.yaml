@@ -1,0 +1,15 @@
+name: Test stuff
+
+on:
+  - push
+
+jobs:
+  build:
+    name: Testing Testing
+    runs-on: ubuntu-latest
+    steps:
+
+    - name: hello
+      uses: actions/hello-world-docker-action@master
+      with:
+        who-to-greet: "World"
