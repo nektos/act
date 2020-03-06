@@ -248,7 +248,11 @@ func (sc *StepContext) runAction(actionDir string, actionPath string) common.Exe
 			containerActionDir = "/actions"
 		}
 
-		log.Debugf("actionDir=%s Workdir=%s ActionCacheDir=%s actionName=%s containerActionDir=%s", actionDir, rc.Config.Workdir, rc.ActionCacheDir(), actionName, containerActionDir)
+		if actionName == "" {
+			actionName = filepath.Base(actionDir)
+		}
+
+		log.Debugf("type=%v actionDir=%s Workdir=%s ActionCacheDir=%s actionName=%s containerActionDir=%s", step.Type(), actionDir, rc.Config.Workdir, rc.ActionCacheDir(), actionName, containerActionDir)
 
 		switch action.Runs.Using {
 		case model.ActionRunsUsingNode12:
@@ -267,6 +271,7 @@ func (sc *StepContext) runAction(actionDir string, actionPath string) common.Exe
 			} else {
 				image = fmt.Sprintf("%s:%s", regexp.MustCompile("[^a-zA-Z0-9]").ReplaceAllString(actionName, "-"), "latest")
 				image = fmt.Sprintf("act-%s", strings.TrimLeft(image, "-"))
+				image = strings.ToLower(image)
 				contextDir := filepath.Join(actionDir, actionPath, action.Runs.Main)
 				prepImage = container.NewDockerBuildExecutor(container.NewDockerBuildExecutorInput{
 					ContextDir: contextDir,

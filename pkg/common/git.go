@@ -238,7 +238,7 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) Executor {
 			Force: true,
 		})
 		if err != nil && err.Error() != "already up-to-date" {
-			logger.Errorf("Unable to pull %s: %v", refName, err)
+			logger.Debugf("Unable to pull %s: %v", refName, err)
 		}
 		logger.Debugf("Cloned %s to %s", input.URL, input.Dir)
 
