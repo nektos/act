@@ -271,6 +271,7 @@ func (sc *StepContext) runAction(actionDir string, actionPath string) common.Exe
 			} else {
 				image = fmt.Sprintf("%s:%s", regexp.MustCompile("[^a-zA-Z0-9]").ReplaceAllString(actionName, "-"), "latest")
 				image = fmt.Sprintf("act-%s", strings.TrimLeft(image, "-"))
+				image = strings.ToLower(image)
 				contextDir := filepath.Join(actionDir, actionPath, action.Runs.Main)
 				prepImage = container.NewDockerBuildExecutor(container.NewDockerBuildExecutorInput{
 					ContextDir: contextDir,
