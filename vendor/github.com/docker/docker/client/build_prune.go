@@ -31,11 +31,11 @@ func (cli *Client) BuildCachePrune(ctx context.Context, opts types.BuildCachePru
 	query.Set("filters", filters)
 
 	serverResp, err := cli.post(ctx, "/build/prune", query, nil, nil)
+	defer ensureReaderClosed(serverResp)
 
 	if err != nil {
 		return nil, err
 	}
-	defer ensureReaderClosed(serverResp)
 
 	if err := json.NewDecoder(serverResp.body).Decode(&report); err != nil {
 		return nil, fmt.Errorf("Error retrieving disk usage: %v", err)

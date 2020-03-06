@@ -14,6 +14,7 @@ type ClusterInfo struct {
 	RootRotationInProgress bool
 	DefaultAddrPool        []string
 	SubnetSize             uint32
+	DataPathPort           uint32
 }
 
 // Swarm represents a swarm.
@@ -153,6 +154,7 @@ type InitRequest struct {
 	ListenAddr       string
 	AdvertiseAddr    string
 	DataPathAddr     string
+	DataPathPort     uint32
 	ForceNewCluster  bool
 	Spec             Spec
 	AutoLockManagers bool
@@ -207,6 +209,8 @@ type Info struct {
 	Managers       int `json:",omitempty"`
 
 	Cluster *ClusterInfo `json:",omitempty"`
+
+	Warnings []string `json:",omitempty"`
 }
 
 // Peer represents a peer.

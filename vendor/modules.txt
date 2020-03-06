@@ -3,24 +3,31 @@
 # github.com/MichaelTJones/walk v0.0.0-20161122175330-4748e29d5718
 ## explicit
 github.com/MichaelTJones/walk
-# github.com/Microsoft/go-winio v0.4.11
-## explicit
+# github.com/Microsoft/go-winio v0.4.15-0.20190919025122-fc70bd9a86b5
 github.com/Microsoft/go-winio
-# github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5
+github.com/Microsoft/go-winio/pkg/guid
+# github.com/Microsoft/hcsshim v0.8.7
 ## explicit
+github.com/Microsoft/hcsshim/osversion
 # github.com/andreaskoch/go-fswatch v1.0.0
 ## explicit
 github.com/andreaskoch/go-fswatch
-# github.com/containerd/continuity v0.0.0-20181203112020-004b46473808
+# github.com/containerd/containerd v1.3.3
 ## explicit
+github.com/containerd/containerd/errdefs
+# github.com/containerd/continuity v0.0.0-20190426062206-aaeac12a7ffc
+github.com/containerd/continuity/fs
 github.com/containerd/continuity/pathdriver
+github.com/containerd/continuity/syscallx
+github.com/containerd/continuity/sysx
 # github.com/davecgh/go-spew v1.1.1
 github.com/davecgh/go-spew/spew
 # github.com/docker/distribution v2.7.1+incompatible
 ## explicit
 github.com/docker/distribution/digestset
 github.com/docker/distribution/reference
-# github.com/docker/docker v1.13.1 => github.com/docker/engine v0.0.0-20181106193140-f5749085e9cb
+github.com/docker/distribution/registry/api/errcode
+# github.com/docker/docker v1.4.2-0.20200229013735-71373c6105e3
 ## explicit
 github.com/docker/docker/api
 github.com/docker/docker/api/types
@@ -55,8 +62,7 @@ github.com/docker/docker/pkg/system
 github.com/docker/go-connections/nat
 github.com/docker/go-connections/sockets
 github.com/docker/go-connections/tlsconfig
-# github.com/docker/go-units v0.3.3
-## explicit
+# github.com/docker/go-units v0.4.0
 github.com/docker/go-units
 # github.com/emirpasic/gods v1.12.0
 ## explicit
@@ -69,12 +75,18 @@ github.com/emirpasic/gods/utils
 # github.com/go-ini/ini v1.41.0
 ## explicit
 github.com/go-ini/ini
-# github.com/gogo/protobuf v1.2.0
-## explicit
+# github.com/gogo/protobuf v1.2.1
 github.com/gogo/protobuf/proto
-# github.com/google/go-cmp v0.2.0
+# github.com/golang/protobuf v1.3.1
+github.com/golang/protobuf/proto
+github.com/golang/protobuf/ptypes
+github.com/golang/protobuf/ptypes/any
+github.com/golang/protobuf/ptypes/duration
+github.com/golang/protobuf/ptypes/timestamp
+# github.com/google/go-cmp v0.3.0
 github.com/google/go-cmp/cmp
 github.com/google/go-cmp/cmp/internal/diff
+github.com/google/go-cmp/cmp/internal/flags
 github.com/google/go-cmp/cmp/internal/function
 github.com/google/go-cmp/cmp/internal/value
 # github.com/gopherjs/gopherjs v0.0.0-20181103185306-d547d1d9531e
@@ -104,6 +116,8 @@ github.com/mgutz/str
 # github.com/mitchellh/go-homedir v1.1.0
 ## explicit
 github.com/mitchellh/go-homedir
+# github.com/morikuni/aec v1.0.0
+## explicit
 # github.com/opencontainers/go-digest v1.0.0-rc1
 ## explicit
 github.com/opencontainers/go-digest
@@ -136,7 +150,7 @@ github.com/robertkrimen/otto/token
 github.com/sabhiram/go-gitignore
 # github.com/sergi/go-diff v1.0.0
 github.com/sergi/go-diff/diffmatchpatch
-# github.com/sirupsen/logrus v1.3.0
+# github.com/sirupsen/logrus v1.4.1
 ## explicit
 github.com/sirupsen/logrus
 # github.com/smartystreets/assertions v0.0.0-20190116191733-b6c0e53d7304
@@ -182,26 +196,26 @@ golang.org/x/crypto/ssh/terminal
 # golang.org/x/net v0.0.0-20191126235420-ef20fe5d7933
 ## explicit
 golang.org/x/net/context
-golang.org/x/net/context/ctxhttp
 golang.org/x/net/internal/socks
 golang.org/x/net/proxy
 # golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
 ## explicit
-# golang.org/x/sys v0.0.0-20191128015809-6d18c012aee9 => golang.org/x/sys v0.0.0-20190813064441-fde4db37ae7a
+golang.org/x/sync/errgroup
+# golang.org/x/sys v0.0.0-20191128015809-6d18c012aee9
 ## explicit
 golang.org/x/sys/cpu
 golang.org/x/sys/unix
 golang.org/x/sys/windows
 # golang.org/x/text v0.3.2
-## explicit
 golang.org/x/text/transform
 golang.org/x/text/unicode/norm
 # golang.org/x/time v0.0.0-20181108054448-85acf8d2951c
 ## explicit
-# google.golang.org/genproto v0.0.0-20190128161407-8ac453e89fca
-## explicit
-# google.golang.org/grpc v1.18.0
-## explicit
+# google.golang.org/genproto v0.0.0-20190425155659-357c62f0e4bb
+google.golang.org/genproto/googleapis/rpc/status
+# google.golang.org/grpc v1.20.1
+google.golang.org/grpc/codes
+google.golang.org/grpc/status
 # gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15
 ## explicit
 # gopkg.in/godo.v2 v2.0.9
@@ -276,5 +290,3 @@ gotest.tools/assert/cmp
 gotest.tools/internal/difflib
 gotest.tools/internal/format
 gotest.tools/internal/source
-# github.com/docker/docker => github.com/docker/engine v0.0.0-20181106193140-f5749085e9cb
-# golang.org/x/sys => golang.org/x/sys v0.0.0-20190813064441-fde4db37ae7a

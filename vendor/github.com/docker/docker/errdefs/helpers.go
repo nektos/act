@@ -12,8 +12,8 @@ func (e errNotFound) Cause() error {
 
 // NotFound is a helper to create an error of the class with the same name from any error type
 func NotFound(err error) error {
-	if err == nil {
-		return nil
+	if err == nil || IsNotFound(err) {
+		return err
 	}
 	return errNotFound{err}
 }
@@ -28,8 +28,8 @@ func (e errInvalidParameter) Cause() error {
 
 // InvalidParameter is a helper to create an error of the class with the same name from any error type
 func InvalidParameter(err error) error {
-	if err == nil {
-		return nil
+	if err == nil || IsInvalidParameter(err) {
+		return err
 	}
 	return errInvalidParameter{err}
 }
@@ -44,8 +44,8 @@ func (e errConflict) Cause() error {
 
 // Conflict is a helper to create an error of the class with the same name from any error type
 func Conflict(err error) error {
-	if err == nil {
-		return nil
+	if err == nil || IsConflict(err) {
+		return err
 	}
 	return errConflict{err}
 }
@@ -60,8 +60,8 @@ func (e errUnauthorized) Cause() error {
 
 // Unauthorized is a helper to create an error of the class with the same name from any error type
 func Unauthorized(err error) error {
-	if err == nil {
-		return nil
+	if err == nil || IsUnauthorized(err) {
+		return err
 	}
 	return errUnauthorized{err}
 }
@@ -76,6 +76,9 @@ func (e errUnavailable) Cause() error {
 
 // Unavailable is a helper to create an error of the class with the same name from any error type
 func Unavailable(err error) error {
+	if err == nil || IsUnavailable(err) {
+		return err
+	}
 	return errUnavailable{err}
 }
 
@@ -89,8 +92,8 @@ func (e errForbidden) Cause() error {
 
 // Forbidden is a helper to create an error of the class with the same name from any error type
 func Forbidden(err error) error {
-	if err == nil {
-		return nil
+	if err == nil || IsForbidden(err) {
+		return err
 	}
 	return errForbidden{err}
 }
@@ -105,8 +108,8 @@ func (e errSystem) Cause() error {
 
 // System is a helper to create an error of the class with the same name from any error type
 func System(err error) error {
-	if err == nil {
-		return nil
+	if err == nil || IsSystem(err) {
+		return err
 	}
 	return errSystem{err}
 }
@@ -121,26 +124,10 @@ func (e errNotModified) Cause() error {
 
 // NotModified is a helper to create an error of the class with the same name from any error type
 func NotModified(err error) error {
-	if err == nil {
-		return nil
+	if err == nil || IsNotModified(err) {
+		return err
 	}
 	return errNotModified{err}
-}
-
-type errAlreadyExists struct{ error }
-
-func (errAlreadyExists) AlreadyExists() {}
-
-func (e errAlreadyExists) Cause() error {
-	return e.error
-}
-
-// AlreadyExists is a helper to create an error of the class with the same name from any error type
-func AlreadyExists(err error) error {
-	if err == nil {
-		return nil
-	}
-	return errAlreadyExists{err}
 }
 
 type errNotImplemented struct{ error }
@@ -153,8 +140,8 @@ func (e errNotImplemented) Cause() error {
 
 // NotImplemented is a helper to create an error of the class with the same name from any error type
 func NotImplemented(err error) error {
-	if err == nil {
-		return nil
+	if err == nil || IsNotImplemented(err) {
+		return err
 	}
 	return errNotImplemented{err}
 }
@@ -169,8 +156,8 @@ func (e errUnknown) Cause() error {
 
 // Unknown is a helper to create an error of the class with the same name from any error type
 func Unknown(err error) error {
-	if err == nil {
-		return nil
+	if err == nil || IsUnknown(err) {
+		return err
 	}
 	return errUnknown{err}
 }
@@ -185,8 +172,8 @@ func (e errCancelled) Cause() error {
 
 // Cancelled is a helper to create an error of the class with the same name from any error type
 func Cancelled(err error) error {
-	if err == nil {
-		return nil
+	if err == nil || IsCancelled(err) {
+		return err
 	}
 	return errCancelled{err}
 }
@@ -201,8 +188,8 @@ func (e errDeadline) Cause() error {
 
 // Deadline is a helper to create an error of the class with the same name from any error type
 func Deadline(err error) error {
-	if err == nil {
-		return nil
+	if err == nil || IsDeadline(err) {
+		return err
 	}
 	return errDeadline{err}
 }
@@ -217,8 +204,8 @@ func (e errDataLoss) Cause() error {
 
 // DataLoss is a helper to create an error of the class with the same name from any error type
 func DataLoss(err error) error {
-	if err == nil {
-		return nil
+	if err == nil || IsDataLoss(err) {
+		return err
 	}
 	return errDataLoss{err}
 }

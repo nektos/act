@@ -138,7 +138,7 @@ func (u *unmarshalInfo) unmarshal(m pointer, b []byte) error {
 		u.computeUnmarshalInfo()
 	}
 	if u.isMessageSet {
-		return UnmarshalMessageSet(b, m.offset(u.extensions).toExtensions())
+		return unmarshalMessageSet(b, m.offset(u.extensions).toExtensions())
 	}
 	var reqMask uint64 // bitmask of required fields we've seen.
 	var errLater error
@@ -2142,7 +2142,7 @@ func encodeVarint(b []byte, x uint64) []byte {
 // If there is an error, it returns 0,0.
 func decodeVarint(b []byte) (uint64, int) {
 	var x, y uint64
-	if len(b) <= 0 {
+	if len(b) == 0 {
 		goto bad
 	}
 	x = uint64(b[0])

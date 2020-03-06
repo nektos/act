@@ -341,26 +341,6 @@ type Message interface {
 	ProtoMessage()
 }
 
-// Stats records allocation details about the protocol buffer encoders
-// and decoders.  Useful for tuning the library itself.
-type Stats struct {
-	Emalloc uint64 // mallocs in encode
-	Dmalloc uint64 // mallocs in decode
-	Encode  uint64 // number of encodes
-	Decode  uint64 // number of decodes
-	Chit    uint64 // number of cache hits
-	Cmiss   uint64 // number of cache misses
-	Size    uint64 // number of sizes
-}
-
-// Set to true to enable stats collection.
-const collectStats = false
-
-var stats Stats
-
-// GetStats returns a copy of the global Stats structure.
-func GetStats() Stats { return stats }
-
 // A Buffer is a buffer manager for marshaling and unmarshaling
 // protocol buffers.  It may be reused between invocations to
 // reduce memory usage.  It is not necessary to use a Buffer;

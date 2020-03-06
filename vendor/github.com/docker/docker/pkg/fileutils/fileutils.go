@@ -106,7 +106,7 @@ func (pm *PatternMatcher) Patterns() []*Pattern {
 	return pm.patterns
 }
 
-// Pattern defines a single regexp used used to filter file paths.
+// Pattern defines a single regexp used to filter file paths.
 type Pattern struct {
 	cleanedPattern string
 	dirs           []string

@@ -336,6 +336,14 @@ func RebaseArchiveEntries(srcContent io.Reader, oldBase, newBase string) io.Read
 				return
 			}
 
+			// srcContent tar stream, as served by TarWithOptions(), is
+			// definitely in PAX format, but tar.Next() mistakenly guesses it
+			// as USTAR, which creates a problem: if the newBase is >100
+			// characters long, WriteHeader() returns an error like
+			// "archive/tar: cannot encode header: Format specifies USTAR; and USTAR cannot encode Name=...".
+			//
+			// To fix, set the format to PAX here. See docker/for-linux issue #484.
+			hdr.Format = tar.FormatPAX
 			hdr.Name = strings.Replace(hdr.Name, oldBase, newBase, 1)
 			if hdr.Typeflag == tar.TypeLink {
 				hdr.Linkname = strings.Replace(hdr.Linkname, oldBase, newBase, 1)

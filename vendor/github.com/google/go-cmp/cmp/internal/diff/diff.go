@@ -85,22 +85,31 @@ func (es EditScript) LenY() int { return len(es) - es.stats().NX }
 type EqualFunc func(ix int, iy int) Result
 
 // Result is the result of comparison.
-// NSame is the number of sub-elements that are equal.
-// NDiff is the number of sub-elements that are not equal.
-type Result struct{ NSame, NDiff int }
+// NumSame is the number of sub-elements that are equal.
+// NumDiff is the number of sub-elements that are not equal.
+type Result struct{ NumSame, NumDiff int }
+
+// BoolResult returns a Result that is either Equal or not Equal.
+func BoolResult(b bool) Result {
+	if b {
+		return Result{NumSame: 1} // Equal, Similar
+	} else {
+		return Result{NumDiff: 2} // Not Equal, not Similar
+	}
+}
 
 // Equal indicates whether the symbols are equal. Two symbols are equal
-// if and only if NDiff == 0. If Equal, then they are also Similar.
-func (r Result) Equal() bool { return r.NDiff == 0 }
+// if and only if NumDiff == 0. If Equal, then they are also Similar.
+func (r Result) Equal() bool { return r.NumDiff == 0 }
 
 // Similar indicates whether two symbols are similar and may be represented
 // by using the Modified type. As a special case, we consider binary comparisons
 // (i.e., those that return Result{1, 0} or Result{0, 1}) to be similar.
 //
-// The exact ratio of NSame to NDiff to determine similarity may change.
+// The exact ratio of NumSame to NumDiff to determine similarity may change.
 func (r Result) Similar() bool {
-	// Use NSame+1 to offset NSame so that binary comparisons are similar.
-	return r.NSame+1 >= r.NDiff
+	// Use NumSame+1 to offset NumSame so that binary comparisons are similar.
+	return r.NumSame+1 >= r.NumDiff
 }
 
 // Difference reports whether two lists of lengths nx and ny are equal
@@ -191,9 +200,9 @@ func Difference(nx, ny int, f EqualFunc) (es EditScript) {
 	// that two lists commonly differ because elements were added to the front
 	// or end of the other list.
 	//
-	// Running the tests with the "debug" build tag prints a visualization of
-	// the algorithm running in real-time. This is educational for understanding
-	// how the algorithm works. See debug_enable.go.
+	// Running the tests with the "cmp_debug" build tag prints a visualization
+	// of the algorithm running in real-time. This is educational for
+	// understanding how the algorithm works. See debug_enable.go.
 	f = debug.Begin(nx, ny, f, &fwdPath.es, &revPath.es)
 	for {
 		// Forward search from the beginning.
