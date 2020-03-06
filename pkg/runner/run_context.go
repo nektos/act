@@ -193,6 +193,8 @@ func (rc *RunContext) newStepExecutor(step *model.Step) common.Executor {
 			Success: true,
 			Outputs: make(map[string]string),
 		}
+
+		sc.setupEnv()(ctx)
 		rc.ExprEval = sc.NewExpressionEvaluator()
 
 		if !rc.EvalBool(sc.Step.If) {

@@ -1,10 +1,19 @@
 name: basic
 on: push
 
+env:
+  TEST: value
+
 jobs:
   check:
     runs-on: ubuntu-latest
     steps:
+      - run: echo ${{ env.TEST }} | grep value
+      - run: env
+      - uses: docker://alpine:3.8
+        with:
+          somekey: ${{ env.TEST }}
+          args: echo ${INPUT_SOMEKEY} | grep somevalue
       - run: ls
       - run: echo 'hello world' 
       - run: echo ${GITHUB_SHA} >> /github/sha.txt
