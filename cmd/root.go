@@ -12,6 +12,7 @@ import (
 	"github.com/nektos/act/pkg/common"
 
 	fswatch "github.com/andreaskoch/go-fswatch"
+	"github.com/joho/godotenv"
 	"github.com/nektos/act/pkg/model"
 	"github.com/nektos/act/pkg/runner"
 	gitignore "github.com/sabhiram/go-gitignore"
@@ -45,7 +46,9 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "verbose output")
 	rootCmd.PersistentFlags().BoolVarP(&input.noOutput, "quiet", "q", false, "disable logging of output from steps")
 	rootCmd.PersistentFlags().BoolVarP(&input.dryrun, "dryrun", "n", false, "dryrun mode")
+	rootCmd.PersistentFlags().StringVarP(&input.envfile, "env-file", "", ".env", "environment file to read")
 	rootCmd.SetArgs(args())
+
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}
@@ -91,6 +94,15 @@ func setupLogging(cmd *cobra.Command, args []string) {
 
 func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, args []string) error {
+		envfile := input.Envfile()
+		if _, err := os.Stat(envfile); err == nil {
+			log.Debugf("Loading environment from %s", envfile)
+			err := godotenv.Load(envfile)
+			if err != nil {
+				log.Fatalf("Error loading environment from %s: %v", envfile, err)
+			}
+		}
+
 		planner, err := model.NewWorkflowPlanner(input.WorkflowsPath())
 		if err != nil {
 			return err

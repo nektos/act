@@ -93,6 +93,12 @@ You can provide default configuration flags to `act` by either creating a `./.ac
 -P ubuntu-latest=nektos/act-environments-ubuntu:18.04
 ```
 
+Additionally, act support loading environment variables from a `.env` file.  The default is to look in the working directory for the file, but can be overriden by:
+
+```
+act --env-file my.env
+```
+
 # Support
 
 Need help? Ask on [Gitter](https://gitter.im/nektos/act)!

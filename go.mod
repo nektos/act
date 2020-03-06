@@ -18,6 +18,7 @@ require (
 	github.com/gorilla/mux v1.7.0 // indirect
 	github.com/howeyc/gopass v0.0.0-20190910152052-7cb4b85ec19c
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
+	github.com/joho/godotenv v1.3.0
 	github.com/jtolds/gls v4.2.1+incompatible // indirect
 	github.com/mgutz/str v1.2.0 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect

@@ -3,9 +3,11 @@ package runner
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"testing"
 
+	"github.com/joho/godotenv"
 	"github.com/nektos/act/pkg/model"
 
 	log "github.com/sirupsen/logrus"
@@ -87,4 +89,54 @@ func TestRunEvent(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestRunEventSecrets(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	log.SetLevel(log.DebugLevel)
+	ctx := context.Background()
+
+	platforms := map[string]string{
+		"ubuntu-latest": "node:12.6-buster-slim",
+	}
+
+	workflowPath := "secrets"
+	eventName := "push"
+
+	workdir, err := filepath.Abs("testdata")
+	assert.NilError(t, err, workflowPath)
+
+	_ = godotenv.Load(filepath.Join(workdir, workflowPath, ".env"))
+
+	secrets := make(map[string]string)
+	for _, secret := range []string{
+		"MY_SECRET",
+		"MULTILINE_SECRET",
+		"JSON_SECRET",
+	} {
+		if env, ok := os.LookupEnv(secret); ok && env != "" {
+			secrets[secret] = env
+		}
+	}
+
+	runnerConfig := &Config{
+		Workdir:         workdir,
+		EventName:       eventName,
+		Platforms:       platforms,
+		ReuseContainers: false,
+		Secrets:         secrets,
+	}
+	runner, err := New(runnerConfig)
+	assert.NilError(t, err, workflowPath)
+
+	planner, err := model.NewWorkflowPlanner(fmt.Sprintf("testdata/%s", workflowPath))
+	assert.NilError(t, err, workflowPath)
+
+	plan := planner.PlanEvent(eventName)
+
+	err = runner.NewPlanExecutor(plan)(ctx)
+	assert.NilError(t, err, workflowPath)
 }
