@@ -157,7 +157,7 @@ func findGitDirectory(fromFile string) (string, error) {
 		return "", err
 	}
 
-	log.Debugf("Searching for git directory in %s", absPath)
+	//log.Debugf("Searching for git directory in %s", absPath)
 	fi, err := os.Stat(absPath)
 	if err != nil {
 		return "", err
