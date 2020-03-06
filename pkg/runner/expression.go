@@ -13,6 +13,7 @@ import (
 
 	"github.com/robertkrimen/otto"
 	"github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	"gopkg.in/godo.v2/glob"
 )
 
@@ -240,6 +241,7 @@ func (rc *RunContext) vmGithub() func(*otto.Otto) {
 
 func (sc *StepContext) vmEnv() func(*otto.Otto) {
 	return func(vm *otto.Otto) {
+		log.Debugf("context env => %v", sc.Env)
 		_ = vm.Set("env", sc.Env)
 	}
 }

@@ -193,6 +193,8 @@ func (rc *RunContext) newStepExecutor(step *model.Step) common.Executor {
 			Success: true,
 			Outputs: make(map[string]string),
 		}
+
+		_ = sc.setupEnv()(ctx)
 		rc.ExprEval = sc.NewExpressionEvaluator()
 
 		if !rc.EvalBool(sc.Step.If) {
@@ -325,6 +327,11 @@ type githubContext struct {
 }
 
 func (rc *RunContext) getGithubContext() *githubContext {
+	token, ok := rc.Config.Secrets["GITHUB_TOKEN"]
+	if !ok {
+		token = os.Getenv("GITHUB_TOKEN")
+	}
+
 	ghc := &githubContext{
 		Event:     make(map[string]interface{}),
 		EventPath: "/github/workflow/event.json",
@@ -332,9 +339,8 @@ func (rc *RunContext) getGithubContext() *githubContext {
 		RunID:     "1",
 		RunNumber: "1",
 		Actor:     "nektos/act",
-
 		EventName: rc.Config.EventName,
-		Token:     os.Getenv("GITHUB_TOKEN"),
+		Token:     token,
 		Workspace: "/github/workspace",
 		Action:    rc.CurrentStep,
 	}
@@ -365,7 +371,39 @@ func (rc *RunContext) getGithubContext() *githubContext {
 	if err != nil {
 		logrus.Error(err)
 	}
+
+	if ghc.EventName == "pull_request" {
+		ghc.BaseRef = asString(nestedMapLookup(ghc.Event, "pull_request", "base", "ref"))
+		ghc.HeadRef = asString(nestedMapLookup(ghc.Event, "pull_request", "head", "ref"))
+	}
+
 	return ghc
+}
+
+func asString(v interface{}) string {
+	if v == nil {
+		return ""
+	} else if s, ok := v.(string); ok {
+		return s
+	}
+	return ""
+}
+
+func nestedMapLookup(m map[string]interface{}, ks ...string) (rval interface{}) {
+	var ok bool
+
+	if len(ks) == 0 { // degenerate input
+		return nil
+	}
+	if rval, ok = m[ks[0]]; !ok {
+		return nil
+	} else if len(ks) == 1 { // we've reached the final key
+		return rval
+	} else if m, ok = rval.(map[string]interface{}); !ok {
+		return nil
+	} else { // 1+ more keys
+		return nestedMapLookup(m, ks[1:]...)
+	}
 }
 
 func (rc *RunContext) withGithubEnv(env map[string]string) map[string]string {

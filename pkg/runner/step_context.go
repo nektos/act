@@ -38,21 +38,18 @@ func (sc *StepContext) Executor() common.Executor {
 	switch step.Type() {
 	case model.StepTypeRun:
 		return common.NewPipelineExecutor(
-			sc.setupEnv(),
 			sc.setupShellCommand(),
 			sc.execJobContainer(),
 		)
 
 	case model.StepTypeUsesDockerURL:
 		return common.NewPipelineExecutor(
-			sc.setupEnv(),
 			sc.runUsesContainer(),
 		)
 
 	case model.StepTypeUsesActionLocal:
 		actionDir := filepath.Join(rc.Config.Workdir, step.Uses)
 		return common.NewPipelineExecutor(
-			sc.setupEnv(),
 			sc.setupAction(actionDir, ""),
 			sc.runAction(actionDir, ""),
 		)
@@ -72,7 +69,6 @@ func (sc *StepContext) Executor() common.Executor {
 				Ref: remoteAction.Ref,
 				Dir: actionDir,
 			}),
-			sc.setupEnv(),
 			sc.setupAction(actionDir, remoteAction.Path),
 			sc.runAction(actionDir, remoteAction.Path),
 		)
@@ -98,6 +94,7 @@ func (sc *StepContext) setupEnv() common.Executor {
 			env[k] = rc.ExprEval.Interpolate(v)
 		}
 		sc.Env = rc.withGithubEnv(env)
+		log.Debugf("setupEnv => %v", sc.Env)
 		return nil
 	}
 }
