@@ -53,6 +53,26 @@ act -n
 act -v
 ```
 
+# Flags
+```
+  -b, --bind                   bind working directory to container, rather than copy
+  -C, --directory string       working directory (default ".")
+  -n, --dryrun                 dryrun mode
+  -e, --eventpath string       path to event JSON file
+  -h, --help                   help for act
+  -j, --job string             run job
+  -l, --list                   list workflows
+  -P, --platform stringArray   custom image to use per platform (e.g. -P ubuntu-18.04=nektos/act-environments-ubuntu:18.04)
+  -p, --pull                   pull docker image(s) if already present
+  -q, --quiet                  disable logging of output from steps
+  -r, --reuse                  reuse action containers to maintain state
+  -s, --secret stringArray     secret to make available to actions with optional value (e.g. -s mysecret=foo or -s mysecret)
+  -v, --verbose                verbose output
+      --version                version for act
+  -w, --watch                  watch the contents of the local repo and run when files change
+  -W, --workflows string       path to workflow files (default "./.github/workflows/")
+```
+
 # Runners
 GitHub Actions offers managed [virtual environments](https://help.github.com/en/actions/reference/virtual-environments-for-github-hosted-runners) for running workflows.  In order for `act` to run your workflows locally, it must run a container for the runner defined in your workflow file.  Here are the images that `act` uses for each runner type:
 
