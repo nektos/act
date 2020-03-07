@@ -13,3 +13,6 @@
 
 dist/
 .todo
+
+# Chocolatey
+choco/*.nupkg
