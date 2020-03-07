@@ -1,7 +1,6 @@
 builds:
 - env:
   - CGO_ENABLED=0
-  - GOFLAGS=-mod=vendor
   goos:
   - darwin
   - linux

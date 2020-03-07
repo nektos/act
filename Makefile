@@ -23,7 +23,7 @@ installer:
 	@GO111MODULE=off go get github.com/goreleaser/godownloader
 	godownloader -r nektos/act -o install.sh
 
-promote: vendor
+promote: 
 	@git fetch --tags
 	@echo "VERSION:$(VERSION) IS_SNAPSHOT:$(IS_SNAPSHOT) NEW_VERSION:$(NEW_VERSION)"
 ifeq (false,$(IS_SNAPSHOT))
@@ -36,8 +36,3 @@ ifneq ($(shell git status -s),)
 endif
 	git tag -a -m "releasing v$(NEW_VERSION)" v$(NEW_VERSION)
 	git push origin v$(NEW_VERSION)
-
-vendor:
-	go mod vendor
-
-.PHONY: vendor

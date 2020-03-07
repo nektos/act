@@ -22,7 +22,6 @@ jobs:
     - run: go test -cover ./...
       env:
         CGO_ENABLED: 0
-        GOFLAGS: -mod=vendor
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')
