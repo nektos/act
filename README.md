@@ -119,6 +119,27 @@ Additionally, act support loading environment variables from a `.env` file.  The
 act --env-file my.env
 ```
 
+# Events
+Every [Github event](https://developer.github.com/v3/activity/events/types) is accompanied with a payload.  You can provide these events in JSON format with the `--eventpath` to simulate specific Github events kicking off an action.  For example:
+
+``` pull-request.json
+{
+  "pull_request": {
+    "head": {
+      "ref": "sample-head-ref"
+    },
+    "base": {
+      "ref": "sample-base-ref"
+    }
+  }
+}
+```
+```
+act -e pull-request.json
+```
+
+Act will properly provide `github.head_ref` and `github.base_ref` to the action as expected.
+
 # Support
 
 Need help? Ask on [Gitter](https://gitter.im/nektos/act)!
