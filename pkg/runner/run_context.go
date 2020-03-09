@@ -107,10 +107,10 @@ func (rc *RunContext) startJobContainer() common.Executor {
 				"act-toolcache": "/toolcache",
 				"act-actions":   "/actions",
 			},
-
-			Binds:  binds,
-			Stdout: logWriter,
-			Stderr: logWriter,
+			NetworkMode: "host",
+			Binds:       binds,
+			Stdout:      logWriter,
+			Stderr:      logWriter,
 		})
 
 		return common.NewPipelineExecutor(
