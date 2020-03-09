@@ -104,6 +104,7 @@ func (cr *containerReference) CopyDir(destPath string, srcPath string) common.Ex
 		common.NewInfoExecutor("%sdocker cp src=%s dst=%s", logPrefix, srcPath, destPath),
 		cr.connect(),
 		cr.find(),
+		cr.exec([]string{"mkdir", "-p", destPath}, nil),
 		cr.copyDir(destPath, srcPath),
 	).IfNot(common.Dryrun)
 }

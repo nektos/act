@@ -113,12 +113,19 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			Stderr: logWriter,
 		})
 
+		var copyWorkspace bool
+		var copyToPath string
+		if !rc.Config.BindWorkdir {
+			copyToPath, copyWorkspace = rc.localCheckoutPath()
+			copyToPath = filepath.Join("/github/workspace", copyToPath)
+		}
+
 		return common.NewPipelineExecutor(
 			rc.JobContainer.Pull(rc.Config.ForcePull),
 			rc.JobContainer.Remove().IfBool(!rc.Config.ReuseContainers),
 			rc.JobContainer.Create(),
 			rc.JobContainer.Start(false),
-			rc.JobContainer.CopyDir("/github/workspace", rc.Config.Workdir+"/.").IfBool(!rc.Config.BindWorkdir),
+			rc.JobContainer.CopyDir(copyToPath, rc.Config.Workdir+"/.").IfBool(copyWorkspace),
 			rc.JobContainer.Copy("/github/", &container.FileEntry{
 				Name: "workflow/event.json",
 				Mode: 644,
@@ -380,6 +387,24 @@ func (rc *RunContext) getGithubContext() *githubContext {
 	return ghc
 }
 
+func (ghc *githubContext) isLocalCheckout(step *model.Step) bool {
+	if step.Type() != model.StepTypeUsesActionRemote {
+		return false
+	}
+	remoteAction := newRemoteAction(step.Uses)
+	if !remoteAction.IsCheckout() {
+		return false
+	}
+
+	if repository, ok := step.With["repository"]; ok && repository != ghc.Repository {
+		return false
+	}
+	if repository, ok := step.With["ref"]; ok && repository != ghc.Ref {
+		return false
+	}
+	return true
+}
+
 func asString(v interface{}) string {
 	if v == nil {
 		return ""
@@ -421,5 +446,16 @@ func (rc *RunContext) withGithubEnv(env map[string]string) map[string]string {
 	env["GITHUB_WORKSPACE"] = github.Workspace
 	env["GITHUB_SHA"] = github.Sha
 	env["GITHUB_REF"] = github.Ref
+	env["GITHUB_TOKEN"] = github.Token
 	return env
+}
+
+func (rc *RunContext) localCheckoutPath() (string, bool) {
+	ghContext := rc.getGithubContext()
+	for _, step := range rc.Run.Job().Steps {
+		if ghContext.isLocalCheckout(step) {
+			return step.With["path"], true
+		}
+	}
+	return "", false
 }
