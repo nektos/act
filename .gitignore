@@ -13,3 +13,5 @@
 
 dist/
 .todo
+
+*.nupkg

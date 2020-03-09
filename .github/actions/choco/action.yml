@@ -1,0 +1,12 @@
+name: 'Chocolatey Packager'
+description: 'Create the choco package and push it'
+inputs:
+  version:  
+    description: 'Version of package'
+    required: true
+  apiKey:
+    description: 'API Key for chocolately'
+    required: true
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
