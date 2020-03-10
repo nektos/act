@@ -27,7 +27,7 @@ Alternatively, you can use the following:
 
 If you are running Windows, download the [latest release](https://github.com/nektos/act/releases/latest) and add the binary in to your PATH.  If you are using [Chocolatey](https://chocolatey.org/) then run:
 
-```choco install actcli```
+```choco install act-cli```
 
 If you are running Arch Linux, you can install the [act](https://aur.archlinux.org/packages/act/) package with your favorite package manager:
 

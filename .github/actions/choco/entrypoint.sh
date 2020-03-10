@@ -20,6 +20,10 @@ function get_version {
 ## Determine the version to pack
 VERSION=$(get_version)
 echo "Packing version ${VERSION} of act"
-rm -f actcli.*.nupkg
-choco pack actcli.nuspec --version ${VERSION}
-choco push actcli.${VERSION}.nupkg --api-key ${INPUT_APIKEY} -s https://push.chocolatey.org/ -t=180
+rm -f act-cli.*.nupkg
+mkdir -p tools
+cp LICENSE tools/LICENSE.txt
+cp VERIFICATION tools/VERIFICATION.txt
+cp dist/act_windows_amd64/act.exe tools/
+choco pack act-cli.nuspec --version ${VERSION}
+choco push act-cli.${VERSION}.nupkg --api-key ${INPUT_APIKEY} -s https://push.chocolatey.org/ --timeout 180
