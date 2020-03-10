@@ -38,3 +38,8 @@ jobs:
         args: release --rm-dist
       env:
         GITHUB_TOKEN: ${{ secrets.GORELEASER_GITHUB_TOKEN }}
+    - name: Chocolatey
+      uses: ./.github/actions/choco
+      with:
+        version: ${{ github.ref }}
+        apiKey: ${{ secrets.CHOCO_APIKEY }}
