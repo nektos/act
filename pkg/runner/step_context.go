@@ -177,9 +177,10 @@ func (sc *StepContext) newStepContainer(ctx context.Context, image string, cmd [
 			"act-toolcache":       "/toolcache",
 			"act-actions":         "/actions",
 		},
-		Binds:  binds,
-		Stdout: logWriter,
-		Stderr: logWriter,
+		NetworkMode: fmt.Sprintf("container:%s", rc.jobContainerName()),
+		Binds:       binds,
+		Stdout:      logWriter,
+		Stderr:      logWriter,
 	})
 	return stepContainer
 }

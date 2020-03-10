@@ -24,16 +24,17 @@ import (
 
 // NewContainerInput the input for the New function
 type NewContainerInput struct {
-	Image      string
-	Entrypoint []string
-	Cmd        []string
-	WorkingDir string
-	Env        []string
-	Binds      []string
-	Mounts     map[string]string
-	Name       string
-	Stdout     io.Writer
-	Stderr     io.Writer
+	Image       string
+	Entrypoint  []string
+	Cmd         []string
+	WorkingDir  string
+	Env         []string
+	Binds       []string
+	Mounts      map[string]string
+	Name        string
+	Stdout      io.Writer
+	Stderr      io.Writer
+	NetworkMode string
 }
 
 // FileEntry is a file to copy to a container
@@ -221,8 +222,9 @@ func (cr *containerReference) create() common.Executor {
 		}
 
 		resp, err := cr.cli.ContainerCreate(ctx, config, &container.HostConfig{
-			Binds:  input.Binds,
-			Mounts: mounts,
+			Binds:       input.Binds,
+			Mounts:      mounts,
+			NetworkMode: container.NetworkMode(input.NetworkMode),
 		}, nil, input.Name)
 		if err != nil {
 			return errors.WithStack(err)
