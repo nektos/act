@@ -43,12 +43,3 @@ jobs:
       with:
         version: ${{ github.ref }}
         apiKey: ${{ secrets.CHOCO_APIKEY }}
-
-  choco:
-    runs-on: ubuntu-latest
-    steps:
-    - name: Chocolatey
-      uses: ./.github/actions/choco
-      with:
-        version: 0.2.6
-        apiKey: ${{ secrets.CHOCO_APIKEY }}
