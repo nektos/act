@@ -55,7 +55,7 @@ func (sc *StepContext) Executor() common.Executor {
 		)
 	case model.StepTypeUsesActionRemote:
 		remoteAction := newRemoteAction(step.Uses)
-		if remoteAction.Org == "actions" && remoteAction.Repo == "checkout" {
+		if remoteAction.IsCheckout() && rc.getGithubContext().isLocalCheckout(step) {
 			return func(ctx context.Context) error {
 				common.Logger(ctx).Debugf("Skipping actions/checkout")
 				return nil
@@ -232,7 +232,7 @@ func (sc *StepContext) runAction(actionDir string, actionPath string) common.Exe
 			envKey := regexp.MustCompile("[^A-Z0-9-]").ReplaceAllString(strings.ToUpper(inputID), "_")
 			envKey = fmt.Sprintf("INPUT_%s", envKey)
 			if _, ok := sc.Env[envKey]; !ok {
-				sc.Env[envKey] = input.Default
+				sc.Env[envKey] = rc.ExprEval.Interpolate(input.Default)
 			}
 		}
 
@@ -309,6 +309,13 @@ type remoteAction struct {
 
 func (ra *remoteAction) CloneURL() string {
 	return fmt.Sprintf("https://github.com/%s/%s", ra.Org, ra.Repo)
+}
+
+func (ra *remoteAction) IsCheckout() bool {
+	if ra.Org == "actions" && ra.Repo == "checkout" {
+		return true
+	}
+	return false
 }
 
 func newRemoteAction(action string) *remoteAction {
