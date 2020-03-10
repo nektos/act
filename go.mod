@@ -9,7 +9,7 @@ require (
 	github.com/andreaskoch/go-fswatch v1.0.0
 	github.com/containerd/containerd v1.3.3 // indirect
 	github.com/docker/distribution v2.7.1+incompatible // indirect
-	github.com/docker/docker v0.0.0-20200229013735-71373c6105e3	
+	github.com/docker/docker v0.0.0-20200229013735-71373c6105e3
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/emirpasic/gods v1.12.0 // indirect
 	github.com/go-ini/ini v1.41.0
@@ -21,6 +21,7 @@ require (
 	github.com/jtolds/gls v4.2.1+incompatible // indirect
 	github.com/mgutz/str v1.2.0 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
+	github.com/monochromegane/go-gitignore v0.0.0-20160105113617-38717d0a108c
 	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/opencontainers/go-digest v1.0.0-rc1 // indirect
 	github.com/opencontainers/image-spec v1.0.1 // indirect
@@ -51,4 +52,5 @@ require (
 )
 
 replace github.com/docker/docker => github.com/docker/docker v0.0.0-20200229013735-71373c6105e3
+
 replace golang.org/x/sys => golang.org/x/sys v0.0.0-20190813064441-fde4db37ae7a

@@ -16,6 +16,7 @@ import (
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stdcopy"
+	gitignore "github.com/monochromegane/go-gitignore"
 	"github.com/nektos/act/pkg/common"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -305,6 +306,7 @@ func (cr *containerReference) exec(cmd []string, env map[string]string) common.E
 	}
 }
 
+// nolint: gocyclo
 func (cr *containerReference) copyDir(dstPath string, srcPath string) common.Executor {
 	return func(ctx context.Context) error {
 		logger := common.Logger(ctx)
@@ -323,6 +325,11 @@ func (cr *containerReference) copyDir(dstPath string, srcPath string) common.Exe
 		}
 		log.Debugf("Stripping prefix:%s src:%s", srcPrefix, srcPath)
 
+		gitignore, err := gitignore.NewGitIgnore(filepath.Join(srcPath, ".gitignore"))
+		if err != nil {
+			log.Debugf("Error loading .gitignore: %v", err)
+		}
+
 		err = filepath.Walk(srcPath, func(file string, fi os.FileInfo, err error) error {
 			if err != nil {
 				return err
@@ -330,6 +337,10 @@ func (cr *containerReference) copyDir(dstPath string, srcPath string) common.Exe
 
 			// return on non-regular files (thanks to [kumo](https://medium.com/@komuw/just-like-you-did-fbdd7df829d3) for this suggested update)
 			if !fi.Mode().IsRegular() {
+				return nil
+			}
+
+			if gitignore != nil && gitignore.Match(file, fi.IsDir()) {
 				return nil
 			}
 
