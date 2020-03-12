@@ -60,6 +60,7 @@ act -v
   -b, --bind                   bind working directory to container, rather than copy
   -C, --directory string       working directory (default ".")
   -n, --dryrun                 dryrun mode
+      --env-file string        environment file to read (default ".env")
   -e, --eventpath string       path to event JSON file
   -h, --help                   help for act
   -j, --job string             run job
