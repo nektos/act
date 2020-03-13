@@ -65,22 +65,34 @@ func (ee *expressionEvaluator) Evaluate(in string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if val.IsNull() || val.IsUndefined() {
+		return "", nil
+	}
 	return val.ToString()
 }
 
 func (ee *expressionEvaluator) Interpolate(in string) string {
 	errList := make([]error, 0)
-	out := pattern.ReplaceAllStringFunc(in, func(match string) string {
-		expression := strings.TrimPrefix(strings.TrimSuffix(match, suffix), prefix)
-		evaluated, err := ee.Evaluate(expression)
-		if err != nil {
-			errList = append(errList, err)
+
+	out := in
+	for {
+		out = pattern.ReplaceAllStringFunc(in, func(match string) string {
+			expression := strings.TrimPrefix(strings.TrimSuffix(match, suffix), prefix)
+			evaluated, err := ee.Evaluate(expression)
+			if err != nil {
+				errList = append(errList, err)
+			}
+			return evaluated
+		})
+		if len(errList) > 0 {
+			logrus.Errorf("Unable to interpolate string '%s' - %v", in, errList)
+			break
 		}
-		return evaluated
-	})
-	if len(errList) > 0 {
-		logrus.Errorf("Unable to interpolate string '%s' - %v", in, errList)
-		return in
+		if out == in {
+			// no replacement occurred, we're done!
+			break
+		}
+		in = out
 	}
 	return out
 }
