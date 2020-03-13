@@ -33,6 +33,14 @@ If you are running Arch Linux, you can install the [act](https://aur.archlinux.o
 
 ```yay -S act```
 
+If you are using NixOS or the Nix package manager on another platform you can install act globally by running
+
+```nix-env -iA nixpkgs.act```
+
+or in a shell by running
+
+```nix-shell -p act```
+
 # Commands
 
 ```
