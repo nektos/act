@@ -195,10 +195,6 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) Executor {
 		logger.Infof("  \u2601  git clone '%s' # ref=%s", input.URL, input.Ref)
 		logger.Debugf("  cloning %s to %s", input.URL, input.Dir)
 
-		if Dryrun(ctx) {
-			return nil
-		}
-
 		cloneLock.Lock()
 		defer cloneLock.Unlock()
 
