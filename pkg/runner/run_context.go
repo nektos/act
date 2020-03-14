@@ -218,13 +218,13 @@ func (rc *RunContext) platformImage() string {
 	c := job.Container()
 	if c != nil {
 		return c.Image
-	} else {
-		for _, runnerLabel := range job.RunsOn() {
-			platformName := rc.ExprEval.Interpolate(runnerLabel)
-			image := rc.Config.Platforms[strings.ToLower(platformName)]
-			if image != "" {
-				return image
-			}
+	}
+
+	for _, runnerLabel := range job.RunsOn() {
+		platformName := rc.ExprEval.Interpolate(runnerLabel)
+		image := rc.Config.Platforms[strings.ToLower(platformName)]
+		if image != "" {
+			return image
 		}
 	}
 
@@ -240,7 +240,7 @@ func (rc *RunContext) isEnabled(ctx context.Context) bool {
 	}
 
 	img := rc.platformImage()
-	if  img == "" {
+	if img == "" {
 		log.Infof("\U0001F6A7  Skipping unsupported platform '%+v'", job.RunsOn())
 		return false
 	}
