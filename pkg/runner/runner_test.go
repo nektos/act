@@ -53,6 +53,7 @@ func TestRunEvent(t *testing.T) {
 		{"local-action-dockerfile", "push", ""},
 		{"matrix", "push", ""},
 		{"commands", "push", ""},
+		{"workdir", "push", ""},
 	}
 	log.SetLevel(log.DebugLevel)
 

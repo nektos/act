@@ -110,6 +110,13 @@ func (sc *StepContext) setupShellCommand() common.Executor {
 			return err
 		}
 
+		if step.WorkingDirectory != "" {
+			_, err = script.WriteString(fmt.Sprintf("cd %s\n", step.WorkingDirectory))
+			if err != nil {
+				return err
+			}
+		}
+
 		run := rc.ExprEval.Interpolate(step.Run)
 
 		if _, err = script.WriteString(run); err != nil {
