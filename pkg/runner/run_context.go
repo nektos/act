@@ -55,16 +55,7 @@ func (rc *RunContext) jobContainerName() string {
 }
 
 func (rc *RunContext) startJobContainer() common.Executor {
-	job := rc.Run.Job()
-
-	var image string
-	c := job.Container()
-	if c != nil {
-		image = c.Image
-	} else {
-		platformName := rc.ExprEval.Interpolate(job.RunsOn)
-		image = rc.Config.Platforms[strings.ToLower(platformName)]
-	}
+	image := rc.platformImage()
 
 	return func(ctx context.Context) error {
 		rawLogger := common.Logger(ctx).WithField("raw_output", true)
@@ -221,6 +212,25 @@ func (rc *RunContext) newStepExecutor(step *model.Step) common.Executor {
 	}
 }
 
+func (rc *RunContext) platformImage() string {
+	job := rc.Run.Job()
+
+	c := job.Container()
+	if c != nil {
+		return c.Image
+	} else {
+		for _, runnerLabel := range job.RunsOn() {
+			platformName := rc.ExprEval.Interpolate(runnerLabel)
+			image := rc.Config.Platforms[strings.ToLower(platformName)]
+			if image != "" {
+				return image
+			}
+		}
+	}
+
+	return ""
+}
+
 func (rc *RunContext) isEnabled(ctx context.Context) bool {
 	job := rc.Run.Job()
 	log := common.Logger(ctx)
@@ -229,9 +239,9 @@ func (rc *RunContext) isEnabled(ctx context.Context) bool {
 		return false
 	}
 
-	platformName := rc.ExprEval.Interpolate(rc.Run.Job().RunsOn)
-	if img, ok := rc.Config.Platforms[strings.ToLower(platformName)]; !ok || img == "" {
-		log.Infof("\U0001F6A7  Skipping unsupported platform '%s'", platformName)
+	img := rc.platformImage()
+	if  img == "" {
+		log.Infof("\U0001F6A7  Skipping unsupported platform '%+v'", job.RunsOn())
 		return false
 	}
 	return true
