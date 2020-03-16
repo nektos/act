@@ -56,7 +56,7 @@ func (w *Workflow) On() []string {
 type Job struct {
 	Name           string                    `yaml:"name"`
 	RawNeeds       yaml.Node                 `yaml:"needs"`
-	RunsOn         string                    `yaml:"runs-on"`
+	RawRunsOn      yaml.Node                 `yaml:"runs-on"`
 	Env            map[string]string         `yaml:"env"`
 	If             string                    `yaml:"if"`
 	Steps          []*Step                   `yaml:"steps"`
@@ -107,6 +107,28 @@ func (j *Job) Needs() []string {
 	case yaml.SequenceNode:
 		var val []string
 		err := j.RawNeeds.Decode(&val)
+		if err != nil {
+			log.Fatal(err)
+		}
+		return val
+	}
+	return nil
+}
+
+// RunsOn list for Job
+func (j *Job) RunsOn() []string {
+
+	switch j.RawRunsOn.Kind {
+	case yaml.ScalarNode:
+		var val string
+		err := j.RawRunsOn.Decode(&val)
+		if err != nil {
+			log.Fatal(err)
+		}
+		return []string{val}
+	case yaml.SequenceNode:
+		var val []string
+		err := j.RawRunsOn.Decode(&val)
 		if err != nil {
 			log.Fatal(err)
 		}
