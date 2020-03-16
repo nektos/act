@@ -112,6 +112,8 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 		var eventName string
 		if len(args) > 0 {
 			eventName = args[0]
+		} else if plan := planner.PlanEvent("push"); plan != nil {
+			eventName = "push"
 		} else if events := planner.GetEvents(); len(events) > 0 {
 			// set default event type to first event
 			// this way user dont have to specify the event.
