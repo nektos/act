@@ -12,7 +12,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/go-ini/ini"
 	log "github.com/sirupsen/logrus"
 	git "gopkg.in/src-d/go-git.v4"
 	"gopkg.in/src-d/go-git.v4/plumbing"
@@ -116,25 +115,15 @@ func FindGithubRepo(file string) (string, error) {
 }
 
 func findGitRemoteURL(file string) (string, error) {
-	gitDir, err := findGitDirectory(file)
+	repository, err := git.PlainOpen(file)
 	if err != nil {
-		return "", err
+		return "", nil
 	}
-	log.Debugf("Loading slug from git directory '%s'", gitDir)
-
-	gitconfig, err := ini.InsensitiveLoad(fmt.Sprintf("%s/config", gitDir))
+	remote, err := repository.Remote("origin")
 	if err != nil {
-		return "", err
+		return "", nil
 	}
-	remote, err := gitconfig.GetSection("remote \"origin\"")
-	if err != nil {
-		return "", err
-	}
-	urlKey, err := remote.GetKey("url")
-	if err != nil {
-		return "", err
-	}
-	url := urlKey.String()
+	url := remote.Config().URLs[0]
 	return url, nil
 }
 
