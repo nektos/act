@@ -117,11 +117,11 @@ func FindGithubRepo(file string) (string, error) {
 func findGitRemoteURL(file string) (string, error) {
 	repository, err := git.PlainOpen(file)
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 	remote, err := repository.Remote("origin")
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 	url := remote.Config().URLs[0]
 	return url, nil
