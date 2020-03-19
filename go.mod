@@ -12,7 +12,6 @@ require (
 	github.com/docker/docker v0.0.0-20200229013735-71373c6105e3
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/emirpasic/gods v1.12.0 // indirect
-	github.com/go-ini/ini v1.41.0
 	github.com/gopherjs/gopherjs v0.0.0-20181103185306-d547d1d9531e // indirect
 	github.com/gorilla/mux v1.7.0 // indirect
 	github.com/howeyc/gopass v0.0.0-20190910152052-7cb4b85ec19c
