@@ -2,14 +2,10 @@ package common
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
-	"path/filepath"
 	"regexp"
-	"strings"
 	"sync"
 
 	log "github.com/sirupsen/logrus"
@@ -26,13 +22,18 @@ var (
 	cloneLock sync.Mutex
 )
 
-// FindGitRevision get the current git revision
-func FindGitRevision(file string) (shortSha string, sha string, err error) {
-	repository, err := git.PlainOpen(file)
+func FindGitRepository(file string) (*git.Repository, error) {
+	log.Debugf("Looking for a git repository in: %s", file)
+	repository, err := git.PlainOpenWithOptions(file, &git.PlainOpenOptions{DetectDotGit: true})
 	if err != nil {
-		return "", "", err
+		return nil, err
 	}
 
+	return repository, nil
+}
+
+// FindGitRevision get the current git revision
+func FindGitRevision(repository *git.Repository) (shortSha string, sha string, err error) {
 	head, err := repository.Head()
 	if err != nil {
 		return "", "", err
@@ -44,58 +45,42 @@ func FindGitRevision(file string) (shortSha string, sha string, err error) {
 }
 
 // FindGitRef get the current git ref
-func FindGitRef(file string) (string, error) {
-	gitDir, err := findGitDirectory(file)
-	if err != nil {
-		return "", err
-	}
-	log.Debugf("Loading revision from git directory '%s'", gitDir)
-
-	_, ref, err := FindGitRevision(file)
+func FindGitRef(repository *git.Repository) (string, error) {
+	head, err := repository.Head()
 	if err != nil {
 		return "", err
 	}
 
-	log.Debugf("HEAD points to '%s'", ref)
-
-	// try tags first
-	tag, err := findGitPrettyRef(ref, gitDir, "refs/tags")
-	if err != nil || tag != "" {
-		return tag, err
+	tags, err := repository.Tags()
+	if err != nil {
+		return "", err
 	}
-	// and then branches
-	return findGitPrettyRef(ref, gitDir, "refs/heads")
-}
 
-func findGitPrettyRef(head, root, sub string) (string, error) {
-	var name string
-	var err = filepath.Walk(filepath.Join(root, sub), func(path string, info os.FileInfo, err error) error {
+	tagRefs := make(chan *plumbing.Reference)
+	go func() {
+		err := tags.ForEach(func(ref *plumbing.Reference) (err error) {
+			if ref.Hash() == head.Hash() {
+				tagRefs <- ref
+			}
+			return
+		})
 		if err != nil {
-			return nil
+			log.Fatal(err)
 		}
-		if name != "" {
-			return nil
-		}
-		if info.IsDir() {
-			return nil
-		}
-		bts, err := ioutil.ReadFile(path)
-		if err != nil {
-			return err
-		}
-		var pointsTo = strings.TrimSpace(string(bts))
-		if head == pointsTo {
-			name = strings.TrimPrefix(strings.Replace(path, root, "", 1), "/")
-			log.Debugf("HEAD matches %s", name)
-		}
-		return nil
-	})
-	return name, err
+
+		close(tagRefs)
+	}()
+
+	for tagRef := range tagRefs {
+		return tagRef.Name().String(), nil
+	}
+
+	return head.Name().String(), nil
 }
 
 // FindGithubRepo get the repo
-func FindGithubRepo(file string) (string, error) {
-	url, err := findGitRemoteURL(file)
+func FindGithubRepoName(repository *git.Repository) (string, error) {
+	url, err := findGitRemoteURL(repository)
 	if err != nil {
 		return "", err
 	}
@@ -103,11 +88,7 @@ func FindGithubRepo(file string) (string, error) {
 	return slug, err
 }
 
-func findGitRemoteURL(file string) (string, error) {
-	repository, err := git.PlainOpen(file)
-	if err != nil {
-		return "", err
-	}
+func findGitRemoteURL(repository *git.Repository) (string, error) {
 	remote, err := repository.Remote("origin")
 	if err != nil {
 		return "", err
@@ -127,36 +108,6 @@ func findGitSlug(url string) (string, string, error) {
 		return "GitHub", fmt.Sprintf("%s/%s", matches[1], matches[2]), nil
 	}
 	return "", url, nil
-}
-
-func findGitDirectory(fromFile string) (string, error) {
-	absPath, err := filepath.Abs(fromFile)
-	if err != nil {
-		return "", err
-	}
-
-	//log.Debugf("Searching for git directory in %s", absPath)
-	fi, err := os.Stat(absPath)
-	if err != nil {
-		return "", err
-	}
-
-	var dir string
-	if fi.Mode().IsDir() {
-		dir = absPath
-	} else {
-		dir = filepath.Dir(absPath)
-	}
-
-	gitPath := filepath.Join(dir, ".git")
-	fi, err = os.Stat(gitPath)
-	if err == nil && fi.Mode().IsDir() {
-		return gitPath, nil
-	} else if dir == "/" || dir == "C:\\" || dir == "c:\\" {
-		return "", errors.New("unable to find git repo")
-	}
-
-	return findGitDirectory(filepath.Dir(dir))
 }
 
 // NewGitCloneExecutorInput the input for the NewGitCloneExecutor

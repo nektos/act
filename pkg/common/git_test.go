@@ -58,7 +58,9 @@ func TestFindGitRemoteURL(t *testing.T) {
 	err = gitCmd("config", "-f", fmt.Sprintf("%s/.git/config", basedir), "--add", "remote.origin.url", remoteURL)
 	assert.Nil(err)
 
-	u, err := findGitRemoteURL(basedir)
+	repository, err := FindGitRepository(basedir)
+	assert.Nil(err)
+	u, err := findGitRemoteURL(repository)
 	assert.Nil(err)
 	assert.Equal(remoteURL, u)
 }
@@ -139,7 +141,9 @@ func TestGitFindRef(t *testing.T) {
 			require.NoError(t, os.MkdirAll(dir, 0755))
 			require.NoError(t, gitCmd("-C", dir, "init"))
 			tt.Prepare(t, dir)
-			ref, err := FindGitRef(dir)
+			repository, err := FindGitRepository(dir)
+			require.NoError(t, err)
+			ref, err := FindGitRef(repository)
 			tt.Assert(t, ref, err)
 		})
 	}

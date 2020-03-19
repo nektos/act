@@ -363,21 +363,28 @@ func (rc *RunContext) getGithubContext() *githubContext {
 	}
 
 	repoPath := rc.Config.Workdir
-	repo, err := common.FindGithubRepo(repoPath)
+
+	repository, err := common.FindGitRepository(repoPath)
 	if err != nil {
-		log.Warningf("unable to get git repo: %v", err)
-	} else {
-		ghc.Repository = repo
+		log.Warningf("unable to get git repository: %v", err)
 	}
 
-	_, sha, err := common.FindGitRevision(repoPath)
+	repoName, err := common.FindGithubRepoName(repository)
+	log.Warningf("unable to get git repoName: %v", repoPath)
+	if err != nil {
+		log.Warningf("unable to get git repository name: %v", err)
+	} else {
+		ghc.Repository = repoName
+	}
+
+	_, sha, err := common.FindGitRevision(repository)
 	if err != nil {
 		log.Warningf("unable to get git revision: %v", err)
 	} else {
 		ghc.Sha = sha
 	}
 
-	ref, err := common.FindGitRef(repoPath)
+	ref, err := common.FindGitRef(repository)
 	if err != nil {
 		log.Warningf("unable to get git ref: %v", err)
 	} else {
