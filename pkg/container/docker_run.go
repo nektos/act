@@ -5,6 +5,9 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"gopkg.in/src-d/go-billy.v4/helper/polyfill"
+	"gopkg.in/src-d/go-billy.v4/osfs"
+	"gopkg.in/src-d/go-git.v4/plumbing/format/gitignore"
 	"io"
 	"io/ioutil"
 	"os"
@@ -16,7 +19,6 @@ import (
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stdcopy"
-	gitignore "github.com/monochromegane/go-gitignore"
 	"github.com/nektos/act/pkg/common"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -325,22 +327,29 @@ func (cr *containerReference) copyDir(dstPath string, srcPath string) common.Exe
 		}
 		log.Debugf("Stripping prefix:%s src:%s", srcPrefix, srcPath)
 
-		gitignore, err := gitignore.NewGitIgnore(filepath.Join(srcPath, ".gitignore"))
+		ps, err := gitignore.ReadPatterns(polyfill.New(osfs.New(srcPath)), nil)
 		if err != nil {
 			log.Debugf("Error loading .gitignore: %v", err)
 		}
+
+		ignorer := gitignore.NewMatcher(ps)
 
 		err = filepath.Walk(srcPath, func(file string, fi os.FileInfo, err error) error {
 			if err != nil {
 				return err
 			}
 
-			// return on non-regular files (thanks to [kumo](https://medium.com/@komuw/just-like-you-did-fbdd7df829d3) for this suggested update)
-			if !fi.Mode().IsRegular() {
+			sansPrefix := strings.TrimPrefix(file, srcPrefix)
+			split := strings.Split(sansPrefix, string(filepath.Separator))
+			if ignorer.Match(split, fi.IsDir()) {
+				if fi.IsDir() {
+					return filepath.SkipDir
+				}
 				return nil
 			}
 
-			if gitignore != nil && gitignore.Match(file, fi.IsDir()) {
+			// return on non-regular files (thanks to [kumo](https://medium.com/@komuw/just-like-you-did-fbdd7df829d3) for this suggested update)
+			if !fi.Mode().IsRegular() {
 				return nil
 			}
 
@@ -351,7 +360,7 @@ func (cr *containerReference) copyDir(dstPath string, srcPath string) common.Exe
 			}
 
 			// update the name to correctly reflect the desired destination when untaring
-			header.Name = strings.TrimPrefix(file, srcPrefix)
+			header.Name = sansPrefix
 			header.Mode = int64(fi.Mode())
 			header.ModTime = fi.ModTime()
 

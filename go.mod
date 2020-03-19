@@ -43,7 +43,7 @@ require (
 	gopkg.in/godo.v2 v2.0.9
 	gopkg.in/ini.v1 v1.41.0 // indirect
 	gopkg.in/sourcemap.v1 v1.0.5 // indirect
-	gopkg.in/src-d/go-billy.v4 v4.3.0 // indirect
+	gopkg.in/src-d/go-billy.v4 v4.3.0
 	gopkg.in/src-d/go-git-fixtures.v3 v3.3.0 // indirect
 	gopkg.in/src-d/go-git.v4 v4.9.1
 	gopkg.in/yaml.v3 v3.0.0-20200121175148-a6ecf24a6d71
