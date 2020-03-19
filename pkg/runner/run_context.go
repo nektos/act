@@ -370,7 +370,6 @@ func (rc *RunContext) getGithubContext() *githubContext {
 	}
 
 	repoName, err := common.FindGithubRepoName(repository)
-	log.Warningf("unable to get git repoName: %v", repoPath)
 	if err != nil {
 		log.Warningf("unable to get git repository name: %v", err)
 	} else {
