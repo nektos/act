@@ -28,30 +28,19 @@ var (
 
 // FindGitRevision get the current git revision
 func FindGitRevision(file string) (shortSha string, sha string, err error) {
-	gitDir, err := findGitDirectory(file)
+	repository, err := git.PlainOpen(file)
 	if err != nil {
 		return "", "", err
 	}
 
-	bts, err := ioutil.ReadFile(filepath.Join(gitDir, "HEAD"))
+	head, err := repository.Head()
 	if err != nil {
 		return "", "", err
 	}
 
-	var ref = strings.TrimSpace(strings.TrimPrefix(string(bts), "ref:"))
-	var refBuf []byte
-	if strings.HasPrefix(ref, "refs/") {
-		// load commitid ref
-		refBuf, err = ioutil.ReadFile(filepath.Join(gitDir, ref))
-		if err != nil {
-			return "", "", err
-		}
-	} else {
-		refBuf = []byte(ref)
-	}
-
-	log.Debugf("Found revision: %s", refBuf)
-	return string(refBuf[:7]), strings.TrimSpace(string(refBuf)), nil
+	hash := head.Hash().String()
+	log.Debugf("Found revision: %s", hash)
+	return hash[:7], hash, nil
 }
 
 // FindGitRef get the current git ref
