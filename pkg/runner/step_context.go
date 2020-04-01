@@ -246,14 +246,16 @@ func (sc *StepContext) runAction(actionDir string, actionPath string) common.Exe
 
 		actionName := ""
 		containerActionDir := "."
+
 		if step.Type() == model.StepTypeUsesActionLocal {
-			actionName = strings.TrimPrefix(strings.TrimPrefix(actionDir, rc.Config.Workdir), string(filepath.Separator))
+			actionName = strings.TrimPrefix(strings.TrimPrefix(actionDir, rc.Config.Workdir), "/")
 			containerActionDir = "/github/workspace"
 		} else if step.Type() == model.StepTypeUsesActionRemote {
-			actionName = strings.TrimPrefix(strings.TrimPrefix(actionDir, rc.ActionCacheDir()), string(filepath.Separator))
+			actionName = strings.TrimPrefix(strings.TrimPrefix(actionDir, rc.ActionCacheDir()), "/")
 			containerActionDir = "/actions"
 		}
 
+		actionName = strings.TrimPrefix(actionName, "\\")
 		if actionName == "" {
 			actionName = filepath.Base(actionDir)
 		}
@@ -263,7 +265,7 @@ func (sc *StepContext) runAction(actionDir string, actionPath string) common.Exe
 		switch action.Runs.Using {
 		case model.ActionRunsUsingNode12:
 			if step.Type() == model.StepTypeUsesActionRemote {
-				err := rc.JobContainer.CopyDir(containerActionDir+string(filepath.Separator), actionDir)(ctx)
+				err := rc.JobContainer.CopyDir(containerActionDir, actionDir)(ctx)
 				if err != nil {
 					return err
 				}

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
+	"path"
 )
 
 // CopyFile copy file
@@ -54,8 +54,8 @@ func CopyDir(source string, dest string) (err error) {
 	objects, err := directory.Readdir(-1)
 
 	for _, obj := range objects {
-		sourcefilepointer := filepath.Join(source, obj.Name())
-		destinationfilepointer := filepath.Join(dest, obj.Name())
+		sourcefilepointer := path.Join(source, obj.Name())
+		destinationfilepointer := path.Join(dest, obj.Name())
 
 		if obj.IsDir() {
 			// create sub-directories - recursively

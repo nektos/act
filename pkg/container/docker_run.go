@@ -322,10 +322,8 @@ func (cr *containerReference) copyDir(dstPath string, srcPath string) common.Exe
 		defer os.Remove(tarFile.Name())
 		tw := tar.NewWriter(tarFile)
 
-		srcPrefix := filepath.Dir(srcPath)
-		if !strings.HasSuffix(srcPrefix, string(filepath.Separator)) {
-			srcPrefix += string(filepath.Separator)
-		}
+		srcPrefix := filepath.Dir(srcPath)+"/"
+
 		log.Debugf("Stripping prefix:%s src:%s", srcPrefix, srcPath)
 
 		ps, err := gitignore.ReadPatterns(polyfill.New(osfs.New(srcPath)), nil)
@@ -340,8 +338,12 @@ func (cr *containerReference) copyDir(dstPath string, srcPath string) common.Exe
 				return err
 			}
 
-			sansPrefix := strings.TrimPrefix(file, srcPrefix)
-			split := strings.Split(sansPrefix, string(filepath.Separator))
+			sansPrefix := strings.TrimPrefix(
+				filepath.ToSlash(file),
+				filepath.ToSlash(srcPrefix),
+			)
+			split := strings.Split(sansPrefix, "/")
+
 			if ignorer.Match(split, fi.IsDir()) {
 				if fi.IsDir() {
 					return filepath.SkipDir
