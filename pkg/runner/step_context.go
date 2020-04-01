@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -267,7 +268,7 @@ func (sc *StepContext) runAction(actionDir string, actionPath string) common.Exe
 					return err
 				}
 			}
-			return rc.execJobContainer([]string{"node", filepath.Join(containerActionDir, actionName, actionPath, action.Runs.Main)}, sc.Env)(ctx)
+			return rc.execJobContainer([]string{"node", path.Join(containerActionDir, actionName, actionPath, action.Runs.Main)}, sc.Env)(ctx)
 		case model.ActionRunsUsingDocker:
 			var prepImage common.Executor
 			var image string
@@ -277,7 +278,7 @@ func (sc *StepContext) runAction(actionDir string, actionPath string) common.Exe
 				image = fmt.Sprintf("%s:%s", regexp.MustCompile("[^a-zA-Z0-9]").ReplaceAllString(actionName, "-"), "latest")
 				image = fmt.Sprintf("act-%s", strings.TrimLeft(image, "-"))
 				image = strings.ToLower(image)
-				contextDir := filepath.Join(actionDir, actionPath, action.Runs.Main)
+				contextDir := path.Join(actionDir, actionPath, action.Runs.Main)
 				prepImage = container.NewDockerBuildExecutor(container.NewDockerBuildExecutorInput{
 					ContextDir: contextDir,
 					ImageTag:   image,

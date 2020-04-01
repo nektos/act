@@ -8,8 +8,11 @@ NEW_VERSION ?= $(MAJOR_VERSION).$(MINOR_VERSION).$(shell echo $$(( $(PATCH_VERSI
 ACT ?= go run main.go
 export GITHUB_TOKEN = $(shell cat ~/.config/github/token)
 
-build: 
+build:
 	go build -ldflags "-X main.version=$(VERSION)" -o dist/local/act main.go
+
+go-install:
+	go install -ldflags "-X main.version=$(VERSION)" .
 
 test:
 	$(ACT)
@@ -23,7 +26,7 @@ installer:
 	@GO111MODULE=off go get github.com/goreleaser/godownloader
 	godownloader -r nektos/act -o install.sh
 
-promote: 
+promote:
 	@git fetch --tags
 	@echo "VERSION:$(VERSION) IS_SNAPSHOT:$(IS_SNAPSHOT) NEW_VERSION:$(NEW_VERSION)"
 ifeq (false,$(IS_SNAPSHOT))

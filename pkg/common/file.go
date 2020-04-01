@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 )
 
 // CopyFile copy file
@@ -36,7 +37,6 @@ func CopyFile(source string, dest string) (err error) {
 
 // CopyDir recursive copy of directory
 func CopyDir(source string, dest string) (err error) {
-
 	// get properties of source dir
 	sourceinfo, err := os.Stat(source)
 	if err != nil {
@@ -44,7 +44,6 @@ func CopyDir(source string, dest string) (err error) {
 	}
 
 	// create dest dir
-
 	err = os.MkdirAll(dest, sourceinfo.Mode())
 	if err != nil {
 		return err
@@ -55,10 +54,8 @@ func CopyDir(source string, dest string) (err error) {
 	objects, err := directory.Readdir(-1)
 
 	for _, obj := range objects {
-
-		sourcefilepointer := source + "/" + obj.Name()
-
-		destinationfilepointer := dest + "/" + obj.Name()
+		sourcefilepointer := filepath.Join(source, obj.Name())
+		destinationfilepointer := filepath.Join(dest, obj.Name())
 
 		if obj.IsDir() {
 			// create sub-directories - recursively

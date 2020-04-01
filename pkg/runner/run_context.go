@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -108,7 +109,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 		var copyToPath string
 		if !rc.Config.BindWorkdir {
 			copyToPath, copyWorkspace = rc.localCheckoutPath()
-			copyToPath = filepath.Join("/github/workspace", copyToPath)
+			copyToPath = path.Join("/github/workspace", copyToPath)
 		}
 
 		return common.NewPipelineExecutor(
@@ -150,7 +151,7 @@ func (rc *RunContext) ActionCacheDir() string {
 	var ok bool
 	if xdgCache, ok = os.LookupEnv("XDG_CACHE_HOME"); !ok {
 		if home, ok := os.LookupEnv("HOME"); ok {
-			xdgCache = fmt.Sprintf("%s/.cache", home)
+			xdgCache = filepath.Join(home, ".cache")
 		}
 	}
 	return filepath.Join(xdgCache, "act")
