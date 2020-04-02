@@ -25,9 +25,12 @@ Alternatively, you can use the following:
 
 ```curl  https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash```
 
-If you are running Windows, download the [latest release](https://github.com/nektos/act/releases/latest) and add the binary in to your PATH.  If you are using [Chocolatey](https://chocolatey.org/) then run:
-
+If you are running Windows, download the [latest release](https://github.com/nektos/act/releases/latest) and add the binary in to your PATH.  
+If you are using [Chocolatey](https://chocolatey.org/) then run:  
 ```choco install act-cli```
+
+If you are using [Scoop](https://scoop.sh/) then run:  
+```scoop install act```
 
 If you are running Arch Linux, you can install the [act](https://aur.archlinux.org/packages/act/) package with your favorite package manager:
 
