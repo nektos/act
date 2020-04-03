@@ -101,6 +101,9 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			if err != nil {
 				log.Fatalf("Error loading environment from %s: %v", envfile, err)
 			}
+			if err := os.Setenv("ACT_ENV_FILE", envfile); err != nil {
+				log.Fatalf("Error setting ACT_ENV_FILE environment from %s: %v", envfile, err)
+			}
 		}
 
 		planner, err := model.NewWorkflowPlanner(input.WorkflowsPath())
