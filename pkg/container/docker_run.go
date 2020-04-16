@@ -5,14 +5,15 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"gopkg.in/src-d/go-billy.v4/helper/polyfill"
-	"gopkg.in/src-d/go-billy.v4/osfs"
-	"gopkg.in/src-d/go-git.v4/plumbing/format/gitignore"
 	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/go-git/go-billy/v5/helper/polyfill"
+	"github.com/go-git/go-billy/v5/osfs"
+	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
