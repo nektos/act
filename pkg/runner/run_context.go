@@ -294,7 +294,7 @@ func createContainerName(parts ...string) string {
 			name = append(name, trimToLen(pattern.ReplaceAllString(part, "-"), partLen))
 		}
 	}
-	return trimToLen(strings.Trim(strings.Join(name, "-"), "-"), 30)
+	return strings.Trim(strings.Join(name, "-"), "-")
 }
 
 func trimToLen(s string, l int) string {
