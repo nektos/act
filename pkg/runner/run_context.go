@@ -10,7 +10,6 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/joho/godotenv"
 	"github.com/nektos/act/pkg/container"
 
 	"github.com/nektos/act/pkg/common"
@@ -264,13 +263,14 @@ func (rc *RunContext) EvalBool(expr string) bool {
 	return true
 }
 
-func runtimeENV() map[string]string {
-	envFile, _ := os.LookupEnv("ACT_ENV_FILE")
-	env, err := godotenv.Read(envFile)
-	if err != nil {
-		log.Errorf("Error godotenv.Read '%s' - %v", envFile, err)
-	}
-	return env
+type dotEnvContextKey int
+
+// DotEnvContextKey is the key of context.Value which is passed by root command.
+const DotEnvContextKey dotEnvContextKey = 0
+
+func runtimeEnvFromContext(ctx context.Context) (env map[string]string) {
+	env, _ = ctx.Value(DotEnvContextKey).(map[string]string)
+	return
 }
 
 func mergeMaps(maps ...map[string]string) map[string]string {
