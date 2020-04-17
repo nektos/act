@@ -93,7 +93,7 @@ func (sc *StepContext) setupEnv() common.Executor {
 		for k, v := range env {
 			env[k] = rc.ExprEval.Interpolate(v)
 		}
-		sc.Env = mergeMaps(rc.withGithubEnv(env), runtimeEnvFromContext(ctx))
+		sc.Env = rc.withGithubEnv(env)
 		log.Debugf("setupEnv => %v", sc.Env)
 		return nil
 	}
