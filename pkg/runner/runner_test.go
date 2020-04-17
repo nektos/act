@@ -3,7 +3,6 @@ package runner
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"testing"
 
@@ -110,18 +109,8 @@ func TestRunEventSecrets(t *testing.T) {
 	workdir, err := filepath.Abs("testdata")
 	assert.NilError(t, err, workflowPath)
 
-	_ = godotenv.Load(filepath.Join(workdir, workflowPath, ".env"))
-
-	secrets := make(map[string]string)
-	for _, secret := range []string{
-		"MY_SECRET",
-		"MULTILINE_SECRET",
-		"JSON_SECRET",
-	} {
-		if env, ok := os.LookupEnv(secret); ok && env != "" {
-			secrets[secret] = env
-		}
-	}
+	env, _ := godotenv.Read(filepath.Join(workdir, workflowPath, ".env"))
+	secrets, _ := godotenv.Read(filepath.Join(workdir, workflowPath, ".secrets"))
 
 	runnerConfig := &Config{
 		Workdir:         workdir,
@@ -129,6 +118,7 @@ func TestRunEventSecrets(t *testing.T) {
 		Platforms:       platforms,
 		ReuseContainers: false,
 		Secrets:         secrets,
+		Env:             env,
 	}
 	runner, err := New(runnerConfig)
 	assert.NilError(t, err, workflowPath)
