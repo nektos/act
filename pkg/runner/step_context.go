@@ -262,7 +262,7 @@ func (sc *StepContext) runAction(actionDir string, actionPath string) common.Exe
 		switch action.Runs.Using {
 		case model.ActionRunsUsingNode12:
 			if step.Type() == model.StepTypeUsesActionRemote {
-				err := rc.JobContainer.CopyDir(containerActionDir+string(filepath.Separator), actionDir)(ctx)
+				err := rc.JobContainer.CopyDir(containerActionDir+string(filepath.Separator), actionDir, false)(ctx)
 				if err != nil {
 					return err
 				}

@@ -116,7 +116,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			rc.JobContainer.Remove().IfBool(!rc.Config.ReuseContainers),
 			rc.JobContainer.Create(),
 			rc.JobContainer.Start(false),
-			rc.JobContainer.CopyDir(copyToPath, rc.Config.Workdir+"/.").IfBool(copyWorkspace),
+			rc.JobContainer.CopyDir(copyToPath, rc.Config.Workdir+"/.", true).IfBool(copyWorkspace),
 			rc.JobContainer.Copy("/github/", &container.FileEntry{
 				Name: "workflow/event.json",
 				Mode: 644,
