@@ -46,7 +46,8 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "verbose output")
 	rootCmd.PersistentFlags().BoolVarP(&input.noOutput, "quiet", "q", false, "disable logging of output from steps")
 	rootCmd.PersistentFlags().BoolVarP(&input.dryrun, "dryrun", "n", false, "dryrun mode")
-	rootCmd.PersistentFlags().StringVarP(&input.envfile, "env-file", "", ".env", "environment file to read")
+	rootCmd.PersistentFlags().StringVarP(&input.secretfile, "secret-file", "", "", "file with list of secrets to read from")
+	rootCmd.PersistentFlags().StringVarP(&input.envfile, "env-file", "", ".env", "environment file to read and use as env in the containers")
 	rootCmd.SetArgs(args())
 
 	if err := rootCmd.Execute(); err != nil {
@@ -92,17 +93,29 @@ func setupLogging(cmd *cobra.Command, args []string) {
 	}
 }
 
+func readEnvs(path string, envs map[string]string) bool {
+	if _, err := os.Stat(path); err == nil {
+		env, err := godotenv.Read(path)
+		if err != nil {
+			log.Fatalf("Error loading from %s: %v", path, err)
+		}
+		for k, v := range env {
+			envs[k] = v
+		}
+		return true
+	}
+	return false
+}
+
 func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, args []string) error {
-		envfile := input.Envfile()
-		if _, err := os.Stat(envfile); err == nil {
-			log.Debugf("Loading environment from %s", envfile)
-			env, err := godotenv.Read(envfile)
-			if err != nil {
-				log.Fatalf("Error loading environment from %s: %v", envfile, err)
-			}
-			ctx = context.WithValue(ctx, runner.DotEnvContextKey, env)
-		}
+		log.Debugf("Loading environment from %s", input.Envfile())
+		envs := make(map[string]string)
+		_ = readEnvs(input.Envfile(), envs)
+
+		log.Debugf("Loading secrets from %s", input.Secretfile())
+		secrets := newSecrets(input.secrets)
+		_ = readEnvs(input.Secretfile(), secrets)
 
 		planner, err := model.NewWorkflowPlanner(input.WorkflowsPath())
 		if err != nil {
@@ -150,7 +163,8 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			Workdir:         input.Workdir(),
 			BindWorkdir:     input.bindWorkdir,
 			LogOutput:       !input.noOutput,
-			Secrets:         newSecrets(input.secrets),
+			Env:             envs,
+			Secrets:         secrets,
 			Platforms:       input.newPlatforms(),
 		}
 		runner, err := runner.New(config)
