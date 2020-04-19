@@ -257,6 +257,8 @@ func (sc *StepContext) runAction(actionDir string, actionPath string) common.Exe
 			actionName = filepath.Base(actionDir)
 		}
 
+		sc.Env = mergeMaps(sc.Env, action.Runs.Env)
+
 		log.Debugf("type=%v actionDir=%s Workdir=%s ActionCacheDir=%s actionName=%s containerActionDir=%s", step.Type(), actionDir, rc.Config.Workdir, rc.ActionCacheDir(), actionName, containerActionDir)
 
 		switch action.Runs.Using {
@@ -267,7 +269,6 @@ func (sc *StepContext) runAction(actionDir string, actionPath string) common.Exe
 					return err
 				}
 			}
-			sc.Env = mergeMaps(sc.Env, action.Runs.Env)
 			return rc.execJobContainer([]string{"node", filepath.Join(containerActionDir, actionName, actionPath, action.Runs.Main)}, sc.Env)(ctx)
 		case model.ActionRunsUsingDocker:
 			var prepImage common.Executor
