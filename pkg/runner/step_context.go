@@ -267,6 +267,7 @@ func (sc *StepContext) runAction(actionDir string, actionPath string) common.Exe
 					return err
 				}
 			}
+			sc.Env = mergeMaps(sc.Env, action.Runs.Env)
 			return rc.execJobContainer([]string{"node", filepath.Join(containerActionDir, actionName, actionPath, action.Runs.Main)}, sc.Env)(ctx)
 		case model.ActionRunsUsingDocker:
 			var prepImage common.Executor
