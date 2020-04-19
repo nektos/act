@@ -257,6 +257,8 @@ func (sc *StepContext) runAction(actionDir string, actionPath string) common.Exe
 			actionName = filepath.Base(actionDir)
 		}
 
+		sc.Env = mergeMaps(sc.Env, action.Runs.Env)
+
 		log.Debugf("type=%v actionDir=%s Workdir=%s ActionCacheDir=%s actionName=%s containerActionDir=%s", step.Type(), actionDir, rc.Config.Workdir, rc.ActionCacheDir(), actionName, containerActionDir)
 
 		switch action.Runs.Using {
