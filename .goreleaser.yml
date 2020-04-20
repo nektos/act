@@ -1,7 +1,6 @@
 builds:
 - env:
   - CGO_ENABLED=0
-  - GOFLAGS=-mod=vendor
   goos:
   - darwin
   - linux
@@ -13,23 +12,23 @@ checksum:
   name_template: 'checksums.txt'
 snapshot:
   name_template: "{{ .Env.SNAPSHOT_VERSION }}"
-archive:
-  name_template: '{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}'
-  replacements:
-    darwin: Darwin
-    linux: Linux
-    windows: Windows
-    386: i386
-    amd64: x86_64
-  format_overrides:
-  - goos: windows
-    format: zip
-brew:
-  github:
-    owner: nektos
-    name: homebrew-tap
-  folder: Formula
-  homepage:  https://github.com/nektos/act
-  description: Run GitHub Actions locally
-  test: |
-    system "#{bin}/act --version"
+archives:
+  - name_template: '{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}'
+    replacements:
+      darwin: Darwin
+      linux: Linux
+      windows: Windows
+      386: i386
+      amd64: x86_64
+    format_overrides:
+    - goos: windows
+      format: zip
+brews:
+  - github:
+      owner: nektos
+      name: homebrew-tap
+    folder: Formula
+    homepage:  https://github.com/nektos/act
+    description: Run GitHub Actions locally
+    test: |
+      system "#{bin}/act --version"

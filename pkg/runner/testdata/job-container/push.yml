@@ -1,0 +1,20 @@
+name: job-container
+on: push
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    container: 
+      image: node:10.16-jessie
+      env:
+        TEST_ENV: test-value
+    steps:
+      - run: echo ${TEST_ENV} | grep test-value
+
+  test2:
+    runs-on: ubuntu-latest
+    container: node:10.16-jessie
+    steps:
+      - run: echo ${TEST_ENV} | grep test-value
+        env:
+          TEST_ENV: test-value

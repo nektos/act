@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Do not remove this test for UTF-8: if “Ω” doesn’t appear as greek uppercase omega letter enclosed in quotation marks, you should use an editor that supports UTF-8, not this one. -->
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+  <metadata>
+    <id>act-cli</id>
+    <version>0.0.0</version>
+    <packageSourceUrl>https://github.com/nektos/act</packageSourceUrl>
+    <owners>nektos</owners>
+    <title>act (GitHub Actions CLI)</title>
+    <authors>nektos</authors>
+    <projectUrl>https://github.com/nektos/act</projectUrl>
+    <iconUrl>https://raw.githubusercontent.com/wiki/nektos/act/img/logo-150.png</iconUrl>
+    <copyright>Nektos</copyright>
+    <licenseUrl>https://raw.githubusercontent.com/nektos/act/master/LICENSE</licenseUrl>
+    <requireLicenseAcceptance>true</requireLicenseAcceptance>
+    <projectSourceUrl>https://github.com/nektos/act</projectSourceUrl>
+    <docsUrl>https://raw.githubusercontent.com/nektos/act/master/README.md</docsUrl>
+    <bugTrackerUrl>https://github.com/nektos/act/issues</bugTrackerUrl>
+    <tags>act github-actions actions golang ci devops</tags>
+    <summary>Run your GitHub Actions locally 🚀</summary>
+    <description>Run your GitHub Actions locally 🚀</description>
+  </metadata>
+  <files>
+    <file src="tools/**" target="tools" />
+  </files>
+</package>

@@ -1,0 +1,19 @@
+name: Checkout
+
+on: push
+
+jobs:
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        path: test-subdir1
+    - run: grep "Checkout" test-subdir1/issue-122/main.yaml
+    - uses: actions/checkout@v2
+      with:
+        repository: actions/checkout
+        path: test-subdir2
+    - run: grep "Checkout" test-subdir2/action.yml

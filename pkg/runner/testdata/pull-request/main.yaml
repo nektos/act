@@ -1,0 +1,10 @@
+name: basic
+on: pull_request
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo '${{github.ref}}' 
+      - run: echo '${{github.head_ref}}' | grep sample-head-ref
+      - run: echo '${{github.base_ref}}' | grep sample-base-ref
