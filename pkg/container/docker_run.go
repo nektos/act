@@ -350,12 +350,18 @@ func (cr *containerReference) copyDir(dstPath string, srcPath string) common.Exe
 			}
 
 			// return on non-regular files (thanks to [kumo](https://medium.com/@komuw/just-like-you-did-fbdd7df829d3) for this suggested update)
-			if !fi.Mode().IsRegular() {
+			linkName := fi.Name()
+			if fi.Mode()&os.ModeSymlink == os.ModeSymlink {
+				linkName, err = os.Readlink(file)
+				if err != nil {
+					return errors.WithMessagef(err, "unable to readlink %s", file)
+				}
+			} else if !fi.Mode().IsRegular() {
 				return nil
 			}
 
 			// create a new dir/file header
-			header, err := tar.FileInfoHeader(fi, fi.Name())
+			header, err := tar.FileInfoHeader(fi, linkName)
 			if err != nil {
 				return err
 			}
