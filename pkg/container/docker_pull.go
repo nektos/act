@@ -8,6 +8,7 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 	"github.com/nektos/act/pkg/common"
+	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -32,7 +33,7 @@ func NewDockerPullExecutor(input NewDockerPullExecutorInput) common.Executor {
 			imageExists, err := ImageExistsLocally(ctx, input.Image)
 			log.Debugf("Image exists? %v", imageExists)
 			if err != nil {
-				return fmt.Errorf("unable to determine if image already exists for image %q", input.Image)
+				return errors.WithMessagef(err, "unable to determine if image already exists for image %q", input.Image)
 			}
 
 			if !imageExists {
