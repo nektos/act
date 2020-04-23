@@ -384,6 +384,10 @@ func (cr *containerReference) copyDir(dstPath string, srcPath string) common.Exe
 
 			// copy file data into tar writer
 			if _, err := io.Copy(tw, f); err != nil {
+				if fi.Mode()&os.ModeSymlink == os.ModeSymlink {
+					logger.Warnf("Unable to copy link %s --> %s", fi.Name(), linkName)
+					err = nil
+				}
 				return err
 			}
 
