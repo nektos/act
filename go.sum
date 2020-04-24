@@ -34,6 +34,9 @@ github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ3
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
+github.com/docker/cli v0.0.0-20190822175708-578ab52ece34 h1:H/dVI9lW9zuagcDsmBz2cj8E8paBX5FarjO7oQCpbVA=
+github.com/docker/cli v0.0.0-20190822175708-578ab52ece34/go.mod h1:JLrzqnKDaYBop7H2jaqPtU4hHvMKP+vjCwu2uszcLI8=
+github.com/docker/cli v17.12.1-ce-rc2+incompatible h1:ESUycEAqvFuLglAHkUW66rCc2djYtd3i1x231svLq9o=
 github.com/docker/distribution v2.7.1+incompatible h1:a5mlkVzth6W5A4fOsS3D2EO5BUmsJpcB+cRlLU7cSug=
 github.com/docker/distribution v2.7.1+incompatible/go.mod h1:J2gT2udsDAN96Uj4KfcMRqY0/ypR+oyYUYmja8H+y+w=
 github.com/docker/docker v0.0.0-20200229013735-71373c6105e3 h1:hq9QaRK9JJOg7GItpuSSA3MrBoEN3c3llxQappEq9Zo=

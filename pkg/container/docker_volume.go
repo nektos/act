@@ -3,7 +3,6 @@ package container
 import (
 	"context"
 
-	"github.com/docker/docker/client"
 	"github.com/nektos/act/pkg/common"
 )
 
@@ -17,11 +16,10 @@ func NewDockerVolumeRemoveExecutor(volume string, force bool) common.Executor {
 			return nil
 		}
 
-		cli, err := client.NewClientWithOpts(client.FromEnv)
+		cli, err := GetDockerClient(ctx)
 		if err != nil {
 			return err
 		}
-		cli.NegotiateAPIVersion(ctx)
 
 		return cli.VolumeRemove(ctx, volume, force)
 	}
