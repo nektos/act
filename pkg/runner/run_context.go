@@ -54,8 +54,24 @@ func (rc *RunContext) jobContainerName() string {
 	return createContainerName("act", rc.String())
 }
 
+func (rc *RunContext) startJobHostContainer() common.Executor {
+	return func(ctx context.Context) error {
+		rc.JobContainer = container.NewHost(&container.NewHostContainerInput{
+			WorkingDir: rc.Config.Workdir,
+		})
+
+		return common.NewPipelineExecutor(
+			rc.JobContainer.Create(),
+		)(ctx)
+	}
+}
+
 func (rc *RunContext) startJobContainer() common.Executor {
-	image := rc.platformImage()
+	image, err := rc.platformImage()
+
+	if err != nil {
+		log.Errorf("\U0001F6A7  Unable to run on missing image for platform '%+v'", rc.Run.Job().Name)
+	}
 
 	return func(ctx context.Context) error {
 		rawLogger := common.Logger(ctx).WithField("raw_output", true)
@@ -169,7 +185,13 @@ func (rc *RunContext) Executor() common.Executor {
 		return nil
 	})
 
-	steps = append(steps, rc.startJobContainer())
+	platform := rc.extractPlatform()
+
+	if platform.Engine == model.PlatformEngineDocker {
+		steps = append(steps, rc.startJobContainer())
+	} else if platform.Engine == model.PlatformEngineHost {
+		steps = append(steps, rc.startJobHostContainer())
+	}
 
 	for i, step := range rc.Run.Job().Steps {
 		if step.ID == "" {
@@ -177,7 +199,10 @@ func (rc *RunContext) Executor() common.Executor {
 		}
 		steps = append(steps, rc.newStepExecutor(step))
 	}
-	steps = append(steps, rc.stopJobContainer())
+
+	if platform.Engine == model.PlatformEngineDocker {
+		steps = append(steps, rc.stopJobContainer())
+	}
 
 	return common.NewPipelineExecutor(steps...).If(rc.isEnabled)
 }
@@ -214,23 +239,68 @@ func (rc *RunContext) newStepExecutor(step *model.Step) common.Executor {
 	}
 }
 
-func (rc *RunContext) platformImage() string {
+func (rc *RunContext) runsOnContainer() bool {
+	platform := rc.extractPlatform()
+
+	if platform.Engine == model.PlatformEngineDocker {
+		return true
+	}
+
+	return false
+}
+
+func (rc *RunContext) runsOnHost() bool {
+	platform := rc.extractPlatform()
+
+	if platform.Engine == model.PlatformEngineHost {
+		return true
+	}
+
+	return false
+}
+
+func (rc *RunContext) extractRunsOn() string {
+	job := rc.Run.Job()
+
+	runsOn := job.RunsOn()
+
+	if len(runsOn) > 0 {
+		log.Infof("\U0001F6A7  Multiple 'runs-on' detected: will run only on: '%+v'", runsOn[0])
+	}
+
+	return runsOn[0]
+}
+
+func (rc *RunContext) extractPlatform() *model.Platform {
+	runsOn := rc.extractRunsOn()
+
+	platformName := rc.ExprEval.Interpolate(runsOn)
+	platform := rc.Config.Platforms[strings.ToLower(platformName)]
+
+	return platform
+}
+
+func (rc *RunContext) platformImage() (string, error) {
 	job := rc.Run.Job()
 
 	c := job.Container()
 	if c != nil {
-		return c.Image
+		return c.Image, nil
 	}
 
-	for _, runnerLabel := range job.RunsOn() {
-		platformName := rc.ExprEval.Interpolate(runnerLabel)
-		image := rc.Config.Platforms[strings.ToLower(platformName)]
-		if image != "" {
-			return image
-		}
+	platform := rc.extractPlatform()
+
+	if platform.Supported == false {
+		return "", nil
 	}
 
-	return ""
+	image := platform.Image
+
+	if image != "" {
+		return image, nil
+	}
+
+	return "", nil
 }
 
 func (rc *RunContext) isEnabled(ctx context.Context) bool {
@@ -241,11 +311,17 @@ func (rc *RunContext) isEnabled(ctx context.Context) bool {
 		return false
 	}
 
-	img := rc.platformImage()
-	if img == "" {
-		log.Infof("\U0001F6A7  Skipping unsupported platform '%+v'", job.RunsOn())
+	if rc.runsOnHost() {
+		return true
+	}
+
+	_, err := rc.platformImage()
+
+	if err != nil {
+		log.Infof("\U0001F6A7  Unable to run on missing image for platform '%+v'", job.RunsOn())
 		return false
 	}
+
 	return true
 }
 

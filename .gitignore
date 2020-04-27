@@ -16,3 +16,4 @@ dist/
 
 *.nupkg
 .vscode/
+.idea
