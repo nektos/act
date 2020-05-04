@@ -8,6 +8,7 @@ require (
 	github.com/Microsoft/hcsshim v0.8.7 // indirect
 	github.com/andreaskoch/go-fswatch v1.0.0
 	github.com/containerd/containerd v1.3.3 // indirect
+	github.com/docker/cli v0.0.0-20190822175708-578ab52ece34
 	github.com/docker/distribution v2.7.1+incompatible // indirect
 	github.com/docker/docker v0.0.0-20200229013735-71373c6105e3
 	github.com/docker/go-connections v0.4.0 // indirect
