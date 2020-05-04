@@ -1,6 +1,7 @@
 package model
 
 import (
+	"fmt"
 	"io"
 	"strings"
 
@@ -9,6 +10,26 @@ import (
 
 // ActionRunsUsing is the type of runner for the action
 type ActionRunsUsing string
+
+func (a *ActionRunsUsing) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var using string
+	if err := unmarshal(&using); err != nil {
+		return err
+	}
+
+	// Force input to lowercase for case insensitive comparison
+	format := ActionRunsUsing(strings.ToLower(using))
+	switch format {
+	case ActionRunsUsingNode12, ActionRunsUsingDocker:
+		*a = format
+	default:
+		return fmt.Errorf(fmt.Sprintf("The runs.using key in action.yml must be one of: %v, got %s", []string{
+			ActionRunsUsingDocker,
+			ActionRunsUsingNode12,
+		}, format))
+	}
+	return nil
+}
 
 const (
 	// ActionRunsUsingNode12 for running with node12
@@ -54,9 +75,5 @@ type Output struct {
 func ReadAction(in io.Reader) (*Action, error) {
 	a := new(Action)
 	err := yaml.NewDecoder(in).Decode(a)
-
-	// Normalise Runs.Using to lowercase so that Docker and docker are
-	// equivalent when evaluating a step context
-	a.Runs.Using = ActionRunsUsing(strings.ToLower(string(a.Runs.Using)))
 	return a, err
 }
