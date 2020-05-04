@@ -235,15 +235,15 @@ func (rc *RunContext) platformImage() string {
 
 func (rc *RunContext) isEnabled(ctx context.Context) bool {
 	job := rc.Run.Job()
-	log := common.Logger(ctx)
+	l := common.Logger(ctx)
 	if !rc.EvalBool(job.If) {
-		log.Debugf("Skipping job '%s' due to '%s'", job.Name, job.If)
+		l.Debugf("Skipping job '%s' due to '%s'", job.Name, job.If)
 		return false
 	}
 
 	img := rc.platformImage()
 	if img == "" {
-		log.Infof("\U0001F6A7  Skipping unsupported platform '%+v'", job.RunsOn())
+		l.Infof("\U0001F6A7  Skipping unsupported platform '%+v'", job.RunsOn())
 		return false
 	}
 	return true
@@ -252,11 +252,11 @@ func (rc *RunContext) isEnabled(ctx context.Context) bool {
 // EvalBool evaluates an expression against current run context
 func (rc *RunContext) EvalBool(expr string) bool {
 	if expr != "" {
-		//v, err := rc.ExprEval.Evaluate(fmt.Sprintf("if (%s) { true } else { false }", expr))
-		expr := fmt.Sprintf("Boolean(%s)", expr)
+		expr = fmt.Sprintf(`
+		tmp = %s;
+		tmp.toString() == "true"`, rc.ExprEval.Interpolate(expr))
 		v, err := rc.ExprEval.Evaluate(expr)
 		if err != nil {
-			log.Errorf("Error evaluating expression '%s' - %v", expr, err)
 			return false
 		}
 		log.Debugf("expression '%s' evaluated to '%s'", expr, v)
@@ -386,9 +386,11 @@ func (rc *RunContext) getGithubContext() *githubContext {
 		log.Debugf("using github ref: %s", ref)
 		ghc.Ref = ref
 	}
-	err = json.Unmarshal([]byte(rc.EventJSON), &ghc.Event)
-	if err != nil {
-		logrus.Error(err)
+	if rc.EventJSON != "" {
+		err = json.Unmarshal([]byte(rc.EventJSON), &ghc.Event)
+		if err != nil {
+			logrus.Errorf("Unable to Unmarshal event '%s': %v", rc.EventJSON, err)
+		}
 	}
 
 	if ghc.EventName == "pull_request" {
