@@ -4,14 +4,17 @@ import (
 	"testing"
 
 	"github.com/nektos/act/pkg/model"
-	"github.com/stretchr/testify/assert"
+	a "github.com/stretchr/testify/assert"
 )
 
 func TestEvaluate(t *testing.T) {
-	assert := assert.New(t)
+	assert := a.New(t)
 	rc := &RunContext{
 		Config: &Config{
 			Workdir: ".",
+		},
+		Env: map[string]string{
+			"key": "value",
 		},
 		Run: &model.Run{
 			JobID: "job1",
@@ -79,6 +82,8 @@ func TestEvaluate(t *testing.T) {
 		{"runner.os", "Linux", ""},
 		{"matrix.os", "Linux", ""},
 		{"matrix.foo", "bar", ""},
+		{"env.key", "value", ""},
+
 	}
 
 	for _, table := range tables {
@@ -97,10 +102,13 @@ func TestEvaluate(t *testing.T) {
 }
 
 func TestInterpolate(t *testing.T) {
-	assert := assert.New(t)
+	assert := a.New(t)
 	rc := &RunContext{
 		Config: &Config{
 			Workdir: ".",
+		},
+		Env: map[string]string{
+			"key": "value",
 		},
 		Run: &model.Run{
 			JobID: "job1",
@@ -113,8 +121,20 @@ func TestInterpolate(t *testing.T) {
 		},
 	}
 	ee := rc.NewExpressionEvaluator()
+	tables := []struct{
+		in string
+		out string
+	}{
+		{" ${{1}} to ${{2}} ", " 1 to 2 "},
+		{" ${{ env.key }} ", " value "},
+		{"${{ env.unknown }}", ""},
+	}
 
-	out := ee.Interpolate(" ${{1}} to ${{2}} ")
-
-	assert.Equal(" 1 to 2 ", out)
+	for _, table := range tables {
+		table := table
+		t.Run(table.in, func(t *testing.T) {
+			out := ee.Interpolate(table.in)
+			assert.Equal(table.out, out, table.in)
+		})
+	}
 }
