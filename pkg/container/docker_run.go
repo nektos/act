@@ -15,6 +15,7 @@ import (
 	"github.com/go-git/go-billy/v5/osfs"
 	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
 
+	"github.com/docker/cli/cli/connhelper"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/mount"
@@ -137,16 +138,46 @@ type containerReference struct {
 	input *NewContainerInput
 }
 
+func GetDockerClient(ctx context.Context) (*client.Client, error) {
+	var err error
+	var cli *client.Client
+
+	// TODO: this should maybe need to be a global option, not hidden in here?
+	//       though i'm not sure how that works out when there's another Executor :D
+	//		 I really would like something that works on OSX native for eg
+	dockerHost := os.Getenv("DOCKER_HOST")
+
+	if strings.HasPrefix(dockerHost, "ssh://") {
+		var helper *connhelper.ConnectionHelper
+
+		helper, err = connhelper.GetConnectionHelper(dockerHost)
+		if err != nil {
+			return nil, err
+		}
+		cli, err = client.NewClientWithOpts(
+			client.WithHost(helper.Host),
+			client.WithDialContext(helper.Dialer),
+		)
+	} else {
+		cli, err = client.NewClientWithOpts(client.FromEnv)
+	}
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	cli.NegotiateAPIVersion(ctx)
+
+	return cli, err
+}
+
 func (cr *containerReference) connect() common.Executor {
 	return func(ctx context.Context) error {
 		if cr.cli != nil {
 			return nil
 		}
-		cli, err := client.NewClientWithOpts(client.FromEnv)
+		cli, err := GetDockerClient(ctx)
 		if err != nil {
-			return errors.WithStack(err)
+			return err
 		}
-		cli.NegotiateAPIVersion(ctx)
 		cr.cli = cli
 		return nil
 	}

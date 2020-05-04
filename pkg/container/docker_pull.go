@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/client"
 	"github.com/nektos/act/pkg/common"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -48,11 +47,10 @@ func NewDockerPullExecutor(input NewDockerPullExecutorInput) common.Executor {
 		imageRef := cleanImage(input.Image)
 		logger.Debugf("pulling image '%v'", imageRef)
 
-		cli, err := client.NewClientWithOpts(client.FromEnv)
+		cli, err := GetDockerClient(ctx)
 		if err != nil {
 			return err
 		}
-		cli.NegotiateAPIVersion(ctx)
 
 		reader, err := cli.ImagePull(ctx, imageRef, types.ImagePullOptions{})
 		_ = logDockerResponse(logger, reader, err != nil)

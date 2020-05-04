@@ -2,6 +2,7 @@ package model
 
 import (
 	"io"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -53,5 +54,9 @@ type Output struct {
 func ReadAction(in io.Reader) (*Action, error) {
 	a := new(Action)
 	err := yaml.NewDecoder(in).Decode(a)
+
+	// Normalise Runs.Using to lowercase so that Docker and docker are
+	// equivalent when evaluating a step context
+	a.Runs.Using = ActionRunsUsing(strings.ToLower(string(a.Runs.Using)))
 	return a, err
 }

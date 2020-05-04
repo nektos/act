@@ -8,7 +8,6 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/builder/dockerignore"
-	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/archive"
 	"github.com/docker/docker/pkg/fileutils"
 	"github.com/nektos/act/pkg/common"
@@ -30,11 +29,10 @@ func NewDockerBuildExecutor(input NewDockerBuildExecutorInput) common.Executor {
 			return nil
 		}
 
-		cli, err := client.NewClientWithOpts(client.FromEnv)
+		cli, err := GetDockerClient(ctx)
 		if err != nil {
 			return err
 		}
-		cli.NegotiateAPIVersion(ctx)
 
 		logger.Debugf("Building image from '%v'", input.ContextDir)
 
