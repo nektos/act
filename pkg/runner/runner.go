@@ -24,6 +24,7 @@ type Config struct {
 	ReuseContainers bool              // reuse containers to maintain state
 	ForcePull       bool              // force pulling of the image, if already present
 	LogOutput       bool              // log the output from docker run
+	Env             map[string]string // env for containers
 	Secrets         map[string]string // list of secrets
 	Platforms       map[string]string // list of platforms
 }

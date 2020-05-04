@@ -5,14 +5,15 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"gopkg.in/src-d/go-billy.v4/helper/polyfill"
-	"gopkg.in/src-d/go-billy.v4/osfs"
-	"gopkg.in/src-d/go-git.v4/plumbing/format/gitignore"
 	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/go-git/go-billy/v5/helper/polyfill"
+	"github.com/go-git/go-billy/v5/osfs"
+	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -352,12 +353,18 @@ func (cr *containerReference) copyDir(dstPath string, srcPath string, useGitIgno
 			}
 
 			// return on non-regular files (thanks to [kumo](https://medium.com/@komuw/just-like-you-did-fbdd7df829d3) for this suggested update)
-			if !fi.Mode().IsRegular() {
+			linkName := fi.Name()
+			if fi.Mode()&os.ModeSymlink == os.ModeSymlink {
+				linkName, err = os.Readlink(file)
+				if err != nil {
+					return errors.WithMessagef(err, "unable to readlink %s", file)
+				}
+			} else if !fi.Mode().IsRegular() {
 				return nil
 			}
 
 			// create a new dir/file header
-			header, err := tar.FileInfoHeader(fi, fi.Name())
+			header, err := tar.FileInfoHeader(fi, linkName)
 			if err != nil {
 				return err
 			}
@@ -380,6 +387,10 @@ func (cr *containerReference) copyDir(dstPath string, srcPath string, useGitIgno
 
 			// copy file data into tar writer
 			if _, err := io.Copy(tw, f); err != nil {
+				if fi.Mode()&os.ModeSymlink == os.ModeSymlink {
+					logger.Warnf("Unable to copy link %s --> %s", fi.Name(), linkName)
+					err = nil
+				}
 				return err
 			}
 

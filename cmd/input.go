@@ -18,6 +18,7 @@ type Input struct {
 	forcePull       bool
 	noOutput        bool
 	envfile         string
+	secretfile      string
 }
 
 func (i *Input) resolve(path string) string {
@@ -37,6 +38,11 @@ func (i *Input) resolve(path string) string {
 // Envfile returns path to .env
 func (i *Input) Envfile() string {
 	return i.resolve(i.envfile)
+}
+
+// Secretfile returns path to secrets
+func (i *Input) Secretfile() string {
+	return i.resolve(i.secretfile)
 }
 
 // Workdir returns path to workdir

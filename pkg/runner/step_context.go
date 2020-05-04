@@ -164,6 +164,8 @@ func (sc *StepContext) newStepContainer(ctx context.Context, image string, cmd [
 	}
 
 	envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_TOOL_CACHE", "/opt/hostedtoolcache"))
+	envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_OS", "Linux"))
+	envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_TEMP", "/tmp"))
 
 	binds := []string{
 		fmt.Sprintf("%s:%s", "/var/run/docker.sock", "/var/run/docker.sock"),
@@ -256,6 +258,8 @@ func (sc *StepContext) runAction(actionDir string, actionPath string) common.Exe
 		if actionName == "" {
 			actionName = filepath.Base(actionDir)
 		}
+
+		sc.Env = mergeMaps(sc.Env, action.Runs.Env)
 
 		log.Debugf("type=%v actionDir=%s Workdir=%s ActionCacheDir=%s actionName=%s containerActionDir=%s", step.Type(), actionDir, rc.Config.Workdir, rc.ActionCacheDir(), actionName, containerActionDir)
 

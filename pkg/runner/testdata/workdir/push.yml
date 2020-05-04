@@ -6,6 +6,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+    - run: ls -alFt /github/workspace/workdir
     - run: '[[ "$(pwd)" == "/github/workspace/workdir" ]]'
       working-directory: workdir
 

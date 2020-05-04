@@ -45,7 +45,7 @@ type stepResult struct {
 // GetEnv returns the env for the context
 func (rc *RunContext) GetEnv() map[string]string {
 	if rc.Env == nil {
-		rc.Env = mergeMaps(rc.Run.Workflow.Env, rc.Run.Job().Env)
+		rc.Env = mergeMaps(rc.Config.Env, rc.Run.Workflow.Env, rc.Run.Job().Env)
 	}
 	return rc.Env
 }
@@ -78,6 +78,8 @@ func (rc *RunContext) startJobContainer() common.Executor {
 		}
 
 		envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_TOOL_CACHE", "/opt/hostedtoolcache"))
+		envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_OS", "Linux"))
+		envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_TEMP", "/tmp"))
 
 		binds := []string{
 			fmt.Sprintf("%s:%s", "/var/run/docker.sock", "/var/run/docker.sock"),
@@ -284,7 +286,7 @@ func createContainerName(parts ...string) string {
 			name = append(name, trimToLen(pattern.ReplaceAllString(part, "-"), partLen))
 		}
 	}
-	return trimToLen(strings.Trim(strings.Join(name, "-"), "-"), 30)
+	return strings.Trim(strings.Join(name, "-"), "-")
 }
 
 func trimToLen(s string, l int) string {
