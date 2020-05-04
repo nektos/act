@@ -18,6 +18,7 @@ func TestRunContext_EvalBool(t *testing.T) {
 		Env: map[string]string{
 			"TRUE":  "true",
 			"FALSE": "false",
+			"SOME_TEXT": "text",
 		},
 		Run: &model.Run{
 			JobID: "job1",
@@ -71,8 +72,9 @@ func TestRunContext_EvalBool(t *testing.T) {
 		{"false || 1 < 2", true},
 		{"false || false", false},
 		// None boolable
-		{"wrong", false},
+		{"env.SOME_TEXT", true},
 		{"env.UNKNOWN == 'true'", false},
+		{"env.UNKNOWN", false},
 		// Inline expressions
 		{"env.TRUE == 'true'", true},
 		{"env.FALSE == 'true'", false},
