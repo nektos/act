@@ -357,11 +357,17 @@ func (rc *RunContext) getGithubContext() *githubContext {
 		Workflow:  rc.Run.Workflow.Name,
 		RunID:     "1",
 		RunNumber: "1",
-		Actor:     "nektos/act",
+		Actor:     rc.Config.Actor,
 		EventName: rc.Config.EventName,
 		Token:     token,
 		Workspace: "/github/workspace",
 		Action:    rc.CurrentStep,
+	}
+
+	// Backwards compatibility for configs that require
+	// a default rather than being run as a cmd
+	if ghc.Actor == "" {
+		ghc.Actor = "nektos/act"
 	}
 
 	repoPath := rc.Config.Workdir
