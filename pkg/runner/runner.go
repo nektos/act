@@ -72,7 +72,7 @@ func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 				}
 				stageExecutor = append(stageExecutor, func(ctx context.Context) error {
 					jobName := fmt.Sprintf("%-*s", maxJobNameLen, rc.String())
-					return rc.Executor()(WithJobLogger(ctx, jobName))
+					return rc.Executor()(WithJobLogger(ctx, jobName, rc.Config.Secrets))
 				})
 			}
 		}

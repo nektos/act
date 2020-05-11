@@ -38,11 +38,12 @@ func init() {
 }
 
 // WithJobLogger attaches a new logger to context that is aware of steps
-func WithJobLogger(ctx context.Context, jobName string) context.Context {
+func WithJobLogger(ctx context.Context, jobName string, secrets map[string]string) context.Context {
 	mux.Lock()
 	defer mux.Unlock()
 	formatter := new(stepLogFormatter)
 	formatter.color = colors[nextColor%len(colors)]
+	formatter.secrets = secrets
 	nextColor++
 
 	logger := logrus.New()
@@ -55,11 +56,17 @@ func WithJobLogger(ctx context.Context, jobName string) context.Context {
 }
 
 type stepLogFormatter struct {
-	color int
+	color   int
+	secrets map[string]string
 }
 
 func (f *stepLogFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	b := &bytes.Buffer{}
+
+	// Replace any secrets in the entry
+	for _, v := range f.secrets {
+		entry.Message = strings.ReplaceAll(entry.Message, v, "***")
+	}
 
 	if f.isColored(entry) {
 		f.printColored(b, entry)
