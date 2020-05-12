@@ -119,6 +119,7 @@ func (rc *RunContext) newVM() *otto.Otto {
 		rc.vmSecrets(),
 		rc.vmStrategy(),
 		rc.vmMatrix(),
+		rc.vmEnv(),
 	}
 	vm := otto.New()
 	for _, configer := range configers {
@@ -196,18 +197,18 @@ func (rc *RunContext) vmHashFiles() func(*otto.Otto) {
 		_ = vm.Set("hashFiles", func(path string) string {
 			files, _, err := glob.Glob([]string{filepath.Join(rc.Config.Workdir, path)})
 			if err != nil {
-				logrus.Error(err)
+				logrus.Errorf("Unable to glob.Glob: %v", err)
 				return ""
 			}
 			hasher := sha256.New()
 			for _, file := range files {
 				f, err := os.Open(file.Path)
 				if err != nil {
-					logrus.Error(err)
+					logrus.Errorf("Unable to os.Open: %v", err)
 				}
 				defer f.Close()
 				if _, err := io.Copy(hasher, f); err != nil {
-					logrus.Error(err)
+					logrus.Errorf("Unable to io.Copy: %v", err)
 				}
 			}
 			return hex.EncodeToString(hasher.Sum(nil))
@@ -248,6 +249,14 @@ func (rc *RunContext) vmGithub() func(*otto.Otto) {
 
 	return func(vm *otto.Otto) {
 		_ = vm.Set("github", github)
+	}
+}
+
+func (rc *RunContext) vmEnv() func(*otto.Otto) {
+	return func(vm *otto.Otto) {
+		env := rc.GetEnv()
+		log.Debugf("context env => %v", env)
+		_ = vm.Set("env", env)
 	}
 }
 
