@@ -7,6 +7,7 @@ import (
 
 // Input contains the input for the root command
 type Input struct {
+	actor           string
 	workdir         string
 	workflowsPath   string
 	eventPath       string
