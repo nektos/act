@@ -307,7 +307,7 @@ func (sc *StepContext) runAction(actionDir string, actionPath string) common.Exe
 				stepContainer.Remove().IfBool(!rc.Config.ReuseContainers),
 			)(ctx)
 		default:
-			return fmt.Errorf(fmt.Sprintf("The runs.using key in action.yml must be one of: %v, got %s", []string{
+			return fmt.Errorf(fmt.Sprintf("The runs.using key must be one of: %v, got %s", []string{
 				model.ActionRunsUsingDocker,
 				model.ActionRunsUsingNode12,
 			}, action.Runs.Using))
