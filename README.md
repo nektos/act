@@ -6,7 +6,7 @@
 
 Run your [GitHub Actions](https://developer.github.com/actions/) locally! Why would you want to do this? Two reasons:
 
-* **Fast Feedback** - Rather than having to commit/push every time you want test out the changes you are making to your `.github/workflows/` files (or for any changes to embedded GitHub actions), you can use `act` to run the actions locally. The [environment variables](https://help.github.com/en/actions/configuring-and-managing-workflows/using-environment-variables#default-environment-variables) and [filesystem](https://help.github.com/en/actions/reference/virtual-environments-for-github-hosted-runners#filesystems-on-github-hosted-runners) are all configured to match what GitHub provides.
+* **Fast Feedback** - Rather than having to commit/push every time you want to test out the changes you are making to your `.github/workflows/` files (or for any changes to embedded GitHub actions), you can use `act` to run the actions locally. The [environment variables](https://help.github.com/en/actions/configuring-and-managing-workflows/using-environment-variables#default-environment-variables) and [filesystem](https://help.github.com/en/actions/reference/virtual-environments-for-github-hosted-runners#filesystems-on-github-hosted-runners) are all configured to match what GitHub provides.
 * **Local Task Runner** - I love [make](https://en.wikipedia.org/wiki/Make_(software)). However, I also hate repeating myself.  With `act`, you can use the GitHub Actions defined in your `.github/workflows/` to replace your `Makefile`!  
 
 # How Does It Work?
@@ -25,7 +25,7 @@ Alternatively, you can use the following:
 
 ```curl  https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash```
 
-If you are running Windows, download the [latest release](https://github.com/nektos/act/releases/latest) and add the binary in to your PATH.  
+If you are running Windows, download the [latest release](https://github.com/nektos/act/releases/latest) and add the binary into your PATH.  
 If you are using [Chocolatey](https://chocolatey.org/) then run:  
 ```choco install act-cli```
 
@@ -117,7 +117,7 @@ act -P ubuntu-latest=nektos/act-environments-ubuntu:18.04
 To run `act` with secrets, you can enter them interactively or supply them as environment variables. The following options are available for providing secrets:
 
 * `act -s MY_SECRET=somevalue` - use `somevalue` as the value for `MY_SECRET`. 
-* `act -s MY_SECRET` - check for an environment variable named `MY_SECRET` and use it if it exists.  If environment variable is not defined, prompt the user for a value.
+* `act -s MY_SECRET` - check for an environment variable named `MY_SECRET` and use it if it exists.  If the environment variable is not defined, prompt the user for a value.
 
 # Configuration
 You can provide default configuration flags to `act` by either creating a `./.actrc` or a `~/.actrc` file.  Any flags in the files will be applied before any flags provided directly on the command line.  For example, a file like below will always use the `nektos/act-environments-ubuntu:18.04` image for the `ubuntu-latest` runner:
@@ -127,14 +127,14 @@ You can provide default configuration flags to `act` by either creating a `./.ac
 -P ubuntu-latest=nektos/act-environments-ubuntu:18.04
 ```
 
-Additionally, act support loading environment variables from a `.env` file.  The default is to look in the working directory for the file, but can be overriden by:
+Additionally, act supports loading environment variables from an `.env` file.  The default is to look in the working directory for the file but can be overridden by:
 
 ```
 act --env-file my.env
 ```
 
 # Events
-Every [Github event](https://developer.github.com/v3/activity/events/types) is accompanied with a payload.  You can provide these events in JSON format with the `--eventpath` to simulate specific Github events kicking off an action.  For example:
+Every [GitHub event](https://developer.github.com/v3/activity/events/types) is accompanied by a payload.  You can provide these events in JSON format with the `--eventpath` to simulate specific GitHub events kicking off an action.  For example:
 
 ``` pull-request.json
 {
