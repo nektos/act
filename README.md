@@ -134,7 +134,7 @@ act --env-file my.env
 ```
 
 # Events
-Every [Github event](https://developer.github.com/v3/activity/events/types) is accompanied with a payload.  You can provide these events in JSON format with the `--eventpath` to simulate specific Github events kicking off an action.  For example:
+Every [GitHub event](https://developer.github.com/v3/activity/events/types) is accompanied with a payload.  You can provide these events in JSON format with the `--eventpath` to simulate specific GitHub events kicking off an action.  For example:
 
 ``` pull-request.json
 {
