@@ -422,7 +422,7 @@ func (cr *containerReference) copyDir(dstPath string, srcPath string) common.Exe
 				return err
 			}
 
-			// manually close here after each file operation; defering would cause each file close
+			// manually close here after each file operation; deferring would cause each file close
 			// to wait until all operations have completed.
 			f.Close()
 
