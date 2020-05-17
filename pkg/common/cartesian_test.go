@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestCartisianProduct(t *testing.T) {
+func TestCartesianProduct(t *testing.T) {
 	assert := assert.New(t)
 	input := map[string][]interface{}{
 		"foo": {1, 2, 3, 4},
