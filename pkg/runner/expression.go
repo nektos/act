@@ -183,7 +183,7 @@ func vmToJSON(vm *otto.Otto) {
 	toJSON := func(o interface{}) string {
 		rtn, err := json.MarshalIndent(o, "", "  ")
 		if err != nil {
-			logrus.Errorf("Unable to marsal: %v", err)
+			logrus.Errorf("Unable to marshal: %v", err)
 			return ""
 		}
 		return string(rtn)
