@@ -270,8 +270,9 @@ func (sc *StepContext) runAction(actionDir string, actionPath string) common.Exe
 				if err != nil {
 					return err
 				}
+				return rc.execJobContainer([]string{"node", filepath.Join(containerActionDir, actionName, actionPath, action.Runs.Main)}, sc.Env)(ctx)
 			}
-			return rc.execJobContainer([]string{"node", filepath.Join(containerActionDir, actionName, actionPath, action.Runs.Main)}, sc.Env)(ctx)
+			return rc.execJobContainer([]string{"node", filepath.Join(containerActionDir, actionPath, action.Runs.Main)}, sc.Env)(ctx)
 		case model.ActionRunsUsingDocker:
 			var prepImage common.Executor
 			var image string
