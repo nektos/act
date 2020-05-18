@@ -100,12 +100,17 @@ GitHub Actions offers managed [virtual environments](https://help.github.com/en/
 | macos-latest    | `unsupported` |
 | macos-10.15     | `unsupported` |
 
-These default images do not contain all the tools that GitHub Actions offers by default in their runners.  If you need an environment that works just like the corresponding GitHub runner then consider using an image provided by [nektos/act-environments](https://github.com/nektos/act-environments):
+## Default runners are intentionally incomplete
+These default images do **not** contain **all** the tools that GitHub Actions offers by default in their runners.
+
+## Alternative runner images
+If you need an environment that works just like the corresponding GitHub runner then consider using an image provided by [nektos/act-environments](https://github.com/nektos/act-environments):
 
 * [nektos/act-environments-ubuntu:18.04](https://hub.docker.com/r/nektos/act-environments-ubuntu/tags) - built from the Packer file GitHub uses in [actions/virtual-environments](https://github.com/actions/runner).
 
-`*** WARNING - this image is >18GB 😱***`
+:warning: :elephant: `*** WARNING - this image is >18GB 😱***`
 
+## Use an alternative runner image
 To use a different image for the runner, use the `-P` option:
 
 ```
