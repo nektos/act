@@ -30,7 +30,7 @@ Before submitting a new issue, please search the issues to make sure there isn't
 Assuming no existing issues exist, please ensure you include the following bits of information when submitting the issue to ensure we can quickly reproduce your issue:
 
 * Version of `act`
-* Platform (Linux, OS X, Windows)
+* Platform (Linux, macOS, Windows)
 * The complete `main.workflow` file used
 * The complete command that was executed
 * Any output from the command
