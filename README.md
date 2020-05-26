@@ -92,7 +92,7 @@ act -v
 
 # Known Issues
 
-MODULE_NOT_FOUND during `docker cp` command
+MODULE_NOT_FOUND during `docker cp` command [#228](https://github.com/nektos/act/issues/228)
 
 ```
 steps:
