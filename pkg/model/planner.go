@@ -46,10 +46,25 @@ func (r *Run) Job() *Job {
 	return r.Workflow.GetJob(r.JobID)
 }
 
-// NewWorkflowPlanner will load all workflows from a directory
-func NewWorkflowPlanner(dirname string) (WorkflowPlanner, error) {
-	log.Debugf("Loading workflows from '%s'", dirname)
-	files, err := ioutil.ReadDir(dirname)
+// NewWorkflowPlanner will load a specific workflow or all workflows from a directory
+func NewWorkflowPlanner(path string) (WorkflowPlanner, error) {
+	fi, err := os.Stat(path)
+	if err != nil {
+		return nil, err
+	}
+
+	var files []os.FileInfo
+	var dirname string
+
+	if fi.IsDir() {
+		log.Debugf("Loading workflows from '%s'", path)
+		dirname = path
+		files, err = ioutil.ReadDir(path)
+	} else {
+		log.Debugf("Loading workflow '%s'", path)
+		dirname, err = filepath.Abs(filepath.Dir(path))
+		files = []os.FileInfo{fi}
+	}
 	if err != nil {
 		return nil, err
 	}
