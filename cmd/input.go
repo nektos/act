@@ -51,7 +51,7 @@ func (i *Input) Workdir() string {
 	return i.resolve(".")
 }
 
-// WorkflowsPath returns path to workflows
+// WorkflowsPath returns path to workflow file(s)
 func (i *Input) WorkflowsPath() string {
 	return i.resolve(i.workflowsPath)
 }
