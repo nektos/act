@@ -188,6 +188,33 @@ type NewGitCloneExecutorInput struct {
 	Dir string
 }
 
+func CloneIfRequired(refName plumbing.ReferenceName, input NewGitCloneExecutorInput, logger log.FieldLogger) (*git.Repository, error) {
+	r, err := git.PlainOpen(input.Dir)
+	if err != nil {
+		var progressWriter io.Writer
+		if entry, ok := logger.(*log.Entry); ok {
+			progressWriter = entry.WriterLevel(log.DebugLevel)
+		} else if lgr, ok := logger.(*log.Logger); ok {
+			progressWriter = lgr.WriterLevel(log.DebugLevel)
+		} else {
+			log.Errorf("Unable to get writer from logger (type=%T)", logger)
+			progressWriter = os.Stdout
+		}
+
+		r, err = git.PlainClone(input.Dir, false, &git.CloneOptions{
+			URL:      input.URL,
+			Progress: progressWriter,
+		})
+		if err != nil {
+			logger.Errorf("Unable to clone %v %s: %v", input.URL, refName, err)
+			return nil, err
+		}
+		_ = os.Chmod(input.Dir, 0755)
+	}
+
+	return r, nil
+}
+
 // NewGitCloneExecutor creates an executor to clone git repos
 func NewGitCloneExecutor(input NewGitCloneExecutorInput) Executor {
 	return func(ctx context.Context) error {
@@ -199,29 +226,9 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) Executor {
 		defer cloneLock.Unlock()
 
 		refName := plumbing.ReferenceName(fmt.Sprintf("refs/heads/%s", input.Ref))
-
-		r, err := git.PlainOpen(input.Dir)
+		r, err := CloneIfRequired(refName, input, logger)
 		if err != nil {
-			var progressWriter io.Writer
-			if entry, ok := logger.(*log.Entry); ok {
-				progressWriter = entry.WriterLevel(log.DebugLevel)
-			} else if lgr, ok := logger.(*log.Logger); ok {
-				progressWriter = lgr.WriterLevel(log.DebugLevel)
-			} else {
-				log.Errorf("Unable to get writer from logger (type=%T)", logger)
-				progressWriter = os.Stdout
-			}
-
-			r, err = git.PlainClone(input.Dir, false, &git.CloneOptions{
-				URL:      input.URL,
-				Progress: progressWriter,
-				//ReferenceName: refName,
-			})
-			if err != nil {
-				logger.Errorf("Unable to clone %v %s: %v", input.URL, refName, err)
-				return err
-			}
-			_ = os.Chmod(input.Dir, 0755)
+			return err
 		}
 
 		w, err := r.Worktree()
@@ -282,7 +289,6 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) Executor {
 		}
 
 		err = w.Pull(&git.PullOptions{
-			//ReferenceName: refName,
 			Force: true,
 		})
 		if err != nil && err.Error() != "already up-to-date" {
@@ -291,7 +297,6 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) Executor {
 		logger.Debugf("Cloned %s to %s", input.URL, input.Dir)
 
 		err = w.Checkout(&git.CheckoutOptions{
-			//Branch: refName,
 			Hash:  *hash,
 			Force: true,
 		})
