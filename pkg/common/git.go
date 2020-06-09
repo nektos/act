@@ -188,6 +188,33 @@ type NewGitCloneExecutorInput struct {
 	Dir string
 }
 
+func CloneIfRequired(refName plumbing.ReferenceName, input NewGitCloneExecutorInput, logger log.FieldLogger) (*git.Repository, error) {
+	r, err := git.PlainOpen(input.Dir)
+	if err != nil {
+		var progressWriter io.Writer
+		if entry, ok := logger.(*log.Entry); ok {
+			progressWriter = entry.WriterLevel(log.DebugLevel)
+		} else if lgr, ok := logger.(*log.Logger); ok {
+			progressWriter = lgr.WriterLevel(log.DebugLevel)
+		} else {
+			log.Errorf("Unable to get writer from logger (type=%T)", logger)
+			progressWriter = os.Stdout
+		}
+
+		r, err = git.PlainClone(input.Dir, false, &git.CloneOptions{
+			URL:      input.URL,
+			Progress: progressWriter,
+		})
+		if err != nil {
+			logger.Errorf("Unable to clone %v %s: %v", input.URL, refName, err)
+			return nil, err
+		}
+		_ = os.Chmod(input.Dir, 0755)
+	}
+
+	return r, nil
+}
+
 // NewGitCloneExecutor creates an executor to clone git repos
 func NewGitCloneExecutor(input NewGitCloneExecutorInput) Executor {
 	return func(ctx context.Context) error {
@@ -199,29 +226,9 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) Executor {
 		defer cloneLock.Unlock()
 
 		refName := plumbing.ReferenceName(fmt.Sprintf("refs/heads/%s", input.Ref))
-
-		r, err := git.PlainOpen(input.Dir)
+		r, err := CloneIfRequired(refName, input, logger)
 		if err != nil {
-			var progressWriter io.Writer
-			if entry, ok := logger.(*log.Entry); ok {
-				progressWriter = entry.WriterLevel(log.DebugLevel)
-			} else if lgr, ok := logger.(*log.Logger); ok {
-				progressWriter = lgr.WriterLevel(log.DebugLevel)
-			} else {
-				log.Errorf("Unable to get writer from logger (type=%T)", logger)
-				progressWriter = os.Stdout
-			}
-
-			r, err = git.PlainClone(input.Dir, false, &git.CloneOptions{
-				URL:      input.URL,
-				Progress: progressWriter,
-				//ReferenceName: refName,
-			})
-			if err != nil {
-				logger.Errorf("Unable to clone %v %s: %v", input.URL, refName, err)
-				return err
-			}
-			_ = os.Chmod(input.Dir, 0755)
+			return err
 		}
 
 		w, err := r.Worktree()
@@ -229,8 +236,59 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) Executor {
 			return err
 		}
 
+		hash, err := r.ResolveRevision(plumbing.Revision(input.Ref))
+		if err != nil {
+			logger.Errorf("Unable to resolve %s: %v", input.Ref, err)
+			return err
+		}
+
+		// If the hash resolved doesn't match the ref provided in a workflow then we're
+		// using a branch or tag ref, not a sha
+		//
+		// Repos on disk point to commit hashes, and need to checkout input.Ref before
+		// we try and pull down any changes
+		if hash.String() != input.Ref {
+
+			// Run git fetch to make sure we have the latest sha
+			err = r.Fetch(&git.FetchOptions{})
+			if err != nil && err.Error() != "already up-to-date" {
+				logger.Debugf("Unable to fetch: %v", err)
+			}
+
+			// At this point we need to know if it's a tag or a branch
+			// And the easiest way to do it is duck typing
+			//
+			// If err is nil, it's a tag so let's proceed with that hash like we would if
+			// it was a sha
+			rev := fmt.Sprintf("refs/tags/%s", input.Ref)
+			hash, err = r.ResolveRevision(plumbing.Revision(rev))
+
+			// But if it's not nil, then the ref provided isn't a tag, and it's not a sha
+			// so we assume that it's a branch
+			if err != nil {
+				rev := fmt.Sprintf("refs/remotes/origin/%s", input.Ref)
+				hash, err = r.ResolveRevision(plumbing.Revision(rev))
+				if err != nil {
+					logger.Errorf("Unable to resolve %s: %v", rev, err)
+					return err
+				}
+
+				logger.Debugf("Provided ref is not a sha. Checking out branch before pulling changes")
+
+				err = w.Checkout(&git.CheckoutOptions{
+					Branch: refName,
+					Force:  true,
+				})
+
+				if err != nil {
+					logger.Errorf("Unable to checkout %s: %v", refName, err)
+					return err
+				}
+
+			}
+		}
+
 		err = w.Pull(&git.PullOptions{
-			//ReferenceName: refName,
 			Force: true,
 		})
 		if err != nil && err.Error() != "already up-to-date" {
@@ -238,14 +296,7 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) Executor {
 		}
 		logger.Debugf("Cloned %s to %s", input.URL, input.Dir)
 
-		hash, err := r.ResolveRevision(plumbing.Revision(input.Ref))
-		if err != nil {
-			logger.Errorf("Unable to resolve %s: %v", input.Ref, err)
-			return err
-		}
-
 		err = w.Checkout(&git.CheckoutOptions{
-			//Branch: refName,
 			Hash:  *hash,
 			Force: true,
 		})
