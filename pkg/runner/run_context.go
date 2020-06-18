@@ -115,7 +115,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 
 		return common.NewPipelineExecutor(
 			rc.JobContainer.Pull(rc.Config.ForcePull),
-			rc.JobContainer.Remove().IfBool(!rc.Config.ReuseContainers),
+			rc.stopJobContainer(),
 			rc.JobContainer.Create(),
 			rc.JobContainer.Start(false),
 			rc.JobContainer.CopyDir(copyToPath, rc.Config.Workdir+"/.").IfBool(copyWorkspace),
@@ -136,6 +136,8 @@ func (rc *RunContext) execJobContainer(cmd []string, env map[string]string) comm
 		return rc.JobContainer.Exec(cmd, env)(ctx)
 	}
 }
+
+// stopJobContainer removes the job container (if it exists) and its volume (if it exists) if !rc.Config.ReuseContainers
 func (rc *RunContext) stopJobContainer() common.Executor {
 	return func(ctx context.Context) error {
 		if rc.JobContainer != nil && !rc.Config.ReuseContainers {

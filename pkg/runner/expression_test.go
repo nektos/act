@@ -83,7 +83,6 @@ func TestEvaluate(t *testing.T) {
 		{"matrix.os", "Linux", ""},
 		{"matrix.foo", "bar", ""},
 		{"env.key", "value", ""},
-
 	}
 
 	for _, table := range tables {
@@ -121,8 +120,8 @@ func TestInterpolate(t *testing.T) {
 		},
 	}
 	ee := rc.NewExpressionEvaluator()
-	tables := []struct{
-		in string
+	tables := []struct {
+		in  string
 		out string
 	}{
 		{" ${{1}} to ${{2}} ", " 1 to 2 "},

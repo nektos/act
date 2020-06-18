@@ -16,8 +16,8 @@ func TestRunContext_EvalBool(t *testing.T) {
 			Workdir: ".",
 		},
 		Env: map[string]string{
-			"TRUE":  "true",
-			"FALSE": "false",
+			"TRUE":      "true",
+			"FALSE":     "false",
 			"SOME_TEXT": "text",
 		},
 		Run: &model.Run{
@@ -52,8 +52,8 @@ func TestRunContext_EvalBool(t *testing.T) {
 	rc.ExprEval = rc.NewExpressionEvaluator()
 
 	tables := []struct {
-		in      string
-		out     bool
+		in  string
+		out bool
 	}{
 		// The basic ones
 		{"true", true},
