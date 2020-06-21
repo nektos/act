@@ -1,0 +1,14 @@
+name: issue-228
+
+on:
+  - push
+
+jobs:
+  kind:
+    runs-on: ubuntu-latest
+    steps:
+      - run: apt install git -y # setup git credentials will fail otherwise
+      - name: Setup git credentials
+        uses: fusion-engineering/setup-git-credentials@v2
+        with:
+          credentials: https://test@github.com/
