@@ -54,6 +54,7 @@ func (sc *StepContext) NewExpressionEvaluator() ExpressionEvaluator {
 type ExpressionEvaluator interface {
 	Evaluate(string) (string, error)
 	Interpolate(string) string
+	Rewrite(string) string
 }
 
 type expressionEvaluator struct {
@@ -61,7 +62,12 @@ type expressionEvaluator struct {
 }
 
 func (ee *expressionEvaluator) Evaluate(in string) (string, error) {
-	val, err := ee.vm.Run(in)
+	re := ee.Rewrite(in)
+	if re != in {
+		logrus.Debugf("Evaluating '%s' instead of '%s'", re, in)
+	}
+
+	val, err := ee.vm.Run(re)
 	if err != nil {
 		return "", err
 	}
@@ -77,7 +83,7 @@ func (ee *expressionEvaluator) Interpolate(in string) string {
 	out := in
 	for {
 		out = pattern.ReplaceAllStringFunc(in, func(match string) string {
-			expression := strings.TrimPrefix(strings.TrimSuffix(match, suffix), prefix)
+			expression := strings.TrimSpace(strings.TrimPrefix(strings.TrimSuffix(match, suffix), prefix))
 			evaluated, err := ee.Evaluate(expression)
 			if err != nil {
 				errList = append(errList, err)
@@ -95,6 +101,29 @@ func (ee *expressionEvaluator) Interpolate(in string) string {
 		in = out
 	}
 	return out
+}
+
+// Rewrite tries to transform any javascript property accessor into its bracket notation.
+// For instance, "object.property" would become "object['property']".
+func (ee *expressionEvaluator) Rewrite(in string) string {
+	p := regexp.MustCompile(`^(\w+(?:\[.+\])*)(?:\.([\w-]+))?(.*)$`)
+
+	re := in
+	for {
+		matches := p.FindStringSubmatch(re)
+		if matches == nil {
+			// no global match, we're done!
+			break
+		}
+		if matches[2] == "" {
+			// no property match, we're done!
+			break
+		}
+
+		re = fmt.Sprintf("%s['%s']%s", matches[1], matches[2], matches[3])
+	}
+
+	return re
 }
 
 func (rc *RunContext) newVM() *otto.Otto {
