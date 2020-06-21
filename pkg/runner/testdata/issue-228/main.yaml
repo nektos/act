@@ -7,7 +7,7 @@ jobs:
   kind:
     runs-on: ubuntu-latest
     steps:
-      - run: apt install git -y # setup git credentials will fail otherwise
+      - run: apt-get update -y && apt-get install git -y # setup git credentials will fail otherwise
       - name: Setup git credentials
         uses: fusion-engineering/setup-git-credentials@v2
         with:

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -266,7 +267,11 @@ func (sc *StepContext) runAction(actionDir string, actionPath string) common.Exe
 		switch action.Runs.Using {
 		case model.ActionRunsUsingNode12:
 			if step.Type() == model.StepTypeUsesActionRemote {
-				err := rc.JobContainer.CopyDir(containerActionDir+string(filepath.Separator), actionDir)(ctx)
+				err := removeGitIgnore(actionDir)
+				if err != nil {
+					return err
+				}
+				err = rc.JobContainer.CopyDir(containerActionDir+string(filepath.Separator), actionDir)(ctx)
 				if err != nil {
 					return err
 				}
@@ -350,4 +355,21 @@ func newRemoteAction(action string) *remoteAction {
 		ra.Ref = matches[6]
 	}
 	return ra
+}
+
+// https://github.com/nektos/act/issues/228#issuecomment-629709055
+// files in .gitignore are not copied in a Docker container
+// this causes issues with actions that ignore other important resources
+// such as `node_modules` for example
+func removeGitIgnore(directory string) error {
+	gitIgnorePath := path.Join(directory, ".gitignore")
+	if _, err := os.Stat(gitIgnorePath); err == nil {
+		// .gitignore exists
+		log.Debugf("Removing %s before docker cp", gitIgnorePath)
+		err := os.Remove(gitIgnorePath)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
