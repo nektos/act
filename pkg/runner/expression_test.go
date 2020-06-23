@@ -121,7 +121,9 @@ func TestInterpolate(t *testing.T) {
 			Workdir: ".",
 		},
 		Env: map[string]string{
-			"key": "value",
+			"keywithnothing": "valuewithnothing",
+			"key-with-hyphens": "value-with-hyphens",
+			"key_with_underscores": "value_with_underscores",
 		},
 		Run: &model.Run{
 			JobID: "job1",
@@ -139,7 +141,9 @@ func TestInterpolate(t *testing.T) {
 		out string
 	}{
 		{" ${{1}} to ${{2}} ", " 1 to 2 "},
-		{" ${{ env.key }} ", " value "},
+		{" ${{ env.keywithnothing }} ", " valuewithnothing "},
+		{" ${{ env.key-with-hyphens }} ", " value-with-hyphens "},
+		{" ${{ env.key_with_underscores }} ", " value_with_underscores "},
 		{"${{ env.unknown }}", ""},
 	}
 
