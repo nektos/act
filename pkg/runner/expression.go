@@ -17,13 +17,11 @@ import (
 	"gopkg.in/godo.v2/glob"
 )
 
-const prefix = "${{"
-const suffix = "}}"
-
-var pattern *regexp.Regexp
+var contextPattern, expressionPattern *regexp.Regexp
 
 func init() {
-	pattern = regexp.MustCompile(fmt.Sprintf("\\%s.+?%s", prefix, suffix))
+	contextPattern = regexp.MustCompile(`^(\w+(?:\[.+\])*)(?:\.([\w-]+))?(.*)$`)
+	expressionPattern = regexp.MustCompile(`\${{\s*(.+?)\s*}}`)
 }
 
 // NewExpressionEvaluator creates a new evaluator
@@ -82,8 +80,10 @@ func (ee *expressionEvaluator) Interpolate(in string) string {
 
 	out := in
 	for {
-		out = pattern.ReplaceAllStringFunc(in, func(match string) string {
-			expression := strings.TrimSpace(strings.TrimPrefix(strings.TrimSuffix(match, suffix), prefix))
+		out = expressionPattern.ReplaceAllStringFunc(in, func(match string) string {
+			// Extract and trim the actual expression inside ${{...}} delimiters
+			expression := expressionPattern.ReplaceAllString(match, "$1")
+			// Evaluate the expression and retrieve errors if any
 			evaluated, err := ee.Evaluate(expression)
 			if err != nil {
 				errList = append(errList, err)
@@ -95,7 +95,7 @@ func (ee *expressionEvaluator) Interpolate(in string) string {
 			break
 		}
 		if out == in {
-			// no replacement occurred, we're done!
+			// No replacement occurred, we're done!
 			break
 		}
 		in = out
@@ -106,17 +106,15 @@ func (ee *expressionEvaluator) Interpolate(in string) string {
 // Rewrite tries to transform any javascript property accessor into its bracket notation.
 // For instance, "object.property" would become "object['property']".
 func (ee *expressionEvaluator) Rewrite(in string) string {
-	p := regexp.MustCompile(`^(\w+(?:\[.+\])*)(?:\.([\w-]+))?(.*)$`)
-
 	re := in
 	for {
-		matches := p.FindStringSubmatch(re)
+		matches := contextPattern.FindStringSubmatch(re)
 		if matches == nil {
-			// no global match, we're done!
+			// No global match, we're done!
 			break
 		}
 		if matches[2] == "" {
-			// no property match, we're done!
+			// No property match, we're done!
 			break
 		}
 
