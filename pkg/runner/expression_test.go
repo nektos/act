@@ -37,9 +37,21 @@ func TestEvaluate(t *testing.T) {
 			"foo": "bar",
 		},
 		StepResults: map[string]*stepResult{
-			"id1": {
+			"idwithnothing": {
 				Outputs: map[string]string{
-					"foo": "bar",
+					"foowithnothing": "barwithnothing",
+				},
+				Success: true,
+			},
+			"id-with-hyphens": {
+				Outputs: map[string]string{
+					"foo-with-hyphens": "bar-with-hyphens",
+				},
+				Success: true,
+			},
+			"id_with_underscores": {
+				Outputs: map[string]string{
+					"foo_with_underscores": "bar_with_underscores",
 				},
 				Success: true,
 			},
@@ -78,7 +90,9 @@ func TestEvaluate(t *testing.T) {
 		{"github.run_id", "1", ""},
 		{"github.run_number", "1", ""},
 		{"job.status", "success", ""},
-		{"steps.id1.outputs.foo", "bar", ""},
+		{"steps.idwithnothing.outputs.foowithnothing", "barwithnothing", ""},
+		{"steps.id-with-hyphens.outputs.foo-with-hyphens", "bar-with-hyphens", ""},
+		{"steps.id_with_underscores.outputs.foo_with_underscores", "bar_with_underscores", ""},
 		{"runner.os", "Linux", ""},
 		{"matrix.os", "Linux", ""},
 		{"matrix.foo", "bar", ""},
@@ -107,7 +121,9 @@ func TestInterpolate(t *testing.T) {
 			Workdir: ".",
 		},
 		Env: map[string]string{
-			"key": "value",
+			"keywithnothing": "valuewithnothing",
+			"key-with-hyphens": "value-with-hyphens",
+			"key_with_underscores": "value_with_underscores",
 		},
 		Run: &model.Run{
 			JobID: "job1",
@@ -125,7 +141,9 @@ func TestInterpolate(t *testing.T) {
 		out string
 	}{
 		{" ${{1}} to ${{2}} ", " 1 to 2 "},
-		{" ${{ env.key }} ", " value "},
+		{" ${{ env.keywithnothing }} ", " valuewithnothing "},
+		{" ${{ env.key-with-hyphens }} ", " value-with-hyphens "},
+		{" ${{ env.key_with_underscores }} ", " value_with_underscores "},
 		{"${{ env.unknown }}", ""},
 	}
 
@@ -134,6 +152,48 @@ func TestInterpolate(t *testing.T) {
 		t.Run(table.in, func(t *testing.T) {
 			out := ee.Interpolate(table.in)
 			assert.Equal(table.out, out, table.in)
+		})
+	}
+}
+
+func TestRewrite(t *testing.T) {
+	assert := a.New(t)
+
+	rc := &RunContext{
+		Config: &Config{},
+		Run: &model.Run{
+			JobID: "job1",
+			Workflow: &model.Workflow{
+				Jobs: map[string]*model.Job{
+					"job1": {},
+				},
+			},
+		},
+	}
+	ee := rc.NewExpressionEvaluator()
+
+	tables := []struct {
+		in string
+		re string
+	}{
+		{"ecole", "ecole"},
+		{"ecole.centrale", "ecole['centrale']"},
+		{"ecole['centrale']", "ecole['centrale']"},
+		{"ecole.centrale.paris", "ecole['centrale']['paris']"},
+		{"ecole['centrale'].paris", "ecole['centrale']['paris']"},
+		{"ecole.centrale['paris']", "ecole['centrale']['paris']"},
+		{"ecole['centrale']['paris']", "ecole['centrale']['paris']"},
+		{"ecole.centrale-paris", "ecole['centrale-paris']"},
+		{"ecole['centrale-paris']", "ecole['centrale-paris']"},
+		{"ecole.centrale_paris", "ecole['centrale_paris']"},
+		{"ecole['centrale_paris']", "ecole['centrale_paris']"},
+	}
+
+	for _, table := range tables {
+		table := table
+		t.Run(table.in, func(t *testing.T) {
+			re := ee.Rewrite(table.in)
+			assert.Equal(table.re, re, table.in)
 		})
 	}
 }

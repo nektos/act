@@ -17,13 +17,11 @@ import (
 	"gopkg.in/godo.v2/glob"
 )
 
-const prefix = "${{"
-const suffix = "}}"
-
-var pattern *regexp.Regexp
+var contextPattern, expressionPattern *regexp.Regexp
 
 func init() {
-	pattern = regexp.MustCompile(fmt.Sprintf("\\%s.+?%s", prefix, suffix))
+	contextPattern = regexp.MustCompile(`^(\w+(?:\[.+\])*)(?:\.([\w-]+))?(.*)$`)
+	expressionPattern = regexp.MustCompile(`\${{\s*(.+?)\s*}}`)
 }
 
 // NewExpressionEvaluator creates a new evaluator
@@ -54,6 +52,7 @@ func (sc *StepContext) NewExpressionEvaluator() ExpressionEvaluator {
 type ExpressionEvaluator interface {
 	Evaluate(string) (string, error)
 	Interpolate(string) string
+	Rewrite(string) string
 }
 
 type expressionEvaluator struct {
@@ -61,7 +60,12 @@ type expressionEvaluator struct {
 }
 
 func (ee *expressionEvaluator) Evaluate(in string) (string, error) {
-	val, err := ee.vm.Run(in)
+	re := ee.Rewrite(in)
+	if re != in {
+		logrus.Debugf("Evaluating '%s' instead of '%s'", re, in)
+	}
+
+	val, err := ee.vm.Run(re)
 	if err != nil {
 		return "", err
 	}
@@ -76,8 +80,10 @@ func (ee *expressionEvaluator) Interpolate(in string) string {
 
 	out := in
 	for {
-		out = pattern.ReplaceAllStringFunc(in, func(match string) string {
-			expression := strings.TrimPrefix(strings.TrimSuffix(match, suffix), prefix)
+		out = expressionPattern.ReplaceAllStringFunc(in, func(match string) string {
+			// Extract and trim the actual expression inside ${{...}} delimiters
+			expression := expressionPattern.ReplaceAllString(match, "$1")
+			// Evaluate the expression and retrieve errors if any
 			evaluated, err := ee.Evaluate(expression)
 			if err != nil {
 				errList = append(errList, err)
@@ -89,12 +95,33 @@ func (ee *expressionEvaluator) Interpolate(in string) string {
 			break
 		}
 		if out == in {
-			// no replacement occurred, we're done!
+			// No replacement occurred, we're done!
 			break
 		}
 		in = out
 	}
 	return out
+}
+
+// Rewrite tries to transform any javascript property accessor into its bracket notation.
+// For instance, "object.property" would become "object['property']".
+func (ee *expressionEvaluator) Rewrite(in string) string {
+	re := in
+	for {
+		matches := contextPattern.FindStringSubmatch(re)
+		if matches == nil {
+			// No global match, we're done!
+			break
+		}
+		if matches[2] == "" {
+			// No property match, we're done!
+			break
+		}
+
+		re = fmt.Sprintf("%s['%s']%s", matches[1], matches[2], matches[3])
+	}
+
+	return re
 }
 
 func (rc *RunContext) newVM() *otto.Otto {
