@@ -141,9 +141,9 @@ func (sc *StepContext) newStepContainer(ctx context.Context, image string, cmd [
 	rawLogger := common.Logger(ctx).WithField("raw_output", true)
 	logWriter := common.NewLineWriter(rc.commandHandler(ctx), func(s string) bool {
 		if rc.Config.LogOutput {
-			rawLogger.Infof(s)
+			rawLogger.Infof("%s", s)
 		} else {
-			rawLogger.Debugf(s)
+			rawLogger.Debugf("%s", s)
 		}
 		return true
 	})
