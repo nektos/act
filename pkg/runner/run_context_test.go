@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"fmt"
 	"github.com/nektos/act/pkg/model"
 	a "github.com/stretchr/testify/assert"
 	"testing"
@@ -16,8 +17,8 @@ func TestRunContext_EvalBool(t *testing.T) {
 			Workdir: ".",
 		},
 		Env: map[string]string{
-			"TRUE":  "true",
-			"FALSE": "false",
+			"TRUE":      "true",
+			"FALSE":     "false",
 			"SOME_TEXT": "text",
 		},
 		Run: &model.Run{
@@ -52,8 +53,8 @@ func TestRunContext_EvalBool(t *testing.T) {
 	rc.ExprEval = rc.NewExpressionEvaluator()
 
 	tables := []struct {
-		in      string
-		out     bool
+		in  string
+		out bool
 	}{
 		// The basic ones
 		{"true", true},
@@ -72,12 +73,24 @@ func TestRunContext_EvalBool(t *testing.T) {
 		{"false || 1 < 2", true},
 		{"false || false", false},
 		// None boolable
-		{"env.SOME_TEXT", true},
+		{"env.SOME_TEXT", false},
 		{"env.UNKNOWN == 'true'", false},
 		{"env.UNKNOWN", false},
 		// Inline expressions
 		{"env.TRUE == 'true'", true},
 		{"env.FALSE == 'true'", false},
+		{"env.TRUE", true},
+		{"env.FALSE", false},
+		{"!env.TRUE", false},
+		{"!env.FALSE", true},
+		{"${{ env.TRUE }}", true},
+		{"${{ env.FALSE }}", false},
+		{"${{ !env.TRUE }}", false},
+		{"${{ !env.FALSE }}", true},
+		{"!env.TRUE && true", false},
+		{"!env.FALSE && true", true},
+		{"!env.TRUE || true", true},
+		{"!env.FALSE || false", true},
 		{"${{env.TRUE == 'true'}}", true},
 		{"${{env.FALSE == 'true'}}", false},
 		{"${{env.FALSE == 'false'}}", true},
@@ -100,7 +113,7 @@ func TestRunContext_EvalBool(t *testing.T) {
 			defer hook.Reset()
 			b := rc.EvalBool(table.in)
 
-			assert.Equal(table.out, b, table.in)
+			assert.Equal(table.out, b, fmt.Sprintf("Expected %s to be %v, was %v",table.in, table.out, b))
 			assert.Empty(hook.LastEntry(), table.in)
 		})
 	}

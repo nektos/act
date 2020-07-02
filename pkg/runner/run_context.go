@@ -252,8 +252,23 @@ func (rc *RunContext) isEnabled(ctx context.Context) bool {
 // EvalBool evaluates an expression against current run context
 func (rc *RunContext) EvalBool(expr string) bool {
 	if expr != "" {
-		expr = fmt.Sprintf("Boolean(%s)", rc.ExprEval.Interpolate(expr))
-		v, err := rc.ExprEval.Evaluate(expr)
+		interpolated := rc.ExprEval.Interpolate(expr)
+		parts := strings.Split(interpolated, " ")
+		var evaluatedParts []string
+		for _, part := range parts {
+			if strings.HasPrefix(part, "!") {
+				interpolatedAndEvaluated, err := rc.ExprEval.Evaluate(interpolated)
+				if err != nil {
+					return false
+				}
+				evaluatedParts = append(evaluatedParts, fmt.Sprintf("!%s", interpolatedAndEvaluated))
+				continue
+			}
+			evaluatedParts = append(evaluatedParts, part)
+		}
+
+		boolExpr := fmt.Sprintf("Boolean(%s)", strings.Join(evaluatedParts, " "))
+		v, err := rc.ExprEval.Evaluate(boolExpr)
 		if err != nil {
 			return false
 		}
