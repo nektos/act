@@ -121,8 +121,8 @@ func TestInterpolate(t *testing.T) {
 			Workdir: ".",
 		},
 		Env: map[string]string{
-			"keywithnothing": "valuewithnothing",
-			"key-with-hyphens": "value-with-hyphens",
+			"keywithnothing":       "valuewithnothing",
+			"key-with-hyphens":     "value-with-hyphens",
 			"key_with_underscores": "value_with_underscores",
 		},
 		Run: &model.Run{

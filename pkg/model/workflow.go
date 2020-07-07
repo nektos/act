@@ -276,10 +276,10 @@ const (
 	//StepTypeUsesDockerURL is all steps that have a `uses` that is of the form `docker://...`
 	StepTypeUsesDockerURL
 
-	//StepTypeUsesActionLocal is all steps that have a `uses` that is a reference to a github repo
+	//StepTypeUsesActionLocal is all steps that have a `uses` that is a local action in a subdirectory
 	StepTypeUsesActionLocal
 
-	//StepTypeUsesActionRemote is all steps that have a `uses` that is a local action in a subdirectory
+	//StepTypeUsesActionRemote is all steps that have a `uses` that is a reference to a github repo
 	StepTypeUsesActionRemote
 )
 
