@@ -1,4 +1,5 @@
-VERSION?=$(shell git describe --tags --dirty | cut -c 2-)
+PREFIX ?= /usr/local
+VERSION ?= $(shell git describe --tags --dirty | cut -c 2-)
 IS_SNAPSHOT = $(if $(findstring -, $(VERSION)),true,false)
 MAJOR_VERSION = $(word 1, $(subst ., ,$(VERSION)))
 MINOR_VERSION = $(word 2, $(subst ., ,$(VERSION)))
@@ -8,22 +9,22 @@ NEW_VERSION ?= $(MAJOR_VERSION).$(MINOR_VERSION).$(shell echo $$(( $(PATCH_VERSI
 ACT ?= go run main.go
 export GITHUB_TOKEN = $(shell cat ~/.config/github/token)
 
-build: 
+build:
 	go build -ldflags "-X main.version=$(VERSION)" -o dist/local/act main.go
 
 test:
 	$(ACT)
 
 install: build
-	@cp dist/local/act /usr/local/bin/act
-	@chmod 755 /usr/local/bin/act
+	@cp dist/local/act $(PREFIX)/bin/act
+	@chmod 755 $(PREFIX)/bin/act
 	@act --version
 
 installer:
 	@GO111MODULE=off go get github.com/goreleaser/godownloader
 	godownloader -r nektos/act -o install.sh
 
-promote: 
+promote:
 	@git fetch --tags
 	@echo "VERSION:$(VERSION) IS_SNAPSHOT:$(IS_SNAPSHOT) NEW_VERSION:$(NEW_VERSION)"
 ifeq (false,$(IS_SNAPSHOT))
