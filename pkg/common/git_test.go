@@ -35,39 +35,39 @@ func TestFindGitSlug(t *testing.T) {
 	for _, tt := range slugTests {
 		provider, slug, err := findGitSlug(tt.url)
 
-		assert.Nil(err)
+		assert.NoError(err)
 		assert.Equal(tt.provider, provider)
 		assert.Equal(tt.slug, slug)
 	}
 
 }
 
+func testDir(t *testing.T) string {
+	basedir, err := ioutil.TempDir("", "act-test")
+	require.NoError(t, err)
+	t.Cleanup(func() { os.RemoveAll(basedir) })
+	return basedir
+}
+
 func TestFindGitRemoteURL(t *testing.T) {
 	assert := assert.New(t)
 
-	basedir, err := ioutil.TempDir("", "act-test")
-	defer os.RemoveAll(basedir)
-
-	assert.Nil(err)
-
+	basedir := testDir(t)
 	gitConfig()
-	err = gitCmd("init", basedir)
-	assert.Nil(err)
+	err := gitCmd("init", basedir)
+	assert.NoError(err)
 
 	remoteURL := "https://git-codecommit.us-east-1.amazonaws.com/v1/repos/my-repo-name"
 	err = gitCmd("config", "-f", fmt.Sprintf("%s/.git/config", basedir), "--add", "remote.origin.url", remoteURL)
-	assert.Nil(err)
+	assert.NoError(err)
 
 	u, err := findGitRemoteURL(basedir)
-	assert.Nil(err)
+	assert.NoError(err)
 	assert.Equal(remoteURL, u)
 }
 
 func TestGitFindRef(t *testing.T) {
-	basedir, err := ioutil.TempDir("", "act-test")
-	defer os.RemoveAll(basedir)
-	assert.NoError(t, err)
-
+	basedir := testDir(t)
 	gitConfig()
 
 	for name, tt := range map[string]struct {
