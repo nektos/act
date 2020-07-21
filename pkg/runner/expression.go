@@ -296,6 +296,14 @@ func (sc *StepContext) vmEnv() func(*otto.Otto) {
 
 func (sc *StepContext) vmInputs() func(*otto.Otto) {
 	inputs := make(map[string]string)
+
+	// Set Defaults
+	if sc.Action != nil {
+		for k, input := range sc.Action.Inputs {
+			inputs[k] = input.Default
+		}
+	}
+
 	for k, v := range sc.Step.With {
 		inputs[k] = v
 	}

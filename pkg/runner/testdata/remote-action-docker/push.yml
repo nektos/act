@@ -5,6 +5,6 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/hello-world-docker-action@master
+    - uses: actions/hello-world-docker-action@main
       with:
         who-to-greet: 'Mona the Octocat'
