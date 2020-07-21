@@ -47,7 +47,7 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "verbose output")
 	rootCmd.PersistentFlags().BoolVarP(&input.noOutput, "quiet", "q", false, "disable logging of output from steps")
 	rootCmd.PersistentFlags().BoolVarP(&input.dryrun, "dryrun", "n", false, "dryrun mode")
-	rootCmd.PersistentFlags().StringVarP(&input.secretfile, "secret-file", "", "", "file with list of secrets to read from")
+	rootCmd.PersistentFlags().StringVarP(&input.secretfile, "secret-file", "", "", "file with list of secrets to read from (e.g. --secret-file .secrets)")
 	rootCmd.PersistentFlags().StringVarP(&input.envfile, "env-file", "", ".env", "environment file to read and use as env in the containers")
 	rootCmd.SetArgs(args())
 
