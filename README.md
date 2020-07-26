@@ -194,5 +194,6 @@ Want to contribute to act? Awesome! Check out the [contributing guidelines](CONT
 
 - Install Go tools 1.11.4+ - (https://golang.org/doc/install)
 - Clone this repo `git clone git@github.com:nektos/act.git`
+- Pull the default docker image `docker pull nektos/act-environments-ubuntu:18.04`
 - Run unit tests with `make test`
 - Build and install: `make install`
