@@ -9,21 +9,26 @@ NEW_VERSION ?= $(MAJOR_VERSION).$(MINOR_VERSION).$(shell echo $$(( $(PATCH_VERSI
 ACT ?= go run main.go
 export GITHUB_TOKEN = $(shell cat ~/.config/github/token)
 
+.PHONY: build
 build:
 	go build -ldflags "-X main.version=$(VERSION)" -o dist/local/act main.go
 
+.PHONY: test
 test:
 	$(ACT)
 
+.PHONY: install
 install: build
 	@cp dist/local/act $(PREFIX)/bin/act
 	@chmod 755 $(PREFIX)/bin/act
 	@act --version
 
+.PHONY: installer
 installer:
 	@GO111MODULE=off go get github.com/goreleaser/godownloader
 	godownloader -r nektos/act -o install.sh
 
+.PHONY: promote
 promote:
 	@git fetch --tags
 	@echo "VERSION:$(VERSION) IS_SNAPSHOT:$(IS_SNAPSHOT) NEW_VERSION:$(NEW_VERSION)"
