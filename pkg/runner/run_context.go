@@ -104,6 +104,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			Binds:       binds,
 			Stdout:      logWriter,
 			Stderr:      logWriter,
+			Privileged:  rc.Config.Privileged,
 		})
 
 		var copyWorkspace bool

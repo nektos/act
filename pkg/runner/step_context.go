@@ -191,6 +191,7 @@ func (sc *StepContext) newStepContainer(ctx context.Context, image string, cmd [
 		Binds:       binds,
 		Stdout:      logWriter,
 		Stderr:      logWriter,
+		Privileged:  rc.Config.Privileged,
 	})
 	return stepContainer
 }

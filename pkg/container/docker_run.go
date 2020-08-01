@@ -40,6 +40,7 @@ type NewContainerInput struct {
 	Stdout      io.Writer
 	Stderr      io.Writer
 	NetworkMode string
+	Privileged  bool
 }
 
 // FileEntry is a file to copy to a container
@@ -261,6 +262,7 @@ func (cr *containerReference) create() common.Executor {
 			Binds:       input.Binds,
 			Mounts:      mounts,
 			NetworkMode: container.NetworkMode(input.NetworkMode),
+			Privileged:  input.Privileged,
 		}, nil, input.Name)
 		if err != nil {
 			return errors.WithStack(err)

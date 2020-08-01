@@ -28,6 +28,7 @@ type Config struct {
 	Env             map[string]string // env for containers
 	Secrets         map[string]string // list of secrets
 	Platforms       map[string]string // list of platforms
+	Privileged      bool              // use privileged mode
 }
 
 type runnerImpl struct {
