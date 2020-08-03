@@ -20,6 +20,7 @@ type Input struct {
 	noOutput        bool
 	envfile         string
 	secretfile      string
+	privileged      bool
 }
 
 func (i *Input) resolve(path string) string {

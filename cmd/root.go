@@ -41,6 +41,7 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.Flags().BoolVarP(&input.bindWorkdir, "bind", "b", false, "bind working directory to container, rather than copy")
 	rootCmd.Flags().BoolVarP(&input.forcePull, "pull", "p", false, "pull docker image(s) if already present")
 	rootCmd.Flags().StringVarP(&input.eventPath, "eventpath", "e", "", "path to event JSON file")
+	rootCmd.Flags().BoolVar(&input.privileged, "privileged", false, "use privileged mode")
 	rootCmd.PersistentFlags().StringVarP(&input.actor, "actor", "a", "nektos/act", "user that triggered the event")
 	rootCmd.PersistentFlags().StringVarP(&input.workflowsPath, "workflows", "W", "./.github/workflows/", "path to workflow file(s)")
 	rootCmd.PersistentFlags().StringVarP(&input.workdir, "directory", "C", ".", "working directory")
@@ -168,6 +169,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			Env:             envs,
 			Secrets:         secrets,
 			Platforms:       input.newPlatforms(),
+			Privileged:      input.privileged,
 		}
 		runner, err := runner.New(config)
 		if err != nil {
