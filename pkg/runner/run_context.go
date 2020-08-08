@@ -122,11 +122,11 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			rc.JobContainer.CopyDir(copyToPath, rc.Config.Workdir+"/.").IfBool(copyWorkspace),
 			rc.JobContainer.Copy("/github/", &container.FileEntry{
 				Name: "workflow/event.json",
-				Mode: 644,
+				Mode: 0644,
 				Body: rc.EventJSON,
 			}, &container.FileEntry{
 				Name: "home/.act",
-				Mode: 644,
+				Mode: 0644,
 				Body: "",
 			}),
 		)(ctx)

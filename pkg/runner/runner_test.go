@@ -45,6 +45,7 @@ func TestRunEvent(t *testing.T) {
 		{"fail", "push", "exit with `FAILURE`: 1"},
 		{"runs-on", "push", ""},
 		{"job-container", "push", ""},
+		{"job-container-non-root", "push", ""},
 		{"uses-docker-url", "push", ""},
 		{"remote-action-docker", "push", ""},
 		{"remote-action-js", "push", ""},
