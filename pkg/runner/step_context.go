@@ -129,7 +129,7 @@ func (sc *StepContext) setupShellCommand() common.Executor {
 		sc.Cmd = strings.Fields(strings.Replace(step.ShellCommand(), "{0}", containerPath, 1))
 		return rc.JobContainer.Copy("/github/", &container.FileEntry{
 			Name: scriptName,
-			Mode: 755,
+			Mode: 0755,
 			Body: script.String(),
 		})(ctx)
 	}
