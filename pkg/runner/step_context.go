@@ -111,6 +111,12 @@ func (sc *StepContext) setupShellCommand() common.Executor {
 			return err
 		}
 
+		if step.WorkingDirectory == "" {
+			step.WorkingDirectory = rc.Run.Job().Defaults.Run.WorkingDirectory
+		}
+		if step.WorkingDirectory == "" {
+			step.WorkingDirectory = rc.Run.Workflow.Defaults.Run.WorkingDirectory
+		}
 		if step.WorkingDirectory != "" {
 			_, err = script.WriteString(fmt.Sprintf("cd %s\n", step.WorkingDirectory))
 			if err != nil {
@@ -126,6 +132,13 @@ func (sc *StepContext) setupShellCommand() common.Executor {
 		scriptName := fmt.Sprintf("workflow/%s", step.ID)
 		log.Debugf("Wrote command '%s' to '%s'", run, scriptName)
 		containerPath := fmt.Sprintf("/github/%s", scriptName)
+
+		if step.Shell == "" {
+			step.Shell = rc.Run.Job().Defaults.Run.Shell
+		}
+		if step.Shell == "" {
+			step.Shell = rc.Run.Workflow.Defaults.Run.Shell
+		}
 		sc.Cmd = strings.Fields(strings.Replace(step.ShellCommand(), "{0}", containerPath, 1))
 		return rc.JobContainer.Copy("/github/", &container.FileEntry{
 			Name: scriptName,
