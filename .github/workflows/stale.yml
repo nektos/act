@@ -7,7 +7,7 @@ jobs:
   stale:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/stale@v1
+    - uses: actions/stale@v3
       with:
         repo-token: ${{ secrets.GITHUB_TOKEN }}
         stale-issue-message: 'Issue is stale and will be closed in 7 days unless there is new activity'
@@ -16,3 +16,5 @@ jobs:
         exempt-issue-label: 'meta/stale-exempt'
         stale-pr-label: 'meta/stale'
         exempt-pr-label: 'meta/stale-exempt'
+        remove-stale-when-updated: true
+
