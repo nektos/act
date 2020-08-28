@@ -45,6 +45,4 @@ require (
 	gotest.tools v2.2.0+incompatible
 )
 
-replace github.com/docker/docker => github.com/docker/docker v0.0.0-20200229013735-71373c6105e3
-
-replace golang.org/x/sys => golang.org/x/sys v0.0.0-20190813064441-fde4db37ae7a
+replace github.com/docker/docker => github.com/docker/docker v17.12.0-ce-rc1.0.20200618181300-9dc6525e6118+incompatible
