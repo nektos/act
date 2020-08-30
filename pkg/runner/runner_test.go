@@ -10,7 +10,7 @@ import (
 	"github.com/nektos/act/pkg/model"
 
 	log "github.com/sirupsen/logrus"
-	"gotest.tools/assert"
+	"gotest.tools/v3/assert"
 )
 
 func TestGraphEvent(t *testing.T) {
