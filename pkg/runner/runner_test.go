@@ -10,7 +10,7 @@ import (
 	"github.com/nektos/act/pkg/model"
 
 	log "github.com/sirupsen/logrus"
-	"gotest.tools/assert"
+	"gotest.tools/v3/assert"
 )
 
 func TestGraphEvent(t *testing.T) {
@@ -55,6 +55,7 @@ func TestRunEvent(t *testing.T) {
 		{"commands", "push", ""},
 		{"workdir", "push", ""},
 		{"issue-228", "push", ""}, // TODO [igni]: Remove this once everything passes
+		{"defaults-run", "push", ""},
 	}
 	log.SetLevel(log.DebugLevel)
 

@@ -1,0 +1,29 @@
+name: defaults-run
+on:
+  - push
+defaults:
+  run:
+    shell: sh
+jobs:
+  without-defaults:
+    runs-on: ubuntu-latest
+    steps:
+    - run: echo $SHELL | grep -v bash || exit 1
+  with-defaults:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: /tmp
+    steps:
+    - run: |
+        echo $SHELL | grep bash || exit 1
+        [ $(pwd) = /tmp ] || exit 2
+  override-in-step:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+    - run: echo $SHELL | grep -v bash || exit 1
+      shell: sh

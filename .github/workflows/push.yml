@@ -23,6 +23,22 @@ jobs:
       env:
         CGO_ENABLED: 0
 
+  snapshot:
+    if: ${{ github.event_name == 'pull_request' }}
+    needs:
+    - lint
+    - test
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: GoReleaser
+      uses: goreleaser/goreleaser-action@v1
+      with:
+        version: latest
+        args: release --snapshot --rm-dist
+      env:
+        SNAPSHOT_VERSION: "v0.0.0"
+
   release:
     if: startsWith(github.ref, 'refs/tags/v')
     needs:
