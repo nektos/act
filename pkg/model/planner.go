@@ -1,12 +1,14 @@
 package model
 
 import (
+	"io"
 	"io/ioutil"
 	"math"
 	"os"
 	"path/filepath"
 	"sort"
 
+	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -82,6 +84,9 @@ func NewWorkflowPlanner(path string) (WorkflowPlanner, error) {
 			workflow, err := ReadWorkflow(f)
 			if err != nil {
 				f.Close()
+				if err == io.EOF {
+					return nil, errors.WithMessagef(err, "unable to read workflow, %s file is empty", file.Name())
+				}
 				return nil, err
 			}
 			if workflow.Name == "" {
