@@ -461,12 +461,12 @@ func nestedMapLookup(m map[string]interface{}, ks ...string) (rval interface{}) 
 
 func withDefaultBranch(b string, event map[string]interface{}) map[string]interface{} {
 	repoI, ok := event["repository"]
-	if ok == false {
+	if !ok {
 		repoI = make(map[string]interface{})
 	}
 
 	repo, ok := repoI.(map[string]interface{})
-	if ok == false {
+	if !ok {
 		log.Warnf("unable to set default branch to %v", b)
 		return event
 	}
