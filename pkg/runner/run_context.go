@@ -400,6 +400,13 @@ func (rc *RunContext) getGithubContext() *githubContext {
 		}
 	}
 
+	// set the branch in the event data
+	if rc.Config.DefaultBranch != "" {
+		ghc.Event = withDefaultBranch(rc.Config.DefaultBranch, ghc.Event)
+	} else {
+		ghc.Event = withDefaultBranch("master", ghc.Event)
+	}
+
 	if ghc.EventName == "pull_request" {
 		ghc.BaseRef = asString(nestedMapLookup(ghc.Event, "pull_request", "base", "ref"))
 		ghc.HeadRef = asString(nestedMapLookup(ghc.Event, "pull_request", "head", "ref"))
@@ -450,6 +457,29 @@ func nestedMapLookup(m map[string]interface{}, ks ...string) (rval interface{}) 
 	} else { // 1+ more keys
 		return nestedMapLookup(m, ks[1:]...)
 	}
+}
+
+func withDefaultBranch(b string, event map[string]interface{}) map[string]interface{} {
+	repoI, ok := event["repository"]
+	if ok == false {
+		repoI = make(map[string]interface{})
+	}
+
+	repo, ok := repoI.(map[string]interface{})
+	if ok == false {
+		log.Warnf("unable to set default branch to %v", b)
+		return event
+	}
+
+	// if the branch is already there return with no changes
+	if _, ok = repo["default_branch"]; ok {
+		return event
+	}
+
+	repo["default_branch"] = b
+	event["repository"] = repo
+
+	return event
 }
 
 func (rc *RunContext) withGithubEnv(env map[string]string) map[string]string {
