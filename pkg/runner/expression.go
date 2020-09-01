@@ -132,6 +132,7 @@ func (rc *RunContext) newVM() *otto.Otto {
 		vmFormat,
 		vmJoin,
 		vmToJSON,
+		vmFromJSON,
 		vmAlways,
 		rc.vmCancelled(),
 		rc.vmSuccess(),
@@ -217,6 +218,20 @@ func vmToJSON(vm *otto.Otto) {
 	}
 	_ = vm.Set("toJSON", toJSON)
 	_ = vm.Set("toJson", toJSON)
+}
+
+func vmFromJSON(vm *otto.Otto) {
+	fromJSON := func(str string) map[string]interface{} {
+		var dat map[string]interface{}
+		err := json.Unmarshal([]byte(str), &dat)
+		if err != nil {
+			logrus.Errorf("Unable to unmarshal: %v", err)
+			return dat
+		}
+		return dat
+	}
+	_ = vm.Set("fromJSON", fromJSON)
+	_ = vm.Set("fromJson", fromJSON)
 }
 
 func (rc *RunContext) vmHashFiles() func(*otto.Otto) {
