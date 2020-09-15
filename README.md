@@ -27,6 +27,22 @@ Alternatively, you can use the following:
 
 `curl https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash`
 
+If you are running on a Mac OS, run the following commands
+`brew install docker docker-machine`
+
+`brew cask install virtualbox`
+
+Accept the software installation from `Oracle America Inc.`
+
+Return to the console and run the following:
+
+`docker-machine create --driver virtualbox default`
+
+Run this command to configure your shell:
+
+`eval "$(docker-machine env default)"` 
+
+
 If you are running Windows, download the [latest release](https://github.com/nektos/act/releases/latest) and add the binary into your PATH.  
 If you are using [Chocolatey](https://chocolatey.org/) then run:  
 `choco install act-cli`
