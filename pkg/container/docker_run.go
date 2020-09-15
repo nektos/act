@@ -400,7 +400,7 @@ func (cr *containerReference) copyDir(dstPath string, srcPath string) common.Exe
 			}
 
 			// update the name to correctly reflect the desired destination when untaring
-			header.Name = sansPrefix
+			header.Name = filepath.ToSlash(sansPrefix)
 			header.Mode = int64(fi.Mode())
 			header.ModTime = fi.ModTime()
 
