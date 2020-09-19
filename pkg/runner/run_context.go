@@ -351,13 +351,20 @@ func (rc *RunContext) getGithubContext() *githubContext {
 	if !ok {
 		token = os.Getenv("GITHUB_TOKEN")
 	}
-
+	runId := rc.Config.Env["GITHUB_RUN_ID"]
+	if(runId == ""){
+		runId = "1"
+	}
+	runNumber := rc.Config.Env["GITHUB_RUN_NUMBER"]
+	if(runNumber == ""){
+		runNumber = "1"
+	}
 	ghc := &githubContext{
 		Event:     make(map[string]interface{}),
 		EventPath: "/github/workflow/event.json",
 		Workflow:  rc.Run.Workflow.Name,
-		RunID:     "1",
-		RunNumber: "1",
+		RunID:     runId,
+		RunNumber: runNumber,
 		Actor:     rc.Config.Actor,
 		EventName: rc.Config.EventName,
 		Token:     token,
