@@ -41,6 +41,7 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.Flags().BoolVarP(&input.bindWorkdir, "bind", "b", false, "bind working directory to container, rather than copy")
 	rootCmd.Flags().BoolVarP(&input.forcePull, "pull", "p", false, "pull docker image(s) if already present")
 	rootCmd.Flags().StringVarP(&input.eventPath, "eventpath", "e", "", "path to event JSON file")
+	rootCmd.Flags().StringVar(&input.defaultBranch, "defaultbranch", "", "the name of the main branch")
 	rootCmd.Flags().BoolVar(&input.privileged, "privileged", false, "use privileged mode")
 	rootCmd.PersistentFlags().StringVarP(&input.actor, "actor", "a", "nektos/act", "user that triggered the event")
 	rootCmd.PersistentFlags().StringVarP(&input.workflowsPath, "workflows", "W", "./.github/workflows/", "path to workflow file(s)")
@@ -156,11 +157,18 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			return drawGraph(plan)
 		}
 
+		// check to see if the main branch was defined
+		defaultbranch, err := cmd.Flags().GetString("defaultbranch")
+		if err != nil {
+			return err
+		}
+
 		// run the plan
 		config := &runner.Config{
 			Actor:           input.actor,
 			EventName:       eventName,
 			EventPath:       input.EventPath(),
+			DefaultBranch:   defaultbranch,
 			ForcePull:       input.forcePull,
 			ReuseContainers: input.reuseContainers,
 			Workdir:         input.Workdir(),
