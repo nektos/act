@@ -351,9 +351,9 @@ func (rc *RunContext) getGithubContext() *githubContext {
 	if !ok {
 		token = os.Getenv("GITHUB_TOKEN")
 	}
-	runId := rc.Config.Env["GITHUB_RUN_ID"]
-	if(runId == ""){
-		runId = "1"
+	runID := rc.Config.Env["GITHUB_RUN_ID"]
+	if(runID == ""){
+		runID = "1"
 	}
 	runNumber := rc.Config.Env["GITHUB_RUN_NUMBER"]
 	if(runNumber == ""){
@@ -363,7 +363,7 @@ func (rc *RunContext) getGithubContext() *githubContext {
 		Event:     make(map[string]interface{}),
 		EventPath: "/github/workflow/event.json",
 		Workflow:  rc.Run.Workflow.Name,
-		RunID:     runId,
+		RunID:     runID,
 		RunNumber: runNumber,
 		Actor:     rc.Config.Actor,
 		EventName: rc.Config.EventName,
