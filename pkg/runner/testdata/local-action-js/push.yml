@@ -1,0 +1,10 @@
+name: local-action-node12
+on: push
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: ./actions/node12
+      with:
+        who-to-greet: 'Mona the Octocat'

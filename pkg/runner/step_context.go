@@ -10,10 +10,11 @@ import (
 	"runtime"
 	"strings"
 
+	log "github.com/sirupsen/logrus"
+
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/container"
 	"github.com/nektos/act/pkg/model"
-	log "github.com/sirupsen/logrus"
 )
 
 // StepContext contains info about current job
@@ -276,7 +277,7 @@ func (sc *StepContext) runAction(actionDir string, actionPath string) common.Exe
 
 		sc.Env = mergeMaps(sc.Env, action.Runs.Env)
 
-		log.Debugf("type=%v actionDir=%s Workdir=%s ActionCacheDir=%s actionName=%s containerActionDir=%s", step.Type(), actionDir, rc.Config.Workdir, rc.ActionCacheDir(), actionName, containerActionDir)
+		log.Debugf("type=%v actionDir=%s actionPath=%s Workdir=%s ActionCacheDir=%s actionName=%s containerActionDir=%s", step.Type(), actionDir, actionPath, rc.Config.Workdir, rc.ActionCacheDir(), actionName, containerActionDir)
 
 		switch action.Runs.Using {
 		case model.ActionRunsUsingNode12:
@@ -289,9 +290,10 @@ func (sc *StepContext) runAction(actionDir string, actionPath string) common.Exe
 				if err != nil {
 					return err
 				}
-				return rc.execJobContainer([]string{"node", filepath.Join(containerActionDir, actionName, actionPath, action.Runs.Main)}, sc.Env)(ctx)
 			}
-			return rc.execJobContainer([]string{"node", filepath.Join(containerActionDir, actionPath, action.Runs.Main)}, sc.Env)(ctx)
+			containerArgs := []string{"node", filepath.Join(containerActionDir, actionName, actionPath, action.Runs.Main)}
+			log.Debugf("executing remote job container: %s", containerArgs)
+			return rc.execJobContainer(containerArgs, sc.Env)(ctx)
 		case model.ActionRunsUsingDocker:
 			var prepImage common.Executor
 			var image string
