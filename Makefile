@@ -15,6 +15,7 @@ build:
 
 .PHONY: test
 test:
+	go test ./...
 	$(ACT)
 
 .PHONY: install
