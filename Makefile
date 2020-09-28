@@ -15,7 +15,7 @@ build:
 
 .PHONY: test
 test:
-	$(ACT) -W examples/workflows --verbose
+	$(ACT)
 
 .PHONY: install
 install: build
