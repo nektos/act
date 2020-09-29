@@ -18,7 +18,6 @@ jobs:
       - run: echo 'hello world' 
       - run: echo ${GITHUB_SHA} >> /github/sha.txt
       - run: cat /github/sha.txt | grep ${GITHUB_SHA}
-
   build:
     runs-on: ubuntu-latest
     needs: [check]

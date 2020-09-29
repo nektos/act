@@ -7,11 +7,15 @@ PATCH_VERSION = $(word 3, $(subst ., ,$(word 1,$(subst -, , $(VERSION)))))
 NEW_VERSION ?= $(MAJOR_VERSION).$(MINOR_VERSION).$(shell echo $$(( $(PATCH_VERSION) + 1)) )
 
 ACT ?= go run main.go
-export GITHUB_TOKEN = $(shell cat ~/.config/github/token)
+export GITHUB_TOKEN := $(shell cat ~/.config/github/token)
 
 .PHONY: build
 build:
 	go build -ldflags "-X main.version=$(VERSION)" -o dist/local/act main.go
+
+.PHONY: format
+format:
+	go fmt ./...
 
 .PHONY: test
 test:

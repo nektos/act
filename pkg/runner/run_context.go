@@ -352,11 +352,11 @@ func (rc *RunContext) getGithubContext() *githubContext {
 		token = os.Getenv("GITHUB_TOKEN")
 	}
 	runID := rc.Config.Env["GITHUB_RUN_ID"]
-	if(runID == ""){
+	if runID == "" {
 		runID = "1"
 	}
 	runNumber := rc.Config.Env["GITHUB_RUN_NUMBER"]
-	if(runNumber == ""){
+	if runNumber == "" {
 		runNumber = "1"
 	}
 	ghc := &githubContext{

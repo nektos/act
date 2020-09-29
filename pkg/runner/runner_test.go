@@ -51,6 +51,7 @@ func TestRunEvent(t *testing.T) {
 		{"remote-action-js", "push", ""},
 		{"local-action-docker-url", "push", ""},
 		{"local-action-dockerfile", "push", ""},
+		{"local-action-js", "push", ""},
 		{"matrix", "push", ""},
 		{"commands", "push", ""},
 		{"workdir", "push", ""},
@@ -72,6 +73,7 @@ func TestRunEvent(t *testing.T) {
 			assert.NilError(t, err, table.workflowPath)
 			runnerConfig := &Config{
 				Workdir:         workdir,
+				BindWorkdir:     true,
 				EventName:       table.eventName,
 				Platforms:       platforms,
 				ReuseContainers: false,
