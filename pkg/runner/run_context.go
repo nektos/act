@@ -491,6 +491,7 @@ func withDefaultBranch(b string, event map[string]interface{}) map[string]interf
 
 func (rc *RunContext) withGithubEnv(env map[string]string) map[string]string {
 	github := rc.getGithubContext()
+	env["CI"] = "true"
 	env["HOME"] = "/github/home"
 	env["GITHUB_WORKFLOW"] = github.Workflow
 	env["GITHUB_RUN_ID"] = github.RunID

@@ -20,6 +20,7 @@ format:
 .PHONY: test
 test:
 	go test ./...
+	$(ACT)
 
 .PHONY: install
 install: build
