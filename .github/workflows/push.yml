@@ -3,6 +3,7 @@ on: [push, pull_request]
 
 jobs:
   lint:
+    name: Lint
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
@@ -13,6 +14,7 @@ jobs:
         CGO_ENABLED: 0
 
   test:
+    name: Test
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
@@ -24,6 +26,7 @@ jobs:
         CGO_ENABLED: 0
 
   snapshot:
+    name: Snapshot
     if: ${{ github.event_name == 'pull_request' }}
     needs:
     - lint
@@ -40,6 +43,7 @@ jobs:
         SNAPSHOT_VERSION: "v0.0.0"
 
   release:
+    name: Release
     if: startsWith(github.ref, 'refs/tags/v')
     needs:
     - lint

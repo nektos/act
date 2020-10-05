@@ -154,7 +154,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 		if list, err := cmd.Flags().GetBool("list"); err != nil {
 			return err
 		} else if list {
-			return drawGraph(plan)
+			return printList(plan)
 		}
 
 		// check to see if the main branch was defined
