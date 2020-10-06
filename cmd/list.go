@@ -9,16 +9,16 @@ import (
 
 func printList(plan *model.Plan) error {
 	type lineInfoDef struct {
-		id string
+		id    string
 		stage string
-		name string
+		name  string
 	}
 	lineInfos := []lineInfoDef{}
 
 	header := lineInfoDef{
-		id: "ID",
+		id:    "ID",
 		stage: "Stage",
-		name: "Name",
+		name:  "Name",
 	}
 
 	idMaxWidth := len(header.id)
@@ -28,9 +28,9 @@ func printList(plan *model.Plan) error {
 	for i, stage := range plan.Stages {
 		for _, r := range stage.Runs {
 			line := lineInfoDef{
-				id: r.JobID,
+				id:    r.JobID,
 				stage: strconv.Itoa(i),
-				name: r.String(),
+				name:  r.String(),
 			}
 			lineInfos = append(lineInfos, line)
 			if idMaxWidth < len(line.id) {
