@@ -107,6 +107,10 @@ type workflowPlanner struct {
 // PlanEvent builds a new list of runs to execute in parallel for an event name
 func (wp *workflowPlanner) PlanEvent(eventName string) *Plan {
 	plan := new(Plan)
+	if len(wp.workflows) == 0 {
+		log.Debugf("no events found for workflow: %s", eventName)
+	}
+
 	for _, w := range wp.workflows {
 		for _, e := range w.On() {
 			if e == eventName {
@@ -120,6 +124,10 @@ func (wp *workflowPlanner) PlanEvent(eventName string) *Plan {
 // PlanJob builds a new run to execute in parallel for a job name
 func (wp *workflowPlanner) PlanJob(jobName string) *Plan {
 	plan := new(Plan)
+	if len(wp.workflows) == 0 {
+		log.Debugf("no jobs found for workflow: %s", jobName)
+	}
+
 	for _, w := range wp.workflows {
 		plan.mergeStages(createStages(w, jobName))
 	}
