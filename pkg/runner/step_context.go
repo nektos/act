@@ -286,12 +286,12 @@ func (sc *StepContext) runAction(actionDir string, actionPath string) common.Exe
 				if err != nil {
 					return err
 				}
-				err = rc.JobContainer.CopyDir(containerActionDir+string(filepath.Separator), actionDir)(ctx)
+				err = rc.JobContainer.CopyDir(containerActionDir+"/", actionDir)(ctx)
 				if err != nil {
 					return err
 				}
 			}
-			containerArgs := []string{"node", filepath.Join(containerActionDir, actionName, actionPath, action.Runs.Main)}
+			containerArgs := []string{"node", path.Join(containerActionDir, actionName, actionPath, action.Runs.Main)}
 			log.Debugf("executing remote job container: %s", containerArgs)
 			return rc.execJobContainer(containerArgs, sc.Env)(ctx)
 		case model.ActionRunsUsingDocker:
