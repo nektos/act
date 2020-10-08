@@ -264,15 +264,27 @@ func (sc *StepContext) runAction(actionDir string, actionPath string) common.Exe
 		actionName := ""
 		containerActionDir := "."
 		if step.Type() == model.StepTypeUsesActionLocal {
-			actionName = strings.TrimPrefix(strings.TrimPrefix(actionDir, rc.Config.Workdir), string(filepath.Separator))
+			actionName = strings.TrimPrefix(actionDir, rc.Config.Workdir)
+			if runtime.GOOS == "windows" {
+				actionName = strings.ReplaceAll(actionName, "\\", "/")
+			}
+			actionName = strings.TrimPrefix(actionName, "/")
+
 			containerActionDir = "/github/workspace"
 		} else if step.Type() == model.StepTypeUsesActionRemote {
-			actionName = strings.TrimPrefix(strings.TrimPrefix(actionDir, rc.ActionCacheDir()), string(filepath.Separator))
+			actionName = strings.TrimPrefix(actionDir, rc.ActionCacheDir())
+			if runtime.GOOS == "windows" {
+				actionName = strings.ReplaceAll(actionName, "\\", "/")
+			}
+			actionName = strings.TrimPrefix(actionName, "/")
 			containerActionDir = "/actions"
 		}
 
 		if actionName == "" {
 			actionName = filepath.Base(actionDir)
+			if runtime.GOOS == "windows" {
+				actionName = strings.ReplaceAll(actionName, "\\", "/")
+			}
 		}
 
 		sc.Env = mergeMaps(sc.Env, action.Runs.Env)
