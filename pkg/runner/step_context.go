@@ -247,6 +247,36 @@ func (sc *StepContext) setupAction(actionDir string, actionPath string) common.E
 	}
 }
 
+func getOsSafeRelativePath(s, prefix string) string {
+	actionName := strings.TrimPrefix(s, prefix)
+	if runtime.GOOS == "windows" {
+		actionName = strings.ReplaceAll(actionName, "\\", "/")
+	}
+	actionName = strings.TrimPrefix(actionName, "/")
+
+	return actionName
+}
+
+func (sc *StepContext) getContainerActionPaths(step *model.Step, actionDir string, rc *RunContext) (string, string) {
+	actionName := ""
+	containerActionDir := "."
+	if step.Type() == model.StepTypeUsesActionLocal {
+		actionName = getOsSafeRelativePath(actionDir, rc.Config.Workdir)
+		containerActionDir = "/github/workspace"
+	} else if step.Type() == model.StepTypeUsesActionRemote {
+		actionName = getOsSafeRelativePath(actionDir, rc.ActionCacheDir())
+		containerActionDir = "/actions"
+	}
+
+	if actionName == "" {
+		actionName = filepath.Base(actionDir)
+		if runtime.GOOS == "windows" {
+			actionName = strings.ReplaceAll(actionName, "\\", "/")
+		}
+	}
+	return actionName, containerActionDir
+}
+
 func (sc *StepContext) runAction(actionDir string, actionPath string) common.Executor {
 	rc := sc.RunContext
 	step := sc.Step
@@ -261,31 +291,7 @@ func (sc *StepContext) runAction(actionDir string, actionPath string) common.Exe
 			}
 		}
 
-		actionName := ""
-		containerActionDir := "."
-		if step.Type() == model.StepTypeUsesActionLocal {
-			actionName = strings.TrimPrefix(actionDir, rc.Config.Workdir)
-			if runtime.GOOS == "windows" {
-				actionName = strings.ReplaceAll(actionName, "\\", "/")
-			}
-			actionName = strings.TrimPrefix(actionName, "/")
-
-			containerActionDir = "/github/workspace"
-		} else if step.Type() == model.StepTypeUsesActionRemote {
-			actionName = strings.TrimPrefix(actionDir, rc.ActionCacheDir())
-			if runtime.GOOS == "windows" {
-				actionName = strings.ReplaceAll(actionName, "\\", "/")
-			}
-			actionName = strings.TrimPrefix(actionName, "/")
-			containerActionDir = "/actions"
-		}
-
-		if actionName == "" {
-			actionName = filepath.Base(actionDir)
-			if runtime.GOOS == "windows" {
-				actionName = strings.ReplaceAll(actionName, "\\", "/")
-			}
-		}
+		actionName, containerActionDir := sc.getContainerActionPaths(step, actionDir, rc)
 
 		sc.Env = mergeMaps(sc.Env, action.Runs.Env)
 
