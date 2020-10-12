@@ -34,6 +34,7 @@ func Execute(ctx context.Context, version string) {
 	}
 	rootCmd.Flags().BoolP("watch", "w", false, "watch the contents of the local repo and run when files change")
 	rootCmd.Flags().BoolP("list", "l", false, "list workflows")
+	rootCmd.Flags().BoolP("graph", "g", false, "draw workflows")
 	rootCmd.Flags().StringP("job", "j", "", "run job")
 	rootCmd.Flags().StringArrayVarP(&input.secrets, "secret", "s", []string{}, "secret to make available to actions with optional value (e.g. -s mysecret=foo or -s mysecret)")
 	rootCmd.Flags().StringArrayVarP(&input.platforms, "platform", "P", []string{}, "custom image to use per platform (e.g. -P ubuntu-18.04=nektos/act-environments-ubuntu:18.04)")
@@ -150,11 +151,18 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			plan = planner.PlanEvent(eventName)
 		}
 
-		// check if we should just print the graph
+		// check if we should just list the workflows
 		if list, err := cmd.Flags().GetBool("list"); err != nil {
 			return err
 		} else if list {
 			return printList(plan)
+		}
+
+		// check if we should just print the graph
+		if list, err := cmd.Flags().GetBool("graph"); err != nil {
+			return err
+		} else if list {
+			return drawGraph(plan)
 		}
 
 		// check to see if the main branch was defined
