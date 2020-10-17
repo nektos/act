@@ -139,10 +139,11 @@ act -P ubuntu-latest=nektos/act-environments-ubuntu:18.04
 
 # Secrets
 
-To run `act` with secrets, you can enter them interactively or supply them as environment variables. The following options are available for providing secrets:
+To run `act` with secrets, you can enter them interactively, supply them as environment variables or load them from a file. The following options are available for providing secrets:
 
 - `act -s MY_SECRET=somevalue` - use `somevalue` as the value for `MY_SECRET`.
 - `act -s MY_SECRET` - check for an environment variable named `MY_SECRET` and use it if it exists. If the environment variable is not defined, prompt the user for a value.
+- `act --secret-file my.secrets` - load secrets values from `my.secrets` file.
 
 # Configuration
 
