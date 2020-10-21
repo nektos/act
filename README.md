@@ -49,8 +49,14 @@ or in a shell by running
 # Commands
 
 ```
-# List the actions
+# Command structure:
+act [event name to run] [flags]
+
+# List the actions for the default event:
 act -l
+
+# List the actions for a specific event:
+act workflow_dispatch -l
 
 # Run the default (`push`) event:
 act
