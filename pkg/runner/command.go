@@ -50,9 +50,7 @@ func (rc *RunContext) commandHandler(ctx context.Context) common.LineHandler {
 			return false
 		}
 		arg = unescapeCommandData(arg)
-		for k, v := range kvPairs {
-			kvPairs[k] = unescapeCommandProperty(v)
-		}
+		kvPairs = unescapeKvPairs(kvPairs)
 		switch command {
 		case "set-env":
 			rc.setEnv(ctx, kvPairs, arg)
@@ -123,4 +121,10 @@ func unescapeCommandProperty(arg string) string {
 	arg = commandPatternEscapeChar4.ReplaceAllString(arg, ":")
 	arg = commandPatternEscapeChar5.ReplaceAllString(arg, ",")
 	return arg
+}
+func unescapeKvPairs(kvPairs map[string]string) map[string]string {
+	for k, v := range kvPairs {
+		kvPairs[k] = unescapeCommandProperty(v)
+	}
+	return kvPairs
 }
