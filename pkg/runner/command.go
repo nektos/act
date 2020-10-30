@@ -49,21 +49,10 @@ func (rc *RunContext) commandHandler(ctx context.Context) common.LineHandler {
 		if resumeCommand != "" && command != resumeCommand {
 			return false
 		}
-		// unescape command data string
-		arg = commandPatternEscapeChar1.ReplaceAllString(arg, "%")
-		arg = commandPatternEscapeChar2.ReplaceAllString(arg, "\r")
-		arg = commandPatternEscapeChar3.ReplaceAllString(arg, "\n")
-
-		// unescape property
+		arg = unescapeCommandData(arg)
 		for k, v := range kvPairs {
-			v = commandPatternEscapeChar1.ReplaceAllString(v, "%")
-			v = commandPatternEscapeChar2.ReplaceAllString(v, "\r")
-			v = commandPatternEscapeChar3.ReplaceAllString(v, "\n")
-			v = commandPatternEscapeChar4.ReplaceAllString(v, ":")
-			v = commandPatternEscapeChar5.ReplaceAllString(v, ",")
-			kvPairs[k] = v
+			kvPairs[k] = unescapeCommandProperty(v)
 		}
-
 		switch command {
 		case "set-env":
 			rc.setEnv(ctx, kvPairs, arg)
@@ -119,4 +108,19 @@ func parseKeyValuePairs(kvPairs string, separator string) map[string]string {
 		}
 	}
 	return rtn
+}
+func unescapeCommandData(arg string) string {
+	// unescape command data string
+	arg = commandPatternEscapeChar1.ReplaceAllString(arg, "%")
+	arg = commandPatternEscapeChar2.ReplaceAllString(arg, "\r")
+	arg = commandPatternEscapeChar3.ReplaceAllString(arg, "\n")
+	return arg
+}
+func unescapeCommandProperty(arg string) string {
+	arg = commandPatternEscapeChar1.ReplaceAllString(arg, "%")
+	arg = commandPatternEscapeChar2.ReplaceAllString(arg, "\r")
+	arg = commandPatternEscapeChar3.ReplaceAllString(arg, "\n")
+	arg = commandPatternEscapeChar4.ReplaceAllString(arg, ":")
+	arg = commandPatternEscapeChar5.ReplaceAllString(arg, ",")
+	return arg
 }
