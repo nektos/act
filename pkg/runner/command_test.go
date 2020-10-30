@@ -30,6 +30,15 @@ func TestSetOutput(t *testing.T) {
 	}
 	handler("::set-output name=x::valz\n")
 	assert.Equal("valz", rc.StepResults["my-step"].Outputs["x"])
+
+	handler("::set-output name=x::percent2%25\n")
+	assert.Equal("percent2%", rc.StepResults["my-step"].Outputs["x"])
+
+	handler("::set-output name=x::percent2%25%0Atest\n")
+	assert.Equal("percent2%\ntest", rc.StepResults["my-step"].Outputs["x"])
+
+	handler("::set-output name=x%3A::percent2%25%0Atest\n")
+	assert.Equal("percent2%\ntest", rc.StepResults["my-step"].Outputs["x:"])
 }
 
 func TestAddpath(t *testing.T) {

@@ -10,10 +10,21 @@ import (
 
 var commandPatternGA *regexp.Regexp
 var commandPatternADO *regexp.Regexp
+var commandPatternEscapeChar1 *regexp.Regexp
+var commandPatternEscapeChar2 *regexp.Regexp
+var commandPatternEscapeChar3 *regexp.Regexp
+var commandPatternEscapeChar4 *regexp.Regexp
+var commandPatternEscapeChar5 *regexp.Regexp
 
 func init() {
 	commandPatternGA = regexp.MustCompile("^::([^ ]+)( (.+))?::([^\r\n]*)[\r\n]+$")
 	commandPatternADO = regexp.MustCompile("^##\\[([^ ]+)( (.+))?\\]([^\r\n]*)[\r\n]+$")
+	commandPatternEscapeChar1 = regexp.MustCompile("%25") // %
+	commandPatternEscapeChar2 = regexp.MustCompile("%0D") // \r
+	commandPatternEscapeChar3 = regexp.MustCompile("%0A") // \n
+	commandPatternEscapeChar4 = regexp.MustCompile("%3A") // :
+	commandPatternEscapeChar5 = regexp.MustCompile("%2C") // ,
+
 }
 
 func (rc *RunContext) commandHandler(ctx context.Context) common.LineHandler {
@@ -37,6 +48,20 @@ func (rc *RunContext) commandHandler(ctx context.Context) common.LineHandler {
 
 		if resumeCommand != "" && command != resumeCommand {
 			return false
+		}
+		// unescape command data string
+		arg = commandPatternEscapeChar1.ReplaceAllString(arg, "%")
+		arg = commandPatternEscapeChar2.ReplaceAllString(arg, "\r")
+		arg = commandPatternEscapeChar3.ReplaceAllString(arg, "\n")
+
+		// unescape property
+		for k, v := range kvPairs {
+			v = commandPatternEscapeChar1.ReplaceAllString(v, "%")
+			v = commandPatternEscapeChar2.ReplaceAllString(v, "\r")
+			v = commandPatternEscapeChar3.ReplaceAllString(v, "\n")
+			v = commandPatternEscapeChar4.ReplaceAllString(v, ":")
+			v = commandPatternEscapeChar5.ReplaceAllString(v, ",")
+			kvPairs[k] = v
 		}
 
 		switch command {
