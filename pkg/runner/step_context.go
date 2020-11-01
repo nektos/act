@@ -106,10 +106,13 @@ func (sc *StepContext) setupShellCommand() common.Executor {
 	step := sc.Step
 	return func(ctx context.Context) error {
 		var script strings.Builder
+		var err error
 
-		_, err := script.WriteString(fmt.Sprintf("PATH=\"%s:${PATH}\"\n", strings.Join(rc.ExtraPath, ":")))
-		if err != nil {
-			return err
+		if !strings.HasPrefix(step.ShellCommand(), "cmake") {
+			_, err = script.WriteString(fmt.Sprintf("PATH=\"%s:${PATH}\"\n", strings.Join(rc.ExtraPath, ":")))
+			if err != nil {
+				return err
+			}
 		}
 
 		if step.WorkingDirectory == "" {
