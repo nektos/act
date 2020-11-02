@@ -10,21 +10,10 @@ import (
 
 var commandPatternGA *regexp.Regexp
 var commandPatternADO *regexp.Regexp
-var commandPatternEscapeChar1 *regexp.Regexp
-var commandPatternEscapeChar2 *regexp.Regexp
-var commandPatternEscapeChar3 *regexp.Regexp
-var commandPatternEscapeChar4 *regexp.Regexp
-var commandPatternEscapeChar5 *regexp.Regexp
 
 func init() {
 	commandPatternGA = regexp.MustCompile("^::([^ ]+)( (.+))?::([^\r\n]*)[\r\n]+$")
 	commandPatternADO = regexp.MustCompile("^##\\[([^ ]+)( (.+))?\\]([^\r\n]*)[\r\n]+$")
-	commandPatternEscapeChar1 = regexp.MustCompile("%25") // %
-	commandPatternEscapeChar2 = regexp.MustCompile("%0D") // \r
-	commandPatternEscapeChar3 = regexp.MustCompile("%0A") // \n
-	commandPatternEscapeChar4 = regexp.MustCompile("%3A") // :
-	commandPatternEscapeChar5 = regexp.MustCompile("%2C") // ,
-
 }
 
 func (rc *RunContext) commandHandler(ctx context.Context) common.LineHandler {
@@ -108,18 +97,27 @@ func parseKeyValuePairs(kvPairs string, separator string) map[string]string {
 	return rtn
 }
 func unescapeCommandData(arg string) string {
-	// unescape command data string
-	arg = commandPatternEscapeChar1.ReplaceAllString(arg, "%")
-	arg = commandPatternEscapeChar2.ReplaceAllString(arg, "\r")
-	arg = commandPatternEscapeChar3.ReplaceAllString(arg, "\n")
+	escapeMap := map[string]string{
+		"%25": "%",
+		"%0D": "\r",
+		"%0A": "\n",
+	}
+	for k, v := range escapeMap {
+		arg = strings.Replace(arg, k, v, -1)
+	}
 	return arg
 }
 func unescapeCommandProperty(arg string) string {
-	arg = commandPatternEscapeChar1.ReplaceAllString(arg, "%")
-	arg = commandPatternEscapeChar2.ReplaceAllString(arg, "\r")
-	arg = commandPatternEscapeChar3.ReplaceAllString(arg, "\n")
-	arg = commandPatternEscapeChar4.ReplaceAllString(arg, ":")
-	arg = commandPatternEscapeChar5.ReplaceAllString(arg, ",")
+	escapeMap := map[string]string{
+		"%25": "%",
+		"%0D": "\r",
+		"%0A": "\n",
+		"%3A": ":",
+		"%2C": ",",
+	}
+	for k, v := range escapeMap {
+		arg = strings.Replace(arg, k, v, -1)
+	}
 	return arg
 }
 func unescapeKvPairs(kvPairs map[string]string) map[string]string {
