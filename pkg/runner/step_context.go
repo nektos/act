@@ -92,6 +92,11 @@ func (sc *StepContext) setupEnv() common.Executor {
 			env = mergeMaps(rc.GetEnv(), step.GetEnv())
 		}
 
+		if (rc.ExtraPath != nil) && (len(rc.ExtraPath) > 0) {
+			s := append(rc.ExtraPath, os.Getenv("PATH"))
+			env["PATH"] = strings.Join(s, string(os.PathSeparator))
+		}
+
 		for k, v := range env {
 			env[k] = rc.ExprEval.Interpolate(v)
 		}
@@ -106,11 +111,7 @@ func (sc *StepContext) setupShellCommand() common.Executor {
 	step := sc.Step
 	return func(ctx context.Context) error {
 		var script strings.Builder
-
-		_, err := script.WriteString(fmt.Sprintf("PATH=\"%s:${PATH}\"\n", strings.Join(rc.ExtraPath, ":")))
-		if err != nil {
-			return err
-		}
+		var err error
 
 		if step.WorkingDirectory == "" {
 			step.WorkingDirectory = rc.Run.Job().Defaults.Run.WorkingDirectory
