@@ -94,7 +94,7 @@ func (sc *StepContext) setupEnv() common.Executor {
 
 		if (rc.ExtraPath != nil) && (len(rc.ExtraPath) > 0) {
 			s := append(rc.ExtraPath, os.Getenv("PATH"))
-			env["PATH"] = strings.Join(s, string(os.PathSeparator))
+			env["PATH"] = strings.Join(s, string(os.PathListSeparator))
 		}
 
 		for k, v := range env {
