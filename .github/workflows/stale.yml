@@ -17,5 +17,5 @@ jobs:
         exempt-issue-label: 'meta/stale-exempt'
         stale-pr-label: 'meta/stale'
         exempt-pr-label: 'meta/stale-exempt'
-        remove-stale-when-updated: true
+        remove-stale-when-updated: 'True'
 
