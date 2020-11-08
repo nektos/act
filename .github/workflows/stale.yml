@@ -18,4 +18,5 @@ jobs:
         stale-pr-label: 'meta/stale'
         exempt-pr-label: 'meta/stale-exempt'
         remove-stale-when-updated: 'True'
+        operations-per-run: 500
 
