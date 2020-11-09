@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/opencontainers/runc/Godeps/_workspace/src/github.com/Sirupsen/logrus"
 	"io"
 	"os"
 	"path/filepath"
@@ -12,7 +13,6 @@ import (
 	"strings"
 
 	"github.com/robertkrimen/otto"
-	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/godo.v2/glob"
 )
@@ -20,7 +20,7 @@ import (
 var contextPattern, expressionPattern *regexp.Regexp
 
 func init() {
-	contextPattern = regexp.MustCompile(`^(\w+(?:\[.+\])*)(?:\.([\w-]+))?(.*)$`)
+	contextPattern = regexp.MustCompile(`^(\w+(?:\[.+])*)(?:\.([\w-]+))?(.*)$`)
 	expressionPattern = regexp.MustCompile(`\${{\s*(.+?)\s*}}`)
 }
 
@@ -62,7 +62,7 @@ type expressionEvaluator struct {
 func (ee *expressionEvaluator) Evaluate(in string) (string, error) {
 	re := ee.Rewrite(in)
 	if re != in {
-		logrus.Debugf("Evaluating '%s' instead of '%s'", re, in)
+		log.Debugf("Evaluating '%s' instead of '%s'", re, in)
 	}
 
 	val, err := ee.vm.Run(re)
@@ -83,10 +83,15 @@ func (ee *expressionEvaluator) Interpolate(in string) string {
 		out = expressionPattern.ReplaceAllStringFunc(in, func(match string) string {
 			// Extract and trim the actual expression inside ${{...}} delimiters
 			expression := expressionPattern.ReplaceAllString(match, "$1")
+
 			// Evaluate the expression and retrieve errors if any
-			evaluated, err := ee.Evaluate(expression)
+			negatedExpression := strings.HasPrefix(expression, "!")
+			evaluated, err := ee.Evaluate(strings.ReplaceAll(expression, "!", ""))
 			if err != nil {
 				errList = append(errList, err)
+			}
+			if negatedExpression {
+				evaluated = fmt.Sprintf("!%s", evaluated)
 			}
 			return evaluated
 		})
@@ -239,18 +244,20 @@ func (rc *RunContext) vmHashFiles() func(*otto.Otto) {
 		_ = vm.Set("hashFiles", func(path string) string {
 			files, _, err := glob.Glob([]string{filepath.Join(rc.Config.Workdir, path)})
 			if err != nil {
-				logrus.Errorf("Unable to glob.Glob: %v", err)
+				log.Errorf("Unable to glob.Glob: %v", err)
 				return ""
 			}
 			hasher := sha256.New()
 			for _, file := range files {
 				f, err := os.Open(file.Path)
 				if err != nil {
-					logrus.Errorf("Unable to os.Open: %v", err)
+					log.Errorf("Unable to os.Open: %v", err)
 				}
-				defer f.Close()
 				if _, err := io.Copy(hasher, f); err != nil {
-					logrus.Errorf("Unable to io.Copy: %v", err)
+					log.Errorf("Unable to io.Copy: %v", err)
+				}
+				if err := f.Close(); err != nil {
+					log.Errorf("Unable to Close file: %v", err)
 				}
 			}
 			return hex.EncodeToString(hasher.Sum(nil))

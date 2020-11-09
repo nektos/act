@@ -8,7 +8,6 @@ import (
 )
 
 func TestEvaluate(t *testing.T) {
-	assert := a.New(t)
 	rc := &RunContext{
 		Config: &Config{
 			Workdir: ".",
@@ -104,6 +103,7 @@ func TestEvaluate(t *testing.T) {
 	for _, table := range tables {
 		table := table
 		t.Run(table.in, func(t *testing.T) {
+			assert := a.New(t)
 			out, err := ee.Evaluate(table.in)
 			if table.errMesg == "" {
 				assert.NoError(err, table.in)
@@ -117,15 +117,16 @@ func TestEvaluate(t *testing.T) {
 }
 
 func TestInterpolate(t *testing.T) {
-	assert := a.New(t)
 	rc := &RunContext{
 		Config: &Config{
 			Workdir: ".",
 		},
 		Env: map[string]string{
-			"keywithnothing":       "valuewithnothing",
-			"key-with-hyphens":     "value-with-hyphens",
-			"key_with_underscores": "value_with_underscores",
+			"KEYWITHNOTHING":       "valuewithnothing",
+			"KEY-WITH-HYPHENS":     "value-with-hyphens",
+			"KEY_WITH_UNDERSCORES": "value_with_underscores",
+			"TRUE":                 "true",
+			"FALSE":                "false",
 		},
 		Run: &model.Run{
 			JobID: "job1",
@@ -143,15 +144,20 @@ func TestInterpolate(t *testing.T) {
 		out string
 	}{
 		{" ${{1}} to ${{2}} ", " 1 to 2 "},
-		{" ${{ env.keywithnothing }} ", " valuewithnothing "},
-		{" ${{ env.key-with-hyphens }} ", " value-with-hyphens "},
-		{" ${{ env.key_with_underscores }} ", " value_with_underscores "},
-		{"${{ env.unknown }}", ""},
+		{" ${{ env.KEYWITHNOTHING }} ", " valuewithnothing "},
+		{" ${{ env.KEY-WITH-HYPHENS }} ", " value-with-hyphens "},
+		{" ${{ env.KEY_WITH_UNDERSCORES }} ", " value_with_underscores "},
+		{"${{ env.UNKNOWN }}", ""},
+		{"${{ env.TRUE }}", "true"},
+		{"${{ env.FALSE }}", "false"},
+		{"${{ !env.TRUE }}", "!true"},
+		{"${{ !env.FALSE }}", "!false"},
 	}
 
 	for _, table := range tables {
 		table := table
 		t.Run(table.in, func(t *testing.T) {
+			assert := a.New(t)
 			out := ee.Interpolate(table.in)
 			assert.Equal(table.out, out, table.in)
 		})
@@ -159,8 +165,6 @@ func TestInterpolate(t *testing.T) {
 }
 
 func TestRewrite(t *testing.T) {
-	assert := a.New(t)
-
 	rc := &RunContext{
 		Config: &Config{},
 		Run: &model.Run{
@@ -194,6 +198,7 @@ func TestRewrite(t *testing.T) {
 	for _, table := range tables {
 		table := table
 		t.Run(table.in, func(t *testing.T) {
+			assert := a.New(t)
 			re := ee.Rewrite(table.in)
 			assert.Equal(table.re, re, table.in)
 		})
