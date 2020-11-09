@@ -34,6 +34,7 @@ func Execute(ctx context.Context, version string) {
 	}
 	rootCmd.Flags().BoolP("watch", "w", false, "watch the contents of the local repo and run when files change")
 	rootCmd.Flags().BoolP("list", "l", false, "list workflows")
+	rootCmd.Flags().BoolP("graph", "g", false, "draw workflows")
 	rootCmd.Flags().StringP("job", "j", "", "run job")
 	rootCmd.Flags().StringArrayVarP(&input.secrets, "secret", "s", []string{}, "secret to make available to actions with optional value (e.g. -s mysecret=foo or -s mysecret)")
 	rootCmd.Flags().StringArrayVarP(&input.platforms, "platform", "P", []string{}, "custom image to use per platform (e.g. -P ubuntu-18.04=nektos/act-environments-ubuntu:18.04)")
@@ -41,13 +42,15 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.Flags().BoolVarP(&input.bindWorkdir, "bind", "b", false, "bind working directory to container, rather than copy")
 	rootCmd.Flags().BoolVarP(&input.forcePull, "pull", "p", false, "pull docker image(s) if already present")
 	rootCmd.Flags().StringVarP(&input.eventPath, "eventpath", "e", "", "path to event JSON file")
+	rootCmd.Flags().StringVar(&input.defaultBranch, "defaultbranch", "", "the name of the main branch")
+	rootCmd.Flags().BoolVar(&input.privileged, "privileged", false, "use privileged mode")
 	rootCmd.PersistentFlags().StringVarP(&input.actor, "actor", "a", "nektos/act", "user that triggered the event")
 	rootCmd.PersistentFlags().StringVarP(&input.workflowsPath, "workflows", "W", "./.github/workflows/", "path to workflow file(s)")
 	rootCmd.PersistentFlags().StringVarP(&input.workdir, "directory", "C", ".", "working directory")
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "verbose output")
 	rootCmd.PersistentFlags().BoolVarP(&input.noOutput, "quiet", "q", false, "disable logging of output from steps")
 	rootCmd.PersistentFlags().BoolVarP(&input.dryrun, "dryrun", "n", false, "dryrun mode")
-	rootCmd.PersistentFlags().StringVarP(&input.secretfile, "secret-file", "", "", "file with list of secrets to read from")
+	rootCmd.PersistentFlags().StringVarP(&input.secretfile, "secret-file", "", "", "file with list of secrets to read from (e.g. --secret-file .secrets)")
 	rootCmd.PersistentFlags().StringVarP(&input.envfile, "env-file", "", ".env", "environment file to read and use as env in the containers")
 	rootCmd.SetArgs(args())
 
@@ -148,11 +151,24 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			plan = planner.PlanEvent(eventName)
 		}
 
-		// check if we should just print the graph
+		// check if we should just list the workflows
 		if list, err := cmd.Flags().GetBool("list"); err != nil {
 			return err
 		} else if list {
+			return printList(plan)
+		}
+
+		// check if we should just print the graph
+		if list, err := cmd.Flags().GetBool("graph"); err != nil {
+			return err
+		} else if list {
 			return drawGraph(plan)
+		}
+
+		// check to see if the main branch was defined
+		defaultbranch, err := cmd.Flags().GetString("defaultbranch")
+		if err != nil {
+			return err
 		}
 
 		// run the plan
@@ -160,6 +176,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			Actor:           input.actor,
 			EventName:       eventName,
 			EventPath:       input.EventPath(),
+			DefaultBranch:   defaultbranch,
 			ForcePull:       input.forcePull,
 			ReuseContainers: input.reuseContainers,
 			Workdir:         input.Workdir(),
@@ -168,6 +185,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			Env:             envs,
 			Secrets:         secrets,
 			Platforms:       input.newPlatforms(),
+			Privileged:      input.privileged,
 		}
 		runner, err := runner.New(config)
 		if err != nil {

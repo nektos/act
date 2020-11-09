@@ -38,7 +38,8 @@ func (rc *RunContext) commandHandler(ctx context.Context) common.LineHandler {
 		if resumeCommand != "" && command != resumeCommand {
 			return false
 		}
-
+		arg = unescapeCommandData(arg)
+		kvPairs = unescapeKvPairs(kvPairs)
 		switch command {
 		case "set-env":
 			rc.setEnv(ctx, kvPairs, arg)
@@ -94,4 +95,34 @@ func parseKeyValuePairs(kvPairs string, separator string) map[string]string {
 		}
 	}
 	return rtn
+}
+func unescapeCommandData(arg string) string {
+	escapeMap := map[string]string{
+		"%25": "%",
+		"%0D": "\r",
+		"%0A": "\n",
+	}
+	for k, v := range escapeMap {
+		arg = strings.Replace(arg, k, v, -1)
+	}
+	return arg
+}
+func unescapeCommandProperty(arg string) string {
+	escapeMap := map[string]string{
+		"%25": "%",
+		"%0D": "\r",
+		"%0A": "\n",
+		"%3A": ":",
+		"%2C": ",",
+	}
+	for k, v := range escapeMap {
+		arg = strings.Replace(arg, k, v, -1)
+	}
+	return arg
+}
+func unescapeKvPairs(kvPairs map[string]string) map[string]string {
+	for k, v := range kvPairs {
+		kvPairs[k] = unescapeCommandProperty(v)
+	}
+	return kvPairs
 }

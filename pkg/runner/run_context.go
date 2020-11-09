@@ -104,6 +104,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			Binds:       binds,
 			Stdout:      logWriter,
 			Stderr:      logWriter,
+			Privileged:  rc.Config.Privileged,
 		})
 
 		var copyWorkspace bool
@@ -118,14 +119,14 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			rc.stopJobContainer(),
 			rc.JobContainer.Create(),
 			rc.JobContainer.Start(false),
-			rc.JobContainer.CopyDir(copyToPath, rc.Config.Workdir+"/.").IfBool(copyWorkspace),
+			rc.JobContainer.CopyDir(copyToPath, rc.Config.Workdir+string(filepath.Separator)+".").IfBool(copyWorkspace),
 			rc.JobContainer.Copy("/github/", &container.FileEntry{
 				Name: "workflow/event.json",
-				Mode: 644,
+				Mode: 0644,
 				Body: rc.EventJSON,
 			}, &container.FileEntry{
 				Name: "home/.act",
-				Mode: 644,
+				Mode: 0644,
 				Body: "",
 			}),
 		)(ctx)
@@ -365,13 +366,20 @@ func (rc *RunContext) getGithubContext() *githubContext {
 	if !ok {
 		token = os.Getenv("GITHUB_TOKEN")
 	}
-
+	runID := rc.Config.Env["GITHUB_RUN_ID"]
+	if runID == "" {
+		runID = "1"
+	}
+	runNumber := rc.Config.Env["GITHUB_RUN_NUMBER"]
+	if runNumber == "" {
+		runNumber = "1"
+	}
 	ghc := &githubContext{
 		Event:     make(map[string]interface{}),
 		EventPath: "/github/workflow/event.json",
 		Workflow:  rc.Run.Workflow.Name,
-		RunID:     "1",
-		RunNumber: "1",
+		RunID:     runID,
+		RunNumber: runNumber,
 		Actor:     rc.Config.Actor,
 		EventName: rc.Config.EventName,
 		Token:     token,
@@ -412,6 +420,13 @@ func (rc *RunContext) getGithubContext() *githubContext {
 		if err != nil {
 			logrus.Errorf("Unable to Unmarshal event '%s': %v", rc.EventJSON, err)
 		}
+	}
+
+	// set the branch in the event data
+	if rc.Config.DefaultBranch != "" {
+		ghc.Event = withDefaultBranch(rc.Config.DefaultBranch, ghc.Event)
+	} else {
+		ghc.Event = withDefaultBranch("master", ghc.Event)
 	}
 
 	if ghc.EventName == "pull_request" {
@@ -466,8 +481,32 @@ func nestedMapLookup(m map[string]interface{}, ks ...string) (rval interface{}) 
 	}
 }
 
+func withDefaultBranch(b string, event map[string]interface{}) map[string]interface{} {
+	repoI, ok := event["repository"]
+	if !ok {
+		repoI = make(map[string]interface{})
+	}
+
+	repo, ok := repoI.(map[string]interface{})
+	if !ok {
+		log.Warnf("unable to set default branch to %v", b)
+		return event
+	}
+
+	// if the branch is already there return with no changes
+	if _, ok = repo["default_branch"]; ok {
+		return event
+	}
+
+	repo["default_branch"] = b
+	event["repository"] = repo
+
+	return event
+}
+
 func (rc *RunContext) withGithubEnv(env map[string]string) map[string]string {
 	github := rc.getGithubContext()
+	env["CI"] = "true"
 	env["HOME"] = "/github/home"
 	env["GITHUB_WORKFLOW"] = github.Workflow
 	env["GITHUB_RUN_ID"] = github.RunID

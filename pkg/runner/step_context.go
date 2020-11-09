@@ -10,10 +10,11 @@ import (
 	"runtime"
 	"strings"
 
+	log "github.com/sirupsen/logrus"
+
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/container"
 	"github.com/nektos/act/pkg/model"
-	log "github.com/sirupsen/logrus"
 )
 
 // StepContext contains info about current job
@@ -91,6 +92,11 @@ func (sc *StepContext) setupEnv() common.Executor {
 			env = mergeMaps(rc.GetEnv(), step.GetEnv())
 		}
 
+		if (rc.ExtraPath != nil) && (len(rc.ExtraPath) > 0) {
+			s := append(rc.ExtraPath, os.Getenv("PATH"))
+			env["PATH"] = strings.Join(s, string(os.PathListSeparator))
+		}
+
 		for k, v := range env {
 			env[k] = rc.ExprEval.Interpolate(v)
 		}
@@ -105,12 +111,14 @@ func (sc *StepContext) setupShellCommand() common.Executor {
 	step := sc.Step
 	return func(ctx context.Context) error {
 		var script strings.Builder
+		var err error
 
-		_, err := script.WriteString(fmt.Sprintf("PATH=\"%s:${PATH}\"\n", strings.Join(rc.ExtraPath, ":")))
-		if err != nil {
-			return err
+		if step.WorkingDirectory == "" {
+			step.WorkingDirectory = rc.Run.Job().Defaults.Run.WorkingDirectory
 		}
-
+		if step.WorkingDirectory == "" {
+			step.WorkingDirectory = rc.Run.Workflow.Defaults.Run.WorkingDirectory
+		}
 		if step.WorkingDirectory != "" {
 			_, err = script.WriteString(fmt.Sprintf("cd %s\n", step.WorkingDirectory))
 			if err != nil {
@@ -126,10 +134,17 @@ func (sc *StepContext) setupShellCommand() common.Executor {
 		scriptName := fmt.Sprintf("workflow/%s", step.ID)
 		log.Debugf("Wrote command '%s' to '%s'", run, scriptName)
 		containerPath := fmt.Sprintf("/github/%s", scriptName)
+
+		if step.Shell == "" {
+			step.Shell = rc.Run.Job().Defaults.Run.Shell
+		}
+		if step.Shell == "" {
+			step.Shell = rc.Run.Workflow.Defaults.Run.Shell
+		}
 		sc.Cmd = strings.Fields(strings.Replace(step.ShellCommand(), "{0}", containerPath, 1))
 		return rc.JobContainer.Copy("/github/", &container.FileEntry{
 			Name: scriptName,
-			Mode: 755,
+			Mode: 0755,
 			Body: script.String(),
 		})(ctx)
 	}
@@ -191,6 +206,7 @@ func (sc *StepContext) newStepContainer(ctx context.Context, image string, cmd [
 		Binds:       binds,
 		Stdout:      logWriter,
 		Stderr:      logWriter,
+		Privileged:  rc.Config.Privileged,
 	})
 	return stepContainer
 }
@@ -232,6 +248,36 @@ func (sc *StepContext) setupAction(actionDir string, actionPath string) common.E
 	}
 }
 
+func getOsSafeRelativePath(s, prefix string) string {
+	actionName := strings.TrimPrefix(s, prefix)
+	if runtime.GOOS == "windows" {
+		actionName = strings.ReplaceAll(actionName, "\\", "/")
+	}
+	actionName = strings.TrimPrefix(actionName, "/")
+
+	return actionName
+}
+
+func (sc *StepContext) getContainerActionPaths(step *model.Step, actionDir string, rc *RunContext) (string, string) {
+	actionName := ""
+	containerActionDir := "."
+	if step.Type() == model.StepTypeUsesActionLocal {
+		actionName = getOsSafeRelativePath(actionDir, rc.Config.Workdir)
+		containerActionDir = "/github/workspace"
+	} else if step.Type() == model.StepTypeUsesActionRemote {
+		actionName = getOsSafeRelativePath(actionDir, rc.ActionCacheDir())
+		containerActionDir = "/actions"
+	}
+
+	if actionName == "" {
+		actionName = filepath.Base(actionDir)
+		if runtime.GOOS == "windows" {
+			actionName = strings.ReplaceAll(actionName, "\\", "/")
+		}
+	}
+	return actionName, containerActionDir
+}
+
 func (sc *StepContext) runAction(actionDir string, actionPath string) common.Executor {
 	rc := sc.RunContext
 	step := sc.Step
@@ -246,23 +292,11 @@ func (sc *StepContext) runAction(actionDir string, actionPath string) common.Exe
 			}
 		}
 
-		actionName := ""
-		containerActionDir := "."
-		if step.Type() == model.StepTypeUsesActionLocal {
-			actionName = strings.TrimPrefix(strings.TrimPrefix(actionDir, rc.Config.Workdir), string(filepath.Separator))
-			containerActionDir = "/github/workspace"
-		} else if step.Type() == model.StepTypeUsesActionRemote {
-			actionName = strings.TrimPrefix(strings.TrimPrefix(actionDir, rc.ActionCacheDir()), string(filepath.Separator))
-			containerActionDir = "/actions"
-		}
-
-		if actionName == "" {
-			actionName = filepath.Base(actionDir)
-		}
+		actionName, containerActionDir := sc.getContainerActionPaths(step, actionDir, rc)
 
 		sc.Env = mergeMaps(sc.Env, action.Runs.Env)
 
-		log.Debugf("type=%v actionDir=%s Workdir=%s ActionCacheDir=%s actionName=%s containerActionDir=%s", step.Type(), actionDir, rc.Config.Workdir, rc.ActionCacheDir(), actionName, containerActionDir)
+		log.Debugf("type=%v actionDir=%s actionPath=%s Workdir=%s ActionCacheDir=%s actionName=%s containerActionDir=%s", step.Type(), actionDir, actionPath, rc.Config.Workdir, rc.ActionCacheDir(), actionName, containerActionDir)
 
 		switch action.Runs.Using {
 		case model.ActionRunsUsingNode12:
@@ -271,13 +305,14 @@ func (sc *StepContext) runAction(actionDir string, actionPath string) common.Exe
 				if err != nil {
 					return err
 				}
-				err = rc.JobContainer.CopyDir(containerActionDir+string(filepath.Separator), actionDir)(ctx)
+				err = rc.JobContainer.CopyDir(containerActionDir+"/", actionDir)(ctx)
 				if err != nil {
 					return err
 				}
-				return rc.execJobContainer([]string{"node", filepath.Join(containerActionDir, actionName, actionPath, action.Runs.Main)}, sc.Env)(ctx)
 			}
-			return rc.execJobContainer([]string{"node", filepath.Join(containerActionDir, actionPath, action.Runs.Main)}, sc.Env)(ctx)
+			containerArgs := []string{"node", path.Join(containerActionDir, actionName, actionPath, action.Runs.Main)}
+			log.Debugf("executing remote job container: %s", containerArgs)
+			return rc.execJobContainer(containerArgs, sc.Env)(ctx)
 		case model.ActionRunsUsingDocker:
 			var prepImage common.Executor
 			var image string

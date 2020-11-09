@@ -132,6 +132,7 @@ func (rc *RunContext) newVM() *otto.Otto {
 		vmFormat,
 		vmJoin,
 		vmToJSON,
+		vmFromJSON,
 		vmAlways,
 		rc.vmCancelled(),
 		rc.vmSuccess(),
@@ -219,6 +220,20 @@ func vmToJSON(vm *otto.Otto) {
 	_ = vm.Set("toJson", toJSON)
 }
 
+func vmFromJSON(vm *otto.Otto) {
+	fromJSON := func(str string) map[string]interface{} {
+		var dat map[string]interface{}
+		err := json.Unmarshal([]byte(str), &dat)
+		if err != nil {
+			logrus.Errorf("Unable to unmarshal: %v", err)
+			return dat
+		}
+		return dat
+	}
+	_ = vm.Set("fromJSON", fromJSON)
+	_ = vm.Set("fromJson", fromJSON)
+}
+
 func (rc *RunContext) vmHashFiles() func(*otto.Otto) {
 	return func(vm *otto.Otto) {
 		_ = vm.Set("hashFiles", func(path string) string {
@@ -296,6 +311,14 @@ func (sc *StepContext) vmEnv() func(*otto.Otto) {
 
 func (sc *StepContext) vmInputs() func(*otto.Otto) {
 	inputs := make(map[string]string)
+
+	// Set Defaults
+	if sc.Action != nil {
+		for k, input := range sc.Action.Inputs {
+			inputs[k] = input.Default
+		}
+	}
+
 	for k, v := range sc.Step.With {
 		inputs[k] = v
 	}

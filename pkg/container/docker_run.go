@@ -40,6 +40,7 @@ type NewContainerInput struct {
 	Stdout      io.Writer
 	Stderr      io.Writer
 	NetworkMode string
+	Privileged  bool
 }
 
 // FileEntry is a file to copy to a container
@@ -261,6 +262,7 @@ func (cr *containerReference) create() common.Executor {
 			Binds:       input.Binds,
 			Mounts:      mounts,
 			NetworkMode: container.NetworkMode(input.NetworkMode),
+			Privileged:  input.Privileged,
 		}, nil, input.Name)
 		if err != nil {
 			return errors.WithStack(err)
@@ -398,7 +400,7 @@ func (cr *containerReference) copyDir(dstPath string, srcPath string) common.Exe
 			}
 
 			// update the name to correctly reflect the desired destination when untaring
-			header.Name = sansPrefix
+			header.Name = filepath.ToSlash(sansPrefix)
 			header.Mode = int64(fi.Mode())
 			header.ModTime = fi.ModTime()
 
@@ -416,7 +418,7 @@ func (cr *containerReference) copyDir(dstPath string, srcPath string) common.Exe
 			// copy file data into tar writer
 			if _, err := io.Copy(tw, f); err != nil {
 				if fi.Mode()&os.ModeSymlink == os.ModeSymlink {
-					logger.Warnf("Unable to copy link %s --> %s", fi.Name(), linkName)
+					// symlinks don't need to be copied, ignore this error
 					err = nil
 				}
 				return err

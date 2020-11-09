@@ -80,7 +80,9 @@ func TestEvaluate(t *testing.T) {
 		{"join('hello','mona')", "hello mona", ""},
 		{"toJSON({'foo':'bar'})", "{\n  \"foo\": \"bar\"\n}", ""},
 		{"toJson({'foo':'bar'})", "{\n  \"foo\": \"bar\"\n}", ""},
-		{"hashFiles('**/package-lock.json')", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", ""},
+		{"(fromJSON('{\"foo\":\"bar\"}')).foo", "bar", ""},
+		{"(fromJson('{\"foo\":\"bar\"}')).foo", "bar", ""},
+		{"hashFiles('**/non-extant-files')", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", ""},
 		{"success()", "true", ""},
 		{"failure()", "false", ""},
 		{"always()", "true", ""},
@@ -121,8 +123,8 @@ func TestInterpolate(t *testing.T) {
 			Workdir: ".",
 		},
 		Env: map[string]string{
-			"keywithnothing": "valuewithnothing",
-			"key-with-hyphens": "value-with-hyphens",
+			"keywithnothing":       "valuewithnothing",
+			"key-with-hyphens":     "value-with-hyphens",
 			"key_with_underscores": "value_with_underscores",
 		},
 		Run: &model.Run{

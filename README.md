@@ -21,7 +21,7 @@ Let's see it in action with a [sample repo](https://github.com/cplee/github-acti
 
 To install with [Homebrew](https://brew.sh/), run:
 
-`brew install nektos/tap/act`
+`brew install act`
 
 Alternatively, you can use the following:
 
@@ -49,8 +49,14 @@ or in a shell by running
 # Commands
 
 ```
-# List the actions
+# Command structure:
+act [event name to run] [flags]
+
+# List the actions for the default event:
 act -l
+
+# List the actions for a specific event:
+act workflow_dispatch -l
 
 # Run the default (`push`) event:
 act
@@ -84,6 +90,7 @@ act -v
   -q, --quiet                  disable logging of output from steps
   -r, --reuse                  reuse action containers to maintain state
   -s, --secret stringArray     secret to make available to actions with optional value (e.g. -s mysecret=foo or -s mysecret)
+      --secret-file            file with list of secrets to read from (e.g. --secret-file .secrets)
   -v, --verbose                verbose output
       --version                version for act
   -w, --watch                  watch the contents of the local repo and run when files change
@@ -138,10 +145,11 @@ act -P ubuntu-latest=nektos/act-environments-ubuntu:18.04
 
 # Secrets
 
-To run `act` with secrets, you can enter them interactively or supply them as environment variables. The following options are available for providing secrets:
+To run `act` with secrets, you can enter them interactively, supply them as environment variables or load them from a file. The following options are available for providing secrets:
 
 - `act -s MY_SECRET=somevalue` - use `somevalue` as the value for `MY_SECRET`.
 - `act -s MY_SECRET` - check for an environment variable named `MY_SECRET` and use it if it exists. If the environment variable is not defined, prompt the user for a value.
+- `act --secret-file my.secrets` - load secrets values from `my.secrets` file.
 
 # Configuration
 
@@ -193,5 +201,6 @@ Want to contribute to act? Awesome! Check out the [contributing guidelines](CONT
 
 - Install Go tools 1.11.4+ - (https://golang.org/doc/install)
 - Clone this repo `git clone git@github.com:nektos/act.git`
+- Pull the default docker image `docker pull nektos/act-environments-ubuntu:18.04`
 - Run unit tests with `make test`
 - Build and install: `make install`

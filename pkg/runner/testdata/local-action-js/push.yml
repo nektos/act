@@ -1,10 +1,10 @@
-name: remote-action-docker
+name: local-action-node12
 on: push
 
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/hello-world-docker-action@main
+    - uses: ./actions/node12
       with:
         who-to-greet: 'Mona the Octocat'

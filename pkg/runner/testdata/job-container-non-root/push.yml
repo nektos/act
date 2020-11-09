@@ -1,0 +1,10 @@
+name: job-container
+on: push
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    container: 
+      image: ocaml/opam2:debian-9-opam
+    steps:
+      - run: echo PASS

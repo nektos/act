@@ -13,10 +13,11 @@ import (
 
 // Workflow is the structure of the files in .github/workflows
 type Workflow struct {
-	Name  string            `yaml:"name"`
-	RawOn yaml.Node         `yaml:"on"`
-	Env   map[string]string `yaml:"env"`
-	Jobs  map[string]*Job   `yaml:"jobs"`
+	Name     string            `yaml:"name"`
+	RawOn    yaml.Node         `yaml:"on"`
+	Env      map[string]string `yaml:"env"`
+	Jobs     map[string]*Job   `yaml:"jobs"`
+	Defaults Defaults          `yaml:"defaults"`
 }
 
 // On events for the workflow
@@ -64,6 +65,7 @@ type Job struct {
 	Services       map[string]*ContainerSpec `yaml:"services"`
 	Strategy       *Strategy                 `yaml:"strategy"`
 	RawContainer   yaml.Node                 `yaml:"container"`
+	Defaults       Defaults                  `yaml:"defaults"`
 }
 
 // Strategy for the job
@@ -71,6 +73,17 @@ type Strategy struct {
 	FailFast    bool                     `yaml:"fail-fast"`
 	MaxParallel int                      `yaml:"max-parallel"`
 	Matrix      map[string][]interface{} `yaml:"matrix"`
+}
+
+// Default settings that will apply to all steps in the job or workflow
+type Defaults struct {
+	Run RunDefaults `yaml:"run"`
+}
+
+// Defaults for all run steps in the job or workflow
+type RunDefaults struct {
+	Shell            string `yaml:"shell"`
+	WorkingDirectory string `yaml:"working-directory"`
 }
 
 // Container details for the job
@@ -276,10 +289,10 @@ const (
 	//StepTypeUsesDockerURL is all steps that have a `uses` that is of the form `docker://...`
 	StepTypeUsesDockerURL
 
-	//StepTypeUsesActionLocal is all steps that have a `uses` that is a reference to a github repo
+	//StepTypeUsesActionLocal is all steps that have a `uses` that is a local action in a subdirectory
 	StepTypeUsesActionLocal
 
-	//StepTypeUsesActionRemote is all steps that have a `uses` that is a local action in a subdirectory
+	//StepTypeUsesActionRemote is all steps that have a `uses` that is a reference to a github repo
 	StepTypeUsesActionRemote
 )
 
