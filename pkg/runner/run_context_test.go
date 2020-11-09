@@ -11,7 +11,6 @@ import (
 
 func TestRunContext_EvalBool(t *testing.T) {
 	hook := test.NewGlobal()
-	assert := a.New(t)
 	rc := &RunContext{
 		Config: &Config{
 			Workdir: ".",
@@ -67,16 +66,19 @@ func TestRunContext_EvalBool(t *testing.T) {
 		{"1 < 2", true},
 		{"success()", true},
 		{"failure()", false},
+		{"always()", true},
+		{"failure()", false},
 		// And or
 		{"true && false", false},
 		{"true && 1 < 2", true},
 		{"false || 1 < 2", true},
 		{"false || false", false},
 		// None boolable
-		{"env.SOME_TEXT", false},
 		{"env.UNKNOWN == 'true'", false},
 		{"env.UNKNOWN", false},
 		// Inline expressions
+		{"env.SOME_TEXT", true}, // this is because Boolean('text') is true in Javascript
+		{"env.SOME_TEXT == 'text'", true},
 		{"env.TRUE == 'true'", true},
 		{"env.FALSE == 'true'", false},
 		{"env.TRUE", true},
@@ -94,6 +96,7 @@ func TestRunContext_EvalBool(t *testing.T) {
 		{"${{env.TRUE == 'true'}}", true},
 		{"${{env.FALSE == 'true'}}", false},
 		{"${{env.FALSE == 'false'}}", true},
+
 		// All together now
 		{"false || env.TRUE == 'true'", true},
 		{"true || env.FALSE == 'true'", true},
@@ -110,10 +113,11 @@ func TestRunContext_EvalBool(t *testing.T) {
 	for _, table := range tables {
 		table := table
 		t.Run(table.in, func(t *testing.T) {
+			assert := a.New(t)
 			defer hook.Reset()
 			b := rc.EvalBool(table.in)
 
-			assert.Equal(table.out, b, fmt.Sprintf("Expected %s to be %v, was %v",table.in, table.out, b))
+			assert.Equal(table.out, b, fmt.Sprintf("Expected %s to be %v, was %v", table.in, table.out, b))
 			assert.Empty(hook.LastEntry(), table.in)
 		})
 	}
