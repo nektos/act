@@ -241,11 +241,15 @@ func vmFromJSON(vm *otto.Otto) {
 
 func (rc *RunContext) vmHashFiles() func(*otto.Otto) {
 	return func(vm *otto.Otto) {
-		_ = vm.Set("hashFiles", func(path string) string {
-			files, _, err := glob.Glob([]string{filepath.Join(rc.Config.Workdir, path)})
-			if err != nil {
-				log.Errorf("Unable to glob.Glob: %v", err)
-				return ""
+		_ = vm.Set("hashFiles", func(paths ...string) string {
+			files := []*glob.FileAsset{}
+			for i := range paths {
+				newFiles, _, err := glob.Glob([]string{filepath.Join(rc.Config.Workdir, paths[i])})
+				if err != nil {
+					log.Errorf("Unable to glob.Glob: %v", err)
+					return ""
+				}
+				files = append(files, newFiles...)
 			}
 			hasher := sha256.New()
 			for _, file := range files {
