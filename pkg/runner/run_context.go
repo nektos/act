@@ -222,7 +222,7 @@ func (rc *RunContext) platformImage() string {
 
 	c := job.Container()
 	if c != nil {
-		return c.Image
+		return rc.ExprEval.Interpolate(c.Image)
 	}
 
 	for _, runnerLabel := range job.RunsOn() {
