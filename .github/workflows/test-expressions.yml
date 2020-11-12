@@ -1,0 +1,82 @@
+
+name: "Test how expressions are handled on Github"
+on: push
+
+env:
+  KEYWITHNOTHING: valuewithnothing
+  KEY-WITH-HYPHENS: value-with-hyphens
+  KEY_WITH_UNDERSCORES: value_with_underscores
+  SOMETHING_TRUE: true
+  SOMETHING_FALSE: false
+
+
+jobs:
+  test-espressions:
+    runs-on: ubuntu-latest
+    steps:
+
+     - name:  €{{ 1 }} to €{{ 2 }}  ->  ${{1}} to ${{2}}  should be equal to  1 to 2 
+       run: echo "Done "
+
+     - name:  €{{ env.KEYWITHNOTHING }}  ->  ${{ env.KEYWITHNOTHING }}  should be equal to  valuewithnothing 
+       run: echo "Done "
+
+     - name:  €{{ env.KEY-WITH-HYPHENS }}  ->  ${{ env.KEY-WITH-HYPHENS }}  should be equal to  value-with-hyphens 
+       run: echo "Done "
+
+     - name:  €{{ env.KEY_WITH_UNDERSCORES }}  ->  ${{ env.KEY_WITH_UNDERSCORES }}  should be equal to  value_with_underscores 
+       run: echo "Done "
+
+     - name: €{{ env.UNKNOWN }} -> ${{ env.UNKNOWN }} should be equal to 
+       run: echo "Done "
+
+     - name: €{{ env.SOMETHING_TRUE }} -> ${{ env.SOMETHING_TRUE }} should be equal to true
+       run: echo "Done "
+
+     - name: €{{ env.SOMETHING_FALSE }} -> ${{ env.SOMETHING_FALSE }} should be equal to false
+       run: echo "Done "
+
+     - name: €{{ !env.SOMETHING_TRUE }} -> ${{ !env.SOMETHING_TRUE }} should be equal to false
+       run: echo "Done "
+
+     - name: €{{ !env.SOMETHING_FALSE }} -> ${{ !env.SOMETHING_FALSE }} should be equal to false
+       run: echo "Done "
+
+     - name: €{{ !env.SOMETHING_TRUE && true }} -> ${{ !env.SOMETHING_TRUE && true }} should be equal to false
+       run: echo "Done "
+
+     - name: €{{ !env.SOMETHING_FALSE && true }} -> ${{ !env.SOMETHING_FALSE && true }} should be equal to false
+       run: echo "Done "
+
+     - name: €{{ env.SOMETHING_TRUE && true }} -> ${{ env.SOMETHING_TRUE && true }} should be equal to true
+       run: echo "Done "
+
+     - name: €{{ env.SOMETHING_FALSE && true }} -> ${{ env.SOMETHING_FALSE && true }} should be equal to true
+       run: echo "Done "
+
+     - name: €{{ !env.SOMETHING_TRUE || true }} -> ${{ !env.SOMETHING_TRUE || true }} should be equal to true
+       run: echo "Done "
+
+     - name: €{{ !env.SOMETHING_FALSE || true }} -> ${{ !env.SOMETHING_FALSE || true }} should be equal to true
+       run: echo "Done "
+
+     - name: €{{ !env.SOMETHING_TRUE && false }} -> ${{ !env.SOMETHING_TRUE && false }} should be equal to false
+       run: echo "Done "
+
+     - name: €{{ !env.SOMETHING_FALSE && false }} -> ${{ !env.SOMETHING_FALSE && false }} should be equal to false
+       run: echo "Done "
+
+     - name: €{{ !env.SOMETHING_TRUE || false }} -> ${{ !env.SOMETHING_TRUE || false }} should be equal to false
+       run: echo "Done "
+
+     - name: €{{ !env.SOMETHING_FALSE || false }} -> ${{ !env.SOMETHING_FALSE || false }} should be equal to false
+       run: echo "Done "
+
+     - name: €{{ env.SOMETHING_TRUE || false }} -> ${{ env.SOMETHING_TRUE || false }} should be equal to true
+       run: echo "Done "
+
+     - name: €{{ env.SOMETHING_FALSE || false }} -> ${{ env.SOMETHING_FALSE || false }} should be equal to false
+       run: echo "Done "
+
+     - name: €{{ env.SOMETHING_FALSE }} && €{{ env.SOMETHING_TRUE }} -> ${{ env.SOMETHING_FALSE }} && ${{ env.SOMETHING_TRUE }} should be equal to false && true
+       run: echo "Done "

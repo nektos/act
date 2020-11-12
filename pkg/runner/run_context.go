@@ -3,6 +3,7 @@ package runner
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -199,13 +200,19 @@ func (rc *RunContext) newStepExecutor(step *model.Step) common.Executor {
 		_ = sc.setupEnv()(ctx)
 		rc.ExprEval = sc.NewExpressionEvaluator()
 
-		if !rc.EvalBool(sc.Step.If) {
+		runStep, err := rc.EvalBool(sc.Step.If)
+		if err != nil {
+			common.Logger(ctx).Errorf("  \u274C  Error in if: expression - %s", sc.Step)
+			rc.StepResults[rc.CurrentStep].Success = false
+			return err
+		}
+		if !runStep {
 			log.Debugf("Skipping step '%s' due to '%s'", sc.Step.String(), sc.Step.If)
 			return nil
 		}
 
 		common.Logger(ctx).Infof("\u2B50  Run %s", sc.Step)
-		err := sc.Executor()(ctx)
+		err = sc.Executor()(ctx)
 		if err == nil {
 			common.Logger(ctx).Infof("  \u2705  Success - %s", sc.Step)
 		} else {
@@ -238,7 +245,12 @@ func (rc *RunContext) platformImage() string {
 func (rc *RunContext) isEnabled(ctx context.Context) bool {
 	job := rc.Run.Job()
 	l := common.Logger(ctx)
-	if !rc.EvalBool(job.If) {
+	runJob, err := rc.EvalBool(job.If)
+	if err != nil {
+		common.Logger(ctx).Errorf("  \u274C  Error in if: expression - %s", job.Name)
+		return false
+	}
+	if !runJob {
 		l.Debugf("Skipping job '%s' due to '%s'", job.Name, job.If)
 		return false
 	}
@@ -252,64 +264,62 @@ func (rc *RunContext) isEnabled(ctx context.Context) bool {
 }
 
 // EvalBool evaluates an expression against current run context
-func (rc *RunContext) EvalBool(expr string) bool {
+func (rc *RunContext) EvalBool(expr string) (bool, error) {
+	if strings.HasPrefix(strings.TrimSpace(expr), "!") {
+		return false, errors.New("expressions starting with ! must be wrapped in ${{ }}")
+	}
 	if expr != "" {
-		interpolated := rc.ExprEval.Interpolate(expr)
-		parts := strings.Split(interpolated, " ")
+		splitPattern := regexp.MustCompile(fmt.Sprintf(`%s|%s|\S+`, expressionPattern.String(), operatorPattern.String()))
 
-		operatorRe := regexp.MustCompile("^[!=><|&]+$")
+		parts := splitPattern.FindAllString(expr, -1)
+		fmt.Printf("PARTS: %s\n", strings.Join(parts, "-"))
 		var evaluatedParts []string
-		for _, part := range parts {
-			part = fixNegation(part)
-
-			if operatorRe.MatchString(part) {
+		for i, part := range parts {
+			if operatorPattern.MatchString(part) {
 				evaluatedParts = append(evaluatedParts, part)
 				continue
 			}
 
-			if strings.HasPrefix(part, "!") {
-				withoutNegation, err := rc.ExprEval.Evaluate(strings.ReplaceAll(part, "!", ""))
-				if err != nil {
-					return false
-				}
-				evaluatedParts = append(evaluatedParts, fmt.Sprintf("!%s", withoutNegation))
-				continue
+			interpolatedPart, isString := rc.ExprEval.InterpolateWithStringCheck(part)
+			fmt.Printf("interpolatedPart: %s isString: %v\n", interpolatedPart, isString)
+
+			// This peculiar transformation has to be done because the Github parser
+			// treats false retured from contexts as a string, not a boolean.
+			// Hence env.SOMETHING will be evaluated to true in an if: expression
+			// regardless if SOMETHING is set to false, true or any other string.
+			// It also handles some other weirdness that I found by trial and error.
+			if (expressionPattern.MatchString(part) && // it is an expression
+				!strings.Contains(part, "!")) && // but it's not negated
+				interpolatedPart == "false" && // and the interpolated string is false
+				(isString || previousOrNextPartIsAnOperator(i, parts)) { // and it's of type string or has an logical operator before or after
+
+				interpolatedPart = fmt.Sprintf("'%s'", interpolatedPart) // then we have to quote the false expression
 			}
-			// strings with / are misinterpreted as a file path by otto
-			if strings.Contains(part, "/") {
-				evaluatedParts = append(evaluatedParts, part)
-				continue
-			}
-			evaluatedPart, err := rc.ExprEval.Evaluate(part)
-			if err != nil {
-				log.Errorf("Unable to evaluate part: %s: %v", part, err)
-				return false
-			}
-			evaluatedPart = fixQuotingForStrings(evaluatedPart)
-			evaluatedParts = append(evaluatedParts, evaluatedPart)
+
+			evaluatedParts = append(evaluatedParts, interpolatedPart)
 		}
 
-		boolExpr := fmt.Sprintf("Boolean(%s)", strings.Join(evaluatedParts, " "))
-		v, err := rc.ExprEval.Evaluate(boolExpr)
+		joined := strings.Join(evaluatedParts, " ")
+		fmt.Printf("Joined: %s\n", joined)
+		v, _, err := rc.ExprEval.Evaluate(fmt.Sprintf("Boolean(%s)", joined))
 		if err != nil {
-			return false
+			return false, nil
 		}
 		log.Debugf("expression '%s' evaluated to '%s'", expr, v)
-		return v == "true"
+		return v == "true", nil
 	}
-	return true
+	return true, nil
 }
 
-func fixNegation(s string) string {
-	re := regexp.MustCompile("![ ]+")
-	return re.ReplaceAllString(s, "!")
-}
-
-func fixQuotingForStrings(s string) string {
-	if s == "true" || s == "false" {
-		return s
+func previousOrNextPartIsAnOperator(i int, parts []string) bool {
+	operator := false
+	if i > 0 {
+		operator = operatorPattern.MatchString(parts[i-1])
 	}
-	return fmt.Sprintf("'%s'", s)
+	if i+1 < len(parts) {
+		operator = operator || operatorPattern.MatchString(parts[i+1])
+	}
+	return operator
 }
 
 func mergeMaps(maps ...map[string]string) map[string]string {

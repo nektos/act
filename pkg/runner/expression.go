@@ -16,11 +16,12 @@ import (
 	"gopkg.in/godo.v2/glob"
 )
 
-var contextPattern, expressionPattern *regexp.Regexp
+var contextPattern, expressionPattern, operatorPattern *regexp.Regexp
 
 func init() {
-	contextPattern = regexp.MustCompile(`^(\w+(?:\[.+])*)(?:\.([\w-]+))?(.*)$`)
+	contextPattern = regexp.MustCompile(`^([^.]*(?:\[.+])*)(?:\.([\w-]+))?(.*)$`)
 	expressionPattern = regexp.MustCompile(`\${{\s*(.+?)\s*}}`)
+	operatorPattern = regexp.MustCompile("^[!=><|&]+$")
 }
 
 // NewExpressionEvaluator creates a new evaluator
@@ -49,8 +50,9 @@ func (sc *StepContext) NewExpressionEvaluator() ExpressionEvaluator {
 
 // ExpressionEvaluator is the interface for evaluating expressions
 type ExpressionEvaluator interface {
-	Evaluate(string) (string, error)
+	Evaluate(string) (string, bool, error)
 	Interpolate(string) string
+	InterpolateWithStringCheck(string) (string, bool)
 	Rewrite(string) string
 }
 
@@ -58,7 +60,7 @@ type expressionEvaluator struct {
 	vm *otto.Otto
 }
 
-func (ee *expressionEvaluator) Evaluate(in string) (string, error) {
+func (ee *expressionEvaluator) Evaluate(in string) (string, bool, error) {
 	re := ee.Rewrite(in)
 	if re != in {
 		log.Debugf("Evaluating '%s' instead of '%s'", re, in)
@@ -66,32 +68,40 @@ func (ee *expressionEvaluator) Evaluate(in string) (string, error) {
 
 	val, err := ee.vm.Run(re)
 	if err != nil {
-		return "", err
+		return "", false, err
 	}
 	if val.IsNull() || val.IsUndefined() {
-		return "", nil
+		return "", false, nil
 	}
-	return val.ToString()
+	valAsString, err := val.ToString()
+	if err != nil {
+		return "", false, err
+	}
+
+	return valAsString, val.IsString(), err
 }
 
-func (ee *expressionEvaluator) Interpolate(in string) string {
+func (ee *expressionEvaluator) Interpolate(in string) string{
+	interpolated, _ := ee.InterpolateWithStringCheck(in)
+	return interpolated
+}
+
+func (ee *expressionEvaluator) InterpolateWithStringCheck(in string) (string, bool) {
 	errList := make([]error, 0)
 
 	out := in
+	isString := false
 	for {
 		out = expressionPattern.ReplaceAllStringFunc(in, func(match string) string {
 			// Extract and trim the actual expression inside ${{...}} delimiters
 			expression := expressionPattern.ReplaceAllString(match, "$1")
 
 			// Evaluate the expression and retrieve errors if any
-			negatedExpression := strings.HasPrefix(expression, "!")
-			evaluated, err := ee.Evaluate(strings.ReplaceAll(expression, "!", ""))
+			evaluated, evaluatedIsString, err := ee.Evaluate(expression)
 			if err != nil {
 				errList = append(errList, err)
 			}
-			if negatedExpression {
-				evaluated = fmt.Sprintf("!%s", evaluated)
-			}
+			isString = evaluatedIsString
 			return evaluated
 		})
 		if len(errList) > 0 {
@@ -104,7 +114,7 @@ func (ee *expressionEvaluator) Interpolate(in string) string {
 		}
 		in = out
 	}
-	return out
+	return out, isString
 }
 
 // Rewrite tries to transform any javascript property accessor into its bracket notation.
