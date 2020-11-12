@@ -1,6 +1,9 @@
 package runner
 
 import (
+	"fmt"
+	"os"
+	"regexp"
 	"testing"
 
 	"github.com/nektos/act/pkg/model"
@@ -105,7 +108,7 @@ func TestEvaluate(t *testing.T) {
 		table := table
 		t.Run(table.in, func(t *testing.T) {
 			assert := a.New(t)
-			out, err := ee.Evaluate(table.in)
+			out, _, err := ee.Evaluate(table.in)
 			if table.errMesg == "" {
 				assert.NoError(err, table.in)
 				assert.Equal(table.out, out, table.in)
@@ -126,8 +129,8 @@ func TestInterpolate(t *testing.T) {
 			"KEYWITHNOTHING":       "valuewithnothing",
 			"KEY-WITH-HYPHENS":     "value-with-hyphens",
 			"KEY_WITH_UNDERSCORES": "value_with_underscores",
-			"TRUE":                 "true",
-			"FALSE":                "false",
+			"SOMETHING_TRUE":       "true",
+			"SOMETHING_FALSE":      "false",
 		},
 		Run: &model.Run{
 			JobID: "job1",
@@ -149,12 +152,26 @@ func TestInterpolate(t *testing.T) {
 		{" ${{ env.KEY-WITH-HYPHENS }} ", " value-with-hyphens "},
 		{" ${{ env.KEY_WITH_UNDERSCORES }} ", " value_with_underscores "},
 		{"${{ env.UNKNOWN }}", ""},
-		{"${{ env.TRUE }}", "true"},
-		{"${{ env.FALSE }}", "false"},
-		{"${{ !env.TRUE }}", "!true"},
-		{"${{ !env.FALSE }}", "!false"},
+		{"${{ env.SOMETHING_TRUE }}", "true"},
+		{"${{ env.SOMETHING_FALSE }}", "false"},
+		{"${{ !env.SOMETHING_TRUE }}", "false"},
+		{"${{ !env.SOMETHING_FALSE }}", "false"},
+		{"${{ !env.SOMETHING_TRUE && true }}", "false"},
+		{"${{ !env.SOMETHING_FALSE && true }}", "false"},
+		{"${{ env.SOMETHING_TRUE && true }}", "true"},
+		{"${{ env.SOMETHING_FALSE && true }}", "true"},
+		{"${{ !env.SOMETHING_TRUE || true }}", "true"},
+		{"${{ !env.SOMETHING_FALSE || true }}", "true"},
+		{"${{ !env.SOMETHING_TRUE && false }}", "false"},
+		{"${{ !env.SOMETHING_FALSE && false }}", "false"},
+		{"${{ !env.SOMETHING_TRUE || false }}", "false"},
+		{"${{ !env.SOMETHING_FALSE || false }}", "false"},
+		{"${{ env.SOMETHING_TRUE || false }}", "true"},
+		{"${{ env.SOMETHING_FALSE || false }}", "false"},
+		{"${{ env.SOMETHING_FALSE }} && ${{ env.SOMETHING_TRUE }}", "false && true"},
 	}
 
+	updateTestExpressionWorkflow(t, tables, rc)
 	for _, table := range tables {
 		table := table
 		t.Run(table.in, func(t *testing.T) {
@@ -163,6 +180,56 @@ func TestInterpolate(t *testing.T) {
 			assert.Equal(table.out, out, table.in)
 		})
 	}
+}
+
+func updateTestExpressionWorkflow(t *testing.T, tables []struct {
+	in  string
+	out string
+	//wantErr bool
+}, rc *RunContext) {
+
+	var envs string
+	for k, v := range rc.Env {
+		envs += fmt.Sprintf(
+			`  %s: %s
+`, k, v)
+	}
+	workflow := fmt.Sprintf(`
+name: "Test how expressions are handled on Github"
+on: push
+
+env:
+%s
+
+jobs:
+  test-espressions:
+    runs-on: ubuntu-latest
+    steps:
+`, envs)
+	for _, table := range tables {
+		expressionPattern = regexp.MustCompile(`\${{\s*(.+?)\s*}}`)
+
+		expr := expressionPattern.ReplaceAllStringFunc(table.in, func(match string) string {
+			return fmt.Sprintf("€{{ %s }}", expressionPattern.ReplaceAllString(match, "$1"))
+		})
+		name := fmt.Sprintf(`%s -> %s should be equal to %s`,expr, table.in, table.out)
+		echo := `run: echo "Done "`
+		workflow += fmt.Sprintf(`
+     - name: %s
+       %s
+`, name, echo)
+	}
+
+	file, err := os.Create("../../.github/workflows/test-expressions.yml")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = file.WriteString(workflow)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 }
 
 func TestRewrite(t *testing.T) {

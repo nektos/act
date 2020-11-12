@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"github.com/nektos/act/pkg/model"
 	a "github.com/stretchr/testify/assert"
+	"os"
+	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/sirupsen/logrus/hooks/test"
@@ -16,9 +19,9 @@ func TestRunContext_EvalBool(t *testing.T) {
 			Workdir: ".",
 		},
 		Env: map[string]string{
-			"TRUE":      "true",
-			"FALSE":     "false",
-			"SOME_TEXT": "text",
+			"SOMETHING_TRUE":  "true",
+			"SOMETHING_FALSE": "false",
+			"SOME_TEXT":       "text",
 		},
 		Run: &model.Run{
 			JobID: "job1",
@@ -52,73 +55,158 @@ func TestRunContext_EvalBool(t *testing.T) {
 	rc.ExprEval = rc.NewExpressionEvaluator()
 
 	tables := []struct {
-		in  string
-		out bool
+		in      string
+		out     bool
+		wantErr bool
 	}{
 		// The basic ones
-		{"true", true},
-		{"false", false},
-		{"1 != 0", true},
-		{"1 != 1", false},
-		{"1 == 0", false},
-		{"1 == 1", true},
-		{"1 > 2", false},
-		{"1 < 2", true},
-		{"success()", true},
-		{"failure()", false},
-		{"always()", true},
-		{"failure()", false},
+		{in: "failure()", out: false},
+		{in: "success()", out: true},
+		{in: "cancelled()", out: false},
+		{in: "always()", out: true},
+		{in: "true", out: true},
+		{in: "false", out: false},
+		{in: "!true", wantErr: true},
+		{in: "!false", wantErr: true},
+		{in: "1 != 0", out: true},
+		{in: "1 != 1", out: false},
+		{in: "${{ 1 != 0 }}", out: true},
+		{in: "${{ 1 != 1 }}", out: false},
+		{in: "1 == 0", out: false},
+		{in: "1 == 1", out: true},
+		{in: "1 > 2", out: false},
+		{in: "1 < 2", out: true},
 		// And or
-		{"true && false", false},
-		{"true && 1 < 2", true},
-		{"false || 1 < 2", true},
-		{"false || false", false},
+		{in: "true && false", out: false},
+		{in: "true && 1 < 2", out: true},
+		{in: "false || 1 < 2", out: true},
+		{in: "false || false", out: false},
 		// None boolable
-		{"env.UNKNOWN == 'true'", false},
-		{"env.UNKNOWN", false},
+		{in: "env.UNKNOWN == 'true'", out: false},
+		{in: "env.UNKNOWN", out: false},
 		// Inline expressions
-		{"env.SOME_TEXT", true}, // this is because Boolean('text') is true in Javascript
-		{"env.SOME_TEXT == 'text'", true},
-		{"env.TRUE == 'true'", true},
-		{"env.FALSE == 'true'", false},
-		{"env.TRUE", true},
-		{"env.FALSE", false},
-		{"!env.TRUE", false},
-		{"!env.FALSE", true},
-		{"${{ env.TRUE }}", true},
-		{"${{ env.FALSE }}", false},
-		{"${{ !env.TRUE }}", false},
-		{"${{ !env.FALSE }}", true},
-		{"!env.TRUE && true", false},
-		{"!env.FALSE && true", true},
-		{"!env.TRUE || true", true},
-		{"!env.FALSE || false", true},
-		{"${{env.TRUE == 'true'}}", true},
-		{"${{env.FALSE == 'true'}}", false},
-		{"${{env.FALSE == 'false'}}", true},
+		{in: "env.SOME_TEXT", out: true}, // this is because Boolean('text') is true in Javascript
+		{in: "env.SOME_TEXT == 'text'", out: true},
+		{in: "env.SOMETHING_TRUE == 'true'", out: true},
+		{in: "env.SOMETHING_FALSE == 'true'", out: false},
+		{in: "env.SOMETHING_TRUE", out: true},
+		{in: "env.SOMETHING_FALSE", out: true}, // this is because Boolean('text') is true in Javascript
+		{in: "!env.SOMETHING_TRUE", wantErr: true},
+		{in: "!env.SOMETHING_FALSE", wantErr: true},
+		{in: "${{ !env.SOMETHING_TRUE }}", out: false},
+		{in: "${{ !env.SOMETHING_FALSE }}", out: false},
+		{in: "${{ ! env.SOMETHING_TRUE }}", out: false},
+		{in: "${{ ! env.SOMETHING_FALSE }}", out: false},
+		{in: "${{ env.SOMETHING_TRUE }}", out: true},
+		{in: "${{ env.SOMETHING_FALSE }}", out: true},
+		{in: "${{ !env.SOMETHING_TRUE }}", out: false},
+		{in: "${{ !env.SOMETHING_FALSE }}", out: false},
+		{in: "${{ !env.SOMETHING_TRUE && true }}", out: false},
+		{in: "${{ !env.SOMETHING_FALSE && true }}", out: false},
+		{in: "${{ !env.SOMETHING_TRUE || true }}", out: true},
+		{in: "${{ !env.SOMETHING_FALSE || false }}", out: false},
+		{in: "${{ env.SOMETHING_TRUE && true }}", out: true},
+		{in: "${{ env.SOMETHING_FALSE || true }}", out: true},
+		{in: "${{ env.SOMETHING_FALSE || false }}", out: true},
+		{in: "!env.SOMETHING_TRUE || true", wantErr: true},
+		{in: "${{ env.SOMETHING_TRUE == 'true'}}", out: true},
+		{in: "${{ env.SOMETHING_FALSE == 'true'}}", out: false},
+		{in: "${{ env.SOMETHING_FALSE == 'false'}}", out: true},
+		{in: "${{ env.SOMETHING_FALSE }} && ${{ env.SOMETHING_TRUE }}", out: true},
 
 		// All together now
-		{"false || env.TRUE == 'true'", true},
-		{"true || env.FALSE == 'true'", true},
-		{"true && env.TRUE == 'true'", true},
-		{"false && env.TRUE == 'true'", false},
-		{"env.FALSE == 'true' && env.TRUE == 'true'", false},
-		{"env.FALSE == 'true' && true", false},
-		{"${{env.FALSE == 'true'}} && true", false},
+		{in: "false || env.SOMETHING_TRUE == 'true'", out: true},
+		{in: "true || env.SOMETHING_FALSE == 'true'", out: true},
+		{in: "true && env.SOMETHING_TRUE == 'true'", out: true},
+		{in: "false && env.SOMETHING_TRUE == 'true'", out: false},
+		{in: "env.SOMETHING_FALSE == 'true' && env.SOMETHING_TRUE == 'true'", out: false},
+		{in: "env.SOMETHING_FALSE == 'true' && true", out: false},
+		{in: "${{ env.SOMETHING_FALSE == 'true' }} && true", out: true},
+		{in: "true && ${{ env.SOMETHING_FALSE == 'true' }}", out: true},
 		// Check github context
-		{"github.actor == 'nektos/act'", true},
-		{"github.actor == 'unknown'", false},
+		{in: "github.actor == 'nektos/act'", out: true},
+		{in: "github.actor == 'unknown'", out: false},
 	}
 
+	updateTestIfWorkflow(t, tables, rc)
 	for _, table := range tables {
 		table := table
 		t.Run(table.in, func(t *testing.T) {
 			assert := a.New(t)
 			defer hook.Reset()
-			b := rc.EvalBool(table.in)
+			b, err := rc.EvalBool(table.in)
+			if table.wantErr {
+				assert.Error(err)
+			}
 
 			assert.Equal(table.out, b, fmt.Sprintf("Expected %s to be %v, was %v", table.in, table.out, b))
 			assert.Empty(hook.LastEntry(), table.in)
 		})
+	}
+}
+
+func updateTestIfWorkflow(t *testing.T, tables []struct {
+	in      string
+	out     bool
+	wantErr bool
+}, rc *RunContext) {
+
+	var envs string
+	for k, v := range rc.Env {
+		envs += fmt.Sprintf(
+			`  %s: %s
+`, k, v)
+	}
+	workflow := fmt.Sprintf(`
+name: "Test what expressions result in true and false on Github"
+on: push
+
+env:
+%s
+
+jobs:
+  test-ifs-and-buts:
+    runs-on: ubuntu-latest
+    steps:
+`, envs)
+
+	for i, table := range tables {
+		if table.wantErr || strings.HasPrefix(table.in, "github.actor") {
+			continue
+		}
+		expressionPattern = regexp.MustCompile(`\${{\s*(.+?)\s*}}`)
+
+		expr := expressionPattern.ReplaceAllStringFunc(table.in, func(match string) string {
+			return fmt.Sprintf("€{{ %s }}", expressionPattern.ReplaceAllString(match, "$1"))
+		})
+		echo := fmt.Sprintf(`run: echo "%s should be false, but was evaluated to true;" exit 1;`, table.in)
+		name := fmt.Sprintf(`"❌ I should not run, expr: %s"`, expr)
+		if table.out {
+			echo = `run: echo OK`
+			name = fmt.Sprintf(`"✅ I should run, expr: %s"`, expr)
+		}
+		workflow += fmt.Sprintf(`
+     - name: %s
+       id: step%d
+       if: %s
+       %s
+`, name, i, table.in, echo)
+		if table.out {
+			workflow += fmt.Sprintf(`
+     - name: "Double checking expr: %s"
+       if: steps.step%d.conclusion == 'skipped'
+       run: echo "%s should have been true, but wasn't"
+`, expr, i, table.in)
+		}
+	}
+
+	file, err := os.Create("../../.github/workflows/test-if.yml")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = file.WriteString(workflow)
+	if err != nil {
+		t.Fatal(err)
 	}
 }
