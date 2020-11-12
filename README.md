@@ -166,6 +166,18 @@ Additionally, act supports loading environment variables from an `.env` file. Th
 act --env-file my.env
 ```
 
+# Skipping steps
+
+Act adds a special environement variable `ACT` that can be used to skip a step that you
+don't want to run locally. E.g. a step that posts a Slack message or bumps a version number.
+
+```yml
+- name: Some step
+  if: ${{ !env.ACT }}
+  run: |
+    ...
+```
+
 # Events
 
 Every [GitHub event](https://developer.github.com/v3/activity/events/types) is accompanied by a payload. You can provide these events in JSON format with the `--eventpath` to simulate specific GitHub events kicking off an action. For example:
