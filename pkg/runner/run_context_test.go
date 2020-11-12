@@ -108,6 +108,7 @@ func TestRunContext_EvalBool(t *testing.T) {
 		// Check github context
 		{"github.actor == 'nektos/act'", true},
 		{"github.actor == 'unknown'", false},
+		{"env.ACT", true},
 	}
 
 	for _, table := range tables {
