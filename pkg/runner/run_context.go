@@ -14,7 +14,6 @@ import (
 
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/model"
-	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -255,8 +254,43 @@ func (rc *RunContext) isEnabled(ctx context.Context) bool {
 // EvalBool evaluates an expression against current run context
 func (rc *RunContext) EvalBool(expr string) bool {
 	if expr != "" {
-		expr = fmt.Sprintf("Boolean(%s)", rc.ExprEval.Interpolate(expr))
-		v, err := rc.ExprEval.Evaluate(expr)
+		interpolated := rc.ExprEval.Interpolate(expr)
+		parts := strings.Split(interpolated, " ")
+
+		operatorRe := regexp.MustCompile("^[!=><|&]+$")
+		var evaluatedParts []string
+		for _, part := range parts {
+			part = fixNegation(part)
+
+			if operatorRe.MatchString(part) {
+				evaluatedParts = append(evaluatedParts, part)
+				continue
+			}
+
+			if strings.HasPrefix(part, "!") {
+				withoutNegation, err := rc.ExprEval.Evaluate(strings.ReplaceAll(part, "!", ""))
+				if err != nil {
+					return false
+				}
+				evaluatedParts = append(evaluatedParts, fmt.Sprintf("!%s", withoutNegation))
+				continue
+			}
+			// strings with / are misinterpreted as a file path by otto
+			if strings.Contains(part, "/") {
+				evaluatedParts = append(evaluatedParts, part)
+				continue
+			}
+			evaluatedPart, err := rc.ExprEval.Evaluate(part)
+			if err != nil {
+				log.Errorf("Unable to evaluate part: %s: %v", part, err)
+				return false
+			}
+			evaluatedPart = fixQuotingForStrings(evaluatedPart)
+			evaluatedParts = append(evaluatedParts, evaluatedPart)
+		}
+
+		boolExpr := fmt.Sprintf("Boolean(%s)", strings.Join(evaluatedParts, " "))
+		v, err := rc.ExprEval.Evaluate(boolExpr)
 		if err != nil {
 			return false
 		}
@@ -264,6 +298,18 @@ func (rc *RunContext) EvalBool(expr string) bool {
 		return v == "true"
 	}
 	return true
+}
+
+func fixNegation(s string) string {
+	re := regexp.MustCompile("![ ]+")
+	return re.ReplaceAllString(s, "!")
+}
+
+func fixQuotingForStrings(s string) string {
+	if s == "true" || s == "false" {
+		return s
+	}
+	return fmt.Sprintf("'%s'", s)
 }
 
 func mergeMaps(maps ...map[string]string) map[string]string {
@@ -403,7 +449,7 @@ func (rc *RunContext) getGithubContext() *githubContext {
 	if rc.EventJSON != "" {
 		err = json.Unmarshal([]byte(rc.EventJSON), &ghc.Event)
 		if err != nil {
-			logrus.Errorf("Unable to Unmarshal event '%s': %v", rc.EventJSON, err)
+			log.Errorf("Unable to Unmarshal event '%s': %v", rc.EventJSON, err)
 		}
 	}
 

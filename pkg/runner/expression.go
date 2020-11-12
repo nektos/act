@@ -12,7 +12,6 @@ import (
 	"strings"
 
 	"github.com/robertkrimen/otto"
-	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/godo.v2/glob"
 )
@@ -20,7 +19,7 @@ import (
 var contextPattern, expressionPattern *regexp.Regexp
 
 func init() {
-	contextPattern = regexp.MustCompile(`^(\w+(?:\[.+\])*)(?:\.([\w-]+))?(.*)$`)
+	contextPattern = regexp.MustCompile(`^(\w+(?:\[.+])*)(?:\.([\w-]+))?(.*)$`)
 	expressionPattern = regexp.MustCompile(`\${{\s*(.+?)\s*}}`)
 }
 
@@ -62,7 +61,7 @@ type expressionEvaluator struct {
 func (ee *expressionEvaluator) Evaluate(in string) (string, error) {
 	re := ee.Rewrite(in)
 	if re != in {
-		logrus.Debugf("Evaluating '%s' instead of '%s'", re, in)
+		log.Debugf("Evaluating '%s' instead of '%s'", re, in)
 	}
 
 	val, err := ee.vm.Run(re)
@@ -83,15 +82,20 @@ func (ee *expressionEvaluator) Interpolate(in string) string {
 		out = expressionPattern.ReplaceAllStringFunc(in, func(match string) string {
 			// Extract and trim the actual expression inside ${{...}} delimiters
 			expression := expressionPattern.ReplaceAllString(match, "$1")
+
 			// Evaluate the expression and retrieve errors if any
-			evaluated, err := ee.Evaluate(expression)
+			negatedExpression := strings.HasPrefix(expression, "!")
+			evaluated, err := ee.Evaluate(strings.ReplaceAll(expression, "!", ""))
 			if err != nil {
 				errList = append(errList, err)
+			}
+			if negatedExpression {
+				evaluated = fmt.Sprintf("!%s", evaluated)
 			}
 			return evaluated
 		})
 		if len(errList) > 0 {
-			logrus.Errorf("Unable to interpolate string '%s' - %v", in, errList)
+			log.Errorf("Unable to interpolate string '%s' - %v", in, errList)
 			break
 		}
 		if out == in {
@@ -211,7 +215,7 @@ func vmToJSON(vm *otto.Otto) {
 	toJSON := func(o interface{}) string {
 		rtn, err := json.MarshalIndent(o, "", "  ")
 		if err != nil {
-			logrus.Errorf("Unable to marshal: %v", err)
+			log.Errorf("Unable to marshal: %v", err)
 			return ""
 		}
 		return string(rtn)
@@ -225,7 +229,7 @@ func vmFromJSON(vm *otto.Otto) {
 		var dat map[string]interface{}
 		err := json.Unmarshal([]byte(str), &dat)
 		if err != nil {
-			logrus.Errorf("Unable to unmarshal: %v", err)
+			log.Errorf("Unable to unmarshal: %v", err)
 			return dat
 		}
 		return dat
@@ -237,11 +241,11 @@ func vmFromJSON(vm *otto.Otto) {
 func (rc *RunContext) vmHashFiles() func(*otto.Otto) {
 	return func(vm *otto.Otto) {
 		_ = vm.Set("hashFiles", func(paths ...string) string {
-			files := []*glob.FileAsset{}
+			var files []*glob.FileAsset
 			for i := range paths {
 				newFiles, _, err := glob.Glob([]string{filepath.Join(rc.Config.Workdir, paths[i])})
 				if err != nil {
-					logrus.Errorf("Unable to glob.Glob: %v", err)
+					log.Errorf("Unable to glob.Glob: %v", err)
 					return ""
 				}
 				files = append(files, newFiles...)
@@ -250,11 +254,13 @@ func (rc *RunContext) vmHashFiles() func(*otto.Otto) {
 			for _, file := range files {
 				f, err := os.Open(file.Path)
 				if err != nil {
-					logrus.Errorf("Unable to os.Open: %v", err)
+					log.Errorf("Unable to os.Open: %v", err)
 				}
-				defer f.Close()
 				if _, err := io.Copy(hasher, f); err != nil {
-					logrus.Errorf("Unable to io.Copy: %v", err)
+					log.Errorf("Unable to io.Copy: %v", err)
+				}
+				if err := f.Close(); err != nil {
+					log.Errorf("Unable to Close file: %v", err)
 				}
 			}
 			return hex.EncodeToString(hasher.Sum(nil))
