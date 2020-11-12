@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/opencontainers/runc/Godeps/_workspace/src/github.com/Sirupsen/logrus"
 	"io"
 	"os"
 	"path/filepath"
@@ -96,7 +95,7 @@ func (ee *expressionEvaluator) Interpolate(in string) string {
 			return evaluated
 		})
 		if len(errList) > 0 {
-			logrus.Errorf("Unable to interpolate string '%s' - %v", in, errList)
+			log.Errorf("Unable to interpolate string '%s' - %v", in, errList)
 			break
 		}
 		if out == in {
@@ -216,7 +215,7 @@ func vmToJSON(vm *otto.Otto) {
 	toJSON := func(o interface{}) string {
 		rtn, err := json.MarshalIndent(o, "", "  ")
 		if err != nil {
-			logrus.Errorf("Unable to marshal: %v", err)
+			log.Errorf("Unable to marshal: %v", err)
 			return ""
 		}
 		return string(rtn)
@@ -230,7 +229,7 @@ func vmFromJSON(vm *otto.Otto) {
 		var dat map[string]interface{}
 		err := json.Unmarshal([]byte(str), &dat)
 		if err != nil {
-			logrus.Errorf("Unable to unmarshal: %v", err)
+			log.Errorf("Unable to unmarshal: %v", err)
 			return dat
 		}
 		return dat
@@ -242,7 +241,7 @@ func vmFromJSON(vm *otto.Otto) {
 func (rc *RunContext) vmHashFiles() func(*otto.Otto) {
 	return func(vm *otto.Otto) {
 		_ = vm.Set("hashFiles", func(paths ...string) string {
-			files := []*glob.FileAsset{}
+			var files []*glob.FileAsset
 			for i := range paths {
 				newFiles, _, err := glob.Glob([]string{filepath.Join(rc.Config.Workdir, paths[i])})
 				if err != nil {
