@@ -272,7 +272,6 @@ func (rc *RunContext) EvalBool(expr string) (bool, error) {
 		splitPattern := regexp.MustCompile(fmt.Sprintf(`%s|%s|\S+`, expressionPattern.String(), operatorPattern.String()))
 
 		parts := splitPattern.FindAllString(expr, -1)
-		fmt.Printf("PARTS: %s\n", strings.Join(parts, "-"))
 		var evaluatedParts []string
 		for i, part := range parts {
 			if operatorPattern.MatchString(part) {
@@ -281,7 +280,6 @@ func (rc *RunContext) EvalBool(expr string) (bool, error) {
 			}
 
 			interpolatedPart, isString := rc.ExprEval.InterpolateWithStringCheck(part)
-			fmt.Printf("interpolatedPart: %s isString: %v\n", interpolatedPart, isString)
 
 			// This peculiar transformation has to be done because the Github parser
 			// treats false retured from contexts as a string, not a boolean.
@@ -300,7 +298,6 @@ func (rc *RunContext) EvalBool(expr string) (bool, error) {
 		}
 
 		joined := strings.Join(evaluatedParts, " ")
-		fmt.Printf("Joined: %s\n", joined)
 		v, _, err := rc.ExprEval.Evaluate(fmt.Sprintf("Boolean(%s)", joined))
 		if err != nil {
 			return false, nil
