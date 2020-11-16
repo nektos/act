@@ -320,18 +320,6 @@ func previousOrNextPartIsAnOperator(i int, parts []string) bool {
 	return operator
 }
 
-func fixNegation(s string) string {
-	re := regexp.MustCompile("![ ]+")
-	return re.ReplaceAllString(s, "!")
-}
-
-func fixQuotingForStrings(s string) string {
-	if s == "true" || s == "false" {
-		return s
-	}
-	return fmt.Sprintf("'%s'", s)
-}
-
 func mergeMaps(maps ...map[string]string) map[string]string {
 	rtnMap := make(map[string]string)
 	for _, m := range maps {
