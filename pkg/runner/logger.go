@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	//nocolor = 0
+	// nocolor = 0
 	red     = 31
 	green   = 32
 	yellow  = 33

@@ -185,7 +185,6 @@ func TestInterpolate(t *testing.T) {
 func updateTestExpressionWorkflow(t *testing.T, tables []struct {
 	in  string
 	out string
-	//wantErr bool
 }, rc *RunContext) {
 
 	var envs string

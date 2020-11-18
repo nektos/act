@@ -55,7 +55,7 @@ func TestRunEvent(t *testing.T) {
 		{"matrix", "push", ""},
 		{"commands", "push", ""},
 		{"workdir", "push", ""},
-		//{"issue-228", "push", ""}, // TODO [igni]: Remove this once everything passes
+		{"issue-228", "push", ""},
 		{"defaults-run", "push", ""},
 	}
 	log.SetLevel(log.DebugLevel)

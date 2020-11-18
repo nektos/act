@@ -8,6 +8,7 @@ env:
   KEY_WITH_UNDERSCORES: value_with_underscores
   SOMETHING_TRUE: true
   SOMETHING_FALSE: false
+  ACT: true
 
 
 jobs:
