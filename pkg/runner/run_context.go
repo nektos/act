@@ -47,6 +47,7 @@ func (rc *RunContext) GetEnv() map[string]string {
 	if rc.Env == nil {
 		rc.Env = mergeMaps(rc.Config.Env, rc.Run.Workflow.Env, rc.Run.Job().Env)
 	}
+	rc.Env["ACT"] = "true"
 	return rc.Env
 }
 

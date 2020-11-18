@@ -126,6 +126,9 @@ func TestRunContext_EvalBool(t *testing.T) {
 		// Check github context
 		{in: "github.actor == 'nektos/act'", out: true},
 		{in: "github.actor == 'unknown'", out: false},
+		// The special ACT flag
+		{in: "${{ env.ACT }}", out: true},
+		{in: "${{ !env.ACT }}", out: false},
 	}
 
 	updateTestIfWorkflow(t, tables, rc)

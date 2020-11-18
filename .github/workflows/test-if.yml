@@ -6,6 +6,7 @@ env:
   SOMETHING_TRUE: true
   SOMETHING_FALSE: false
   SOME_TEXT: text
+  ACT: true
 
 
 jobs:
@@ -389,3 +390,17 @@ jobs:
      - name: "Double checking expr: true && €{{ env.SOMETHING_FALSE == 'true' }}"
        if: steps.step57.conclusion == 'skipped'
        run: echo "true && ${{ env.SOMETHING_FALSE == 'true' }} should have been true, but wasn't"
+
+     - name: "✅ I should run, expr: €{{ env.ACT }}"
+       id: step60
+       if: ${{ env.ACT }}
+       run: echo OK
+
+     - name: "Double checking expr: €{{ env.ACT }}"
+       if: steps.step60.conclusion == 'skipped'
+       run: echo "${{ env.ACT }} should have been true, but wasn't"
+
+     - name: "❌ I should not run, expr: €{{ !env.ACT }}"
+       id: step61
+       if: ${{ !env.ACT }}
+       run: echo "${{ !env.ACT }} should be false, but was evaluated to true;" exit 1;
