@@ -2,6 +2,7 @@ package container
 
 import (
 	"archive/tar"
+	"bufio"
 	"bytes"
 	"context"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/go-git/go-billy/v5/helper/polyfill"
@@ -121,6 +123,7 @@ func (cr *containerReference) Exec(command []string, env map[string]string) comm
 	return common.NewPipelineExecutor(
 		cr.connect(),
 		cr.find(),
+		cr.extractGithubEnv(&env),
 		cr.exec(command, env),
 	).IfNot(common.Dryrun)
 }
@@ -271,6 +274,58 @@ func (cr *containerReference) create() common.Executor {
 		logger.Debugf("ENV ==> %v", input.Env)
 
 		cr.id = resp.ID
+		return nil
+	}
+}
+
+var singleLineEnvPattern, mulitiLineEnvPattern *regexp.Regexp
+
+func (cr *containerReference) extractGithubEnv(env *map[string]string) common.Executor {
+	if singleLineEnvPattern == nil {
+		singleLineEnvPattern = regexp.MustCompile("^([^=]+)=([^=]+)$")
+		mulitiLineEnvPattern = regexp.MustCompile(`^([^<]+)<<(\w+)$`)
+	}
+
+	localEnv := *env
+	return func(ctx context.Context) error {
+		githubEnvTar, _, err := cr.cli.CopyFromContainer(ctx, cr.id, localEnv["GITHUB_ENV"])
+		if err != nil {
+			return nil
+		}
+		fmt.Println()
+		reader := tar.NewReader(githubEnvTar)
+		_, err = reader.Next()
+		if err != nil && err != io.EOF {
+			return errors.WithStack(err)
+		}
+		s := bufio.NewScanner(reader)
+		multiLineEnvKey := ""
+		multiLineEnvDelimiter := ""
+		multiLineEnvContent := ""
+		for s.Scan() {
+			line := s.Text()
+			if singleLineEnv := singleLineEnvPattern.FindStringSubmatch(line); singleLineEnv != nil {
+				localEnv[singleLineEnv[1]] = singleLineEnv[2]
+			}
+			if line == multiLineEnvDelimiter {
+				localEnv[multiLineEnvKey] = multiLineEnvContent
+				multiLineEnvKey, multiLineEnvDelimiter, multiLineEnvContent = "", "", ""
+			}
+			if multiLineEnvKey != "" && multiLineEnvDelimiter != "" {
+				if multiLineEnvContent != "" {
+					multiLineEnvContent += "\n"
+				}
+				multiLineEnvContent += line
+			}
+			if mulitiLineEnvStart := mulitiLineEnvPattern.FindStringSubmatch(line); mulitiLineEnvStart != nil {
+				multiLineEnvKey = mulitiLineEnvStart[1]
+				multiLineEnvDelimiter = mulitiLineEnvStart[2]
+				fmt.Println(multiLineEnvKey)
+				fmt.Println(multiLineEnvDelimiter)
+			}
+		}
+		env = &localEnv
+		fmt.Printf("LOCALENV: %v", *env)
 		return nil
 	}
 }

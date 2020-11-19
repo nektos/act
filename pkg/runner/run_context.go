@@ -198,7 +198,13 @@ func (rc *RunContext) newStepExecutor(step *model.Step) common.Executor {
 			Outputs: make(map[string]string),
 		}
 
-		_ = sc.setupEnv()(ctx)
+		err := sc.setupEnv()(ctx)
+		if err != nil {
+			common.Logger(ctx).Errorf("  \u274C  Failure setting up env - %s", sc.Step)
+			rc.StepResults[rc.CurrentStep].Success = false
+			return err
+		}
+
 		rc.ExprEval = sc.NewExpressionEvaluator()
 
 		runStep, err := rc.EvalBool(sc.Step.If)
@@ -550,6 +556,8 @@ func (rc *RunContext) withGithubEnv(env map[string]string) map[string]string {
 	github := rc.getGithubContext()
 	env["CI"] = "true"
 	env["HOME"] = "/github/home"
+	env["GITHUB_ENV"] = "/github/workflow/envs.txt"
+
 	env["GITHUB_WORKFLOW"] = github.Workflow
 	env["GITHUB_RUN_ID"] = github.RunID
 	env["GITHUB_RUN_NUMBER"] = github.RunNumber

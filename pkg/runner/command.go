@@ -13,7 +13,7 @@ var commandPatternADO *regexp.Regexp
 
 func init() {
 	commandPatternGA = regexp.MustCompile("^::([^ ]+)( (.+))?::([^\r\n]*)[\r\n]+$")
-	commandPatternADO = regexp.MustCompile("^##\\[([^ ]+)( (.+))?\\]([^\r\n]*)[\r\n]+$")
+	commandPatternADO = regexp.MustCompile("^##\\[([^ ]+)( (.+))?]([^\r\n]*)[\r\n]+$")
 }
 
 func (rc *RunContext) commandHandler(ctx context.Context) common.LineHandler {
