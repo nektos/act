@@ -264,14 +264,17 @@ func (rc *RunContext) isEnabled(ctx context.Context) bool {
 	return true
 }
 
+var splitPattern *regexp.Regexp
+
 // EvalBool evaluates an expression against current run context
 func (rc *RunContext) EvalBool(expr string) (bool, error) {
+	if splitPattern == nil {
+		splitPattern = regexp.MustCompile(fmt.Sprintf(`%s|%s|\S+`, expressionPattern.String(), operatorPattern.String()))
+	}
 	if strings.HasPrefix(strings.TrimSpace(expr), "!") {
 		return false, errors.New("expressions starting with ! must be wrapped in ${{ }}")
 	}
 	if expr != "" {
-		splitPattern := regexp.MustCompile(fmt.Sprintf(`%s|%s|\S+`, expressionPattern.String(), operatorPattern.String()))
-
 		parts := splitPattern.FindAllString(expr, -1)
 		var evaluatedParts []string
 		for i, part := range parts {
