@@ -60,6 +60,7 @@ type Container interface {
 	Pull(forcePull bool) common.Executor
 	Start(attach bool) common.Executor
 	Exec(command []string, env map[string]string) common.Executor
+	UpdateFromGithubEnv(env *map[string]string) common.Executor
 	Remove() common.Executor
 }
 
@@ -118,12 +119,15 @@ func (cr *containerReference) CopyDir(destPath string, srcPath string) common.Ex
 	).IfNot(common.Dryrun)
 }
 
+func (cr *containerReference) UpdateFromGithubEnv(env *map[string]string) common.Executor {
+	return cr.extractGithubEnv(env).IfNot(common.Dryrun)
+}
+
 func (cr *containerReference) Exec(command []string, env map[string]string) common.Executor {
 
 	return common.NewPipelineExecutor(
 		cr.connect(),
 		cr.find(),
-		cr.extractGithubEnv(&env),
 		cr.exec(command, env),
 	).IfNot(common.Dryrun)
 }
@@ -199,10 +203,10 @@ func (cr *containerReference) find() common.Executor {
 			return errors.WithStack(err)
 		}
 
-		for _, container := range containers {
-			for _, name := range container.Names {
+		for _, c := range containers {
+			for _, name := range c.Names {
 				if name[1:] == cr.input.Name {
-					cr.id = container.ID
+					cr.id = c.ID
 					return nil
 				}
 			}
@@ -292,7 +296,6 @@ func (cr *containerReference) extractGithubEnv(env *map[string]string) common.Ex
 		if err != nil {
 			return nil
 		}
-		fmt.Println()
 		reader := tar.NewReader(githubEnvTar)
 		_, err = reader.Next()
 		if err != nil && err != io.EOF {
@@ -320,12 +323,9 @@ func (cr *containerReference) extractGithubEnv(env *map[string]string) common.Ex
 			if mulitiLineEnvStart := mulitiLineEnvPattern.FindStringSubmatch(line); mulitiLineEnvStart != nil {
 				multiLineEnvKey = mulitiLineEnvStart[1]
 				multiLineEnvDelimiter = mulitiLineEnvStart[2]
-				fmt.Println(multiLineEnvKey)
-				fmt.Println(multiLineEnvDelimiter)
 			}
 		}
 		env = &localEnv
-		fmt.Printf("LOCALENV: %v", *env)
 		return nil
 	}
 }

@@ -198,14 +198,16 @@ func (rc *RunContext) newStepExecutor(step *model.Step) common.Executor {
 			Outputs: make(map[string]string),
 		}
 
-		err := sc.setupEnv()(ctx)
-		if err != nil {
-			common.Logger(ctx).Errorf("  \u274C  Failure setting up env - %s", sc.Step)
-			rc.StepResults[rc.CurrentStep].Success = false
-			return err
-		}
+		_ = sc.setupEnv()(ctx)
 
+		if sc.Env != nil {
+			err := rc.JobContainer.UpdateFromGithubEnv(&sc.Env)(ctx)
+			if err != nil {
+				return err
+			}
+		}
 		rc.ExprEval = sc.NewExpressionEvaluator()
+
 
 		runStep, err := rc.EvalBool(sc.Step.If)
 		if err != nil {
