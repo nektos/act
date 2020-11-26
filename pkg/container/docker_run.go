@@ -26,7 +26,7 @@ import (
 	"github.com/nektos/act/pkg/common"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 )
 
 // NewContainerInput the input for the New function
@@ -244,7 +244,7 @@ func (cr *containerReference) create() common.Executor {
 			return nil
 		}
 		logger := common.Logger(ctx)
-		isTerminal := terminal.IsTerminal(int(os.Stdout.Fd()))
+		isTerminal := term.IsTerminal(int(os.Stdout.Fd()))
 
 		input := cr.input
 		config := &container.Config{
@@ -334,7 +334,7 @@ func (cr *containerReference) exec(cmd []string, env map[string]string) common.E
 	return func(ctx context.Context) error {
 		logger := common.Logger(ctx)
 		logger.Debugf("Exec command '%s'", cmd)
-		isTerminal := terminal.IsTerminal(int(os.Stdout.Fd()))
+		isTerminal := term.IsTerminal(int(os.Stdout.Fd()))
 		envList := make([]string, 0)
 		for k, v := range env {
 			envList = append(envList, fmt.Sprintf("%s=%s", k, v))
@@ -547,7 +547,7 @@ func (cr *containerReference) attach() common.Executor {
 		if err != nil {
 			return errors.WithStack(err)
 		}
-		isTerminal := terminal.IsTerminal(int(os.Stdout.Fd()))
+		isTerminal := term.IsTerminal(int(os.Stdout.Fd()))
 
 		var outWriter io.Writer
 		outWriter = cr.input.Stdout
