@@ -31,6 +31,43 @@ func TestGraphEvent(t *testing.T) {
 	assert.Equal(t, len(plan.Stages), 0, "stages")
 }
 
+type TestJobFileInfo struct {
+	workdir      string
+	workflowPath string
+	eventName    string
+	errorMessage string
+	platforms    map[string]string
+}
+
+func runTestJobFile(ctx context.Context, t *testing.T, tjfi TestJobFileInfo) {
+	t.Run(tjfi.workflowPath, func(t *testing.T) {
+		workdir, err := filepath.Abs(tjfi.workdir)
+		assert.NilError(t, err, workdir)
+		fullWorkflowPath := filepath.Join(workdir, tjfi.workflowPath)
+		runnerConfig := &Config{
+			Workdir:         workdir,
+			BindWorkdir:     true,
+			EventName:       tjfi.eventName,
+			Platforms:       tjfi.platforms,
+			ReuseContainers: false,
+		}
+		runner, err := New(runnerConfig)
+		assert.NilError(t, err, tjfi.workflowPath)
+
+		planner, err := model.NewWorkflowPlanner(fullWorkflowPath)
+		assert.NilError(t, err, fullWorkflowPath)
+
+		plan := planner.PlanEvent(tjfi.eventName)
+
+		err = runner.NewPlanExecutor(plan)(ctx)
+		if tjfi.errorMessage == "" {
+			assert.NilError(t, err, fullWorkflowPath)
+		} else {
+			assert.ErrorContains(t, err, tjfi.errorMessage)
+		}
+	})
+}
+
 func TestRunEvent(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
