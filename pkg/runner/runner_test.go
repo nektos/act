@@ -73,66 +73,34 @@ func TestRunEvent(t *testing.T) {
 		t.Skip("skipping integration test")
 	}
 
-	tables := []struct {
-		workflowPath string
-		eventName    string
-		errorMessage string
-	}{
-		{"basic", "push", ""},
-		{"fail", "push", "exit with `FAILURE`: 1"},
-		{"runs-on", "push", ""},
-		{"job-container", "push", ""},
-		{"job-container-non-root", "push", ""},
-		{"uses-docker-url", "push", ""},
-		{"remote-action-docker", "push", ""},
-		{"remote-action-js", "push", ""},
-		{"local-action-docker-url", "push", ""},
-		{"local-action-dockerfile", "push", ""},
-		{"local-action-js", "push", ""},
-		{"matrix", "push", ""},
-		{"matrix-include-exclude", "push", ""},
-		{"commands", "push", ""},
-		{"workdir", "push", ""},
-		//{"issue-228", "push", ""}, // TODO [igni]: Remove this once everything passes
-		{"defaults-run", "push", ""},
+	platforms := map[string]string{
+		"ubuntu-latest": "node:12.6-buster-slim",
+	}
+	tables := []TestJobFileInfo{
+		{"testdata", "basic", "push", "", platforms},
+		{"testdata", "fail", "push", "exit with `FAILURE`: 1", platforms},
+		{"testdata", "runs-on", "push", "", platforms},
+		{"testdata", "job-container", "push", "", platforms},
+		{"testdata", "job-container-non-root", "push", "", platforms},
+		{"testdata", "uses-docker-url", "push", "", platforms},
+		{"testdata", "remote-action-docker", "push", "", platforms},
+		{"testdata", "remote-action-js", "push", "", platforms},
+		{"testdata", "local-action-docker-url", "push", "", platforms},
+		{"testdata", "local-action-dockerfile", "push", "", platforms},
+		{"testdata", "local-action-js", "push", "", platforms},
+		{"testdata", "matrix", "push", "", platforms},
+		{"testdata", "matrix-include-exclude", "push", "", platforms},
+		{"testdata", "commands", "push", "", platforms},
+		{"testdata", "workdir", "push", "", platforms},
+		//{"testdata", "issue-228", "push", "", platforms}, // TODO [igni]: Remove this once everything passes
+		{"testdata", "defaults-run", "push", "", platforms},
 	}
 	log.SetLevel(log.DebugLevel)
 
 	ctx := context.Background()
 
 	for _, table := range tables {
-		table := table
-		t.Run(table.workflowPath, func(t *testing.T) {
-			platforms := map[string]string{
-				"ubuntu-latest": "node:12.6-buster-slim",
-				"ubuntu-18.04": "node:12.6-buster-slim",
-				"ubuntu-16.04": "node:12.6-stretch-slim",
-			}
-
-			workdir, err := filepath.Abs("testdata")
-			assert.NilError(t, err, table.workflowPath)
-			runnerConfig := &Config{
-				Workdir:         workdir,
-				BindWorkdir:     true,
-				EventName:       table.eventName,
-				Platforms:       platforms,
-				ReuseContainers: false,
-			}
-			runner, err := New(runnerConfig)
-			assert.NilError(t, err, table.workflowPath)
-
-			planner, err := model.NewWorkflowPlanner(fmt.Sprintf("testdata/%s", table.workflowPath))
-			assert.NilError(t, err, table.workflowPath)
-
-			plan := planner.PlanEvent(table.eventName)
-
-			err = runner.NewPlanExecutor(plan)(ctx)
-			if table.errorMessage == "" {
-				assert.NilError(t, err, table.workflowPath)
-			} else {
-				assert.ErrorContains(t, err, table.errorMessage)
-			}
-		})
+		runTestJobFile(ctx, t, table)
 	}
 }
 
