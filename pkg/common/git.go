@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -236,7 +237,15 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) Executor {
 			return err
 		}
 
-		hash, err := r.ResolveRevision(plumbing.Revision(input.Ref))
+		// At this point we need to know if it's a tag or a branch
+		// And the easiest way to do it is duck typing
+		refType := "tag"
+		rev := plumbing.Revision(path.Join("refs", "tags", input.Ref))
+		if _, err := r.Tag(input.Ref); errors.Is(err, git.ErrTagNotFound) {
+			refType = "branch"
+			rev = plumbing.Revision(path.Join("refs", "remotes", "origin", input.Ref))
+		}
+		hash, err := r.ResolveRevision(rev)
 		if err != nil {
 			logger.Errorf("Unable to resolve %s: %v", input.Ref, err)
 			return err
@@ -260,31 +269,21 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) Executor {
 			//
 			// If err is nil, it's a tag so let's proceed with that hash like we would if
 			// it was a sha
-			rev := fmt.Sprintf("refs/tags/%s", input.Ref)
-			hash, err = r.ResolveRevision(plumbing.Revision(rev))
-
-			// But if it's not nil, then the ref provided isn't a tag, and it's not a sha
-			// so we assume that it's a branch
+			hash, err = r.ResolveRevision(rev)
 			if err != nil {
-				rev := fmt.Sprintf("refs/remotes/origin/%s", input.Ref)
-				hash, err = r.ResolveRevision(plumbing.Revision(rev))
-				if err != nil {
-					logger.Errorf("Unable to resolve %s: %v", rev, err)
-					return err
-				}
-
+				logger.Errorf("Unable to resolve %s: %v", rev, err)
+				return err
+			}
+			if refType == "branch" {
 				logger.Debugf("Provided ref is not a sha. Checking out branch before pulling changes")
-
-				err = w.Checkout(&git.CheckoutOptions{
+				err := w.Checkout(&git.CheckoutOptions{
 					Branch: refName,
 					Force:  true,
 				})
-
 				if err != nil {
 					logger.Errorf("Unable to checkout %s: %v", refName, err)
 					return err
 				}
-
 			}
 		}
 
