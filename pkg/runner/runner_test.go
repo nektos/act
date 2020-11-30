@@ -53,6 +53,7 @@ func TestRunEvent(t *testing.T) {
 		{"local-action-dockerfile", "push", ""},
 		{"local-action-js", "push", ""},
 		{"matrix", "push", ""},
+		{"matrix-include-exclude", "push", ""},
 		{"commands", "push", ""},
 		{"workdir", "push", ""},
 		//{"issue-228", "push", ""}, // TODO [igni]: Remove this once everything passes
