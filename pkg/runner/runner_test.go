@@ -68,6 +68,8 @@ func TestRunEvent(t *testing.T) {
 		t.Run(table.workflowPath, func(t *testing.T) {
 			platforms := map[string]string{
 				"ubuntu-latest": "node:12.6-buster-slim",
+				"ubuntu-18.04": "node:12.6-buster-slim",
+				"ubuntu-16.04": "node:12.6-stretch-slim",
 			}
 
 			workdir, err := filepath.Abs("testdata")
