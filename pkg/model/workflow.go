@@ -3,6 +3,7 @@ package model
 import (
 	"fmt"
 	"io"
+	"reflect"
 	"regexp"
 	"strings"
 
@@ -176,15 +177,11 @@ func (j *Job) GetMatrixes() []map[string]interface{} {
 					continue MATRIX
 				}
 			}
-			for _, include := range includes {
-				if commonKeysMatch(matrix, include) {
-					log.Debugf("Setting add'l values on matrix '%v' due to include '%v'", matrix, include)
-					for k, v := range include {
-						matrix[k] = v
-					}
-				}
-			}
 			matrixes = append(matrixes, matrix)
+		}
+		for _, include := range includes {
+			log.Debugf("Adding include '%v'", include)
+			matrixes = append(matrixes, include)
 		}
 
 	} else {
@@ -195,7 +192,7 @@ func (j *Job) GetMatrixes() []map[string]interface{} {
 
 func commonKeysMatch(a map[string]interface{}, b map[string]interface{}) bool {
 	for aKey, aVal := range a {
-		if bVal, ok := b[aKey]; ok && aVal != bVal {
+		if bVal, ok := b[aKey]; ok && ! reflect.DeepEqual(aVal, bVal) {
 			return false
 		}
 	}
