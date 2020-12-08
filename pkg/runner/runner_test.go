@@ -89,6 +89,7 @@ func TestRunEvent(t *testing.T) {
 		{"testdata", "local-action-dockerfile", "push", "", platforms},
 		{"testdata", "local-action-js", "push", "", platforms},
 		{"testdata", "matrix", "push", "", platforms},
+		{"testdata", "matrix-include-exclude", "push", "", platforms},
 		{"testdata", "commands", "push", "", platforms},
 		{"testdata", "workdir", "push", "", platforms},
 		//{"testdata", "issue-228", "push", "", platforms}, // TODO [igni]: Remove this once everything passes
