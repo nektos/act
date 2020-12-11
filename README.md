@@ -116,6 +116,7 @@ GitHub Actions offers managed [virtual environments](https://help.github.com/en/
 | GitHub Runner  | Docker Image                                                      |
 | -------------- | ----------------------------------------------------------------- |
 | ubuntu-latest  | [node:12.6-buster-slim](https://hub.docker.com/_/buildpack-deps)  |
+| ubuntu-20.04   | [node:12.6-buster-slim](https://hub.docker.com/_/buildpack-deps)  |
 | ubuntu-18.04   | [node:12.6-buster-slim](https://hub.docker.com/_/buildpack-deps)  |
 | ubuntu-16.04   | [node:12.6-stretch-slim](https://hub.docker.com/_/buildpack-deps) |
 | windows-latest | `unsupported`                                                     |
