@@ -126,6 +126,10 @@ func (rc *RunContext) startJobContainer() common.Executor {
 				Mode: 0644,
 				Body: rc.EventJSON,
 			}, &container.FileEntry{
+				Name: "workflow/envs.txt",
+				Mode: 0644,
+				Body: "",
+			}, &container.FileEntry{
 				Name: "home/.act",
 				Mode: 0644,
 				Body: "",
@@ -207,7 +211,6 @@ func (rc *RunContext) newStepExecutor(step *model.Step) common.Executor {
 			}
 		}
 		rc.ExprEval = sc.NewExpressionEvaluator()
-
 
 		runStep, err := rc.EvalBool(sc.Step.If)
 		if err != nil {
