@@ -266,7 +266,10 @@ func (rc *RunContext) isEnabled(ctx context.Context) bool {
 
 	img := rc.platformImage()
 	if img == "" {
-		l.Infof("\U0001F6A7  Skipping unsupported platform '%+v'", job.RunsOn())
+		for _, runnerLabel := range job.RunsOn() {
+			platformName := rc.ExprEval.Interpolate(runnerLabel)
+			l.Infof("\U0001F6A7  Skipping unsupported platform '%+v'", platformName)
+		}
 		return false
 	}
 	return true
