@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"runtime"
 
 	"github.com/go-git/go-billy/v5/helper/polyfill"
 	"github.com/go-git/go-billy/v5/osfs"
@@ -278,6 +279,15 @@ func (cr *containerReference) create() common.Executor {
 func (cr *containerReference) exec(cmd []string, env map[string]string) common.Executor {
 	return func(ctx context.Context) error {
 		logger := common.Logger(ctx)
+		// Fix slashes when running on Windows
+		if runtime.GOOS == "windows" {
+			var newCmd []string
+			for _, v := range cmd {
+				newCmd = append(newCmd, strings.ReplaceAll(v, `\`, `/`))
+			}
+			cmd = newCmd
+		}
+		
 		logger.Debugf("Exec command '%s'", cmd)
 		isTerminal := terminal.IsTerminal(int(os.Stdout.Fd()))
 		envList := make([]string, 0)
