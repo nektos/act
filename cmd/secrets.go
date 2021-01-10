@@ -15,6 +15,10 @@ func newSecrets(secretList []string) secrets {
 	s := make(map[string]string)
 	for _, secretPair := range secretList {
 		secretPairParts := strings.SplitN(secretPair, "=", 2)
+		secretPairParts[0] = strings.ToUpper(secretPairParts[0])
+		if strings.ToUpper(s[secretPairParts[0]]) == secretPairParts[0] {
+			log.Fatalf("Secret %s is already defined (secrets are case insensitive)", secretPairParts[0])
+		}
 		if len(secretPairParts) == 2 {
 			s[secretPairParts[0]] = secretPairParts[1]
 		} else if env, ok := os.LookupEnv(secretPairParts[0]); ok && env != "" {
