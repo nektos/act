@@ -13,7 +13,7 @@ var commandPatternADO *regexp.Regexp
 
 func init() {
 	commandPatternGA = regexp.MustCompile("^::([^ ]+)( (.+))?::([^\r\n]*)[\r\n]+$")
-	commandPatternADO = regexp.MustCompile("^##\\[([^ ]+)( (.+))?\\]([^\r\n]*)[\r\n]+$")
+	commandPatternADO = regexp.MustCompile("^##\\[([^ ]+)( (.+))?]([^\r\n]*)[\r\n]+$")
 }
 
 func (rc *RunContext) commandHandler(ctx context.Context) common.LineHandler {
@@ -103,7 +103,7 @@ func unescapeCommandData(arg string) string {
 		"%0A": "\n",
 	}
 	for k, v := range escapeMap {
-		arg = strings.Replace(arg, k, v, -1)
+		arg = strings.ReplaceAll(arg, k, v)
 	}
 	return arg
 }
@@ -116,7 +116,7 @@ func unescapeCommandProperty(arg string) string {
 		"%2C": ",",
 	}
 	for k, v := range escapeMap {
-		arg = strings.Replace(arg, k, v, -1)
+		arg = strings.ReplaceAll(arg, k, v)
 	}
 	return arg
 }

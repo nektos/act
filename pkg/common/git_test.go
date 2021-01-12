@@ -49,12 +49,35 @@ func testDir(t *testing.T) string {
 	return basedir
 }
 
+func cleanGitHooks(dir string) error {
+	hooksDir := filepath.Join(dir, ".git", "hooks")
+	files, err := ioutil.ReadDir(hooksDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	for _, f := range files {
+		if f.IsDir() {
+			continue
+		}
+		relName := filepath.Join(hooksDir, f.Name())
+		if err := os.Remove(relName); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func TestFindGitRemoteURL(t *testing.T) {
 	assert := assert.New(t)
 
 	basedir := testDir(t)
 	gitConfig()
 	err := gitCmd("init", basedir)
+	assert.NoError(err)
+	err = cleanGitHooks(basedir)
 	assert.NoError(err)
 
 	remoteURL := "https://git-codecommit.us-east-1.amazonaws.com/v1/repos/my-repo-name"
@@ -138,6 +161,7 @@ func TestGitFindRef(t *testing.T) {
 			dir := filepath.Join(basedir, name)
 			require.NoError(t, os.MkdirAll(dir, 0755))
 			require.NoError(t, gitCmd("-C", dir, "init"))
+			require.NoError(t, cleanGitHooks(dir))
 			tt.Prepare(t, dir)
 			ref, err := FindGitRef(dir)
 			tt.Assert(t, ref, err)

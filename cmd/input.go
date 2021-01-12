@@ -20,6 +20,7 @@ type Input struct {
 	noOutput        bool
 	envfile         string
 	secretfile      string
+	insecureSecrets bool
 	defaultBranch   string
 	privileged      bool
 }

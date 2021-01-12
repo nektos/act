@@ -7,6 +7,7 @@ import (
 func (i *Input) newPlatforms() map[string]string {
 	platforms := map[string]string{
 		"ubuntu-latest":  "node:12.6-buster-slim",
+		"ubuntu-20.04":   "node:12.6-buster-slim",
 		"ubuntu-18.04":   "node:12.6-buster-slim",
 		"ubuntu-16.04":   "node:12.6-stretch-slim",
 		"windows-latest": "",
