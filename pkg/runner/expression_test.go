@@ -14,6 +14,9 @@ func TestEvaluate(t *testing.T) {
 	rc := &RunContext{
 		Config: &Config{
 			Workdir: ".",
+			Secrets: map[string]string{
+				"LOWER_CASE_SECRET": "value",
+			},
 		},
 		Env: map[string]string{
 			"key": "value",
@@ -102,6 +105,7 @@ func TestEvaluate(t *testing.T) {
 		{"matrix.os", "Linux", ""},
 		{"matrix.foo", "bar", ""},
 		{"env.key", "value", ""},
+		{"secrets.lower_case_secret", "value", ""},
 	}
 
 	for _, table := range tables {
@@ -124,6 +128,9 @@ func TestInterpolate(t *testing.T) {
 	rc := &RunContext{
 		Config: &Config{
 			Workdir: ".",
+			Secrets: map[string]string{
+				"LOWER_CASE_SECRET": "value",
+			},
 		},
 		Env: map[string]string{
 			"KEYWITHNOTHING":       "valuewithnothing",
@@ -151,6 +158,7 @@ func TestInterpolate(t *testing.T) {
 		{" ${{ env.KEYWITHNOTHING }} ", " valuewithnothing "},
 		{" ${{ env.KEY-WITH-HYPHENS }} ", " value-with-hyphens "},
 		{" ${{ env.KEY_WITH_UNDERSCORES }} ", " value_with_underscores "},
+		{" ${{ secrets.lower_case_secret }} ", " value "},
 		{"${{ env.UNKNOWN }}", ""},
 		{"${{ env.SOMETHING_TRUE }}", "true"},
 		{"${{ env.SOMETHING_FALSE }}", "false"},

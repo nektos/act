@@ -61,6 +61,9 @@ type expressionEvaluator struct {
 }
 
 func (ee *expressionEvaluator) Evaluate(in string) (string, bool, error) {
+	if strings.HasPrefix(in, `secrets.`){
+		in = `secrets.`+strings.ToUpper(strings.SplitN(in, `.`, 2)[1])
+	}
 	re := ee.Rewrite(in)
 	if re != in {
 		log.Debugf("Evaluating '%s' instead of '%s'", re, in)
