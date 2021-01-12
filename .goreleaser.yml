@@ -27,7 +27,7 @@ archives:
     - goos: windows
       format: zip
 brews:
-  - github:
+  - tap:
       owner: nektos
       name: homebrew-tap
     folder: Formula
