@@ -202,15 +202,11 @@ func (rc *RunContext) newStepExecutor(step *model.Step) common.Executor {
 			Outputs: make(map[string]string),
 		}
 
-		_ = sc.setupEnv()(ctx)
-
-		if sc.Env != nil {
-			err := rc.JobContainer.UpdateFromGithubEnv(&sc.Env)(ctx)
-			if err != nil {
-				return err
-			}
+		exprEval, err := sc.setupEnv(ctx)
+		if err != nil {
+			return err
 		}
-		rc.ExprEval = sc.NewExpressionEvaluator()
+		rc.ExprEval = exprEval;
 
 		runStep, err := rc.EvalBool(sc.Step.If)
 		if err != nil {
