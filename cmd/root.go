@@ -51,6 +51,7 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.PersistentFlags().BoolVarP(&input.noOutput, "quiet", "q", false, "disable logging of output from steps")
 	rootCmd.PersistentFlags().BoolVarP(&input.dryrun, "dryrun", "n", false, "dryrun mode")
 	rootCmd.PersistentFlags().StringVarP(&input.secretfile, "secret-file", "", "", "file with list of secrets to read from (e.g. --secret-file .secrets)")
+	rootCmd.PersistentFlags().BoolVarP(&input.insecureSecrets, "insecure-secrets", "", false, "NOT RECOMMENDED! Doesn't hide secrets while printing logs.")
 	rootCmd.PersistentFlags().StringVarP(&input.envfile, "env-file", "", ".env", "environment file to read and use as env in the containers")
 	rootCmd.SetArgs(args())
 
@@ -184,6 +185,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			LogOutput:       !input.noOutput,
 			Env:             envs,
 			Secrets:         secrets,
+			InsecureSecrets: input.insecureSecrets,
 			Platforms:       input.newPlatforms(),
 			Privileged:      input.privileged,
 		}

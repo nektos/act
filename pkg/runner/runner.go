@@ -28,6 +28,7 @@ type Config struct {
 	LogOutput       bool              // log the output from docker run
 	Env             map[string]string // env for containers
 	Secrets         map[string]string // list of secrets
+	InsecureSecrets bool              // switch hiding output when printing to terminal
 	Platforms       map[string]string // list of platforms
 	Privileged      bool              // use privileged mode
 }
@@ -75,7 +76,7 @@ func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 				}
 				stageExecutor = append(stageExecutor, func(ctx context.Context) error {
 					jobName := fmt.Sprintf("%-*s", maxJobNameLen, rc.String())
-					return rc.Executor()(WithJobLogger(ctx, jobName, rc.Config.Secrets))
+					return rc.Executor()(WithJobLogger(ctx, jobName, rc.Config.Secrets, rc.Config.InsecureSecrets))
 				})
 			}
 		}
