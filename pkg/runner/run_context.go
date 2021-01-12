@@ -126,6 +126,10 @@ func (rc *RunContext) startJobContainer() common.Executor {
 				Mode: 0644,
 				Body: rc.EventJSON,
 			}, &container.FileEntry{
+				Name: "workflow/envs.txt",
+				Mode: 0644,
+				Body: "",
+			}, &container.FileEntry{
 				Name: "home/.act",
 				Mode: 0644,
 				Body: "",
@@ -199,6 +203,13 @@ func (rc *RunContext) newStepExecutor(step *model.Step) common.Executor {
 		}
 
 		_ = sc.setupEnv()(ctx)
+
+		if sc.Env != nil {
+			err := rc.JobContainer.UpdateFromGithubEnv(&sc.Env)(ctx)
+			if err != nil {
+				return err
+			}
+		}
 		rc.ExprEval = sc.NewExpressionEvaluator()
 
 		runStep, err := rc.EvalBool(sc.Step.If)
@@ -267,14 +278,17 @@ func (rc *RunContext) isEnabled(ctx context.Context) bool {
 	return true
 }
 
+var splitPattern *regexp.Regexp
+
 // EvalBool evaluates an expression against current run context
 func (rc *RunContext) EvalBool(expr string) (bool, error) {
+	if splitPattern == nil {
+		splitPattern = regexp.MustCompile(fmt.Sprintf(`%s|%s|\S+`, expressionPattern.String(), operatorPattern.String()))
+	}
 	if strings.HasPrefix(strings.TrimSpace(expr), "!") {
 		return false, errors.New("expressions starting with ! must be wrapped in ${{ }}")
 	}
 	if expr != "" {
-		splitPattern := regexp.MustCompile(fmt.Sprintf(`%s|%s|\S+`, expressionPattern.String(), operatorPattern.String()))
-
 		parts := splitPattern.FindAllString(expr, -1)
 		var evaluatedParts []string
 		for i, part := range parts {
@@ -550,6 +564,8 @@ func (rc *RunContext) withGithubEnv(env map[string]string) map[string]string {
 	github := rc.getGithubContext()
 	env["CI"] = "true"
 	env["HOME"] = "/github/home"
+	env["GITHUB_ENV"] = "/github/workflow/envs.txt"
+
 	env["GITHUB_WORKFLOW"] = github.Workflow
 	env["GITHUB_RUN_ID"] = github.RunID
 	env["GITHUB_RUN_NUMBER"] = github.RunNumber

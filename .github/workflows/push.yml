@@ -7,11 +7,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - uses: docker://golangci/golangci-lint:v1.23.8
-      with:
-        args: golangci-lint run
+    - uses: golangci/golangci-lint-action@v2
       env:
         CGO_ENABLED: 0
+      with:
+        version: v1.32.2
 
   test:
     name: Test
@@ -35,7 +35,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: GoReleaser
-      uses: goreleaser/goreleaser-action@v1
+      uses: goreleaser/goreleaser-action@v2
       with:
         version: latest
         args: release --snapshot --rm-dist

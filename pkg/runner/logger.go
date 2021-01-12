@@ -12,11 +12,11 @@ import (
 	"github.com/nektos/act/pkg/common"
 
 	"github.com/sirupsen/logrus"
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 )
 
 const (
-	//nocolor = 0
+	// nocolor = 0
 	red     = 31
 	green   = 32
 	yellow  = 33
@@ -126,7 +126,7 @@ func (f *stepLogFormatter) isColored(entry *logrus.Entry) bool {
 func checkIfTerminal(w io.Writer) bool {
 	switch v := w.(type) {
 	case *os.File:
-		return terminal.IsTerminal(int(v.Fd()))
+		return term.IsTerminal(int(v.Fd()))
 	default:
 		return false
 	}

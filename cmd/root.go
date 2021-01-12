@@ -11,7 +11,7 @@ import (
 
 	"github.com/nektos/act/pkg/common"
 
-	fswatch "github.com/andreaskoch/go-fswatch"
+	"github.com/andreaskoch/go-fswatch"
 	"github.com/joho/godotenv"
 	"github.com/nektos/act/pkg/model"
 	"github.com/nektos/act/pkg/runner"
@@ -79,7 +79,12 @@ func readArgsFile(file string) []string {
 	if err != nil {
 		return args
 	}
-	defer f.Close()
+	defer func() {
+		err := f.Close()
+		if err != nil {
+			log.Errorf("Failed to close args file: %v", err)
+		}
+	}()
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
 		arg := scanner.Text()
@@ -91,7 +96,7 @@ func readArgsFile(file string) []string {
 
 }
 
-func setupLogging(cmd *cobra.Command, args []string) {
+func setupLogging(cmd *cobra.Command, _ []string) {
 	verbose, _ := cmd.Flags().GetBool("verbose")
 	if verbose {
 		log.SetLevel(log.DebugLevel)
@@ -189,7 +194,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			Platforms:       input.newPlatforms(),
 			Privileged:      input.privileged,
 		}
-		runner, err := runner.New(config)
+		r, err := runner.New(config)
 		if err != nil {
 			return err
 		}
@@ -198,10 +203,10 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 		if watch, err := cmd.Flags().GetBool("watch"); err != nil {
 			return err
 		} else if watch {
-			return watchAndRun(ctx, runner.NewPlanExecutor(plan))
+			return watchAndRun(ctx, r.NewPlanExecutor(plan))
 		}
 
-		return runner.NewPlanExecutor(plan)(ctx)
+		return r.NewPlanExecutor(plan)(ctx)
 	}
 }
 

@@ -2,6 +2,7 @@ package container
 
 import (
 	"archive/tar"
+	"bufio"
 	"bytes"
 	"context"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/go-git/go-billy/v5/helper/polyfill"
@@ -24,7 +26,7 @@ import (
 	"github.com/nektos/act/pkg/common"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 )
 
 // NewContainerInput the input for the New function
@@ -58,6 +60,7 @@ type Container interface {
 	Pull(forcePull bool) common.Executor
 	Start(attach bool) common.Executor
 	Exec(command []string, env map[string]string) common.Executor
+	UpdateFromGithubEnv(env *map[string]string) common.Executor
 	Remove() common.Executor
 }
 
@@ -114,6 +117,10 @@ func (cr *containerReference) CopyDir(destPath string, srcPath string) common.Ex
 		cr.exec([]string{"mkdir", "-p", destPath}, nil),
 		cr.copyDir(destPath, srcPath),
 	).IfNot(common.Dryrun)
+}
+
+func (cr *containerReference) UpdateFromGithubEnv(env *map[string]string) common.Executor {
+	return cr.extractGithubEnv(env).IfNot(common.Dryrun)
 }
 
 func (cr *containerReference) Exec(command []string, env map[string]string) common.Executor {
@@ -196,10 +203,10 @@ func (cr *containerReference) find() common.Executor {
 			return errors.WithStack(err)
 		}
 
-		for _, container := range containers {
-			for _, name := range container.Names {
+		for _, c := range containers {
+			for _, name := range c.Names {
 				if name[1:] == cr.input.Name {
-					cr.id = container.ID
+					cr.id = c.ID
 					return nil
 				}
 			}
@@ -237,7 +244,7 @@ func (cr *containerReference) create() common.Executor {
 			return nil
 		}
 		logger := common.Logger(ctx)
-		isTerminal := terminal.IsTerminal(int(os.Stdout.Fd()))
+		isTerminal := term.IsTerminal(int(os.Stdout.Fd()))
 
 		input := cr.input
 		config := &container.Config{
@@ -275,11 +282,59 @@ func (cr *containerReference) create() common.Executor {
 	}
 }
 
+var singleLineEnvPattern, mulitiLineEnvPattern *regexp.Regexp
+
+func (cr *containerReference) extractGithubEnv(env *map[string]string) common.Executor {
+	if singleLineEnvPattern == nil {
+		singleLineEnvPattern = regexp.MustCompile("^([^=]+)=([^=]+)$")
+		mulitiLineEnvPattern = regexp.MustCompile(`^([^<]+)<<(\w+)$`)
+	}
+
+	localEnv := *env
+	return func(ctx context.Context) error {
+		githubEnvTar, _, err := cr.cli.CopyFromContainer(ctx, cr.id, localEnv["GITHUB_ENV"])
+		if err != nil {
+			return nil
+		}
+		reader := tar.NewReader(githubEnvTar)
+		_, err = reader.Next()
+		if err != nil && err != io.EOF {
+			return errors.WithStack(err)
+		}
+		s := bufio.NewScanner(reader)
+		multiLineEnvKey := ""
+		multiLineEnvDelimiter := ""
+		multiLineEnvContent := ""
+		for s.Scan() {
+			line := s.Text()
+			if singleLineEnv := singleLineEnvPattern.FindStringSubmatch(line); singleLineEnv != nil {
+				localEnv[singleLineEnv[1]] = singleLineEnv[2]
+			}
+			if line == multiLineEnvDelimiter {
+				localEnv[multiLineEnvKey] = multiLineEnvContent
+				multiLineEnvKey, multiLineEnvDelimiter, multiLineEnvContent = "", "", ""
+			}
+			if multiLineEnvKey != "" && multiLineEnvDelimiter != "" {
+				if multiLineEnvContent != "" {
+					multiLineEnvContent += "\n"
+				}
+				multiLineEnvContent += line
+			}
+			if mulitiLineEnvStart := mulitiLineEnvPattern.FindStringSubmatch(line); mulitiLineEnvStart != nil {
+				multiLineEnvKey = mulitiLineEnvStart[1]
+				multiLineEnvDelimiter = mulitiLineEnvStart[2]
+			}
+		}
+		env = &localEnv
+		return nil
+	}
+}
+
 func (cr *containerReference) exec(cmd []string, env map[string]string) common.Executor {
 	return func(ctx context.Context) error {
 		logger := common.Logger(ctx)
 		logger.Debugf("Exec command '%s'", cmd)
-		isTerminal := terminal.IsTerminal(int(os.Stdout.Fd()))
+		isTerminal := term.IsTerminal(int(os.Stdout.Fd()))
 		envList := make([]string, 0)
 		for k, v := range env {
 			envList = append(envList, fmt.Sprintf("%s=%s", k, v))
@@ -492,7 +547,7 @@ func (cr *containerReference) attach() common.Executor {
 		if err != nil {
 			return errors.WithStack(err)
 		}
-		isTerminal := terminal.IsTerminal(int(os.Stdout.Fd()))
+		isTerminal := term.IsTerminal(int(os.Stdout.Fd()))
 
 		var outWriter io.Writer
 		outWriter = cr.input.Stdout
