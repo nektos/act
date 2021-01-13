@@ -79,32 +79,52 @@ func (sc *StepContext) Executor() common.Executor {
 	return common.NewErrorExecutor(fmt.Errorf("Unable to determine how to run job:%s step:%+v", rc.Run, step))
 }
 
-func (sc *StepContext) setupEnv() common.Executor {
+func (sc *StepContext) mergeEnv() map[string]string {
 	rc := sc.RunContext
 	job := rc.Run.Job()
 	step := sc.Step
-	return func(ctx context.Context) error {
-		var env map[string]string
-		c := job.Container()
-		if c != nil {
-			env = mergeMaps(rc.GetEnv(), c.Env, step.GetEnv())
-		} else {
-			env = mergeMaps(rc.GetEnv(), step.GetEnv())
-		}
 
-		if (rc.ExtraPath != nil) && (len(rc.ExtraPath) > 0) {
-			s := append(rc.ExtraPath, `/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin`)
-			env["PATH"] = strings.Join(s, `:`)
-		}
+	var env map[string]string
+	c := job.Container()
+	if c != nil {
+		env = mergeMaps(rc.GetEnv(), c.Env, step.GetEnv())
+	} else {
+		env = mergeMaps(rc.GetEnv(), step.GetEnv())
+	}
 
-		for k, v := range env {
-			env[k] = rc.ExprEval.Interpolate(v)
-		}
-		sc.Env = rc.withGithubEnv(env)
-		log.Debugf("setupEnv => %v", sc.Env)
-		return nil
+	if (rc.ExtraPath != nil) && (len(rc.ExtraPath) > 0) {
+		s := append(rc.ExtraPath, `/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin`)
+		env["PATH"] = strings.Join(s, `:`)
+	}
+
+	sc.Env = rc.withGithubEnv(env)
+	return env
+}
+
+
+func (sc *StepContext) interpolateEnv(exprEval ExpressionEvaluator) {
+	for k, v := range sc.Env {
+		sc.Env[k] = exprEval.Interpolate(v)
 	}
 }
+
+
+func (sc *StepContext) setupEnv(ctx context.Context) (ExpressionEvaluator, error) {
+	rc := sc.RunContext
+	sc.Env = sc.mergeEnv()
+	if sc.Env != nil {
+		err := rc.JobContainer.UpdateFromGithubEnv(&sc.Env)(ctx)
+		if err != nil {
+			return nil, err
+		}
+	}
+	evaluator := sc.NewExpressionEvaluator()
+	sc.interpolateEnv(evaluator)
+
+	log.Debugf("setupEnv: %v", sc.Env)
+	return evaluator, nil
+}
+
 
 func (sc *StepContext) setupShellCommand() common.Executor {
 	rc := sc.RunContext
