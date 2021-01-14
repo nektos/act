@@ -143,7 +143,7 @@ If you need an environment that works just like the corresponding GitHub runner 
 To use a different image for the runner, use the `-P` option:
 
 ```
-act -P ubuntu-latest=nektos/act-environments-ubuntu:18.04
+act -P ubuntu-18.04=nektos/act-environments-ubuntu:18.04
 ```
 
 # Secrets
