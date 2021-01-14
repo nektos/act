@@ -79,24 +79,28 @@ act -v
 # Flags
 
 ```
+  -a, --actor string           user that triggered the event (default "nektos/act")
   -b, --bind                   bind working directory to container, rather than copy
+      --defaultbranch string   the name of the main branch
   -C, --directory string       working directory (default ".")
   -n, --dryrun                 dryrun mode
-      --env-file string        environment file to read (default ".env")
+      --env-file string        environment file to read and use as env in the containers (default ".env")
   -e, --eventpath string       path to event JSON file
+  -g, --graph                  draw workflows
   -h, --help                   help for act
+      --insecure-secrets       NOT RECOMMENDED! Doesn't hide secrets while printing logs.
   -j, --job string             run job
   -l, --list                   list workflows
   -P, --platform stringArray   custom image to use per platform (e.g. -P ubuntu-18.04=nektos/act-environments-ubuntu:18.04)
+      --privileged             use privileged mode
   -p, --pull                   pull docker image(s) if already present
   -q, --quiet                  disable logging of output from steps
   -r, --reuse                  reuse action containers to maintain state
   -s, --secret stringArray     secret to make available to actions with optional value (e.g. -s mysecret=foo or -s mysecret)
-      --secret-file            file with list of secrets to read from (e.g. --secret-file .secrets)
+      --secret-file string     file with list of secrets to read from (e.g. --secret-file .secrets)
   -v, --verbose                verbose output
-      --version                version for act
   -w, --watch                  watch the contents of the local repo and run when files change
-  -W, --workflows string       path to workflow files (default "./.github/workflows/")
+  -W, --workflows string       path to workflow file(s) (default "./.github/workflows/")
 ```
 
 # Known Issues
