@@ -157,6 +157,7 @@ To run `act` with secrets, you can enter them interactively, supply them as envi
 - `act -s MY_SECRET=somevalue` - use `somevalue` as the value for `MY_SECRET`.
 - `act -s MY_SECRET` - check for an environment variable named `MY_SECRET` and use it if it exists. If the environment variable is not defined, prompt the user for a value.
 - `act --secret-file my.secrets` - load secrets values from `my.secrets` file.
+  - secrets file format is the same as `.env` format
 
 # Configuration
 
@@ -171,6 +172,13 @@ Additionally, act supports loading environment variables from an `.env` file. Th
 
 ```
 act --env-file my.env
+```
+
+`.env`:
+
+```
+MY_ENV_VAR=MY_ENV_VAR_VALUE
+MY_2ND_ENV_VAR="my 2nd env var value"
 ```
 
 # Skipping steps
