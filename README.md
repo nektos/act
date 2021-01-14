@@ -183,7 +183,7 @@ MY_2ND_ENV_VAR="my 2nd env var value"
 
 # Skipping steps
 
-Act adds a special environement variable `ACT` that can be used to skip a step that you
+Act adds a special environment variable `ACT` that can be used to skip a step that you
 don't want to run locally. E.g. a step that posts a Slack message or bumps a version number.
 
 ```yml
