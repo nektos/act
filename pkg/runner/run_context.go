@@ -206,7 +206,7 @@ func (rc *RunContext) newStepExecutor(step *model.Step) common.Executor {
 		if err != nil {
 			return err
 		}
-		rc.ExprEval = exprEval;
+		rc.ExprEval = exprEval
 
 		runStep, err := rc.EvalBool(sc.Step.If)
 		if err != nil {

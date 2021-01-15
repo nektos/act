@@ -219,7 +219,7 @@ jobs:
 		expr := expressionPattern.ReplaceAllStringFunc(table.in, func(match string) string {
 			return fmt.Sprintf("€{{ %s }}", expressionPattern.ReplaceAllString(match, "$1"))
 		})
-		name := fmt.Sprintf(`%s -> %s should be equal to %s`,expr, table.in, table.out)
+		name := fmt.Sprintf(`%s -> %s should be equal to %s`, expr, table.in, table.out)
 		echo := `run: echo "Done "`
 		workflow += fmt.Sprintf(`
      - name: %s

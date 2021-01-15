@@ -101,13 +101,11 @@ func (sc *StepContext) mergeEnv() map[string]string {
 	return env
 }
 
-
 func (sc *StepContext) interpolateEnv(exprEval ExpressionEvaluator) {
 	for k, v := range sc.Env {
 		sc.Env[k] = exprEval.Interpolate(v)
 	}
 }
-
 
 func (sc *StepContext) setupEnv(ctx context.Context) (ExpressionEvaluator, error) {
 	rc := sc.RunContext
@@ -124,7 +122,6 @@ func (sc *StepContext) setupEnv(ctx context.Context) (ExpressionEvaluator, error
 	log.Debugf("setupEnv: %v", sc.Env)
 	return evaluator, nil
 }
-
 
 func (sc *StepContext) setupShellCommand() common.Executor {
 	rc := sc.RunContext

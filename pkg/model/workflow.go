@@ -192,7 +192,7 @@ func (j *Job) GetMatrixes() []map[string]interface{} {
 
 func commonKeysMatch(a map[string]interface{}, b map[string]interface{}) bool {
 	for aKey, aVal := range a {
-		if bVal, ok := b[aKey]; ok && ! reflect.DeepEqual(aVal, bVal) {
+		if bVal, ok := b[aKey]; ok && !reflect.DeepEqual(aVal, bVal) {
 			return false
 		}
 	}

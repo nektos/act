@@ -61,8 +61,8 @@ type expressionEvaluator struct {
 }
 
 func (ee *expressionEvaluator) Evaluate(in string) (string, bool, error) {
-	if strings.HasPrefix(in, `secrets.`){
-		in = `secrets.`+strings.ToUpper(strings.SplitN(in, `.`, 2)[1])
+	if strings.HasPrefix(in, `secrets.`) {
+		in = `secrets.` + strings.ToUpper(strings.SplitN(in, `.`, 2)[1])
 	}
 	re := ee.Rewrite(in)
 	if re != in {
@@ -84,7 +84,7 @@ func (ee *expressionEvaluator) Evaluate(in string) (string, bool, error) {
 	return valAsString, val.IsString(), err
 }
 
-func (ee *expressionEvaluator) Interpolate(in string) string{
+func (ee *expressionEvaluator) Interpolate(in string) string {
 	interpolated, _ := ee.InterpolateWithStringCheck(in)
 	return interpolated
 }

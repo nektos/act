@@ -11,8 +11,8 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"strings"
 	"runtime"
+	"strings"
 
 	"github.com/go-git/go-billy/v5/helper/polyfill"
 	"github.com/go-git/go-billy/v5/osfs"
@@ -342,7 +342,7 @@ func (cr *containerReference) exec(cmd []string, env map[string]string) common.E
 			}
 			cmd = newCmd
 		}
-		
+
 		logger.Debugf("Exec command '%s'", cmd)
 		isTerminal := term.IsTerminal(int(os.Stdout.Fd()))
 		envList := make([]string, 0)
