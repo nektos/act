@@ -13,11 +13,20 @@ import (
 
 	"github.com/andreaskoch/go-fswatch"
 	"github.com/joho/godotenv"
-	"github.com/nektos/act/pkg/model"
-	"github.com/nektos/act/pkg/runner"
 	gitignore "github.com/sabhiram/go-gitignore"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+
+	"github.com/AlecAivazis/survey/v2"
+
+	"github.com/nektos/act/pkg/model"
+	"github.com/nektos/act/pkg/runner"
+)
+
+var (
+	Config  *viper.Viper
+	cfgFile string
 )
 
 // Execute is the entry point to running the CLI
@@ -252,4 +261,63 @@ func watchAndRun(ctx context.Context, fn common.Executor) error {
 	<-ctx.Done()
 	folderWatcher.Stop()
 	return err
+}
+
+func init() {
+	cobra.OnInitialize(initConfig)
+}
+
+func initConfig() {
+	Config = viper.NewWithOptions(viper.KeyDelimiter(`::`))
+
+	if cfgFile != "" {
+		Config.SetConfigFile(cfgFile)
+	} else {
+		Config.AddConfigPath(filepath.Join(os.Getenv("HOME"), ".config", "act"))
+		Config.AddConfigPath(".")
+		Config.SetConfigType("yaml")
+		Config.SetConfigName("config")
+	}
+
+	Config.AutomaticEnv()
+
+	if err := Config.ReadInConfig(); err == nil {
+		log.Printf("Config: %s", Config.ConfigFileUsed())
+	} else {
+		cfgPath := filepath.Join(os.Getenv("HOME"), ".config", "act")
+		log.Debugf("Config not found. Creating...")
+
+		if err := os.MkdirAll(cfgPath, 0644); err != nil {
+			log.Error(err)
+		}
+		cfgPath = filepath.Join(cfgPath, "config.yaml")
+		Config.SetConfigFile(cfgPath)
+		if err := Config.SafeWriteConfig(); err != nil {
+			log.Fatal(err)
+		}
+
+		answer := ""
+		confirmation := &survey.Select{
+			Message: "Please choose the default image you want to use with act:\n\n\tLarge size image: +20GB Docker image, includes almost all tools used on GitHub Actions\n\n\tMedium size image: ~500MB, includes only necessary tools to bootstrap actions (NodeJS, sudo, env vars), it aims to be compatible with all actions\n\n\tMicro size image: <200MB, contains only NodeJS required to bootstrap actions, doesn't work with all actions\n\nDefault image and other options can be changed manually in: "+cfgPath,
+			Help: "If you want to know why act asks you that, please go to https://github.com/nektos/act/issues/107",
+			Default: "Medium",
+			Options: []string{"Big", "Medium", "Micro"},
+		}
+
+		err = survey.AskOne(confirmation, &answer)
+		if err != nil {
+			log.Error(err)
+			os.Exit(1)
+		}
+		if answer == "Big" {
+			Config.Set(`images`, map[string]string{
+				`ubuntu-latest`: `nektos/act-environments-ubuntu:18.04`,
+				`ubuntu-18.04`: `nektos/act-environments-ubuntu:18.04`,
+			})
+
+			if err := Config.WriteConfig(); err != nil {
+				log.Fatal(err)
+			}
+		}
+	}
 }
