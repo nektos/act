@@ -16,11 +16,19 @@ func (i *Input) newPlatforms() map[string]string {
 		"macos-10.15":    "",
 	}
 
+	if Config.Sub(`images`) != nil {
+		configPlatforms := Config.GetStringMapString(`images`)
+		for k, v := range configPlatforms {
+			platforms[k] = v
+		}
+	}
+
 	for _, p := range i.platforms {
 		pParts := strings.Split(p, "=")
 		if len(pParts) == 2 {
 			platforms[pParts[0]] = pParts[1]
 		}
+
 	}
 	return platforms
 }
