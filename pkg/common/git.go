@@ -238,6 +238,9 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) Executor {
 
 		// At this point we need to know if it's a tag or a branch
 		// And the easiest way to do it is duck typing
+		//
+		// If err is nil, it's a tag so let's proceed with that hash like we would if
+		// it was a sha
 		refType := "tag"
 		rev := plumbing.Revision(path.Join("refs", "tags", input.Ref))
 		if _, err := r.Tag(input.Ref); errors.Is(err, git.ErrTagNotFound) {
@@ -258,29 +261,20 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) Executor {
 		if hash.String() != input.Ref {
 
 			// Run git fetch to make sure we have the latest sha
-			err = r.Fetch(&git.FetchOptions{})
-			if err != nil && err.Error() != "already up-to-date" {
+			err := r.Fetch(&git.FetchOptions{})
+			if err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
 				logger.Debugf("Unable to fetch: %v", err)
 			}
 
-			// At this point we need to know if it's a tag or a branch
-			// And the easiest way to do it is duck typing
-			//
-			// If err is nil, it's a tag so let's proceed with that hash like we would if
-			// it was a sha
-			hash, err = r.ResolveRevision(rev)
-			if err != nil {
-				logger.Errorf("Unable to resolve %s: %v", rev, err)
-				return err
-			}
 			if refType == "branch" {
 				logger.Debugf("Provided ref is not a sha. Checking out branch before pulling changes")
+				sourceRef := plumbing.ReferenceName(path.Join("refs", "remotes", "origin", input.Ref))
 				err := w.Checkout(&git.CheckoutOptions{
-					Branch: refName,
+					Branch: sourceRef,
 					Force:  true,
 				})
 				if err != nil {
-					logger.Errorf("Unable to checkout %s: %v", refName, err)
+					logger.Errorf("Unable to checkout %s: %v", sourceRef, err)
 					return err
 				}
 			}

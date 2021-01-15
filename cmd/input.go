@@ -14,6 +14,7 @@ type Input struct {
 	reuseContainers bool
 	bindWorkdir     bool
 	secrets         []string
+	envs            []string
 	platforms       []string
 	dryrun          bool
 	forcePull       bool
