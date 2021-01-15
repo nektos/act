@@ -143,7 +143,7 @@ If you need an environment that works just like the corresponding GitHub runner 
 To use a different image for the runner, use the `-P` option:
 
 ```
-act -P ubuntu-latest=nektos/act-environments-ubuntu:18.04
+act -P ubuntu-18.04=nektos/act-environments-ubuntu:18.04
 ```
 
 # Secrets
@@ -160,7 +160,7 @@ You can provide default configuration flags to `act` by either creating a `./.ac
 
 ```
 # sample .actrc file
--P ubuntu-latest=nektos/act-environments-ubuntu:18.04
+-P ubuntu-18.04=nektos/act-environments-ubuntu:18.04
 ```
 
 Additionally, act supports loading environment variables from an `.env` file. The default is to look in the working directory for the file but can be overridden by:
