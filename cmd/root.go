@@ -37,6 +37,7 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.Flags().BoolP("graph", "g", false, "draw workflows")
 	rootCmd.Flags().StringP("job", "j", "", "run job")
 	rootCmd.Flags().StringArrayVarP(&input.secrets, "secret", "s", []string{}, "secret to make available to actions with optional value (e.g. -s mysecret=foo or -s mysecret)")
+	rootCmd.Flags().StringArrayVarP(&input.envs, "env", "", []string{}, "env to make available to actions with optional value (e.g. --e myenv=foo or -s myenv)")
 	rootCmd.Flags().StringArrayVarP(&input.platforms, "platform", "P", []string{}, "custom image to use per platform (e.g. -P ubuntu-18.04=nektos/act-environments-ubuntu:18.04)")
 	rootCmd.Flags().BoolVarP(&input.reuseContainers, "reuse", "r", false, "reuse action containers to maintain state")
 	rootCmd.Flags().BoolVarP(&input.bindWorkdir, "bind", "b", false, "bind working directory to container, rather than copy")
@@ -121,6 +122,16 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 	return func(cmd *cobra.Command, args []string) error {
 		log.Debugf("Loading environment from %s", input.Envfile())
 		envs := make(map[string]string)
+		if input.envs != nil {
+			for _, envVar := range input.envs {
+				e := strings.SplitN(envVar, `=`, 2)
+				if len(e) == 2 {
+					envs[e[0]] = e[1]
+				} else {
+					envs[e[0]] = ""
+				}
+			}
+		}
 		_ = readEnvs(input.Envfile(), envs)
 
 		log.Debugf("Loading secrets from %s", input.Secretfile())
