@@ -1,6 +1,7 @@
 package common
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -165,6 +166,37 @@ func TestGitFindRef(t *testing.T) {
 			tt.Prepare(t, dir)
 			ref, err := FindGitRef(dir)
 			tt.Assert(t, ref, err)
+		})
+	}
+}
+
+func TestGitCloneExecutor(t *testing.T) {
+	for name, tt := range map[string]struct {
+		URL string
+		Ref string
+		Err error
+	}{
+		"tag": {
+			URL: "https://github.com/actions/checkout",
+			Ref: "v2",
+			Err: nil,
+		},
+		"branch": {
+			URL: "https://github.com/anchore/scan-action",
+			Ref: "act-fails",
+			Err: nil,
+		},
+	} {
+		tt := tt
+		name := name
+		t.Run(name, func(t *testing.T) {
+			clone := NewGitCloneExecutor(NewGitCloneExecutorInput{
+				URL: tt.URL,
+				Ref: tt.Ref,
+				Dir: testDir(t),
+			})
+			err := clone(context.Background())
+			assert.ErrorIs(t, err, tt.Err)
 		})
 	}
 }
