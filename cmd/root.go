@@ -3,7 +3,6 @@ package cmd
 import (
 	"bufio"
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -11,13 +10,15 @@ import (
 
 	"github.com/nektos/act/pkg/common"
 
+	"github.com/AlecAivazis/survey/v2"
 	"github.com/andreaskoch/go-fswatch"
 	"github.com/joho/godotenv"
-	"github.com/nektos/act/pkg/model"
-	"github.com/nektos/act/pkg/runner"
 	gitignore "github.com/sabhiram/go-gitignore"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+
+	"github.com/nektos/act/pkg/model"
+	"github.com/nektos/act/pkg/runner"
 )
 
 // Execute is the entry point to running the CLI
@@ -65,13 +66,65 @@ func Execute(ctx context.Context, version string) {
 
 func args() []string {
 	args := make([]string, 0)
-	for _, dir := range []string{
-		os.Getenv("HOME"),
-		".",
-	} {
-		args = append(args, readArgsFile(fmt.Sprintf("%s/.actrc", dir))...)
+	actrc := []string{
+		filepath.Join(os.Getenv("HOME"), ".actrc"),
+		filepath.Join(".", ".actrc"),
 	}
+	for _, f := range actrc {
+		args = append(args, readArgsFile(f)...)
+	}
+
+	if len(args) == 0 {
+		var answer string
+		confirmation := &survey.Select{
+			Message: "Please choose the default image you want to use with act:\n\n\tLarge size image: +20GB Docker image, includes almost all tools used on GitHub Actions\n\n\tMedium size image: ~500MB, includes only necessary tools to bootstrap actions (NodeJS, sudo, env vars), it aims to be compatible with all actions\n\n\tMicro size image: <200MB, contains only NodeJS required to bootstrap actions, doesn't work with all actions\n\nDefault image and other options can be changed manually in ~/.actrc",
+			Help: "If you want to know why act asks you that, please go to https://github.com/nektos/act/issues/107",
+			Default: "Medium",
+			Options: []string{"Big", "Medium", "Micro"},
+		}
+
+		err := survey.AskOne(confirmation, &answer)
+		if err != nil {
+			log.Error(err)
+			os.Exit(1)
+		}
+
+		_, err = os.Stat(actrc[0])
+		if os.IsNotExist(err) {
+			var option string
+			switch answer {
+			case "Big":
+				option = "-P ubuntu-latest=nektos/act-environments-ubuntu:18.04\n-P ubuntu-18.04=nektos/act-environments-ubuntu:18.04"
+			case "Medium":
+				option = "-P ubuntu-latest=ghcr.io/catthehacker/ubuntu:act-latest\n-P ubuntu-20.04=ghcr.io/catthehacker/ubuntu:act-20.04\n-P ubuntu-18.04=ghcr.io/catthehacker/ubuntu:act-18.04\nubuntu-16.04=ghcr.io/catthehacker/ubuntu:act-16.04"
+			case "Micro":
+				option = "-P ubuntu-latest=node:12.6-buster-slim\n-P ubuntu-12.04=node:12.6-buster-slim\n-P ubuntu-18.04=node:12.6-buster-slim\n-P ubuntu-16.04=node:12.6-stretch-slim"
+			}
+
+			f, err := os.Create(actrc[0])
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			_, err = f.WriteString(option)
+			if err != nil {
+				log.Fatal(err)
+				_ = f.Close()
+			}
+
+			err = f.Close()
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			args = append(args, readArgsFile(actrc[0])...)
+		} else {
+			log.Error("File ~/.actrc already exists")
+		}
+	}
+
 	args = append(args, os.Args[1:]...)
+
 	return args
 }
 
@@ -95,7 +148,6 @@ func readArgsFile(file string) []string {
 		}
 	}
 	return args
-
 }
 
 func setupLogging(cmd *cobra.Command, _ []string) {
