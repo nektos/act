@@ -52,7 +52,8 @@ or in a shell by running
 
 ```
 # Command structure:
-act [event name to run] [flags]
+act [<event>] [options]
+If no event name passed, will default to "on: push"
 
 # List the actions for the default event:
 act -l
