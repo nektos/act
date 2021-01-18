@@ -77,10 +77,10 @@ func args() []string {
 	if len(args) == 0 {
 		var answer string
 		confirmation := &survey.Select{
-			Message: "Please choose the default image you want to use with act:\n\n\tLarge size image: +20GB Docker image, includes almost all tools used on GitHub Actions\n\n\tMedium size image: ~500MB, includes only necessary tools to bootstrap actions (NodeJS, sudo, env vars), it aims to be compatible with all actions\n\n\tMicro size image: <200MB, contains only NodeJS required to bootstrap actions, doesn't work with all actions\n\nDefault image and other options can be changed manually in ~/.actrc",
-			Help: "If you want to know why act asks you that, please go to https://github.com/nektos/act/issues/107",
+			Message: "Please choose the default image you want to use with act:\n\n  - Large size image: +20GB Docker image, includes almost all tools used on GitHub Actions\n  - Medium size image: ~500MB, includes only necessary tools to bootstrap actions and aims to be compatible with all actions\n  - Micro size image: <200MB, contains only NodeJS required to bootstrap actions, doesn't work with all actions\n\nDefault image and other options can be changed manually in ~/.actrc",
+			Help:    "If you want to know why act asks you that, please go to https://github.com/nektos/act/issues/107",
 			Default: "Medium",
-			Options: []string{"Big", "Medium", "Micro"},
+			Options: []string{"Large", "Medium", "Micro"},
 		}
 
 		err := survey.AskOne(confirmation, &answer)
@@ -93,7 +93,7 @@ func args() []string {
 		if os.IsNotExist(err) {
 			var option string
 			switch answer {
-			case "Big":
+			case "Large":
 				option = "-P ubuntu-latest=nektos/act-environments-ubuntu:18.04\n-P ubuntu-18.04=nektos/act-environments-ubuntu:18.04"
 			case "Medium":
 				option = "-P ubuntu-latest=ghcr.io/catthehacker/ubuntu:act-latest\n-P ubuntu-20.04=ghcr.io/catthehacker/ubuntu:act-20.04\n-P ubuntu-18.04=ghcr.io/catthehacker/ubuntu:act-18.04\nubuntu-16.04=ghcr.io/catthehacker/ubuntu:act-16.04"
