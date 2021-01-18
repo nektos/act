@@ -2,12 +2,13 @@ package runner
 
 import (
 	"fmt"
-	"github.com/nektos/act/pkg/model"
-	a "github.com/stretchr/testify/assert"
 	"os"
 	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/nektos/act/pkg/model"
+	a "github.com/stretchr/testify/assert"
 
 	"github.com/sirupsen/logrus/hooks/test"
 )
@@ -129,6 +130,8 @@ func TestRunContext_EvalBool(t *testing.T) {
 		// The special ACT flag
 		{in: "${{ env.ACT }}", out: true},
 		{in: "${{ !env.ACT }}", out: false},
+		// Invalid expressions should be reported
+		{in: "INVALID_EXPRESSION", wantErr: true},
 	}
 
 	updateTestIfWorkflow(t, tables, rc)
