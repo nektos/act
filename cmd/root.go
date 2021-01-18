@@ -24,7 +24,7 @@ import (
 func Execute(ctx context.Context, version string) {
 	input := new(Input)
 	var rootCmd = &cobra.Command{
-		Use:              "act [event name to run]",
+		Use:              "act [event name to run]\nIf no event name passed, will default to \"on: push\"",
 		Short:            "Run Github actions locally by specifying the event name (e.g. `push`) or an action name directly.",
 		Args:             cobra.MaximumNArgs(1),
 		RunE:             newRunCommand(ctx, input),
@@ -42,6 +42,7 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.Flags().BoolVarP(&input.reuseContainers, "reuse", "r", false, "reuse action containers to maintain state")
 	rootCmd.Flags().BoolVarP(&input.bindWorkdir, "bind", "b", false, "bind working directory to container, rather than copy")
 	rootCmd.Flags().BoolVarP(&input.forcePull, "pull", "p", false, "pull docker image(s) if already present")
+	rootCmd.Flags().BoolVarP(&input.autodetectEvent, "detect-event", "", false, "Use first event type from workflow as event that triggered the workflow")
 	rootCmd.Flags().StringVarP(&input.eventPath, "eventpath", "e", "", "path to event JSON file")
 	rootCmd.Flags().StringVar(&input.defaultBranch, "defaultbranch", "", "the name of the main branch")
 	rootCmd.Flags().BoolVar(&input.privileged, "privileged", false, "use privileged mode")
@@ -145,15 +146,18 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 
 		// Determine the event name
 		var eventName string
-		if len(args) > 0 {
-			eventName = args[0]
-		} else if plan := planner.PlanEvent("push"); plan != nil {
-			eventName = "push"
-		} else if events := planner.GetEvents(); len(events) > 0 {
-			// set default event type to first event
+		events := planner.GetEvents()
+		if input.autodetectEvent && len(events) > 0 {
+			 // set default event type to first event
 			// this way user dont have to specify the event.
 			log.Debugf("Using detected workflow event: %s", events[0])
 			eventName = events[0]
+		} else {
+			if len(args) > 0 {
+				eventName = args[0]
+			} else if plan := planner.PlanEvent("push"); plan != nil {
+				eventName = "push"
+			}
 		}
 
 		// build the plan for this run

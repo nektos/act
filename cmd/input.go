@@ -10,6 +10,7 @@ type Input struct {
 	actor           string
 	workdir         string
 	workflowsPath   string
+	autodetectEvent bool
 	eventPath       string
 	reuseContainers bool
 	bindWorkdir     bool
