@@ -85,6 +85,7 @@ act -v
   -C, --directory string       working directory (default ".")
   -n, --dryrun                 dryrun mode
       --env-file string        environment file to read and use as env in the containers (default ".env")
+      --detect-event           Use first event type from workflow as event that triggered the workflow
   -e, --eventpath string       path to event JSON file
   -g, --graph                  draw workflows
   -h, --help                   help for act
