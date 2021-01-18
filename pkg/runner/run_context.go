@@ -314,7 +314,7 @@ func (rc *RunContext) EvalBool(expr string) (bool, error) {
 		joined := strings.Join(evaluatedParts, " ")
 		v, _, err := rc.ExprEval.Evaluate(fmt.Sprintf("Boolean(%s)", joined))
 		if err != nil {
-			return false, nil
+			return false, err
 		}
 		log.Debugf("expression '%s' evaluated to '%s'", expr, v)
 		return v == "true", nil
