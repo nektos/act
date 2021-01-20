@@ -239,6 +239,10 @@ func (rc *RunContext) platformImage() string {
 		return rc.ExprEval.Interpolate(c.Image)
 	}
 
+	if job.RunsOn() == nil {
+		log.Errorf("'runs-on' key not defined in %s", rc.String())
+	}
+
 	for _, runnerLabel := range job.RunsOn() {
 		platformName := rc.ExprEval.Interpolate(runnerLabel)
 		image := rc.Config.Platforms[strings.ToLower(platformName)]
@@ -265,6 +269,10 @@ func (rc *RunContext) isEnabled(ctx context.Context) bool {
 
 	img := rc.platformImage()
 	if img == "" {
+		if job.RunsOn() == nil {
+			log.Errorf("'runs-on' key not defined in %s", rc.String())
+		}
+
 		for _, runnerLabel := range job.RunsOn() {
 			platformName := rc.ExprEval.Interpolate(runnerLabel)
 			l.Infof("\U0001F6A7  Skipping unsupported platform '%+v'", platformName)
