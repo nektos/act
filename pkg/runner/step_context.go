@@ -57,6 +57,15 @@ func (sc *StepContext) Executor() common.Executor {
 		)
 	case model.StepTypeUsesActionRemote:
 		remoteAction := newRemoteAction(step.Uses)
+		if remoteAction.Ref == "" {
+			// GitHub's document[^] describes:
+			// > We strongly recommend that you include the version of
+			// > the action you are using by specifying a Git ref, SHA, or Docker tag number.
+			// Actually, the workflow stops if there is the uses directive that hasn't @ref.
+			// [^]: https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions
+			msg := fmt.Sprintf("Expected format {org}/{repo}[/path]@ref. Actual '%s' Input string was not in a correct format.", step.Uses)
+			return common.NewErrorExecutor(fmt.Errorf("%s", msg))
+		}
 		if remoteAction.IsCheckout() && rc.getGithubContext().isLocalCheckout(step) {
 			return func(ctx context.Context) error {
 				common.Logger(ctx).Debugf("Skipping actions/checkout")
@@ -398,8 +407,6 @@ func newRemoteAction(action string) *remoteAction {
 	ra := new(remoteAction)
 	ra.Org = matches[1]
 	ra.Repo = matches[2]
-	ra.Path = ""
-	ra.Ref = "master"
 	if len(matches) >= 5 {
 		ra.Path = matches[4]
 	}
