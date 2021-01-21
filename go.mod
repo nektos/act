@@ -3,6 +3,7 @@ module github.com/nektos/act
 go 1.14
 
 require (
+	github.com/AlecAivazis/survey/v2 v2.2.7
 	github.com/Azure/go-ansiterm v0.0.0-20170929234023-d6e3b3328b78 // indirect
 	github.com/MichaelTJones/walk v0.0.0-20161122175330-4748e29d5718 // indirect
 	github.com/Microsoft/go-winio v0.4.15 // indirect
