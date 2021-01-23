@@ -32,6 +32,12 @@ func (sc *StepContext) execJobContainer() common.Executor {
 	}
 }
 
+type formatError string
+
+func (e formatError) Error() string {
+	return fmt.Sprintf("Expected format {org}/{repo}[/path]@ref. Actual '%s' Input string was not in a correct format.", string(e))
+}
+
 // Executor for a step context
 func (sc *StepContext) Executor() common.Executor {
 	rc := sc.RunContext
@@ -57,14 +63,8 @@ func (sc *StepContext) Executor() common.Executor {
 		)
 	case model.StepTypeUsesActionRemote:
 		remoteAction := newRemoteAction(step.Uses)
-		if remoteAction.Ref == "" {
-			// GitHub's document[^] describes:
-			// > We strongly recommend that you include the version of
-			// > the action you are using by specifying a Git ref, SHA, or Docker tag number.
-			// Actually, the workflow stops if there is the uses directive that hasn't @ref.
-			// [^]: https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions
-			msg := fmt.Sprintf("Expected format {org}/{repo}[/path]@ref. Actual '%s' Input string was not in a correct format.", step.Uses)
-			return common.NewErrorExecutor(fmt.Errorf("%s", msg))
+		if remoteAction == nil {
+			return common.NewErrorExecutor(formatError(step.Uses))
 		}
 		if remoteAction.IsCheckout() && rc.getGithubContext().isLocalCheckout(step) {
 			return func(ctx context.Context) error {
@@ -401,19 +401,22 @@ func (ra *remoteAction) IsCheckout() bool {
 }
 
 func newRemoteAction(action string) *remoteAction {
+	// GitHub's document[^] describes:
+	// > We strongly recommend that you include the version of
+	// > the action you are using by specifying a Git ref, SHA, or Docker tag number.
+	// Actually, the workflow stops if there is the uses directive that hasn't @ref.
+	// [^]: https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions
 	r := regexp.MustCompile(`^([^/@]+)/([^/@]+)(/([^@]*))?(@(.*))?$`)
 	matches := r.FindStringSubmatch(action)
-
-	ra := new(remoteAction)
-	ra.Org = matches[1]
-	ra.Repo = matches[2]
-	if len(matches) >= 5 {
-		ra.Path = matches[4]
+	if len(matches) < 7 || matches[6] == "" {
+		return nil
 	}
-	if len(matches) >= 7 {
-		ra.Ref = matches[6]
+	return &remoteAction{
+		Org:  matches[1],
+		Repo: matches[2],
+		Path: matches[4],
+		Ref:  matches[6],
 	}
-	return ra
 }
 
 // https://github.com/nektos/act/issues/228#issuecomment-629709055
