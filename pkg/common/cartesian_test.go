@@ -25,4 +25,16 @@ func TestCartesianProduct(t *testing.T) {
 		assert.Contains(v, "baz")
 	}
 
+  input = map[string][]interface{}{
+		"foo": {1, 2, 3, 4},
+		"bar": {},
+		"baz": {false, true},
+  }
+  output = CartesianProduct(input)
+  assert.Len(output, 0)
+
+  input = map[string][]interface{}{}
+  output = CartesianProduct(input)
+  assert.Len(output, 0)
 }
+
