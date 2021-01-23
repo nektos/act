@@ -27,7 +27,7 @@ func cartN(a ...[]interface{}) [][]interface{} {
 	for _, a := range a {
 		c *= len(a)
 	}
-	if c == 0 {
+	if c == 0 || len(a) == 0 {
 		return nil
 	}
 	p := make([][]interface{}, c)
