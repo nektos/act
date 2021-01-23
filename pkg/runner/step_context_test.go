@@ -3,6 +3,8 @@ package runner
 import (
 	"context"
 	"testing"
+
+	"github.com/nektos/act/pkg/common"
 )
 
 func TestStepContextExecutor(t *testing.T) {
@@ -10,10 +12,13 @@ func TestStepContextExecutor(t *testing.T) {
 		"ubuntu-latest": "node:12.6-buster-slim",
 	}
 	tables := []TestJobFileInfo{
-		{"testdata", "invalid-uses-empty", "push", "Expected format {org}/{repo}[/path]@ref", platforms},
-		{"testdata", "invalid-uses-noref", "push", "Expected format {org}/{repo}[/path]@ref", platforms},
+		{"testdata", "uses-github-empty", "push", "Expected format {org}/{repo}[/path]@ref", platforms},
+		{"testdata", "uses-github-noref", "push", "Expected format {org}/{repo}[/path]@ref", platforms},
+		{"testdata", "uses-github-root", "push", "", platforms},
+		{"testdata", "uses-github-path", "push", "", platforms},
 	}
-	ctx := context.Background()
+	// These tests are sufficient to only check syntax.
+	ctx := common.WithDryrun(context.Background(), true)
 	for _, table := range tables {
 		runTestJobFile(ctx, t, table)
 	}

@@ -1,7 +1,7 @@
-name: invalid-uses-noref
+name: uses-github-empty
 on: push
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/cache
+    - name: empty

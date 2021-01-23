@@ -1,7 +1,7 @@
-name: invalid-uses-empty
+name: uses-github-root
 on: push
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-    - name: empty
+    - uses: actions/checkout@v2

@@ -1,0 +1,7 @@
+name: uses-github-path
+on: push
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: sergioramos/yarn-actions/install@v6
