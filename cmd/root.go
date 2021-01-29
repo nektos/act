@@ -73,58 +73,7 @@ func args() []string {
 	for _, f := range actrc {
 		args = append(args, readArgsFile(f)...)
 	}
-
-	if len(args) == 0 {
-		var answer string
-		confirmation := &survey.Select{
-			Message: "Please choose the default image you want to use with act:\n\n  - Large size image: +20GB Docker image, includes almost all tools used on GitHub Actions\n  - Medium size image: ~500MB, includes only necessary tools to bootstrap actions and aims to be compatible with all actions\n  - Micro size image: <200MB, contains only NodeJS required to bootstrap actions, doesn't work with all actions\n\nDefault image and other options can be changed manually in ~/.actrc",
-			Help:    "If you want to know why act asks you that, please go to https://github.com/nektos/act/issues/107",
-			Default: "Medium",
-			Options: []string{"Large", "Medium", "Micro"},
-		}
-
-		err := survey.AskOne(confirmation, &answer)
-		if err != nil {
-			log.Error(err)
-			os.Exit(1)
-		}
-
-		_, err = os.Stat(actrc[0])
-		if os.IsNotExist(err) {
-			var option string
-			switch answer {
-			case "Large":
-				option = "-P ubuntu-latest=nektos/act-environments-ubuntu:18.04\n-P ubuntu-18.04=nektos/act-environments-ubuntu:18.04"
-			case "Medium":
-				option = "-P ubuntu-latest=catthehacker/ubuntu:act-latest\n-P ubuntu-20.04=catthehacker/ubuntu:act-20.04\n-P ubuntu-18.04=catthehacker/ubuntu:act-18.04\nubuntu-16.04=catthehacker/ubuntu:act-16.04"
-			case "Micro":
-				option = "-P ubuntu-latest=node:12.6-buster-slim\n-P ubuntu-12.04=node:12.6-buster-slim\n-P ubuntu-18.04=node:12.6-buster-slim\n-P ubuntu-16.04=node:12.6-stretch-slim"
-			}
-
-			f, err := os.Create(actrc[0])
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			_, err = f.WriteString(option)
-			if err != nil {
-				log.Fatal(err)
-				_ = f.Close()
-			}
-
-			err = f.Close()
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			args = append(args, readArgsFile(actrc[0])...)
-		} else {
-			log.Error("File ~/.actrc already exists")
-		}
-	}
-
 	args = append(args, os.Args[1:]...)
-
 	return args
 }
 
@@ -200,7 +149,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 		var eventName string
 		events := planner.GetEvents()
 		if input.autodetectEvent && len(events) > 0 {
-			 // set default event type to first event
+			// set default event type to first event
 			// this way user dont have to specify the event.
 			log.Debugf("Using detected workflow event: %s", events[0])
 			eventName = events[0]
@@ -242,6 +191,57 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 		defaultbranch, err := cmd.Flags().GetString("defaultbranch")
 		if err != nil {
 			return err
+		}
+
+		// check platforms
+		if len(input.platforms) == 0 {
+			actrc := []string{
+				filepath.Join(os.Getenv("HOME"), ".actrc"),
+			}
+			_, err = os.Stat(actrc[0])
+			if os.IsNotExist(err) {
+				var answer string
+				confirmation := &survey.Select{
+					Message: "Please choose the default image you want to use with act:\n\n  - Large size image: +20GB Docker image, includes almost all tools used on GitHub Actions\n  - Medium size image: ~500MB, includes only necessary tools to bootstrap actions and aims to be compatible with all actions\n  - Micro size image: <200MB, contains only NodeJS required to bootstrap actions, doesn't work with all actions\n\nDefault image and other options can be changed manually in ~/.actrc",
+					Help:    "If you want to know why act asks you that, please go to https://github.com/nektos/act/issues/107",
+					Default: "Medium",
+					Options: []string{"Large", "Medium", "Micro"},
+				}
+				configFileArgs := make([]string, 0)
+				err := survey.AskOne(confirmation, &answer)
+				if err != nil {
+					log.Error(err)
+					os.Exit(1)
+				}
+				var option string
+				switch answer {
+				case "Large":
+					option = "-P ubuntu-latest=nektos/act-environments-ubuntu:18.04\n-P ubuntu-18.04=nektos/act-environments-ubuntu:18.04"
+				case "Medium":
+					option = "-P ubuntu-latest=catthehacker/ubuntu:act-latest\n-P ubuntu-20.04=catthehacker/ubuntu:act-20.04\n-P ubuntu-18.04=catthehacker/ubuntu:act-18.04\nubuntu-16.04=catthehacker/ubuntu:act-16.04"
+				case "Micro":
+					option = "-P ubuntu-latest=node:12.6-buster-slim\n-P ubuntu-20.04=node:12.6-buster-slim\n-P ubuntu-18.04=node:12.6-buster-slim\n-P ubuntu-16.04=node:12.6-stretch-slim"
+				}
+
+				f, err := os.Create(actrc[0])
+				if err != nil {
+					log.Fatal(err)
+				}
+
+				_, err = f.WriteString(option)
+				if err != nil {
+					log.Fatal(err)
+					_ = f.Close()
+				}
+
+				err = f.Close()
+				if err != nil {
+					log.Fatal(err)
+				}
+
+				configFileArgs = append(configFileArgs, readArgsFile(actrc[0])...)
+				cmd.SetArgs(configFileArgs)
+			}
 		}
 
 		// run the plan
