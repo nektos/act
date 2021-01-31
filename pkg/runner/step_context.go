@@ -241,7 +241,7 @@ func (sc *StepContext) runUsesContainer() common.Executor {
 	step := sc.Step
 	return func(ctx context.Context) error {
 		image := strings.TrimPrefix(step.Uses, "docker://")
-		cmd := strings.Fields(step.With["args"])
+		cmd := strings.Fields(sc.RunContext.NewExpressionEvaluator().Interpolate(step.With["args"]))
 		entrypoint := strings.Fields(step.With["entrypoint"])
 		stepContainer := sc.newStepContainer(ctx, image, cmd, entrypoint)
 
