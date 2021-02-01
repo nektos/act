@@ -583,6 +583,9 @@ func (rc *RunContext) withGithubEnv(env map[string]string) map[string]string {
 	env["GITHUB_SHA"] = github.Sha
 	env["GITHUB_REF"] = github.Ref
 	env["GITHUB_TOKEN"] = github.Token
+	env["GITHUB_SERVER_URL"] = "https://github.com"
+	env["GITHUB_API_URL"] = "https://api.github.com"
+	env["GITHUB_GRAPHQL_URL"] = "https://api.github.com/graphql"
 	return env
 }
 
