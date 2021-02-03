@@ -1,8 +1,12 @@
-  
-FROM mono:3.12.1 as builder
-ARG CHOCOVERSION=0.10.15
+# choco supports only Mono 5.20.x
+# https://github.com/chocolatey/choco#prerequisites
+FROM mono:5.20 as builder
+# 0.10.15 with newer Mono is failing as it's dependent on Mono Profile 4.0 which has been deprecated
+# http://www.mono-project.com/docs/about-mono/releases/4.0.0/#dropped-support-for-old-frameworks
+# Alternative to consider, use git repository and reset to specific tag/hash
+ARG CHOCOVERSION=0.10.16-beta
 
-RUN echo "deb http://archive.debian.org/debian/ wheezy main contrib non-free" >/etc/apt/sources.list
+ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y wget tar gzip
 
 WORKDIR /usr/local/src
@@ -30,5 +34,3 @@ RUN apk --update --no-cache --repository http://dl-cdn.alpinelinux.org/alpine/ed
 
 COPY entrypoint.sh /entrypoint.sh
 ENTRYPOINT ["/entrypoint.sh"]
-
-
