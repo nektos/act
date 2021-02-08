@@ -89,6 +89,8 @@ func TestEvaluate(t *testing.T) {
 		{"(fromJson('{\"foo\":\"bar\"}')).foo", "bar", ""},
 		{"hashFiles('**/non-extant-files')", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", ""},
 		{"hashFiles('**/non-extant-files', '**/more-non-extant-files')", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", ""},
+		{"hashFiles('**/non.extant.files')", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", ""},
+		{"hashFiles('**/non''extant''files')", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", ""},
 		{"success()", "true", ""},
 		{"failure()", "false", ""},
 		{"always()", "true", ""},
