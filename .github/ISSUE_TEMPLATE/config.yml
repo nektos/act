@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Ask on Gitter
+    url: https://gitter.im/nektos/act
+    about: You can ask for help here!
+  - name: Want to contribute to act?
+    url: https://github.com/nektos/act/blob/master/CONTRIBUTING.md
+    about: Be sure to read contributing guidelines!
