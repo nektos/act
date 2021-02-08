@@ -8,7 +8,7 @@ inputs:
     default: World
 runs:
   using: docker
-  #image: docker://alpine:3.8
+  #image: docker://alpine:3.13
   image: docker://node:12-alpine
   env:
     TEST: enabled

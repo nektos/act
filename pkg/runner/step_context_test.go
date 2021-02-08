@@ -9,7 +9,7 @@ import (
 
 func TestStepContextExecutor(t *testing.T) {
 	platforms := map[string]string{
-		"ubuntu-latest": "node:12.6-buster-slim",
+		"ubuntu-latest": "node:12.20.1-buster-slim",
 	}
 	tables := []TestJobFileInfo{
 		{"testdata", "uses-github-empty", "push", "Expected format {org}/{repo}[/path]@ref", platforms},
