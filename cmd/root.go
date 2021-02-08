@@ -61,6 +61,7 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.PersistentFlags().BoolVarP(&input.insecureSecrets, "insecure-secrets", "", false, "NOT RECOMMENDED! Doesn't hide secrets while printing logs.")
 	rootCmd.PersistentFlags().StringVarP(&input.envfile, "env-file", "", ".env", "environment file to read and use as env in the containers")
 	rootCmd.PersistentFlags().StringVarP(&input.containerArchitecture, "container-architecture", "", "", "Architecture which should be used to run containers, e.g.: linux/amd64. If not specified, will use host default architecture. Requires Docker server API Version 1.41+. Ignored on earlier Docker server platforms.")
+	rootCmd.PersistentFlags().StringVarP(&input.githubInstance, "github-instance", "", "github.com", "GitHub instance to use. Don't use this if you are not using GitHub Enterprise Server.")
 	rootCmd.SetArgs(args())
 
 	if err := rootCmd.Execute(); err != nil {
@@ -254,6 +255,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			UsernsMode:            input.usernsMode,
 			ContainerArchitecture: input.containerArchitecture,
 			UseGitIgnore:          input.useGitIgnore,
+			GitHubInstance:        input.githubInstance,
 		}
 		r, err := runner.New(config)
 		if err != nil {

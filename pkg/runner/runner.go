@@ -38,6 +38,7 @@ type Config struct {
 	UsernsMode            string            // user namespace to use
 	ContainerArchitecture string            // Desired OS/architecture platform for running containers
 	UseGitIgnore          bool              // controls if paths in .gitignore should not be copied into container, default true
+	GitHubInstance        string            // GitHub instance to use, default "github.com"
 }
 
 // Resolves the equivalent host path inside the container
