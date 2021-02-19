@@ -415,7 +415,7 @@ func (sc *StepContext) runAction(actionDir string, actionPath string) common.Exe
 				if err != nil {
 					return err
 				}
-				err = rc.JobContainer.CopyDir(containerActionDir+"/", actionDir)(ctx)
+				err = rc.JobContainer.CopyDir(containerActionDir+"/", actionDir, false)(ctx)
 				if err != nil {
 					return err
 				}
