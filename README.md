@@ -108,6 +108,7 @@ It will save that information to `~/.actrc`, please refer to [Configuration](#co
   -r, --reuse                           reuse action containers to maintain state
   -s, --secret stringArray              secret to make available to actions with optional value (e.g. -s mysecret=foo or -s mysecret)
       --secret-file string              file with list of secrets to read from (e.g. --secret-file .secrets) (default ".secrets")
+      --use-gitignore                   Controls whether paths specified in .gitignore should be copied into container (default true)
       --userns string                   user namespace to use
   -v, --verbose                         verbose output
   -w, --watch                           watch the contents of the local repo and run when files change
