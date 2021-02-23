@@ -144,7 +144,7 @@ Below platforms are currently **unsupported and won't work** (see issue [#97])
 [micro]: https://hub.docker.com/_/buildpack-deps
 [medium]: https://github.com/catthehacker/docker_images
 [large]: https://github.com/nektos/act-environments
-[#97]: https://github.com/nektos/act/issue/97
+[#97]: https://github.com/nektos/act/issues/97
 
 ## Default runners are intentionally incomplete
 
