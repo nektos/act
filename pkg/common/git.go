@@ -244,8 +244,14 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) Executor {
 		refType := "tag"
 		rev := plumbing.Revision(path.Join("refs", "tags", input.Ref))
 		if _, err := r.Tag(input.Ref); errors.Is(err, git.ErrTagNotFound) {
-			refType = "branch"
-			rev = plumbing.Revision(path.Join("refs", "remotes", "origin", input.Ref))
+			rName := plumbing.ReferenceName(path.Join("refs", "remotes", "origin", input.Ref))
+			if _, err := r.Reference(rName, false); errors.Is(err, plumbing.ErrReferenceNotFound) {
+				refType = "sha"
+				rev = plumbing.Revision(input.Ref)
+			} else {
+				refType = "branch"
+				rev = plumbing.Revision(rName)
+			}
 		}
 		hash, err := r.ResolveRevision(rev)
 		if err != nil {

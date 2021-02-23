@@ -74,7 +74,7 @@ func TestRunEvent(t *testing.T) {
 	}
 
 	platforms := map[string]string{
-		"ubuntu-latest": "node:12.6-buster-slim",
+		"ubuntu-latest": "node:12.20.1-buster-slim",
 	}
 	tables := []TestJobFileInfo{
 		{"testdata", "basic", "push", "", platforms},
@@ -113,7 +113,7 @@ func TestRunEventSecrets(t *testing.T) {
 	ctx := context.Background()
 
 	platforms := map[string]string{
-		"ubuntu-latest": "node:12.6-buster-slim",
+		"ubuntu-latest": "node:12.20.1-buster-slim",
 	}
 
 	workflowPath := "secrets"
@@ -154,7 +154,7 @@ func TestRunEventPullRequest(t *testing.T) {
 	ctx := context.Background()
 
 	platforms := map[string]string{
-		"ubuntu-latest": "node:12.6-buster-slim",
+		"ubuntu-latest": "node:12.20.1-buster-slim",
 	}
 
 	workflowPath := "pull-request"
