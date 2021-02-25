@@ -227,8 +227,9 @@ func (rc *RunContext) newStepExecutor(step *model.Step) common.Executor {
 			common.Logger(ctx).Errorf("  \u274C  Failure - %s", sc.Step)
 
 			if sc.Step.ContinueOnError {
-				log.Infof("Failed but conitnue next step")
+				common.Logger(ctx).Infof("Failed but continue next step")
 				err = nil
+				rc.StepResults[rc.CurrentStep].Success = true
 			} else {
 				rc.StepResults[rc.CurrentStep].Success = false
 			}
