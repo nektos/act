@@ -234,6 +234,7 @@ func (sc *StepContext) newStepContainer(ctx context.Context, image string, cmd [
 		Stdout:      logWriter,
 		Stderr:      logWriter,
 		Privileged:  rc.Config.Privileged,
+		UsernsMode:  rc.Config.UsernsMode,
 	})
 	return stepContainer
 }
