@@ -10,7 +10,7 @@ jobs:
     steps:
       - run: echo ${{ env.TEST }} | grep value
       - run: env
-      - uses: docker://alpine:3.8
+      - uses: docker://alpine:3.13
         with:
           somekey: ${{ env.TEST }}
           args: echo ${INPUT_SOMEKEY} | grep somevalue

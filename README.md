@@ -2,7 +2,7 @@
 
 # Overview [![push](https://github.com/nektos/act/workflows/push/badge.svg?branch=master&event=push)](https://github.com/nektos/act/actions) [![Join the chat at https://gitter.im/nektos/act](https://badges.gitter.im/nektos/act.svg)](https://gitter.im/nektos/act?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) [![Go Report Card](https://goreportcard.com/badge/github.com/nektos/act)](https://goreportcard.com/report/github.com/nektos/act)
 
-> "Think globally, <code>act</code> locally"
+> "Think globally, `act` locally"
 
 Run your [GitHub Actions](https://developer.github.com/actions/) locally! Why would you want to do this? Two reasons:
 
@@ -29,11 +29,11 @@ Alternatively, you can use the following:
 
 NOTE: Currently not compatible with Apple Silicon (ARM). This project relies on Docker which has not been ported to Apple Silicon yet.
 
-If you are running Windows, download the [latest release](https://github.com/nektos/act/releases/latest) and add the binary into your PATH.  
-If you are using [Chocolatey](https://chocolatey.org/) then run:  
+If you are running Windows, download the [latest release](https://github.com/nektos/act/releases/latest) and add the binary into your PATH.
+If you are using [Chocolatey](https://chocolatey.org/) then run:
 `choco install act-cli`
 
-If you are using [Scoop](https://scoop.sh/) then run:  
+If you are using [Scoop](https://scoop.sh/) then run:
 `scoop install act`
 
 If you are running Arch Linux, you can install the [act](https://aur.archlinux.org/packages/act/) package with your favorite package manager:
@@ -50,7 +50,7 @@ or in a shell by running
 
 # Commands
 
-```
+```sh
 # Command structure:
 act [<event>] [options]
 If no event name passed, will default to "on: push"
@@ -77,9 +77,14 @@ act -n
 act -v
 ```
 
+## First `act` run
+
+When running `act` for the first time, it will ask you to choose image to be used as default.
+It will save that information to `~/.actrc`, please refer to [Configuration](#configuration) for more information about `.actrc` and to [Runners](#runners) for information about used/available Docker images.
+
 # Flags
 
-```
+```none
   -a, --actor string           user that triggered the event (default "nektos/act")
   -b, --bind                   bind working directory to container, rather than copy
       --defaultbranch string   the name of the main branch
@@ -110,7 +115,7 @@ act -v
 
 MODULE_NOT_FOUND during `docker cp` command [#228](https://github.com/nektos/act/issues/228)
 
-```
+```yaml
 steps:
   - name: Checkout
     uses: actions/checkout@v2
@@ -120,22 +125,31 @@ steps:
 
 # Runners
 
-GitHub Actions offers managed [virtual environments](https://help.github.com/en/actions/reference/virtual-environments-for-github-hosted-runners) for running workflows. In order for `act` to run your workflows locally, it must run a container for the runner defined in your workflow file. Here are the images that `act` uses for each runner type:
+GitHub Actions offers managed [virtual environments](https://help.github.com/en/actions/reference/virtual-environments-for-github-hosted-runners) for running workflows. In order for `act` to run your workflows locally, it must run a container for the runner defined in your workflow file. Here are the images that `act` uses for each runner type and size:
 
-| GitHub Runner  | Docker Image                                                      |
-| -------------- | ----------------------------------------------------------------- |
-| ubuntu-latest  | [node:12.6-buster-slim](https://hub.docker.com/_/buildpack-deps)  |
-| ubuntu-20.04   | [node:12.6-buster-slim](https://hub.docker.com/_/buildpack-deps)  |
-| ubuntu-18.04   | [node:12.6-buster-slim](https://hub.docker.com/_/buildpack-deps)  |
-| ubuntu-16.04   | [node:12.6-stretch-slim](https://hub.docker.com/_/buildpack-deps) |
-| windows-latest | `unsupported`                                                     |
-| windows-2019   | `unsupported`                                                     |
-| macos-latest   | `unsupported`                                                     |
-| macos-10.15    | `unsupported`                                                     |
+| GitHub Runner  | Micro Docker Image                 | Medium Docker Image                      | Large Docker Image                            |
+| -------------- | ---------------------------------- | ---------------------------------------- | --------------------------------------------- |
+| ubuntu-latest  | [node:12.20.1-buster-slim][micro]  | [catthehacker/ubuntu:act-latest][medium] | [nektos/act-environments-ubuntu:18.04][large] |
+| ubuntu-20.04   | [node:12.20.1-buster-slim][micro]  | [catthehacker/ubuntu:act-20.04][medium]  | `unavailable`                                 |
+| ubuntu-18.04   | [node:12.20.1-buster-slim][micro]  | [catthehacker/ubuntu:act-18.04][medium]  | [nektos/act-environments-ubuntu:18.04][large] |
+| ubuntu-16.04   | [node:12.20.1-stretch-slim][micro] | [catthehacker/ubuntu:act-16.04][medium]  | `unavailable`                                 |
+
+Below platforms are currently **unsupported and won't work** (see issue [#97])
+
+- `windows-latest`
+- `windows-2019`
+- `macos-latest`
+- `macos-10.15`
+
+[micro]: https://hub.docker.com/_/buildpack-deps
+[medium]: https://github.com/catthehacker/docker_images
+[large]: https://github.com/nektos/act-environments
+[#97]: https://github.com/nektos/act/issues/97
 
 ## Default runners are intentionally incomplete
 
 These default images do **not** contain **all** the tools that GitHub Actions offers by default in their runners.
+Many things can work improperly or not at all while running those image.
 
 ## Alternative runner images
 
@@ -147,10 +161,23 @@ If you need an environment that works just like the corresponding GitHub runner 
 
 ## Use an alternative runner image
 
-To use a different image for the runner, use the `-P` option:
+To use a different image for the runner, use the `-P` option.
 
+```sh
+act -P <platform>=<docker-image>
 ```
+
+If your workflow uses `ubuntu-18.04`, consider below line as an example for changing Docker image used to run that workflow:
+
+```sh
 act -P ubuntu-18.04=nektos/act-environments-ubuntu:18.04
+```
+
+If you use multiple platforms in your workflow, you have to specify them to change which image is used.
+For example, if your workflow uses `ubuntu-18.04`, `ubuntu-16.04` and `ubuntu-latest`, specify all platforms like below
+
+```sh
+act -P ubuntu-18.04=nektos/act-environments-ubuntu:18.04 -P ubuntu-latest=ubuntu:latest -P ubuntu-16.04=node:12.20.1-buster-slim
 ```
 
 # Secrets
@@ -166,20 +193,20 @@ To run `act` with secrets, you can enter them interactively, supply them as envi
 
 You can provide default configuration flags to `act` by either creating a `./.actrc` or a `~/.actrc` file. Any flags in the files will be applied before any flags provided directly on the command line. For example, a file like below will always use the `nektos/act-environments-ubuntu:18.04` image for the `ubuntu-latest` runner:
 
-```
+```sh
 # sample .actrc file
--P ubuntu-18.04=nektos/act-environments-ubuntu:18.04
+-P ubuntu-latest=nektos/act-environments-ubuntu:18.04
 ```
 
 Additionally, act supports loading environment variables from an `.env` file. The default is to look in the working directory for the file but can be overridden by:
 
-```
+```sh
 act --env-file my.env
 ```
 
 `.env`:
 
-```
+```env
 MY_ENV_VAR=MY_ENV_VAR_VALUE
 MY_2ND_ENV_VAR="my 2nd env var value"
 ```
@@ -200,7 +227,7 @@ don't want to run locally. E.g. a step that posts a Slack message or bumps a ver
 
 Every [GitHub event](https://developer.github.com/v3/activity/events/types) is accompanied by a payload. You can provide these events in JSON format with the `--eventpath` to simulate specific GitHub events kicking off an action. For example:
 
-```pull-request.json
+```json
 {
   "pull_request": {
     "head": {
@@ -213,7 +240,7 @@ Every [GitHub event](https://developer.github.com/v3/activity/events/types) is a
 }
 ```
 
-```
+```sh
 act -e pull-request.json
 ```
 

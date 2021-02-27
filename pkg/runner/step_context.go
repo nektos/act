@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	log "github.com/sirupsen/logrus"
+	"github.com/kballard/go-shellquote"
 
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/container"
@@ -241,7 +242,10 @@ func (sc *StepContext) runUsesContainer() common.Executor {
 	step := sc.Step
 	return func(ctx context.Context) error {
 		image := strings.TrimPrefix(step.Uses, "docker://")
-		cmd := strings.Fields(sc.RunContext.NewExpressionEvaluator().Interpolate(step.With["args"]))
+		cmd, err := shellquote.Split(sc.RunContext.NewExpressionEvaluator().Interpolate(step.With["args"]))
+		if err != nil {
+			return err
+		}
 		entrypoint := strings.Fields(step.With["entrypoint"])
 		stepContainer := sc.newStepContainer(ctx, image, cmd, entrypoint)
 
@@ -355,7 +359,10 @@ func (sc *StepContext) runAction(actionDir string, actionPath string) common.Exe
 				})
 			}
 
-			cmd := strings.Fields(step.With["args"])
+			cmd, err := shellquote.Split(step.With["args"])
+			if err != nil {
+				return err
+			}
 			if len(cmd) == 0 {
 				cmd = action.Runs.Args
 			}
