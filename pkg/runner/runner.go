@@ -24,7 +24,7 @@ type Config struct {
 	EventPath             string            // path to JSON file to use for event.json in containers
 	DefaultBranch         string            // name of the main branch for this repository
 	ReuseContainers       bool              // reuse containers to maintain state
-	ForcePull             bool              // force pulling of the image, if already present
+	ForcePull             bool              // force pulling of the image, even if already present
 	LogOutput             bool              // log the output from docker run
 	Env                   map[string]string // env for containers
 	Secrets               map[string]string // list of secrets
