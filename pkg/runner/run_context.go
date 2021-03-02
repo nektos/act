@@ -316,7 +316,7 @@ func (rc *RunContext) EvalBool(expr string) (bool, error) {
 
 			interpolatedPart, isString := rc.ExprEval.InterpolateWithStringCheck(part)
 
-			// This peculiar transformation has to be done because the Github parser
+			// This peculiar transformation has to be done because the GitHub parser
 			// treats false returned from contexts as a string, not a boolean.
 			// Hence env.SOMETHING will be evaluated to true in an if: expression
 			// regardless if SOMETHING is set to false, true or any other string.

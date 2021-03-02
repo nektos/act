@@ -27,7 +27,7 @@ func Execute(ctx context.Context, version string) {
 	input := new(Input)
 	var rootCmd = &cobra.Command{
 		Use:              "act [event name to run]\nIf no event name passed, will default to \"on: push\"",
-		Short:            "Run Github actions locally by specifying the event name (e.g. `push`) or an action name directly.",
+		Short:            "Run GitHub actions locally by specifying the event name (e.g. `push`) or an action name directly.",
 		Args:             cobra.MaximumNArgs(1),
 		RunE:             newRunCommand(ctx, input),
 		PersistentPreRun: setupLogging,
