@@ -189,6 +189,7 @@ type NewGitCloneExecutorInput struct {
 	Dir string
 }
 
+// CloneIfRequired ...
 func CloneIfRequired(refName plumbing.ReferenceName, input NewGitCloneExecutorInput, logger log.FieldLogger) (*git.Repository, error) {
 	r, err := git.PlainOpen(input.Dir)
 	if err != nil {
