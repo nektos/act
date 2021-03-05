@@ -85,31 +85,32 @@ It will save that information to `~/.actrc`, please refer to [Configuration](#co
 # Flags
 
 ```none
-  -a, --actor string           user that triggered the event (default "nektos/act")
-  -b, --bind                   bind working directory to container, rather than copy
-      --defaultbranch string   the name of the main branch
-  -C, --directory string       working directory (default ".")
-  -n, --dryrun                 dryrun mode
-      --env-file string        environment file to read and use as env in the containers (default ".env")
-      --detect-event           Use first event type from workflow as event that triggered the workflow
-  -e, --eventpath string       path to event JSON file
-  -g, --graph                  draw workflows
-  -h, --help                   help for act
-      --insecure-secrets       NOT RECOMMENDED! Doesn't hide secrets while printing logs.
-  -j, --job string             run job
-  -l, --list                   list workflows
-  -P, --platform stringArray   custom image to use per platform (e.g. -P ubuntu-18.04=nektos/act-environments-ubuntu:18.04)
-      --privileged             use privileged mode
-  -p, --pull                   pull docker image(s) if already present
-  -q, --quiet                  disable logging of output from steps
-  -r, --reuse                  reuse action containers to maintain state
-  -s, --secret stringArray     secret to make available to actions with optional value (e.g. -s mysecret=foo or -s mysecret)
-      --secret-file string     file with list of secrets to read from (e.g. --secret-file .secrets) (default ".secrets")
-      --userns string          user namespace to use
-  -v, --verbose                verbose output
-      --version                version for act
-  -w, --watch                  watch the contents of the local repo and run when files change
-  -W, --workflows string       path to workflow file(s) (default "./.github/workflows/")
+  -a, --actor string                    user that triggered the event (default "nektos/act")
+  -b, --bind                            bind working directory to container, rather than copy
+      --container-architecture string   Architecture which should be used to run containers, e.g.: linux/amd64. Defaults to linux/<your machine architecture> [linux/amd64]
+      --defaultbranch string            the name of the main branch
+      --detect-event                    Use first event type from workflow as event that triggered the workflow
+  -C, --directory string                working directory (default ".")
+  -n, --dryrun                          dryrun mode
+      --env stringArray                 env to make available to actions with optional value (e.g. --e myenv=foo or -s myenv)
+      --env-file string                 environment file to read and use as env in the containers (default ".env")
+  -e, --eventpath string                path to event JSON file
+  -g, --graph                           draw workflows
+  -h, --help                            help for act
+      --insecure-secrets                NOT RECOMMENDED! Doesn't hide secrets while printing logs.
+  -j, --job string                      run job
+  -l, --list                            list workflows
+  -P, --platform stringArray            custom image to use per platform (e.g. -P ubuntu-18.04=nektos/act-environments-ubuntu:18.04)
+      --privileged                      use privileged mode
+  -p, --pull                            pull docker image(s) if already present
+  -q, --quiet                           disable logging of output from steps
+  -r, --reuse                           reuse action containers to maintain state
+  -s, --secret stringArray              secret to make available to actions with optional value (e.g. -s mysecret=foo or -s mysecret)
+      --secret-file string              file with list of secrets to read from (e.g. --secret-file .secrets) (default ".secrets")
+      --userns string                   user namespace to use
+  -v, --verbose                         verbose output
+  -w, --watch                           watch the contents of the local repo and run when files change
+  -W, --workflows string                path to workflow file(s) (default "./.github/workflows/")
 ```
 
 # Known Issues
