@@ -49,7 +49,7 @@ func TestRunContext_EvalBool(t *testing.T) {
 				Outputs: map[string]string{
 					"foo": "bar",
 				},
-				Success: true,
+				Outcome: "success",
 			},
 		},
 	}

@@ -46,19 +46,19 @@ func TestEvaluate(t *testing.T) {
 				Outputs: map[string]string{
 					"foowithnothing": "barwithnothing",
 				},
-				Success: true,
+				Outcome: "success",
 			},
 			"id-with-hyphens": {
 				Outputs: map[string]string{
 					"foo-with-hyphens": "bar-with-hyphens",
 				},
-				Success: true,
+				Outcome: "success",
 			},
 			"id_with_underscores": {
 				Outputs: map[string]string{
 					"foo_with_underscores": "bar_with_underscores",
 				},
-				Success: true,
+				Outcome: "success",
 			},
 		},
 	}

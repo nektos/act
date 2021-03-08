@@ -38,7 +38,7 @@ func (rc *RunContext) String() string {
 }
 
 type stepResult struct {
-	Success bool              `json:"success"`
+	Outcome string            `json:"outcome"`
 	Outputs map[string]string `json:"outputs"`
 }
 
@@ -199,7 +199,7 @@ func (rc *RunContext) newStepExecutor(step *model.Step) common.Executor {
 	return func(ctx context.Context) error {
 		rc.CurrentStep = sc.Step.ID
 		rc.StepResults[rc.CurrentStep] = &stepResult{
-			Success: true,
+			Outcome: "success",
 			Outputs: make(map[string]string),
 		}
 
@@ -212,7 +212,7 @@ func (rc *RunContext) newStepExecutor(step *model.Step) common.Executor {
 		runStep, err := rc.EvalBool(sc.Step.If)
 		if err != nil {
 			common.Logger(ctx).Errorf("  \u274C  Error in if: expression - %s", sc.Step)
-			rc.StepResults[rc.CurrentStep].Success = false
+			rc.StepResults[rc.CurrentStep].Outcome = "failure"
 			return err
 		}
 		if !runStep {
@@ -230,9 +230,9 @@ func (rc *RunContext) newStepExecutor(step *model.Step) common.Executor {
 			if sc.Step.ContinueOnError {
 				common.Logger(ctx).Infof("Failed but continue next step")
 				err = nil
-				rc.StepResults[rc.CurrentStep].Success = true
+				rc.StepResults[rc.CurrentStep].Outcome = "failure"
 			} else {
-				rc.StepResults[rc.CurrentStep].Success = false
+				rc.StepResults[rc.CurrentStep].Outcome = "failure"
 			}
 		}
 		return err
@@ -397,7 +397,7 @@ type jobContext struct {
 func (rc *RunContext) getJobContext() *jobContext {
 	jobStatus := "success"
 	for _, stepStatus := range rc.StepResults {
-		if !stepStatus.Success {
+		if stepStatus.Outcome == "failure" {
 			jobStatus = "failure"
 			break
 		}
