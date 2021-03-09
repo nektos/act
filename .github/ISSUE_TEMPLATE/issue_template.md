@@ -1,9 +1,10 @@
 ---
 name: Issue
 about: Use this template for reporting a bug/issue.
-title: "Issue: "
-labels: kind/bug
+title: 'Issue: '
+labels: ''
 assignees: ''
+
 ---
 
 <!--
