@@ -201,9 +201,7 @@ func updateTestExpressionWorkflow(t *testing.T, tables []struct {
 
 	var envs string
 	for k, v := range rc.Env {
-		envs += fmt.Sprintf(
-			`  %s: %s
-`, k, v)
+		envs += fmt.Sprintf("  %s: %s\n", k, v)
 	}
 	workflow := fmt.Sprintf(`
 name: "Test how expressions are handled on Github"
@@ -225,10 +223,7 @@ jobs:
 		})
 		name := fmt.Sprintf(`%s -> %s should be equal to %s`, expr, table.in, table.out)
 		echo := `run: echo "Done "`
-		workflow += fmt.Sprintf(`
-     - name: %s
-       %s
-`, name, echo)
+		workflow += fmt.Sprintf("\n      - name: %s\n        %s\n", name, echo)
 	}
 
 	file, err := os.Create("../../.github/workflows/test-expressions.yml")
