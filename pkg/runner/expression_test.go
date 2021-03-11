@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"sort"
 	"testing"
 
 	"github.com/nektos/act/pkg/model"
@@ -200,9 +201,15 @@ func updateTestExpressionWorkflow(t *testing.T, tables []struct {
 }, rc *RunContext) {
 
 	var envs string
-	for k, v := range rc.Env {
-		envs += fmt.Sprintf("  %s: %s\n", k, v)
+	keys := make([]string, 0, len(rc.Env))
+	for k := range rc.Env {
+		keys = append(keys, k)
 	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		envs += fmt.Sprintf("  %s: %s\n", k, rc.Env[k])
+	}
+
 	workflow := fmt.Sprintf(`
 name: "Test how expressions are handled on Github"
 on: push
