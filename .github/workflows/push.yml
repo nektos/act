@@ -6,81 +6,96 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-    - uses: golangci/golangci-lint-action@v2
-      env:
-        CGO_ENABLED: 0
-      with:
-        version: v1.32.2
+      - uses: actions/checkout@v2
+      - uses: golangci/golangci-lint-action@v2
+        env:
+          CGO_ENABLED: 0
+        with:
+          version: v1.32.2
 
-  test:
-    name: Test
+  test-linux:
+    name: Test on Linux
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-    - name: Set up QEMU
-      uses: docker/setup-qemu-action@v1
-    - uses: actions/setup-go@v1
-      with:
-        go-version: 1.14
-    - run: go test -cover -coverprofile=coverage.txt -covermode=atomic ./...
-      env:
+      - uses: actions/checkout@v2
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+      - uses: actions/setup-go@v1
+        with:
+          go-version: 1.14
+      - run: go test -cover -coverprofile=coverage.txt -covermode=atomic ./...
+        env:
           CGO_ENABLED: 0
-    - uses: codecov/codecov-action@v1
-      with:
-        files: coverage.txt
-        fail_ci_if_error: true # optional (default = false)
+      - uses: codecov/codecov-action@v1
+        with:
+          files: coverage.txt
+          fail_ci_if_error: true # optional (default = false)
+
+  test-macos:
+    name: Test on MacOS
+    runs-on: macos-latest
+    continue-on-error: true # Don't let macos test fail whole workflow
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v1
+        with:
+          go-version: 1.14
+      - name: Install MacOS Docker
+        uses: docker-practice/actions-setup-docker@master
+      - run: go test -v -timeout 1h -cover ./...
+        env:
+          CGO_ENABLED: 0
 
   snapshot:
     name: Snapshot
     if: ${{ github.event_name == 'pull_request' }}
     needs:
-    - lint
-    - test
+      - lint
+      - test-linux
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-    - name: GoReleaser
-      uses: goreleaser/goreleaser-action@v2
-      with:
-        version: latest
-        args: release --snapshot --rm-dist
-    - name: Capture Linux Binary
-      uses: actions/upload-artifact@v2
-      with:
-        name: act-linux
-        path: dist/act_linux_amd64/act
-    - name: Capture Windows Binary
-      uses: actions/upload-artifact@v2
-      with:
-        name: act-windows
-        path: dist/act_windows_amd64/act.exe
-    - name: Capture MacOS Binary
-      uses: actions/upload-artifact@v2
-      with:
-        name: act-macos
-        path: dist/act_darwin_amd64/act
+      - uses: actions/checkout@v2
+      - name: GoReleaser
+        uses: goreleaser/goreleaser-action@v2
+        with:
+          version: latest
+          args: release --snapshot --rm-dist
+      - name: Capture Linux Binary
+        uses: actions/upload-artifact@v2
+        with:
+          name: act-linux
+          path: dist/act_linux_amd64/act
+      - name: Capture Windows Binary
+        uses: actions/upload-artifact@v2
+        with:
+          name: act-windows
+          path: dist/act_windows_amd64/act.exe
+      - name: Capture MacOS Binary
+        uses: actions/upload-artifact@v2
+        with:
+          name: act-macos
+          path: dist/act_darwin_amd64/act
 
   release:
     name: Release
     if: startsWith(github.ref, 'refs/tags/v')
     needs:
-    - lint
-    - test
+      - lint
+      - test-linux
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-      with:
-        fetch-depth: 0
-    - name: GoReleaser
-      uses: goreleaser/goreleaser-action@v1
-      with:
-        version: latest
-        args: release --rm-dist
-      env:
-        GITHUB_TOKEN: ${{ secrets.GORELEASER_GITHUB_TOKEN }}
-    - name: Chocolatey
-      uses: ./.github/actions/choco
-      with:
-        version: ${{ github.ref }}
-        apiKey: ${{ secrets.CHOCO_APIKEY }}
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: GoReleaser
+        uses: goreleaser/goreleaser-action@v1
+        with:
+          version: latest
+          args: release --rm-dist
+        env:
+          GITHUB_TOKEN: ${{ secrets.GORELEASER_GITHUB_TOKEN }}
+      - name: Chocolatey
+        uses: ./.github/actions/choco
+        with:
+          version: ${{ github.ref }}
+          apiKey: ${{ secrets.CHOCO_APIKEY }}
