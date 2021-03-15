@@ -62,7 +62,7 @@ type Container interface {
 	Pull(forcePull bool) common.Executor
 	Start(attach bool) common.Executor
 	Exec(command []string, env map[string]string) common.Executor
-	UpdateFromGithubEnv(env *map[string]string) common.Executor
+	UpdateFromGithubEnvAndPath(env *map[string]string) common.Executor
 	Remove() common.Executor
 }
 
@@ -121,8 +121,10 @@ func (cr *containerReference) CopyDir(destPath string, srcPath string) common.Ex
 	).IfNot(common.Dryrun)
 }
 
-func (cr *containerReference) UpdateFromGithubEnv(env *map[string]string) common.Executor {
-	return cr.extractGithubEnv(env).IfNot(common.Dryrun)
+func (cr *containerReference) UpdateFromGithubEnvAndPath(env *map[string]string) common.Executor {
+	envExec := cr.extractGithubEnv(env).IfNot(common.Dryrun)
+	pathExec := cr.extractGithubPath(env).IfNot(common.Dryrun)
+	return envExec.Then(pathExec)
 }
 
 func (cr *containerReference) Exec(command []string, env map[string]string) common.Executor {
@@ -328,6 +330,29 @@ func (cr *containerReference) extractGithubEnv(env *map[string]string) common.Ex
 				multiLineEnvDelimiter = mulitiLineEnvStart[2]
 			}
 		}
+		env = &localEnv
+		return nil
+	}
+}
+
+func (cr *containerReference) extractGithubPath(env *map[string]string) common.Executor {
+	localEnv := *env
+	return func(ctx context.Context) error {
+		githubPathTar, _, err := cr.cli.CopyFromContainer(ctx, cr.id, localEnv["GITHUB_PATH"])
+		if err != nil {
+			return nil
+		}
+		reader := tar.NewReader(githubPathTar)
+		_, err = reader.Next()
+		if err != nil && err != io.EOF {
+			return errors.WithStack(err)
+		}
+		s := bufio.NewScanner(reader)
+		for s.Scan() {
+			line := s.Text()
+			localEnv["PATH"] = fmt.Sprintf("%s:%s", localEnv["PATH"], line)
+		}
+
 		env = &localEnv
 		return nil
 	}

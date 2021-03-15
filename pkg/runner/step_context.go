@@ -10,8 +10,8 @@ import (
 	"runtime"
 	"strings"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/kballard/go-shellquote"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/container"
@@ -121,7 +121,7 @@ func (sc *StepContext) setupEnv(ctx context.Context) (ExpressionEvaluator, error
 	rc := sc.RunContext
 	sc.Env = sc.mergeEnv()
 	if sc.Env != nil {
-		err := rc.JobContainer.UpdateFromGithubEnv(&sc.Env)(ctx)
+		err := rc.JobContainer.UpdateFromGithubEnvAndPath(&sc.Env)(ctx)
 		if err != nil {
 			return nil, err
 		}
