@@ -102,9 +102,9 @@ func (sc *StepContext) mergeEnv() map[string]string {
 		env = mergeMaps(rc.GetEnv(), step.GetEnv())
 	}
 
+	env["PATH"] = `/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin`
 	if (rc.ExtraPath != nil) && (len(rc.ExtraPath) > 0) {
-		s := append(rc.ExtraPath, `/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin`)
-		env["PATH"] = strings.Join(s, `:`)
+		env["PATH"] = strings.Join(append(rc.ExtraPath, env["PATH"]), `:`)
 	}
 
 	sc.Env = rc.withGithubEnv(env)
