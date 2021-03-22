@@ -580,9 +580,9 @@ func (rc *RunContext) withGithubEnv(env map[string]string) map[string]string {
 	github := rc.getGithubContext()
 	env["CI"] = "true"
 	env["HOME"] = "/github/home"
-	env["GITHUB_ENV"] = "/github/workflow/envs.txt"
-	env["GITHUB_PATH"] = "/github/workflow/paths.txt"
 
+	env["GITHUB_ENV"] = "/github/workflow/envs.txt"
+  env["GITHUB_PATH"] = "/github/workflow/paths.txt"
 	env["GITHUB_WORKFLOW"] = github.Workflow
 	env["GITHUB_RUN_ID"] = github.RunID
 	env["GITHUB_RUN_NUMBER"] = github.RunNumber
@@ -599,6 +599,18 @@ func (rc *RunContext) withGithubEnv(env map[string]string) map[string]string {
 	env["GITHUB_SERVER_URL"] = "https://github.com"
 	env["GITHUB_API_URL"] = "https://api.github.com"
 	env["GITHUB_GRAPHQL_URL"] = "https://api.github.com/graphql"
+
+	job := rc.Run.Job()
+	if job.RunsOn() != nil {
+		for _, runnerLabel := range job.RunsOn() {
+			platformName := rc.ExprEval.Interpolate(runnerLabel)
+			if platformName != "" {
+				platformName = strings.SplitN(strings.Replace(platformName, `-`, ``, 1), `.`, 1)[0]
+				env["ImageOS"] = platformName
+			}
+		}
+	}
+
 	return env
 }
 
