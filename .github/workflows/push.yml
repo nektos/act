@@ -39,8 +39,11 @@ jobs:
       with:
         version: latest
         args: release --snapshot --rm-dist
-      env:
-        SNAPSHOT_VERSION: "v0.0.0"
+    - uses: actions/upload-artifact@v2
+      with:
+        name: act-snapshot-binaries
+        path: |
+          dist/act*
 
   release:
     name: Release
