@@ -179,7 +179,7 @@ func (sc *StepContext) setupShellCommand() common.Executor {
 			scriptExt = ".py"
 		}
 
-		scriptName = scriptName + scriptExt
+		scriptName += scriptExt
 		run = runPrepend + "\n" + run + "\n" + runAppend
 
 		log.Debugf("Wrote command '%s' to '%s'", run, scriptName)
