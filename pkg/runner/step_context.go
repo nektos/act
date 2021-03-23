@@ -159,6 +159,32 @@ func (sc *StepContext) setupShellCommand() common.Executor {
 			return err
 		}
 		scriptName := fmt.Sprintf("workflow/%s", step.ID)
+		if step.Shell == "pwsh" || step.Shell == "powershell" {
+			scriptName = fmt.Sprintf("%s.ps1", scriptName)
+		}
+
+		//Reference: https://github.com/actions/runner/blob/8109c962f09d9acc473d92c595ff43afceddb347/src/Runner.Worker/Handlers/ScriptHandlerHelpers.cs#L47-L64
+		//Reference: https://github.com/actions/runner/blob/8109c962f09d9acc473d92c595ff43afceddb347/src/Runner.Worker/Handlers/ScriptHandlerHelpers.cs#L19-L27
+		runPrepend := ""
+		runAppend := ""
+		scriptExt := ""
+		switch step.Shell {
+		case "bash", "sh":
+			scriptExt = ".sh"
+		case "pwsh", "powershell":
+			scriptExt = ".ps1"
+			runPrepend = "$ErrorActionPreference = 'stop'"
+			runAppend = "if ((Test-Path -LiteralPath variable:/LASTEXITCODE)) { exit $LASTEXITCODE }"
+		case "cmd":
+			scriptExt = ".cmd"
+			runPrepend = "@echo off"
+		case "python":
+			scriptExt = ".py"
+		}
+
+		scriptName = scriptName + scriptExt
+		run = runPrepend + "\n" + run + "\n" + runAppend
+
 		log.Debugf("Wrote command '%s' to '%s'", run, scriptName)
 		containerPath := fmt.Sprintf("%s/%s", filepath.Dir(rc.Config.Workdir), scriptName)
 
