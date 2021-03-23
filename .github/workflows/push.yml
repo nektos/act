@@ -39,15 +39,18 @@ jobs:
       with:
         version: latest
         args: release --snapshot --rm-dist
-    - uses: actions/upload-artifact@v2
+    - name: Capture Linux Binary
+      uses: actions/upload-artifact@v2
       with:
         name: act-linux
         path: dist/act_linux_amd64/act
-    - uses: actions/upload-artifact@v2
+    - name: Capture Windows Binary
+      uses: actions/upload-artifact@v2
       with:
         name: act-windows
         path: dist/act_windows_amd64/act.exe
-    - uses: actions/upload-artifact@v2
+    - name: Capture MacOS Binary
+      uses: actions/upload-artifact@v2
       with:
         name: act-macos
         path: dist/act_darwin_amd64/act
