@@ -159,9 +159,6 @@ func (sc *StepContext) setupShellCommand() common.Executor {
 			return err
 		}
 		scriptName := fmt.Sprintf("workflow/%s", step.ID)
-		if step.Shell == "pwsh" || step.Shell == "powershell" {
-			scriptName = fmt.Sprintf("%s.ps1", scriptName)
-		}
 
 		//Reference: https://github.com/actions/runner/blob/8109c962f09d9acc473d92c595ff43afceddb347/src/Runner.Worker/Handlers/ScriptHandlerHelpers.cs#L47-L64
 		//Reference: https://github.com/actions/runner/blob/8109c962f09d9acc473d92c595ff43afceddb347/src/Runner.Worker/Handlers/ScriptHandlerHelpers.cs#L19-L27
