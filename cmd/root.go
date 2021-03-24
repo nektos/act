@@ -203,7 +203,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			if os.IsNotExist(err) {
 				var answer string
 				confirmation := &survey.Select{
-					Message: "Please choose the default image you want to use with act:\n\n  - Large size image: +20GB Docker image, includes almost all tools used on GitHub Actions (only ubuntu-latest/ubuntu-18.04 platform is available)\n  - Medium size image: ~500MB, includes only necessary tools to bootstrap actions and aims to be compatible with all actions\n  - Micro size image: <200MB, contains only NodeJS required to bootstrap actions, doesn't work with all actions\n\nDefault image and other options can be changed manually in ~/.actrc (please refer to https://github.com/nektos/act#configuration for additional information about file structure)",
+					Message: "Please choose the default image you want to use with act:\n\n  - Large size image: +20GB Docker image, includes almost all tools used on GitHub Actions (IMPORTANT: currently only ubuntu-18.04 platform is available)\n  - Medium size image: ~500MB, includes only necessary tools to bootstrap actions and aims to be compatible with all actions\n  - Micro size image: <200MB, contains only NodeJS required to bootstrap actions, doesn't work with all actions\n\nDefault image and other options can be changed manually in ~/.actrc (please refer to https://github.com/nektos/act#configuration for additional information about file structure)",
 					Help:    "If you want to know why act asks you that, please go to https://github.com/nektos/act/issues/107",
 					Default: "Medium",
 					Options: []string{"Large", "Medium", "Micro"},
@@ -217,7 +217,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 				var option string
 				switch answer {
 				case "Large":
-					option = "-P ubuntu-latest=nektos/act-environments-ubuntu:18.04\n-P ubuntu-18.04=nektos/act-environments-ubuntu:18.04"
+					option = "-P ubuntu-18.04=nektos/act-environments-ubuntu:18.04"
 				case "Medium":
 					option = "-P ubuntu-latest=catthehacker/ubuntu:act-latest\n-P ubuntu-20.04=catthehacker/ubuntu:act-20.04\n-P ubuntu-18.04=catthehacker/ubuntu:act-18.04\nubuntu-16.04=catthehacker/ubuntu:act-16.04"
 				case "Micro":
