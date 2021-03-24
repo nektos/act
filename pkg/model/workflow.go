@@ -262,7 +262,7 @@ func (s *Step) ShellCommand() string {
 	case "", "bash":
 		shellCommand = "bash --login --noprofile --norc -e -o pipefail {0}"
 	case "pwsh":
-		shellCommand = "pwsh -login -command \". '{0}'\""
+		shellCommand = "pwsh -login -command . '{0}'"
 	case "python":
 		shellCommand = "python {0}"
 	case "sh":
@@ -270,7 +270,7 @@ func (s *Step) ShellCommand() string {
 	case "cmd":
 		shellCommand = "%ComSpec% /D /E:ON /V:OFF /S /C \"CALL \"{0}\"\""
 	case "powershell":
-		shellCommand = "powershell -command \". '{0}'\""
+		shellCommand = "powershell -command . '{0}'"
 	default:
 		shellCommand = s.Shell
 	}

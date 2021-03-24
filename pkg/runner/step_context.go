@@ -191,8 +191,15 @@ func (sc *StepContext) setupShellCommand() common.Executor {
 		if step.Shell == "" {
 			step.Shell = rc.Run.Workflow.Defaults.Run.Shell
 		}
-		sc.Cmd = strings.Fields(strings.Replace(step.ShellCommand(), "{0}", containerPath, 1))
-		return rc.JobContainer.Copy(fmt.Sprintf("%s/", filepath.Dir(rc.Config.Workdir)), &container.FileEntry{
+		scCmd := step.ShellCommand()
+		scResolvedCmd := strings.Replace(scCmd, "{0}", containerPath, 1)
+		if step.Shell == "pwsh" || step.Shell == "powershell" {
+			sc.Cmd = strings.SplitN(scResolvedCmd, " ", 3)
+		} else {
+			sc.Cmd = strings.Fields(scResolvedCmd)
+		}
+
+		return rc.JobContainer.Copy("/github/", &container.FileEntry{
 			Name: scriptName,
 			Mode: 0755,
 			Body: script.String(),
