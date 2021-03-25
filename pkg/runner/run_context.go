@@ -203,6 +203,7 @@ func (rc *RunContext) newStepExecutor(step *model.Step) common.Executor {
 	}
 	return func(ctx context.Context) error {
 		rc.CurrentStep = sc.Step.ID
+//         common.Logger(ctx).Infof("  \U00002699  (newStepExecutor)Adding StepResults for %s", rc.CurrentStep)
 		rc.StepResults[rc.CurrentStep] = &stepResult{
 			Success: true,
 			Outputs: make(map[string]string),
@@ -372,10 +373,19 @@ func createContainerName(parts ...string) string {
 		if i == len(parts)-1 {
 			name = append(name, pattern.ReplaceAllString(part, "-"))
 		} else {
-			name = append(name, trimToLen(pattern.ReplaceAllString(part, "-"), partLen))
+		    // If any part has a '-<number>' on the end it is likely part of a matrix job.
+		    // Let's preserve the number to prevent clashes in container names.
+            re := regexp.MustCompile("-[0-9]+$")
+            num := re.FindStringSubmatch(part)
+            if len(num) > 0 {
+		        name = append(name, trimToLen(pattern.ReplaceAllString(part, "-"), partLen-len(num[0])))
+    			name = append(name, num[0])
+            } else {
+			    name = append(name, trimToLen(pattern.ReplaceAllString(part, "-"), partLen))
+			}
 		}
 	}
-	return strings.Trim(strings.Join(name, "-"), "-")
+	return strings.ReplaceAll(strings.Trim(strings.Join(name, "-"), "-"),"--","-")
 }
 
 func trimToLen(s string, l int) string {

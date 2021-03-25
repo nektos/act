@@ -137,6 +137,7 @@ func (sc *StepContext) setupShellCommand() common.Executor {
 	rc := sc.RunContext
 	step := sc.Step
 	return func(ctx context.Context) error {
+//         common.Logger(ctx).Infof("  \U00002699      setupShellCommand(sc.Step.StepID=%s)", sc.Step.ID)
 		var script strings.Builder
 		var err error
 
@@ -180,6 +181,27 @@ func (sc *StepContext) setupShellCommand() common.Executor {
 func (sc *StepContext) newStepContainer(ctx context.Context, image string, cmd []string, entrypoint []string) container.Container {
 	rc := sc.RunContext
 	step := sc.Step
+//     common.Logger(ctx).Infof("  \U00002699  ##### newStepContainer(sc.Step.StepID=%s) #####", sc.Step.ID)
+//
+//     if sc.Action != nil {
+//         for k,v := range sc.Action.Inputs {
+//             common.Logger(ctx).Infof("  \U00002699  sc.Action.Inputs[%s]=%s", k, v)
+//         }
+//     }
+//     if step.With != nil {
+//         for k,v := range step.With {
+//             common.Logger(ctx).Infof("  \U00002699  step.With[%s]=%s", k, v)
+//         }
+//     }
+//
+//     if _, ok := rc.StepResults[step.ID]; ! ok {
+// 	    common.Logger(ctx).Infof("  \U00002699  %s NOT in rc.StepResults[]", step.ID)
+// 	   } else {
+//         for k,v := range rc.StepResults[step.ID].Outputs {
+//             common.Logger(ctx).Infof("  \U00002699  rc.StepResults[%s].Outputs[%s]=%s", step.ID, k, v)
+//         }
+//     }
+
 	rawLogger := common.Logger(ctx).WithField("raw_output", true)
 	logWriter := common.NewLineWriter(rc.commandHandler(ctx), func(s string) bool {
 		if rc.Config.LogOutput {
@@ -193,13 +215,17 @@ func (sc *StepContext) newStepContainer(ctx context.Context, image string, cmd [
 	for k, v := range sc.Env {
 		envList = append(envList, fmt.Sprintf("%s=%s", k, v))
 	}
+// 	common.Logger(ctx).Infof("  \U00002699  ### newStepContainer - interpolate BEGIN ###")
 	stepEE := sc.NewExpressionEvaluator()
 	for i, v := range cmd {
 		cmd[i] = stepEE.Interpolate(v)
+//         common.Logger(ctx).Infof("  \U00002699  newStepContainer(cmd[i]=%s) (%s)", cmd[i], v)
 	}
 	for i, v := range entrypoint {
 		entrypoint[i] = stepEE.Interpolate(v)
+//         common.Logger(ctx).Infof("  \U00002699  newStepContainer(entrypoint[i]=%s) (%s)", entrypoint[i], v)
 	}
+//     common.Logger(ctx).Infof("  \U00002699  ### newStepContainer - interpolate END ###")
 
 	bindModifiers := ""
 	if runtime.GOOS == "darwin" {
@@ -241,6 +267,7 @@ func (sc *StepContext) runUsesContainer() common.Executor {
 	rc := sc.RunContext
 	step := sc.Step
 	return func(ctx context.Context) error {
+//         common.Logger(ctx).Infof("  \U00002699 runUsesContainer(sc.Step.StepID=%s)", sc.Step.ID)
 		image := strings.TrimPrefix(step.Uses, "docker://")
 		cmd, err := shellquote.Split(sc.RunContext.NewExpressionEvaluator().Interpolate(step.With["args"]))
 		if err != nil {
@@ -381,6 +408,7 @@ func (sc *StepContext) runAction(actionDir string, actionPath string) common.Exe
 				stepContainer.Remove().IfBool(!rc.Config.ReuseContainers),
 			)(ctx)
 		case model.ActionRunsUsingComposite:
+//             common.Logger(ctx).Infof("  \U00002699 ##### Mapping Outputs #####")
 			for outputName, output := range action.Outputs {
 				re := regexp.MustCompile(`\${{ steps\.([a-zA-Z_][a-zA-Z0-9_-]+)\.outputs\.([a-zA-Z_][a-zA-Z0-9_-]+) }}`)
 				matches := re.FindStringSubmatch(output.Value)
@@ -394,33 +422,87 @@ func (sc *StepContext) runAction(actionDir string, actionPath string) common.Exe
 					sc.RunContext.OutputMappings[k] = v
 				}
 			}
+//             for k,v := range rc.OutputMappings {
+//                 common.Logger(ctx).Infof("  \U00002699  rc.OutputMappings[%s]=%s", k, v)
+//             }
 
+//             common.Logger(ctx).Infof("  \U00002699  ##### Cloning Steps #####")
 			var executors []common.Executor
 			stepID := 0
 			for _, compositeStep := range action.Runs.Steps {
 				stepClone := compositeStep
-				rcClone := rc
+                // Take a copy of the run context structure (rc is a pointer)
+                // Then take the address of the new structure
+                rcCloneStr := *rc
+                rcClone := &rcCloneStr
 				if stepClone.ID == "" {
 					stepClone.ID = fmt.Sprintf("composite-%d", stepID)
 					stepID++
-				} else {
-					rcClone.CurrentStep = stepClone.ID
 				}
+                rcClone.CurrentStep = stepClone.ID
+//                 common.Logger(ctx).Infof("  \U00002699  ### stepClone.ID=%s ###", stepClone.ID)
+//                 common.Logger(ctx).Infof("  \U00002699  rcClone.CurrentStep=%s", rcClone.CurrentStep)
+//                 common.Logger(ctx).Infof("  \U00002699  rc.CurrentStep=%s", rc.CurrentStep)
+
+                // Setup the outputs for the composite steps
+                if _, ok := rcClone.StepResults[stepClone.ID]; ! ok {
+//                     common.Logger(ctx).Infof("  \U00002699  (ActionRunsUsingComposite)Adding StepResults for %s", stepClone.ID)
+                    rcClone.StepResults[stepClone.ID]  = &stepResult{
+                        Success: true,
+                        Outputs: make(map[string]string),
+                    }
+                }
 
 				stepClone.Run = strings.ReplaceAll(stepClone.Run, "${{ github.action_path }}", filepath.Join(containerActionDir, actionName))
 
 				stepContext := StepContext{
 					RunContext: rcClone,
 					Step:       &stepClone,
-					Env:        stepClone.Env,
+					Env:        mergeMaps(sc.Env, stepClone.Env),
 				}
+//
+//                 if sc.Action != nil {
+//                     for k,v := range sc.Action.Inputs {
+//                         common.Logger(ctx).Infof("  \U00002699  sc.Action.Inputs[%s]=%s", k, v)
+//                     }
+//                 }
+//                 if sc.Step.With != nil {
+//                     for k,v := range sc.Step.With {
+//                         common.Logger(ctx).Infof("  \U00002699  sc.Step.With[%s]=%s", k, v)
+//                     }
+//                 }
+
+                // Interpolate the outer inputs into the composite step with items
+                exprEval := sc.NewExpressionEvaluator()
+                for k, v := range stepContext.Step.With {
+
+                    if strings.Contains(v, "inputs") {
+                        stepContext.Step.With[k] = exprEval.Interpolate(v)
+//                         common.Logger(ctx).Infof("  \U00002699  interpolate(sc.Step.With[k]=%s) (%s)", sc.Step.With[k], v)
+                    }
+                }
+
+//                 if stepContext.Action != nil {
+//                     for k,v := range stepContext.Action.Inputs {
+//                         common.Logger(ctx).Infof("  \U00002699  stepContext.Action.Inputs[%s]=%s", k, v)
+//                     }
+//                 }
+//                 if stepContext.Step.With != nil {
+//                     for k,v := range stepContext.Step.With {
+//                         common.Logger(ctx).Infof("  \U00002699  stepContext.Step.With[%s]=%s", k, v)
+//                     }
+//                 }
+
+//                 common.Logger(ctx).Infof("  \U00002699  ### Create Executor(type=%s) ###",stepContext.Step.Type())
 				executors = append(executors, stepContext.Executor())
 			}
+//             common.Logger(ctx).Infof("  \U00002699  ##### Cloning Steps - Done #####")
 			return common.NewPipelineExecutor(executors...)(ctx)
 		default:
 			return fmt.Errorf(fmt.Sprintf("The runs.using key must be one of: %v, got %s", []string{
 				model.ActionRunsUsingDocker,
 				model.ActionRunsUsingNode12,
+				model.ActionRunsUsingComposite,
 			}, action.Runs.Using))
 		}
 	}
