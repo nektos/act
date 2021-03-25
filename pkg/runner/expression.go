@@ -13,7 +13,6 @@ import (
 
 	"github.com/robertkrimen/otto"
 	log "github.com/sirupsen/logrus"
-	"gopkg.in/godo.v2/glob"
 )
 
 var expressionPattern, operatorPattern *regexp.Regexp
@@ -319,9 +318,9 @@ func vmFromJSON(vm *otto.Otto) {
 func (rc *RunContext) vmHashFiles() func(*otto.Otto) {
 	return func(vm *otto.Otto) {
 		_ = vm.Set("hashFiles", func(paths ...string) string {
-			var files []*glob.FileAsset
+			var files []string
 			for i := range paths {
-				newFiles, _, err := glob.Glob([]string{filepath.Join(rc.Config.Workdir, paths[i])})
+				newFiles, err := filepath.Glob(filepath.Join(rc.Config.Workdir, paths[i]))
 				if err != nil {
 					log.Errorf("Unable to glob.Glob: %v", err)
 					return ""
@@ -330,7 +329,7 @@ func (rc *RunContext) vmHashFiles() func(*otto.Otto) {
 			}
 			hasher := sha256.New()
 			for _, file := range files {
-				f, err := os.Open(file.Path)
+				f, err := os.Open(file)
 				if err != nil {
 					log.Errorf("Unable to os.Open: %v", err)
 				}

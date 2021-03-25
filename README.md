@@ -105,6 +105,7 @@ It will save that information to `~/.actrc`, please refer to [Configuration](#co
   -r, --reuse                  reuse action containers to maintain state
   -s, --secret stringArray     secret to make available to actions with optional value (e.g. -s mysecret=foo or -s mysecret)
       --secret-file string     file with list of secrets to read from (e.g. --secret-file .secrets) (default ".secrets")
+      --userns string          user namespace to use
   -v, --verbose                verbose output
       --version                version for act
   -w, --watch                  watch the contents of the local repo and run when files change
@@ -113,15 +114,25 @@ It will save that information to `~/.actrc`, please refer to [Configuration](#co
 
 # Known Issues
 
-MODULE_NOT_FOUND during `docker cp` command [#228](https://github.com/nektos/act/issues/228)
+A `MODULE_NOT_FOUND` during `docker cp` command [#228](https://github.com/nektos/act/issues/228) can happen if you are relying on local changes that have not been pushed. This can get triggered if the action is using a path, like:
+
+```yaml
+
+    - name: test action locally
+      uses: ./
+```
+
+In this case, you _must_ use `actions/checkout@v2` with a path that _has the same name as your repository_. If your repository is called _my-action_, then your checkout step would look like:
 
 ```yaml
 steps:
   - name: Checkout
     uses: actions/checkout@v2
     with:
-      path: "your-action-root-directory"
+      path: "my-action"
 ```
+
+If the `path:` value doesn't match the name of the repository, a `MODULE_NOT_FOUND` will be thrown.
 
 # Runners
 

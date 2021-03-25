@@ -98,7 +98,8 @@ func findGitPrettyRef(head, root, sub string) (string, error) {
 		}
 		var pointsTo = strings.TrimSpace(string(bts))
 		if head == pointsTo {
-			name = strings.TrimPrefix(strings.Replace(path, root, "", 1), "/")
+			// On Windows paths are separated with backslash character so they should be replaced to provide proper git refs format
+			name = strings.TrimPrefix(strings.ReplaceAll(strings.Replace(path, root, "", 1), `\`, `/`), "/")
 			log.Debugf("HEAD matches %s", name)
 		}
 		return nil

@@ -25,6 +25,7 @@ type Input struct {
 	insecureSecrets bool
 	defaultBranch   string
 	privileged      bool
+	usernsMode      string
 }
 
 func (i *Input) resolve(path string) string {

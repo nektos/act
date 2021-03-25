@@ -31,6 +31,7 @@ type Config struct {
 	InsecureSecrets bool              // switch hiding output when printing to terminal
 	Platforms       map[string]string // list of platforms
 	Privileged      bool              // use privileged mode
+	UsernsMode      string            // user namespace to use
 }
 
 type runnerImpl struct {
