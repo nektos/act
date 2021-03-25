@@ -5,7 +5,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     container: 
-      image: node:10.16-jessie
+      image: node:12.20.1-buster
       env:
         TEST_ENV: test-value
     steps:
@@ -13,7 +13,7 @@ jobs:
 
   test2:
     runs-on: ubuntu-latest
-    container: node:10.16-jessie
+    container: node:12.20.1-buster
     steps:
       - run: echo ${TEST_ENV} | grep test-value
         env:

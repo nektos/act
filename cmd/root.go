@@ -47,6 +47,7 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.Flags().StringVarP(&input.eventPath, "eventpath", "e", "", "path to event JSON file")
 	rootCmd.Flags().StringVar(&input.defaultBranch, "defaultbranch", "", "the name of the main branch")
 	rootCmd.Flags().BoolVar(&input.privileged, "privileged", false, "use privileged mode")
+	rootCmd.Flags().StringVar(&input.usernsMode, "userns", "", "user namespace to use")
 	rootCmd.PersistentFlags().StringVarP(&input.actor, "actor", "a", "nektos/act", "user that triggered the event")
 	rootCmd.PersistentFlags().StringVarP(&input.workflowsPath, "workflows", "W", "./.github/workflows/", "path to workflow file(s)")
 	rootCmd.PersistentFlags().StringVarP(&input.workdir, "directory", "C", ".", "working directory")
@@ -202,7 +203,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			if os.IsNotExist(err) {
 				var answer string
 				confirmation := &survey.Select{
-					Message: "Please choose the default image you want to use with act:\n\n  - Large size image: +20GB Docker image, includes almost all tools used on GitHub Actions\n  - Medium size image: ~500MB, includes only necessary tools to bootstrap actions and aims to be compatible with all actions\n  - Micro size image: <200MB, contains only NodeJS required to bootstrap actions, doesn't work with all actions\n\nDefault image and other options can be changed manually in ~/.actrc",
+					Message: "Please choose the default image you want to use with act:\n\n  - Large size image: +20GB Docker image, includes almost all tools used on GitHub Actions (only ubuntu-latest/ubuntu-18.04 platform is available)\n  - Medium size image: ~500MB, includes only necessary tools to bootstrap actions and aims to be compatible with all actions\n  - Micro size image: <200MB, contains only NodeJS required to bootstrap actions, doesn't work with all actions\n\nDefault image and other options can be changed manually in ~/.actrc (please refer to https://github.com/nektos/act#configuration for additional information about file structure)",
 					Help:    "If you want to know why act asks you that, please go to https://github.com/nektos/act/issues/107",
 					Default: "Medium",
 					Options: []string{"Large", "Medium", "Micro"},
@@ -220,7 +221,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 				case "Medium":
 					option = "-P ubuntu-latest=catthehacker/ubuntu:act-latest\n-P ubuntu-20.04=catthehacker/ubuntu:act-20.04\n-P ubuntu-18.04=catthehacker/ubuntu:act-18.04\nubuntu-16.04=catthehacker/ubuntu:act-16.04"
 				case "Micro":
-					option = "-P ubuntu-latest=node:12.6-buster-slim\n-P ubuntu-20.04=node:12.6-buster-slim\n-P ubuntu-18.04=node:12.6-buster-slim\n-P ubuntu-16.04=node:12.6-stretch-slim"
+					option = "-P ubuntu-latest=node:12.20.1-buster-slim\n-P ubuntu-20.04=node:12.20.1-buster-slim\n-P ubuntu-18.04=node:12.20.1-buster-slim\n-P ubuntu-16.04=node:12.20.1-stretch-slim"
 				}
 
 				f, err := os.Create(actrc[0])
@@ -260,6 +261,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			InsecureSecrets: input.insecureSecrets,
 			Platforms:       input.newPlatforms(),
 			Privileged:      input.privileged,
+			UsernsMode:      input.usernsMode,
 		}
 		r, err := runner.New(config)
 		if err != nil {

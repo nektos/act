@@ -106,6 +106,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			Stdout:      logWriter,
 			Stderr:      logWriter,
 			Privileged:  rc.Config.Privileged,
+			UsernsMode:  rc.Config.UsernsMode,
 		})
 
 		var copyWorkspace bool
@@ -225,7 +226,14 @@ func (rc *RunContext) newStepExecutor(step *model.Step) common.Executor {
 			common.Logger(ctx).Infof("  \u2705  Success - %s", sc.Step)
 		} else {
 			common.Logger(ctx).Errorf("  \u274C  Failure - %s", sc.Step)
-			rc.StepResults[rc.CurrentStep].Success = false
+
+			if sc.Step.ContinueOnError {
+				common.Logger(ctx).Infof("Failed but continue next step")
+				err = nil
+				rc.StepResults[rc.CurrentStep].Success = true
+			} else {
+				rc.StepResults[rc.CurrentStep].Success = false
+			}
 		}
 		return err
 	}
@@ -568,8 +576,8 @@ func (rc *RunContext) withGithubEnv(env map[string]string) map[string]string {
 	github := rc.getGithubContext()
 	env["CI"] = "true"
 	env["HOME"] = "/github/home"
-	env["GITHUB_ENV"] = "/github/workflow/envs.txt"
 
+	env["GITHUB_ENV"] = "/github/workflow/envs.txt"
 	env["GITHUB_WORKFLOW"] = github.Workflow
 	env["GITHUB_RUN_ID"] = github.RunID
 	env["GITHUB_RUN_NUMBER"] = github.RunNumber
@@ -586,6 +594,18 @@ func (rc *RunContext) withGithubEnv(env map[string]string) map[string]string {
 	env["GITHUB_SERVER_URL"] = "https://github.com"
 	env["GITHUB_API_URL"] = "https://api.github.com"
 	env["GITHUB_GRAPHQL_URL"] = "https://api.github.com/graphql"
+
+	job := rc.Run.Job()
+	if job.RunsOn() != nil {
+		for _, runnerLabel := range job.RunsOn() {
+			platformName := rc.ExprEval.Interpolate(runnerLabel)
+			if platformName != "" {
+				platformName = strings.SplitN(strings.Replace(platformName, `-`, ``, 1), `.`, 1)[0]
+				env["ImageOS"] = platformName
+			}
+		}
+	}
+
 	return env
 }
 

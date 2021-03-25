@@ -186,6 +186,11 @@ func TestGitCloneExecutor(t *testing.T) {
 			Ref: "act-fails",
 			Err: nil,
 		},
+		"sha": {
+			URL: "https://github.com/actions/checkout",
+			Ref: "5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f", // v2
+			Err: nil,
+		},
 	} {
 		tt := tt
 		name := name

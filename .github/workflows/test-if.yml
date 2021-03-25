@@ -3,10 +3,10 @@ name: "Test what expressions result in true and false on Github"
 on: push
 
 env:
-  SOMETHING_TRUE: true
-  SOMETHING_FALSE: false
-  SOME_TEXT: text
   ACT: true
+  SOMETHING_FALSE: false
+  SOMETHING_TRUE: true
+  SOME_TEXT: text
 
 
 jobs:
@@ -14,393 +14,393 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
-     - name: "❌ I should not run, expr: failure()"
-       id: step0
-       if: failure()
-       run: echo "failure() should be false, but was evaluated to true;" exit 1;
-
-     - name: "✅ I should run, expr: success()"
-       id: step1
-       if: success()
-       run: echo OK
-
-     - name: "Double checking expr: success()"
-       if: steps.step1.conclusion == 'skipped'
-       run: echo "success() should have been true, but wasn't"
-
-     - name: "❌ I should not run, expr: cancelled()"
-       id: step2
-       if: cancelled()
-       run: echo "cancelled() should be false, but was evaluated to true;" exit 1;
-
-     - name: "✅ I should run, expr: always()"
-       id: step3
-       if: always()
-       run: echo OK
-
-     - name: "Double checking expr: always()"
-       if: steps.step3.conclusion == 'skipped'
-       run: echo "always() should have been true, but wasn't"
-
-     - name: "✅ I should run, expr: true"
-       id: step4
-       if: true
-       run: echo OK
-
-     - name: "Double checking expr: true"
-       if: steps.step4.conclusion == 'skipped'
-       run: echo "true should have been true, but wasn't"
-
-     - name: "❌ I should not run, expr: false"
-       id: step5
-       if: false
-       run: echo "false should be false, but was evaluated to true;" exit 1;
-
-     - name: "✅ I should run, expr: 1 != 0"
-       id: step8
-       if: 1 != 0
-       run: echo OK
-
-     - name: "Double checking expr: 1 != 0"
-       if: steps.step8.conclusion == 'skipped'
-       run: echo "1 != 0 should have been true, but wasn't"
-
-     - name: "❌ I should not run, expr: 1 != 1"
-       id: step9
-       if: 1 != 1
-       run: echo "1 != 1 should be false, but was evaluated to true;" exit 1;
-
-     - name: "✅ I should run, expr: €{{ 1 != 0 }}"
-       id: step10
-       if: ${{ 1 != 0 }}
-       run: echo OK
-
-     - name: "Double checking expr: €{{ 1 != 0 }}"
-       if: steps.step10.conclusion == 'skipped'
-       run: echo "${{ 1 != 0 }} should have been true, but wasn't"
-
-     - name: "❌ I should not run, expr: €{{ 1 != 1 }}"
-       id: step11
-       if: ${{ 1 != 1 }}
-       run: echo "${{ 1 != 1 }} should be false, but was evaluated to true;" exit 1;
-
-     - name: "❌ I should not run, expr: 1 == 0"
-       id: step12
-       if: 1 == 0
-       run: echo "1 == 0 should be false, but was evaluated to true;" exit 1;
-
-     - name: "✅ I should run, expr: 1 == 1"
-       id: step13
-       if: 1 == 1
-       run: echo OK
-
-     - name: "Double checking expr: 1 == 1"
-       if: steps.step13.conclusion == 'skipped'
-       run: echo "1 == 1 should have been true, but wasn't"
-
-     - name: "❌ I should not run, expr: 1 > 2"
-       id: step14
-       if: 1 > 2
-       run: echo "1 > 2 should be false, but was evaluated to true;" exit 1;
-
-     - name: "✅ I should run, expr: 1 < 2"
-       id: step15
-       if: 1 < 2
-       run: echo OK
-
-     - name: "Double checking expr: 1 < 2"
-       if: steps.step15.conclusion == 'skipped'
-       run: echo "1 < 2 should have been true, but wasn't"
-
-     - name: "❌ I should not run, expr: true && false"
-       id: step16
-       if: true && false
-       run: echo "true && false should be false, but was evaluated to true;" exit 1;
-
-     - name: "✅ I should run, expr: true && 1 < 2"
-       id: step17
-       if: true && 1 < 2
-       run: echo OK
-
-     - name: "Double checking expr: true && 1 < 2"
-       if: steps.step17.conclusion == 'skipped'
-       run: echo "true && 1 < 2 should have been true, but wasn't"
-
-     - name: "✅ I should run, expr: false || 1 < 2"
-       id: step18
-       if: false || 1 < 2
-       run: echo OK
-
-     - name: "Double checking expr: false || 1 < 2"
-       if: steps.step18.conclusion == 'skipped'
-       run: echo "false || 1 < 2 should have been true, but wasn't"
-
-     - name: "❌ I should not run, expr: false || false"
-       id: step19
-       if: false || false
-       run: echo "false || false should be false, but was evaluated to true;" exit 1;
-
-     - name: "❌ I should not run, expr: env.UNKNOWN == 'true'"
-       id: step20
-       if: env.UNKNOWN == 'true'
-       run: echo "env.UNKNOWN == 'true' should be false, but was evaluated to true;" exit 1;
-
-     - name: "❌ I should not run, expr: env.UNKNOWN"
-       id: step21
-       if: env.UNKNOWN
-       run: echo "env.UNKNOWN should be false, but was evaluated to true;" exit 1;
-
-     - name: "✅ I should run, expr: env.SOME_TEXT"
-       id: step22
-       if: env.SOME_TEXT
-       run: echo OK
-
-     - name: "Double checking expr: env.SOME_TEXT"
-       if: steps.step22.conclusion == 'skipped'
-       run: echo "env.SOME_TEXT should have been true, but wasn't"
-
-     - name: "✅ I should run, expr: env.SOME_TEXT == 'text'"
-       id: step23
-       if: env.SOME_TEXT == 'text'
-       run: echo OK
-
-     - name: "Double checking expr: env.SOME_TEXT == 'text'"
-       if: steps.step23.conclusion == 'skipped'
-       run: echo "env.SOME_TEXT == 'text' should have been true, but wasn't"
-
-     - name: "✅ I should run, expr: env.SOMETHING_TRUE == 'true'"
-       id: step24
-       if: env.SOMETHING_TRUE == 'true'
-       run: echo OK
-
-     - name: "Double checking expr: env.SOMETHING_TRUE == 'true'"
-       if: steps.step24.conclusion == 'skipped'
-       run: echo "env.SOMETHING_TRUE == 'true' should have been true, but wasn't"
-
-     - name: "❌ I should not run, expr: env.SOMETHING_FALSE == 'true'"
-       id: step25
-       if: env.SOMETHING_FALSE == 'true'
-       run: echo "env.SOMETHING_FALSE == 'true' should be false, but was evaluated to true;" exit 1;
-
-     - name: "✅ I should run, expr: env.SOMETHING_TRUE"
-       id: step26
-       if: env.SOMETHING_TRUE
-       run: echo OK
-
-     - name: "Double checking expr: env.SOMETHING_TRUE"
-       if: steps.step26.conclusion == 'skipped'
-       run: echo "env.SOMETHING_TRUE should have been true, but wasn't"
-
-     - name: "✅ I should run, expr: env.SOMETHING_FALSE"
-       id: step27
-       if: env.SOMETHING_FALSE
-       run: echo OK
-
-     - name: "Double checking expr: env.SOMETHING_FALSE"
-       if: steps.step27.conclusion == 'skipped'
-       run: echo "env.SOMETHING_FALSE should have been true, but wasn't"
-
-     - name: "❌ I should not run, expr: €{{ !env.SOMETHING_TRUE }}"
-       id: step30
-       if: ${{ !env.SOMETHING_TRUE }}
-       run: echo "${{ !env.SOMETHING_TRUE }} should be false, but was evaluated to true;" exit 1;
-
-     - name: "❌ I should not run, expr: €{{ !env.SOMETHING_FALSE }}"
-       id: step31
-       if: ${{ !env.SOMETHING_FALSE }}
-       run: echo "${{ !env.SOMETHING_FALSE }} should be false, but was evaluated to true;" exit 1;
-
-     - name: "❌ I should not run, expr: €{{ ! env.SOMETHING_TRUE }}"
-       id: step32
-       if: ${{ ! env.SOMETHING_TRUE }}
-       run: echo "${{ ! env.SOMETHING_TRUE }} should be false, but was evaluated to true;" exit 1;
-
-     - name: "❌ I should not run, expr: €{{ ! env.SOMETHING_FALSE }}"
-       id: step33
-       if: ${{ ! env.SOMETHING_FALSE }}
-       run: echo "${{ ! env.SOMETHING_FALSE }} should be false, but was evaluated to true;" exit 1;
-
-     - name: "✅ I should run, expr: €{{ env.SOMETHING_TRUE }}"
-       id: step34
-       if: ${{ env.SOMETHING_TRUE }}
-       run: echo OK
-
-     - name: "Double checking expr: €{{ env.SOMETHING_TRUE }}"
-       if: steps.step34.conclusion == 'skipped'
-       run: echo "${{ env.SOMETHING_TRUE }} should have been true, but wasn't"
-
-     - name: "✅ I should run, expr: €{{ env.SOMETHING_FALSE }}"
-       id: step35
-       if: ${{ env.SOMETHING_FALSE }}
-       run: echo OK
-
-     - name: "Double checking expr: €{{ env.SOMETHING_FALSE }}"
-       if: steps.step35.conclusion == 'skipped'
-       run: echo "${{ env.SOMETHING_FALSE }} should have been true, but wasn't"
-
-     - name: "❌ I should not run, expr: €{{ !env.SOMETHING_TRUE }}"
-       id: step36
-       if: ${{ !env.SOMETHING_TRUE }}
-       run: echo "${{ !env.SOMETHING_TRUE }} should be false, but was evaluated to true;" exit 1;
-
-     - name: "❌ I should not run, expr: €{{ !env.SOMETHING_FALSE }}"
-       id: step37
-       if: ${{ !env.SOMETHING_FALSE }}
-       run: echo "${{ !env.SOMETHING_FALSE }} should be false, but was evaluated to true;" exit 1;
-
-     - name: "❌ I should not run, expr: €{{ !env.SOMETHING_TRUE && true }}"
-       id: step38
-       if: ${{ !env.SOMETHING_TRUE && true }}
-       run: echo "${{ !env.SOMETHING_TRUE && true }} should be false, but was evaluated to true;" exit 1;
-
-     - name: "❌ I should not run, expr: €{{ !env.SOMETHING_FALSE && true }}"
-       id: step39
-       if: ${{ !env.SOMETHING_FALSE && true }}
-       run: echo "${{ !env.SOMETHING_FALSE && true }} should be false, but was evaluated to true;" exit 1;
-
-     - name: "✅ I should run, expr: €{{ !env.SOMETHING_TRUE || true }}"
-       id: step40
-       if: ${{ !env.SOMETHING_TRUE || true }}
-       run: echo OK
-
-     - name: "Double checking expr: €{{ !env.SOMETHING_TRUE || true }}"
-       if: steps.step40.conclusion == 'skipped'
-       run: echo "${{ !env.SOMETHING_TRUE || true }} should have been true, but wasn't"
-
-     - name: "❌ I should not run, expr: €{{ !env.SOMETHING_FALSE || false }}"
-       id: step41
-       if: ${{ !env.SOMETHING_FALSE || false }}
-       run: echo "${{ !env.SOMETHING_FALSE || false }} should be false, but was evaluated to true;" exit 1;
-
-     - name: "✅ I should run, expr: €{{ env.SOMETHING_TRUE && true }}"
-       id: step42
-       if: ${{ env.SOMETHING_TRUE && true }}
-       run: echo OK
-
-     - name: "Double checking expr: €{{ env.SOMETHING_TRUE && true }}"
-       if: steps.step42.conclusion == 'skipped'
-       run: echo "${{ env.SOMETHING_TRUE && true }} should have been true, but wasn't"
-
-     - name: "✅ I should run, expr: €{{ env.SOMETHING_FALSE || true }}"
-       id: step43
-       if: ${{ env.SOMETHING_FALSE || true }}
-       run: echo OK
-
-     - name: "Double checking expr: €{{ env.SOMETHING_FALSE || true }}"
-       if: steps.step43.conclusion == 'skipped'
-       run: echo "${{ env.SOMETHING_FALSE || true }} should have been true, but wasn't"
-
-     - name: "✅ I should run, expr: €{{ env.SOMETHING_FALSE || false }}"
-       id: step44
-       if: ${{ env.SOMETHING_FALSE || false }}
-       run: echo OK
-
-     - name: "Double checking expr: €{{ env.SOMETHING_FALSE || false }}"
-       if: steps.step44.conclusion == 'skipped'
-       run: echo "${{ env.SOMETHING_FALSE || false }} should have been true, but wasn't"
-
-     - name: "✅ I should run, expr: €{{ env.SOMETHING_TRUE == 'true' }}"
-       id: step46
-       if: ${{ env.SOMETHING_TRUE == 'true'}}
-       run: echo OK
-
-     - name: "Double checking expr: €{{ env.SOMETHING_TRUE == 'true' }}"
-       if: steps.step46.conclusion == 'skipped'
-       run: echo "${{ env.SOMETHING_TRUE == 'true'}} should have been true, but wasn't"
-
-     - name: "❌ I should not run, expr: €{{ env.SOMETHING_FALSE == 'true' }}"
-       id: step47
-       if: ${{ env.SOMETHING_FALSE == 'true'}}
-       run: echo "${{ env.SOMETHING_FALSE == 'true'}} should be false, but was evaluated to true;" exit 1;
-
-     - name: "✅ I should run, expr: €{{ env.SOMETHING_FALSE == 'false' }}"
-       id: step48
-       if: ${{ env.SOMETHING_FALSE == 'false'}}
-       run: echo OK
-
-     - name: "Double checking expr: €{{ env.SOMETHING_FALSE == 'false' }}"
-       if: steps.step48.conclusion == 'skipped'
-       run: echo "${{ env.SOMETHING_FALSE == 'false'}} should have been true, but wasn't"
-
-     - name: "✅ I should run, expr: €{{ env.SOMETHING_FALSE }} && €{{ env.SOMETHING_TRUE }}"
-       id: step49
-       if: ${{ env.SOMETHING_FALSE }} && ${{ env.SOMETHING_TRUE }}
-       run: echo OK
-
-     - name: "Double checking expr: €{{ env.SOMETHING_FALSE }} && €{{ env.SOMETHING_TRUE }}"
-       if: steps.step49.conclusion == 'skipped'
-       run: echo "${{ env.SOMETHING_FALSE }} && ${{ env.SOMETHING_TRUE }} should have been true, but wasn't"
-
-     - name: "✅ I should run, expr: false || env.SOMETHING_TRUE == 'true'"
-       id: step50
-       if: false || env.SOMETHING_TRUE == 'true'
-       run: echo OK
-
-     - name: "Double checking expr: false || env.SOMETHING_TRUE == 'true'"
-       if: steps.step50.conclusion == 'skipped'
-       run: echo "false || env.SOMETHING_TRUE == 'true' should have been true, but wasn't"
-
-     - name: "✅ I should run, expr: true || env.SOMETHING_FALSE == 'true'"
-       id: step51
-       if: true || env.SOMETHING_FALSE == 'true'
-       run: echo OK
-
-     - name: "Double checking expr: true || env.SOMETHING_FALSE == 'true'"
-       if: steps.step51.conclusion == 'skipped'
-       run: echo "true || env.SOMETHING_FALSE == 'true' should have been true, but wasn't"
-
-     - name: "✅ I should run, expr: true && env.SOMETHING_TRUE == 'true'"
-       id: step52
-       if: true && env.SOMETHING_TRUE == 'true'
-       run: echo OK
-
-     - name: "Double checking expr: true && env.SOMETHING_TRUE == 'true'"
-       if: steps.step52.conclusion == 'skipped'
-       run: echo "true && env.SOMETHING_TRUE == 'true' should have been true, but wasn't"
-
-     - name: "❌ I should not run, expr: false && env.SOMETHING_TRUE == 'true'"
-       id: step53
-       if: false && env.SOMETHING_TRUE == 'true'
-       run: echo "false && env.SOMETHING_TRUE == 'true' should be false, but was evaluated to true;" exit 1;
-
-     - name: "❌ I should not run, expr: env.SOMETHING_FALSE == 'true' && env.SOMETHING_TRUE == 'true'"
-       id: step54
-       if: env.SOMETHING_FALSE == 'true' && env.SOMETHING_TRUE == 'true'
-       run: echo "env.SOMETHING_FALSE == 'true' && env.SOMETHING_TRUE == 'true' should be false, but was evaluated to true;" exit 1;
-
-     - name: "❌ I should not run, expr: env.SOMETHING_FALSE == 'true' && true"
-       id: step55
-       if: env.SOMETHING_FALSE == 'true' && true
-       run: echo "env.SOMETHING_FALSE == 'true' && true should be false, but was evaluated to true;" exit 1;
-
-     - name: "✅ I should run, expr: €{{ env.SOMETHING_FALSE == 'true' }} && true"
-       id: step56
-       if: ${{ env.SOMETHING_FALSE == 'true' }} && true
-       run: echo OK
-
-     - name: "Double checking expr: €{{ env.SOMETHING_FALSE == 'true' }} && true"
-       if: steps.step56.conclusion == 'skipped'
-       run: echo "${{ env.SOMETHING_FALSE == 'true' }} && true should have been true, but wasn't"
-
-     - name: "✅ I should run, expr: true && €{{ env.SOMETHING_FALSE == 'true' }}"
-       id: step57
-       if: true && ${{ env.SOMETHING_FALSE == 'true' }}
-       run: echo OK
-
-     - name: "Double checking expr: true && €{{ env.SOMETHING_FALSE == 'true' }}"
-       if: steps.step57.conclusion == 'skipped'
-       run: echo "true && ${{ env.SOMETHING_FALSE == 'true' }} should have been true, but wasn't"
-
-     - name: "✅ I should run, expr: €{{ env.ACT }}"
-       id: step60
-       if: ${{ env.ACT }}
-       run: echo OK
-
-     - name: "Double checking expr: €{{ env.ACT }}"
-       if: steps.step60.conclusion == 'skipped'
-       run: echo "${{ env.ACT }} should have been true, but wasn't"
-
-     - name: "❌ I should not run, expr: €{{ !env.ACT }}"
-       id: step61
-       if: ${{ !env.ACT }}
-       run: echo "${{ !env.ACT }} should be false, but was evaluated to true;" exit 1;
+      - name: "❌ I should not run, expr: failure()"
+        id: step0
+        if: failure()
+        run: echo "failure() should be false, but was evaluated to true;" exit 1;
+
+      - name: "✅ I should run, expr: success()"
+        id: step1
+        if: success()
+        run: echo OK
+
+      - name: "Double checking expr: success()"
+        if: steps.step1.conclusion == 'skipped'
+        run: echo "success() should have been true, but wasn't"
+
+      - name: "❌ I should not run, expr: cancelled()"
+        id: step2
+        if: cancelled()
+        run: echo "cancelled() should be false, but was evaluated to true;" exit 1;
+
+      - name: "✅ I should run, expr: always()"
+        id: step3
+        if: always()
+        run: echo OK
+
+      - name: "Double checking expr: always()"
+        if: steps.step3.conclusion == 'skipped'
+        run: echo "always() should have been true, but wasn't"
+
+      - name: "✅ I should run, expr: true"
+        id: step4
+        if: true
+        run: echo OK
+
+      - name: "Double checking expr: true"
+        if: steps.step4.conclusion == 'skipped'
+        run: echo "true should have been true, but wasn't"
+
+      - name: "❌ I should not run, expr: false"
+        id: step5
+        if: false
+        run: echo "false should be false, but was evaluated to true;" exit 1;
+
+      - name: "✅ I should run, expr: 1 != 0"
+        id: step8
+        if: 1 != 0
+        run: echo OK
+
+      - name: "Double checking expr: 1 != 0"
+        if: steps.step8.conclusion == 'skipped'
+        run: echo "1 != 0 should have been true, but wasn't"
+
+      - name: "❌ I should not run, expr: 1 != 1"
+        id: step9
+        if: 1 != 1
+        run: echo "1 != 1 should be false, but was evaluated to true;" exit 1;
+
+      - name: "✅ I should run, expr: €{{ 1 != 0 }}"
+        id: step10
+        if: ${{ 1 != 0 }}
+        run: echo OK
+
+      - name: "Double checking expr: €{{ 1 != 0 }}"
+        if: steps.step10.conclusion == 'skipped'
+        run: echo "${{ 1 != 0 }} should have been true, but wasn't"
+
+      - name: "❌ I should not run, expr: €{{ 1 != 1 }}"
+        id: step11
+        if: ${{ 1 != 1 }}
+        run: echo "${{ 1 != 1 }} should be false, but was evaluated to true;" exit 1;
+
+      - name: "❌ I should not run, expr: 1 == 0"
+        id: step12
+        if: 1 == 0
+        run: echo "1 == 0 should be false, but was evaluated to true;" exit 1;
+
+      - name: "✅ I should run, expr: 1 == 1"
+        id: step13
+        if: 1 == 1
+        run: echo OK
+
+      - name: "Double checking expr: 1 == 1"
+        if: steps.step13.conclusion == 'skipped'
+        run: echo "1 == 1 should have been true, but wasn't"
+
+      - name: "❌ I should not run, expr: 1 > 2"
+        id: step14
+        if: 1 > 2
+        run: echo "1 > 2 should be false, but was evaluated to true;" exit 1;
+
+      - name: "✅ I should run, expr: 1 < 2"
+        id: step15
+        if: 1 < 2
+        run: echo OK
+
+      - name: "Double checking expr: 1 < 2"
+        if: steps.step15.conclusion == 'skipped'
+        run: echo "1 < 2 should have been true, but wasn't"
+
+      - name: "❌ I should not run, expr: true && false"
+        id: step16
+        if: true && false
+        run: echo "true && false should be false, but was evaluated to true;" exit 1;
+
+      - name: "✅ I should run, expr: true && 1 < 2"
+        id: step17
+        if: true && 1 < 2
+        run: echo OK
+
+      - name: "Double checking expr: true && 1 < 2"
+        if: steps.step17.conclusion == 'skipped'
+        run: echo "true && 1 < 2 should have been true, but wasn't"
+
+      - name: "✅ I should run, expr: false || 1 < 2"
+        id: step18
+        if: false || 1 < 2
+        run: echo OK
+
+      - name: "Double checking expr: false || 1 < 2"
+        if: steps.step18.conclusion == 'skipped'
+        run: echo "false || 1 < 2 should have been true, but wasn't"
+
+      - name: "❌ I should not run, expr: false || false"
+        id: step19
+        if: false || false
+        run: echo "false || false should be false, but was evaluated to true;" exit 1;
+
+      - name: "❌ I should not run, expr: env.UNKNOWN == 'true'"
+        id: step20
+        if: env.UNKNOWN == 'true'
+        run: echo "env.UNKNOWN == 'true' should be false, but was evaluated to true;" exit 1;
+
+      - name: "❌ I should not run, expr: env.UNKNOWN"
+        id: step21
+        if: env.UNKNOWN
+        run: echo "env.UNKNOWN should be false, but was evaluated to true;" exit 1;
+
+      - name: "✅ I should run, expr: env.SOME_TEXT"
+        id: step22
+        if: env.SOME_TEXT
+        run: echo OK
+
+      - name: "Double checking expr: env.SOME_TEXT"
+        if: steps.step22.conclusion == 'skipped'
+        run: echo "env.SOME_TEXT should have been true, but wasn't"
+
+      - name: "✅ I should run, expr: env.SOME_TEXT == 'text'"
+        id: step23
+        if: env.SOME_TEXT == 'text'
+        run: echo OK
+
+      - name: "Double checking expr: env.SOME_TEXT == 'text'"
+        if: steps.step23.conclusion == 'skipped'
+        run: echo "env.SOME_TEXT == 'text' should have been true, but wasn't"
+
+      - name: "✅ I should run, expr: env.SOMETHING_TRUE == 'true'"
+        id: step24
+        if: env.SOMETHING_TRUE == 'true'
+        run: echo OK
+
+      - name: "Double checking expr: env.SOMETHING_TRUE == 'true'"
+        if: steps.step24.conclusion == 'skipped'
+        run: echo "env.SOMETHING_TRUE == 'true' should have been true, but wasn't"
+
+      - name: "❌ I should not run, expr: env.SOMETHING_FALSE == 'true'"
+        id: step25
+        if: env.SOMETHING_FALSE == 'true'
+        run: echo "env.SOMETHING_FALSE == 'true' should be false, but was evaluated to true;" exit 1;
+
+      - name: "✅ I should run, expr: env.SOMETHING_TRUE"
+        id: step26
+        if: env.SOMETHING_TRUE
+        run: echo OK
+
+      - name: "Double checking expr: env.SOMETHING_TRUE"
+        if: steps.step26.conclusion == 'skipped'
+        run: echo "env.SOMETHING_TRUE should have been true, but wasn't"
+
+      - name: "✅ I should run, expr: env.SOMETHING_FALSE"
+        id: step27
+        if: env.SOMETHING_FALSE
+        run: echo OK
+
+      - name: "Double checking expr: env.SOMETHING_FALSE"
+        if: steps.step27.conclusion == 'skipped'
+        run: echo "env.SOMETHING_FALSE should have been true, but wasn't"
+
+      - name: "❌ I should not run, expr: €{{ !env.SOMETHING_TRUE }}"
+        id: step30
+        if: ${{ !env.SOMETHING_TRUE }}
+        run: echo "${{ !env.SOMETHING_TRUE }} should be false, but was evaluated to true;" exit 1;
+
+      - name: "❌ I should not run, expr: €{{ !env.SOMETHING_FALSE }}"
+        id: step31
+        if: ${{ !env.SOMETHING_FALSE }}
+        run: echo "${{ !env.SOMETHING_FALSE }} should be false, but was evaluated to true;" exit 1;
+
+      - name: "❌ I should not run, expr: €{{ ! env.SOMETHING_TRUE }}"
+        id: step32
+        if: ${{ ! env.SOMETHING_TRUE }}
+        run: echo "${{ ! env.SOMETHING_TRUE }} should be false, but was evaluated to true;" exit 1;
+
+      - name: "❌ I should not run, expr: €{{ ! env.SOMETHING_FALSE }}"
+        id: step33
+        if: ${{ ! env.SOMETHING_FALSE }}
+        run: echo "${{ ! env.SOMETHING_FALSE }} should be false, but was evaluated to true;" exit 1;
+
+      - name: "✅ I should run, expr: €{{ env.SOMETHING_TRUE }}"
+        id: step34
+        if: ${{ env.SOMETHING_TRUE }}
+        run: echo OK
+
+      - name: "Double checking expr: €{{ env.SOMETHING_TRUE }}"
+        if: steps.step34.conclusion == 'skipped'
+        run: echo "${{ env.SOMETHING_TRUE }} should have been true, but wasn't"
+
+      - name: "✅ I should run, expr: €{{ env.SOMETHING_FALSE }}"
+        id: step35
+        if: ${{ env.SOMETHING_FALSE }}
+        run: echo OK
+
+      - name: "Double checking expr: €{{ env.SOMETHING_FALSE }}"
+        if: steps.step35.conclusion == 'skipped'
+        run: echo "${{ env.SOMETHING_FALSE }} should have been true, but wasn't"
+
+      - name: "❌ I should not run, expr: €{{ !env.SOMETHING_TRUE }}"
+        id: step36
+        if: ${{ !env.SOMETHING_TRUE }}
+        run: echo "${{ !env.SOMETHING_TRUE }} should be false, but was evaluated to true;" exit 1;
+
+      - name: "❌ I should not run, expr: €{{ !env.SOMETHING_FALSE }}"
+        id: step37
+        if: ${{ !env.SOMETHING_FALSE }}
+        run: echo "${{ !env.SOMETHING_FALSE }} should be false, but was evaluated to true;" exit 1;
+
+      - name: "❌ I should not run, expr: €{{ !env.SOMETHING_TRUE && true }}"
+        id: step38
+        if: ${{ !env.SOMETHING_TRUE && true }}
+        run: echo "${{ !env.SOMETHING_TRUE && true }} should be false, but was evaluated to true;" exit 1;
+
+      - name: "❌ I should not run, expr: €{{ !env.SOMETHING_FALSE && true }}"
+        id: step39
+        if: ${{ !env.SOMETHING_FALSE && true }}
+        run: echo "${{ !env.SOMETHING_FALSE && true }} should be false, but was evaluated to true;" exit 1;
+
+      - name: "✅ I should run, expr: €{{ !env.SOMETHING_TRUE || true }}"
+        id: step40
+        if: ${{ !env.SOMETHING_TRUE || true }}
+        run: echo OK
+
+      - name: "Double checking expr: €{{ !env.SOMETHING_TRUE || true }}"
+        if: steps.step40.conclusion == 'skipped'
+        run: echo "${{ !env.SOMETHING_TRUE || true }} should have been true, but wasn't"
+
+      - name: "❌ I should not run, expr: €{{ !env.SOMETHING_FALSE || false }}"
+        id: step41
+        if: ${{ !env.SOMETHING_FALSE || false }}
+        run: echo "${{ !env.SOMETHING_FALSE || false }} should be false, but was evaluated to true;" exit 1;
+
+      - name: "✅ I should run, expr: €{{ env.SOMETHING_TRUE && true }}"
+        id: step42
+        if: ${{ env.SOMETHING_TRUE && true }}
+        run: echo OK
+
+      - name: "Double checking expr: €{{ env.SOMETHING_TRUE && true }}"
+        if: steps.step42.conclusion == 'skipped'
+        run: echo "${{ env.SOMETHING_TRUE && true }} should have been true, but wasn't"
+
+      - name: "✅ I should run, expr: €{{ env.SOMETHING_FALSE || true }}"
+        id: step43
+        if: ${{ env.SOMETHING_FALSE || true }}
+        run: echo OK
+
+      - name: "Double checking expr: €{{ env.SOMETHING_FALSE || true }}"
+        if: steps.step43.conclusion == 'skipped'
+        run: echo "${{ env.SOMETHING_FALSE || true }} should have been true, but wasn't"
+
+      - name: "✅ I should run, expr: €{{ env.SOMETHING_FALSE || false }}"
+        id: step44
+        if: ${{ env.SOMETHING_FALSE || false }}
+        run: echo OK
+
+      - name: "Double checking expr: €{{ env.SOMETHING_FALSE || false }}"
+        if: steps.step44.conclusion == 'skipped'
+        run: echo "${{ env.SOMETHING_FALSE || false }} should have been true, but wasn't"
+
+      - name: "✅ I should run, expr: €{{ env.SOMETHING_TRUE == 'true' }}"
+        id: step46
+        if: ${{ env.SOMETHING_TRUE == 'true'}}
+        run: echo OK
+
+      - name: "Double checking expr: €{{ env.SOMETHING_TRUE == 'true' }}"
+        if: steps.step46.conclusion == 'skipped'
+        run: echo "${{ env.SOMETHING_TRUE == 'true'}} should have been true, but wasn't"
+
+      - name: "❌ I should not run, expr: €{{ env.SOMETHING_FALSE == 'true' }}"
+        id: step47
+        if: ${{ env.SOMETHING_FALSE == 'true'}}
+        run: echo "${{ env.SOMETHING_FALSE == 'true'}} should be false, but was evaluated to true;" exit 1;
+
+      - name: "✅ I should run, expr: €{{ env.SOMETHING_FALSE == 'false' }}"
+        id: step48
+        if: ${{ env.SOMETHING_FALSE == 'false'}}
+        run: echo OK
+
+      - name: "Double checking expr: €{{ env.SOMETHING_FALSE == 'false' }}"
+        if: steps.step48.conclusion == 'skipped'
+        run: echo "${{ env.SOMETHING_FALSE == 'false'}} should have been true, but wasn't"
+
+      - name: "✅ I should run, expr: €{{ env.SOMETHING_FALSE }} && €{{ env.SOMETHING_TRUE }}"
+        id: step49
+        if: ${{ env.SOMETHING_FALSE }} && ${{ env.SOMETHING_TRUE }}
+        run: echo OK
+
+      - name: "Double checking expr: €{{ env.SOMETHING_FALSE }} && €{{ env.SOMETHING_TRUE }}"
+        if: steps.step49.conclusion == 'skipped'
+        run: echo "${{ env.SOMETHING_FALSE }} && ${{ env.SOMETHING_TRUE }} should have been true, but wasn't"
+
+      - name: "✅ I should run, expr: false || env.SOMETHING_TRUE == 'true'"
+        id: step50
+        if: false || env.SOMETHING_TRUE == 'true'
+        run: echo OK
+
+      - name: "Double checking expr: false || env.SOMETHING_TRUE == 'true'"
+        if: steps.step50.conclusion == 'skipped'
+        run: echo "false || env.SOMETHING_TRUE == 'true' should have been true, but wasn't"
+
+      - name: "✅ I should run, expr: true || env.SOMETHING_FALSE == 'true'"
+        id: step51
+        if: true || env.SOMETHING_FALSE == 'true'
+        run: echo OK
+
+      - name: "Double checking expr: true || env.SOMETHING_FALSE == 'true'"
+        if: steps.step51.conclusion == 'skipped'
+        run: echo "true || env.SOMETHING_FALSE == 'true' should have been true, but wasn't"
+
+      - name: "✅ I should run, expr: true && env.SOMETHING_TRUE == 'true'"
+        id: step52
+        if: true && env.SOMETHING_TRUE == 'true'
+        run: echo OK
+
+      - name: "Double checking expr: true && env.SOMETHING_TRUE == 'true'"
+        if: steps.step52.conclusion == 'skipped'
+        run: echo "true && env.SOMETHING_TRUE == 'true' should have been true, but wasn't"
+
+      - name: "❌ I should not run, expr: false && env.SOMETHING_TRUE == 'true'"
+        id: step53
+        if: false && env.SOMETHING_TRUE == 'true'
+        run: echo "false && env.SOMETHING_TRUE == 'true' should be false, but was evaluated to true;" exit 1;
+
+      - name: "❌ I should not run, expr: env.SOMETHING_FALSE == 'true' && env.SOMETHING_TRUE == 'true'"
+        id: step54
+        if: env.SOMETHING_FALSE == 'true' && env.SOMETHING_TRUE == 'true'
+        run: echo "env.SOMETHING_FALSE == 'true' && env.SOMETHING_TRUE == 'true' should be false, but was evaluated to true;" exit 1;
+
+      - name: "❌ I should not run, expr: env.SOMETHING_FALSE == 'true' && true"
+        id: step55
+        if: env.SOMETHING_FALSE == 'true' && true
+        run: echo "env.SOMETHING_FALSE == 'true' && true should be false, but was evaluated to true;" exit 1;
+
+      - name: "✅ I should run, expr: €{{ env.SOMETHING_FALSE == 'true' }} && true"
+        id: step56
+        if: ${{ env.SOMETHING_FALSE == 'true' }} && true
+        run: echo OK
+
+      - name: "Double checking expr: €{{ env.SOMETHING_FALSE == 'true' }} && true"
+        if: steps.step56.conclusion == 'skipped'
+        run: echo "${{ env.SOMETHING_FALSE == 'true' }} && true should have been true, but wasn't"
+
+      - name: "✅ I should run, expr: true && €{{ env.SOMETHING_FALSE == 'true' }}"
+        id: step57
+        if: true && ${{ env.SOMETHING_FALSE == 'true' }}
+        run: echo OK
+
+      - name: "Double checking expr: true && €{{ env.SOMETHING_FALSE == 'true' }}"
+        if: steps.step57.conclusion == 'skipped'
+        run: echo "true && ${{ env.SOMETHING_FALSE == 'true' }} should have been true, but wasn't"
+
+      - name: "✅ I should run, expr: €{{ env.ACT }}"
+        id: step60
+        if: ${{ env.ACT }}
+        run: echo OK
+
+      - name: "Double checking expr: €{{ env.ACT }}"
+        if: steps.step60.conclusion == 'skipped'
+        run: echo "${{ env.ACT }} should have been true, but wasn't"
+
+      - name: "❌ I should not run, expr: €{{ !env.ACT }}"
+        id: step61
+        if: ${{ !env.ACT }}
+        run: echo "${{ !env.ACT }} should be false, but was evaluated to true;" exit 1;

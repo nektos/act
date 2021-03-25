@@ -98,7 +98,8 @@ func findGitPrettyRef(head, root, sub string) (string, error) {
 		}
 		var pointsTo = strings.TrimSpace(string(bts))
 		if head == pointsTo {
-			name = strings.TrimPrefix(strings.Replace(path, root, "", 1), "/")
+			// On Windows paths are separated with backslash character so they should be replaced to provide proper git refs format
+			name = strings.TrimPrefix(strings.ReplaceAll(strings.Replace(path, root, "", 1), `\`, `/`), "/")
 			log.Debugf("HEAD matches %s", name)
 		}
 		return nil
@@ -244,8 +245,14 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) Executor {
 		refType := "tag"
 		rev := plumbing.Revision(path.Join("refs", "tags", input.Ref))
 		if _, err := r.Tag(input.Ref); errors.Is(err, git.ErrTagNotFound) {
-			refType = "branch"
-			rev = plumbing.Revision(path.Join("refs", "remotes", "origin", input.Ref))
+			rName := plumbing.ReferenceName(path.Join("refs", "remotes", "origin", input.Ref))
+			if _, err := r.Reference(rName, false); errors.Is(err, plumbing.ErrReferenceNotFound) {
+				refType = "sha"
+				rev = plumbing.Revision(input.Ref)
+			} else {
+				refType = "branch"
+				rev = plumbing.Revision(rName)
+			}
 		}
 		hash, err := r.ResolveRevision(rev)
 		if err != nil {
