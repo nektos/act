@@ -445,6 +445,10 @@ func (sc *StepContext) runAction(actionDir string, actionPath string) common.Exe
 //                 common.Logger(ctx).Infof("  \U00002699  rcClone.CurrentStep=%s", rcClone.CurrentStep)
 //                 common.Logger(ctx).Infof("  \U00002699  rc.CurrentStep=%s", rc.CurrentStep)
 
+                if err := compositeStep.Validate(); err != nil {
+                    return err
+                }
+
                 // Setup the outputs for the composite steps
                 if _, ok := rcClone.StepResults[stepClone.ID]; ! ok {
 //                     common.Logger(ctx).Infof("  \U00002699  (ActionRunsUsingComposite)Adding StepResults for %s", stepClone.ID)
