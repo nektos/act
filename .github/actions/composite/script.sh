@@ -1,0 +1,1 @@
+echo "Output from script"
