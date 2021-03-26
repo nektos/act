@@ -381,6 +381,43 @@ func (sc *StepContext) runAction(actionDir string, actionPath string) common.Exe
 			).Finally(
 				stepContainer.Remove().IfBool(!rc.Config.ReuseContainers),
 			)(ctx)
+		case model.ActionRunsUsingComposite:
+			for outputName, output := range action.Outputs {
+				re := regexp.MustCompile(`\${{ steps\.([a-zA-Z_][a-zA-Z0-9_-]+)\.outputs\.([a-zA-Z_][a-zA-Z0-9_-]+) }}`)
+				matches := re.FindStringSubmatch(output.Value)
+				if len(matches) > 2 {
+					if sc.RunContext.OutputMappings == nil {
+						sc.RunContext.OutputMappings = make(map[MappableOutput]MappableOutput)
+					}
+
+					k := MappableOutput{StepID: matches[1], OutputName: matches[2]}
+					v := MappableOutput{StepID: step.ID, OutputName: outputName}
+					sc.RunContext.OutputMappings[k] = v
+				}
+			}
+
+			var executors []common.Executor
+			stepID := 0
+			for _, compositeStep := range action.Runs.Steps {
+				stepClone := compositeStep
+				rcClone := rc
+				if stepClone.ID == "" {
+					stepClone.ID = fmt.Sprintf("composite-%d", stepID)
+					stepID++
+				} else {
+					rcClone.CurrentStep = stepClone.ID
+				}
+
+				stepClone.Run = strings.ReplaceAll(stepClone.Run, "${{ github.action_path }}", filepath.Join(containerActionDir, actionName))
+
+				stepContext := StepContext{
+					RunContext: rcClone,
+					Step:       &stepClone,
+					Env:        stepClone.Env,
+				}
+				executors = append(executors, stepContext.Executor())
+			}
+			return common.NewPipelineExecutor(executors...)(ctx)
 		default:
 			return fmt.Errorf(fmt.Sprintf("The runs.using key must be one of: %v, got %s", []string{
 				model.ActionRunsUsingDocker,

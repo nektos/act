@@ -20,17 +20,23 @@ import (
 
 // RunContext contains info about current job
 type RunContext struct {
-	Name         string
-	Config       *Config
-	Matrix       map[string]interface{}
-	Run          *model.Run
-	EventJSON    string
-	Env          map[string]string
-	ExtraPath    []string
-	CurrentStep  string
-	StepResults  map[string]*stepResult
-	ExprEval     ExpressionEvaluator
-	JobContainer container.Container
+	Name           string
+	Config         *Config
+	Matrix         map[string]interface{}
+	Run            *model.Run
+	EventJSON      string
+	Env            map[string]string
+	ExtraPath      []string
+	CurrentStep    string
+	StepResults    map[string]*stepResult
+	ExprEval       ExpressionEvaluator
+	JobContainer   container.Container
+	OutputMappings map[MappableOutput]MappableOutput
+}
+
+type MappableOutput struct {
+	StepID     string
+	OutputName string
 }
 
 func (rc *RunContext) String() string {
