@@ -413,7 +413,7 @@ func (sc *StepContext) runAction(actionDir string, actionPath string) common.Exe
 				stepContext := StepContext{
 					RunContext: rcClone,
 					Step:       &stepClone,
-					Env:        stepClone.Env,
+					Env:        mergeMaps(sc.Env, stepClone.Env),
 				}
 				executors = append(executors, stepContext.Executor())
 			}
