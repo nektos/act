@@ -17,21 +17,22 @@ type Runner interface {
 
 // Config contains the config for a new runner
 type Config struct {
-	Actor           string            // the user that triggered the event
-	Workdir         string            // path to working directory
-	BindWorkdir     bool              // bind the workdir to the job container
-	EventName       string            // name of event to run
-	EventPath       string            // path to JSON file to use for event.json in containers
-	DefaultBranch   string            // name of the main branch for this repository
-	ReuseContainers bool              // reuse containers to maintain state
-	ForcePull       bool              // force pulling of the image, if already present
-	LogOutput       bool              // log the output from docker run
-	Env             map[string]string // env for containers
-	Secrets         map[string]string // list of secrets
-	InsecureSecrets bool              // switch hiding output when printing to terminal
-	Platforms       map[string]string // list of platforms
-	Privileged      bool              // use privileged mode
-	UsernsMode      string            // user namespace to use
+	Actor                 string            // the user that triggered the event
+	Workdir               string            // path to working directory
+	BindWorkdir           bool              // bind the workdir to the job container
+	EventName             string            // name of event to run
+	EventPath             string            // path to JSON file to use for event.json in containers
+	DefaultBranch         string            // name of the main branch for this repository
+	ReuseContainers       bool              // reuse containers to maintain state
+	ForcePull             bool              // force pulling of the image, if already present
+	LogOutput             bool              // log the output from docker run
+	Env                   map[string]string // env for containers
+	Secrets               map[string]string // list of secrets
+	InsecureSecrets       bool              // switch hiding output when printing to terminal
+	Platforms             map[string]string // list of platforms
+	Privileged            bool              // use privileged mode
+	UsernsMode            string            // user namespace to use
+	ContainerArchitecture string            // Desired OS/architecture platform for running containers
 }
 
 type runnerImpl struct {

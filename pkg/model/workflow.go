@@ -259,13 +259,13 @@ func (s *Step) ShellCommand() string {
 
 	switch s.Shell {
 	case "", "bash":
-		shellCommand = "bash --noprofile --norc -e {0}"
+		shellCommand = "bash --login --norc -e {0}"
 	case "pwsh":
-		shellCommand = "pwsh -command \"& '{0}'\""
+		shellCommand = "pwsh -login -command \"& '{0}'\""
 	case "python":
 		shellCommand = "python {0}"
 	case "sh":
-		shellCommand = "sh -e -c {0}"
+		shellCommand = "sh -l -e -c {0}"
 	case "cmd":
 		shellCommand = "%ComSpec% /D /E:ON /V:OFF /S /C \"CALL \"{0}\"\""
 	case "powershell":

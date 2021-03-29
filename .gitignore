@@ -17,3 +17,5 @@
 *.nupkg
 .vscode/
 .idea/
+
+coverage.txt

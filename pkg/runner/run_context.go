@@ -11,11 +11,11 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/nektos/act/pkg/container"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/nektos/act/pkg/common"
+	"github.com/nektos/act/pkg/container"
 	"github.com/nektos/act/pkg/model"
-	log "github.com/sirupsen/logrus"
 )
 
 // RunContext contains info about current job
@@ -92,18 +92,22 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			fmt.Sprintf("%s:%s", "/var/run/docker.sock", "/var/run/docker.sock"),
 		}
 		if rc.Config.BindWorkdir {
-			binds = append(binds, fmt.Sprintf("%s:%s%s", rc.Config.Workdir, "/github/workspace", bindModifiers))
+			binds = append(binds, fmt.Sprintf("%s:%s%s", rc.Config.Workdir, rc.Config.Workdir, bindModifiers))
+		}
+
+		if rc.Config.ContainerArchitecture == "" {
+			rc.Config.ContainerArchitecture = fmt.Sprintf("%s/%s", "linux", runtime.GOARCH)
 		}
 
 		rc.JobContainer = container.NewContainer(&container.NewContainerInput{
 			Cmd:        nil,
 			Entrypoint: []string{"/usr/bin/tail", "-f", "/dev/null"},
-			WorkingDir: "/github/workspace",
+			WorkingDir: rc.Config.Workdir,
 			Image:      image,
 			Name:       name,
 			Env:        envList,
 			Mounts: map[string]string{
-				name:            "/github",
+				name:            filepath.Dir(rc.Config.Workdir),
 				"act-toolcache": "/toolcache",
 				"act-actions":   "/actions",
 			},
@@ -113,13 +117,14 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			Stderr:      logWriter,
 			Privileged:  rc.Config.Privileged,
 			UsernsMode:  rc.Config.UsernsMode,
+			Platform:    rc.Config.ContainerArchitecture,
 		})
 
 		var copyWorkspace bool
 		var copyToPath string
 		if !rc.Config.BindWorkdir {
 			copyToPath, copyWorkspace = rc.localCheckoutPath()
-			copyToPath = filepath.Join("/github/workspace", copyToPath)
+			copyToPath = filepath.Join(rc.Config.Workdir, copyToPath)
 		}
 
 		return common.NewPipelineExecutor(
@@ -128,7 +133,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			rc.JobContainer.Create(),
 			rc.JobContainer.Start(false),
 			rc.JobContainer.CopyDir(copyToPath, rc.Config.Workdir+string(filepath.Separator)+".").IfBool(copyWorkspace),
-			rc.JobContainer.Copy("/github/", &container.FileEntry{
+			rc.JobContainer.Copy(filepath.Dir(rc.Config.Workdir), &container.FileEntry{
 				Name: "workflow/event.json",
 				Mode: 0644,
 				Body: rc.EventJSON,
@@ -459,14 +464,14 @@ func (rc *RunContext) getGithubContext() *githubContext {
 	}
 	ghc := &githubContext{
 		Event:     make(map[string]interface{}),
-		EventPath: "/github/workflow/event.json",
+		EventPath: fmt.Sprintf("%s/%s", filepath.Dir(rc.Config.Workdir), "workflow/event.json"),
 		Workflow:  rc.Run.Workflow.Name,
 		RunID:     runID,
 		RunNumber: runNumber,
 		Actor:     rc.Config.Actor,
 		EventName: rc.Config.EventName,
 		Token:     token,
-		Workspace: "/github/workspace",
+		Workspace: rc.Config.Workdir,
 		Action:    rc.CurrentStep,
 	}
 
@@ -590,9 +595,8 @@ func withDefaultBranch(b string, event map[string]interface{}) map[string]interf
 func (rc *RunContext) withGithubEnv(env map[string]string) map[string]string {
 	github := rc.getGithubContext()
 	env["CI"] = "true"
-	env["HOME"] = "/github/home"
-
-	env["GITHUB_ENV"] = "/github/workflow/envs.txt"
+	env["HOME"] = fmt.Sprintf("%s/%s", filepath.Dir(rc.Config.Workdir), "home")
+	env["GITHUB_ENV"] = fmt.Sprintf("%s/%s", filepath.Dir(rc.Config.Workdir), "workflow/envs.txt")
 	env["GITHUB_WORKFLOW"] = github.Workflow
 	env["GITHUB_RUN_ID"] = github.RunID
 	env["GITHUB_RUN_NUMBER"] = github.RunNumber
@@ -615,8 +619,13 @@ func (rc *RunContext) withGithubEnv(env map[string]string) map[string]string {
 		for _, runnerLabel := range job.RunsOn() {
 			platformName := rc.ExprEval.Interpolate(runnerLabel)
 			if platformName != "" {
-				platformName = strings.SplitN(strings.Replace(platformName, `-`, ``, 1), `.`, 1)[0]
-				env["ImageOS"] = platformName
+				if platformName == "ubuntu-latest" {
+					// hardcode current ubuntu-latest since we have no way to check that 'on the fly'
+					env["ImageOS"] = "ubuntu20"
+				} else {
+					platformName = strings.SplitN(strings.Replace(platformName, `-`, ``, 1), `.`, 1)[0]
+					env["ImageOS"] = platformName
+				}
 			}
 		}
 	}
