@@ -354,8 +354,10 @@ func (cr *containerReference) extractGithubPath(env *map[string]string) common.E
 	return func(ctx context.Context) error {
 		githubPathTar, _, err := cr.cli.CopyFromContainer(ctx, cr.id, localEnv["GITHUB_PATH"])
 		if err != nil {
-			return nil
+			return errors.WithStack(err)
 		}
+		defer githubPathTar.Close()
+
 		reader := tar.NewReader(githubPathTar)
 		_, err = reader.Next()
 		if err != nil && err != io.EOF {
@@ -409,6 +411,8 @@ func (cr *containerReference) exec(cmd []string, env map[string]string) common.E
 		if err != nil {
 			return errors.WithStack(err)
 		}
+		defer resp.Close()
+
 		var outWriter io.Writer
 		outWriter = cr.input.Stdout
 		if outWriter == nil {
