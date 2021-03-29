@@ -23,9 +23,15 @@ func TestImageExistsLocally(t *testing.T) {
 	// to help make this test reliable and not flaky, we need to have
 	// an image that will exist, and onew that won't exist
 
-	exists, err := ImageExistsLocally(ctx, "library/alpine:this-random-tag-will-never-exist")
+	// Test if image exists with specific tag
+	invalidImageTag, err := ImageExistsLocally(ctx, "library/alpine:this-random-tag-will-never-exist", "linux/amd64")
 	assert.Nil(t, err)
-	assert.Equal(t, false, exists)
+	assert.Equal(t, false, invalidImageTag)
+
+	// Test if image exists with specific architecture (image platform)
+	invalidImagePlatform, err := ImageExistsLocally(ctx, "alpine:latest", "windows/amd64")
+	assert.Nil(t, err)
+	assert.Equal(t, false, invalidImagePlatform)
 
 	// pull an image
 	cli, err := client.NewClientWithOpts(client.FromEnv)
@@ -34,13 +40,28 @@ func TestImageExistsLocally(t *testing.T) {
 
 	// Chose alpine latest because it's so small
 	// maybe we should build an image instead so that tests aren't reliable on dockerhub
-	reader, err := cli.ImagePull(ctx, "alpine:latest", types.ImagePullOptions{})
+	readerDefault, err := cli.ImagePull(ctx, "alpine:latest", types.ImagePullOptions{
+		Platform: "linux/amd64",
+	})
 	assert.Nil(t, err)
-	defer reader.Close()
-	_, err = ioutil.ReadAll(reader)
+	defer readerDefault.Close()
+	_, err = ioutil.ReadAll(readerDefault)
 	assert.Nil(t, err)
 
-	exists, err = ImageExistsLocally(ctx, "alpine:latest")
+	imageDefaultArchExists, err := ImageExistsLocally(ctx, "alpine:latest", "linux/amd64")
 	assert.Nil(t, err)
-	assert.Equal(t, true, exists)
+	assert.Equal(t, true, imageDefaultArchExists)
+
+	// Validate if another architecture platform can be pulled
+	readerArm64, err := cli.ImagePull(ctx, "alpine:latest", types.ImagePullOptions{
+		Platform: "linux/arm64",
+	})
+	assert.Nil(t, err)
+	defer readerArm64.Close()
+	_, err = ioutil.ReadAll(readerArm64)
+	assert.Nil(t, err)
+
+	imageArm64Exists, err := ImageExistsLocally(ctx, "alpine:latest", "linux/arm64")
+	assert.Nil(t, err)
+	assert.Equal(t, true, imageArm64Exists)
 }

@@ -10,8 +10,8 @@ import (
 	"runtime"
 	"strings"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/kballard/go-shellquote"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/container"
@@ -217,6 +217,10 @@ func (sc *StepContext) newStepContainer(ctx context.Context, image string, cmd [
 		binds = append(binds, fmt.Sprintf("%s:%s%s", rc.Config.Workdir, "/github/workspace", bindModifiers))
 	}
 
+	if rc.Config.ContainerArchitecture == "" {
+		rc.Config.ContainerArchitecture = fmt.Sprintf("%s/%s", "linux", runtime.GOARCH)
+	}
+
 	stepContainer := container.NewContainer(&container.NewContainerInput{
 		Cmd:        cmd,
 		Entrypoint: entrypoint,
@@ -235,6 +239,7 @@ func (sc *StepContext) newStepContainer(ctx context.Context, image string, cmd [
 		Stderr:      logWriter,
 		Privileged:  rc.Config.Privileged,
 		UsernsMode:  rc.Config.UsernsMode,
+		Platform:    rc.Config.ContainerArchitecture,
 	})
 	return stepContainer
 }
@@ -354,10 +359,35 @@ func (sc *StepContext) runAction(actionDir string, actionPath string) common.Exe
 				image = fmt.Sprintf("act-%s", strings.TrimLeft(image, "-"))
 				image = strings.ToLower(image)
 				contextDir := filepath.Join(actionDir, actionPath, action.Runs.Main)
+
+				exists, err := container.ImageExistsLocally(ctx, image, "any")
+				if err != nil {
+					return err
+				}
+
+				if exists {
+					wasRemoved, err := container.DeleteImage(ctx, image)
+					if err != nil {
+						return err
+					}
+					if !wasRemoved {
+						return fmt.Errorf("failed to delete image '%s'", image)
+					}
+				}
+
 				prepImage = container.NewDockerBuildExecutor(container.NewDockerBuildExecutorInput{
 					ContextDir: contextDir,
 					ImageTag:   image,
+					Platform:   rc.Config.ContainerArchitecture,
 				})
+				exists, err = container.ImageExistsLocally(ctx, image, rc.Config.ContainerArchitecture)
+				if err != nil {
+					return err
+				}
+
+				if !exists {
+					return err
+				}
 			}
 
 			cmd, err := shellquote.Split(step.With["args"])

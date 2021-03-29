@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 
 	"github.com/nektos/act/pkg/common"
@@ -57,6 +58,7 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.PersistentFlags().StringVarP(&input.secretfile, "secret-file", "", ".secrets", "file with list of secrets to read from (e.g. --secret-file .secrets)")
 	rootCmd.PersistentFlags().BoolVarP(&input.insecureSecrets, "insecure-secrets", "", false, "NOT RECOMMENDED! Doesn't hide secrets while printing logs.")
 	rootCmd.PersistentFlags().StringVarP(&input.envfile, "env-file", "", ".env", "environment file to read and use as env in the containers")
+	rootCmd.PersistentFlags().StringVarP(&input.containerArchitecture, "container-architecture", "", "", "Architecture which should be used to run containers, e.g.: linux/amd64. Defaults to linux/<your machine architecture> [linux/"+runtime.GOARCH+"]")
 	rootCmd.SetArgs(args())
 
 	if err := rootCmd.Execute(); err != nil {
@@ -247,21 +249,22 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 
 		// run the plan
 		config := &runner.Config{
-			Actor:           input.actor,
-			EventName:       eventName,
-			EventPath:       input.EventPath(),
-			DefaultBranch:   defaultbranch,
-			ForcePull:       input.forcePull,
-			ReuseContainers: input.reuseContainers,
-			Workdir:         input.Workdir(),
-			BindWorkdir:     input.bindWorkdir,
-			LogOutput:       !input.noOutput,
-			Env:             envs,
-			Secrets:         secrets,
-			InsecureSecrets: input.insecureSecrets,
-			Platforms:       input.newPlatforms(),
-			Privileged:      input.privileged,
-			UsernsMode:      input.usernsMode,
+			Actor:                 input.actor,
+			EventName:             eventName,
+			EventPath:             input.EventPath(),
+			DefaultBranch:         defaultbranch,
+			ForcePull:             input.forcePull,
+			ReuseContainers:       input.reuseContainers,
+			Workdir:               input.Workdir(),
+			BindWorkdir:           input.bindWorkdir,
+			LogOutput:             !input.noOutput,
+			Env:                   envs,
+			Secrets:               secrets,
+			InsecureSecrets:       input.insecureSecrets,
+			Platforms:             input.newPlatforms(),
+			Privileged:            input.privileged,
+			UsernsMode:            input.usernsMode,
+			ContainerArchitecture: input.containerArchitecture,
 		}
 		r, err := runner.New(config)
 		if err != nil {

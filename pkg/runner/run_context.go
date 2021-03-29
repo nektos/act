@@ -11,11 +11,11 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/nektos/act/pkg/container"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/nektos/act/pkg/common"
+	"github.com/nektos/act/pkg/container"
 	"github.com/nektos/act/pkg/model"
-	log "github.com/sirupsen/logrus"
 )
 
 // RunContext contains info about current job
@@ -89,6 +89,10 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			binds = append(binds, fmt.Sprintf("%s:%s%s", rc.Config.Workdir, "/github/workspace", bindModifiers))
 		}
 
+		if rc.Config.ContainerArchitecture == "" {
+			rc.Config.ContainerArchitecture = fmt.Sprintf("%s/%s", "linux", runtime.GOARCH)
+		}
+
 		rc.JobContainer = container.NewContainer(&container.NewContainerInput{
 			Cmd:        nil,
 			Entrypoint: []string{"/usr/bin/tail", "-f", "/dev/null"},
@@ -107,6 +111,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			Stderr:      logWriter,
 			Privileged:  rc.Config.Privileged,
 			UsernsMode:  rc.Config.UsernsMode,
+			Platform:    rc.Config.ContainerArchitecture,
 		})
 
 		var copyWorkspace bool
