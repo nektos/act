@@ -115,7 +115,7 @@ func TestRunEvent(t *testing.T) {
 		{"testdata", "workdir", "push", "", platforms, "linux/arm64"},
 		// {"testdata", "issue-228", "push", "", platforms, "linux/arm64"}, // TODO [igni]: Remove this once everything passes
 		{"testdata", "defaults-run", "push", "", platforms, "linux/arm64"},
-		{"testdata", "env-and-path", "push", "", platforms},
+		{"testdata", "env-and-path", "push", "", platforms, "linux/arm64"},
 	}
 	log.SetLevel(log.DebugLevel)
 
