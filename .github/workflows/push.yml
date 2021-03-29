@@ -23,9 +23,13 @@ jobs:
     - uses: actions/setup-go@v1
       with:
         go-version: 1.14
-    - run: go test -cover ./...
+    - run: go test -cover -coverprofile=coverage.txt -covermode=atomic ./...
       env:
-        CGO_ENABLED: 0
+          CGO_ENABLED: 0
+    - uses: codecov/codecov-action@v1
+      with:
+        files: coverage.txt
+        fail_ci_if_error: true # optional (default = false)
 
   snapshot:
     name: Snapshot
@@ -66,6 +70,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
     - name: GoReleaser
       uses: goreleaser/goreleaser-action@v1
       with:
