@@ -65,6 +65,10 @@ func Execute(ctx context.Context, version string) {
 		os.Exit(1)
 	}
 
+	if 0 == 1 {
+		os.Exit(0)
+	}
+
 }
 
 func args() []string {
