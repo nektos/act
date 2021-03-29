@@ -10,8 +10,8 @@ import (
 	"runtime"
 	"strings"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/kballard/go-shellquote"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/container"
@@ -129,7 +129,7 @@ func (sc *StepContext) setupEnv(ctx context.Context) (ExpressionEvaluator, error
 	evaluator := sc.NewExpressionEvaluator()
 	sc.interpolateEnv(evaluator)
 
-	log.Debugf("setupEnv: %v", sc.Env)
+	common.Logger(ctx).Debugf("setupEnv => %v", sc.Env)
 	return evaluator, nil
 }
 
@@ -160,7 +160,7 @@ func (sc *StepContext) setupShellCommand() common.Executor {
 		}
 		scriptName := fmt.Sprintf("workflow/%s", step.ID)
 		log.Debugf("Wrote command '%s' to '%s'", run, scriptName)
-		containerPath := fmt.Sprintf("/github/%s", scriptName)
+		containerPath := fmt.Sprintf("%s/%s", filepath.Dir(rc.Config.Workdir), scriptName)
 
 		if step.Shell == "" {
 			step.Shell = rc.Run.Job().Defaults.Run.Shell
@@ -169,7 +169,7 @@ func (sc *StepContext) setupShellCommand() common.Executor {
 			step.Shell = rc.Run.Workflow.Defaults.Run.Shell
 		}
 		sc.Cmd = strings.Fields(strings.Replace(step.ShellCommand(), "{0}", containerPath, 1))
-		return rc.JobContainer.Copy("/github/", &container.FileEntry{
+		return rc.JobContainer.Copy(fmt.Sprintf("%s/", filepath.Dir(rc.Config.Workdir)), &container.FileEntry{
 			Name: scriptName,
 			Mode: 0755,
 			Body: script.String(),
@@ -214,18 +214,22 @@ func (sc *StepContext) newStepContainer(ctx context.Context, image string, cmd [
 		fmt.Sprintf("%s:%s", "/var/run/docker.sock", "/var/run/docker.sock"),
 	}
 	if rc.Config.BindWorkdir {
-		binds = append(binds, fmt.Sprintf("%s:%s%s", rc.Config.Workdir, "/github/workspace", bindModifiers))
+		binds = append(binds, fmt.Sprintf("%s:%s%s", rc.Config.Workdir, rc.Config.Workdir, bindModifiers))
+	}
+
+	if rc.Config.ContainerArchitecture == "" {
+		rc.Config.ContainerArchitecture = fmt.Sprintf("%s/%s", "linux", runtime.GOARCH)
 	}
 
 	stepContainer := container.NewContainer(&container.NewContainerInput{
 		Cmd:        cmd,
 		Entrypoint: entrypoint,
-		WorkingDir: "/github/workspace",
+		WorkingDir: rc.Config.Workdir,
 		Image:      image,
 		Name:       createContainerName(rc.jobContainerName(), step.ID),
 		Env:        envList,
 		Mounts: map[string]string{
-			rc.jobContainerName(): "/github",
+			rc.jobContainerName(): filepath.Dir(rc.Config.Workdir),
 			"act-toolcache":       "/toolcache",
 			"act-actions":         "/actions",
 		},
@@ -235,6 +239,7 @@ func (sc *StepContext) newStepContainer(ctx context.Context, image string, cmd [
 		Stderr:      logWriter,
 		Privileged:  rc.Config.Privileged,
 		UsernsMode:  rc.Config.UsernsMode,
+		Platform:    rc.Config.ContainerArchitecture,
 	})
 	return stepContainer
 }
@@ -294,7 +299,7 @@ func (sc *StepContext) getContainerActionPaths(step *model.Step, actionDir strin
 	containerActionDir := "."
 	if step.Type() == model.StepTypeUsesActionLocal {
 		actionName = getOsSafeRelativePath(actionDir, rc.Config.Workdir)
-		containerActionDir = "/github/workspace"
+		containerActionDir = rc.Config.Workdir
 	} else if step.Type() == model.StepTypeUsesActionRemote {
 		actionName = getOsSafeRelativePath(actionDir, rc.ActionCacheDir())
 		containerActionDir = "/actions"
@@ -354,10 +359,35 @@ func (sc *StepContext) runAction(actionDir string, actionPath string) common.Exe
 				image = fmt.Sprintf("act-%s", strings.TrimLeft(image, "-"))
 				image = strings.ToLower(image)
 				contextDir := filepath.Join(actionDir, actionPath, action.Runs.Main)
+
+				exists, err := container.ImageExistsLocally(ctx, image, "any")
+				if err != nil {
+					return err
+				}
+
+				if exists {
+					wasRemoved, err := container.DeleteImage(ctx, image)
+					if err != nil {
+						return err
+					}
+					if !wasRemoved {
+						return fmt.Errorf("failed to delete image '%s'", image)
+					}
+				}
+
 				prepImage = container.NewDockerBuildExecutor(container.NewDockerBuildExecutorInput{
 					ContextDir: contextDir,
 					ImageTag:   image,
+					Platform:   rc.Config.ContainerArchitecture,
 				})
+				exists, err = container.ImageExistsLocally(ctx, image, rc.Config.ContainerArchitecture)
+				if err != nil {
+					return err
+				}
+
+				if !exists {
+					return err
+				}
 			}
 
 			cmd, err := shellquote.Split(step.With["args"])
