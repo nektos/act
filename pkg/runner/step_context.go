@@ -129,7 +129,7 @@ func (sc *StepContext) setupEnv(ctx context.Context) (ExpressionEvaluator, error
 	evaluator := sc.NewExpressionEvaluator()
 	sc.interpolateEnv(evaluator)
 
-	log.Debugf("setupEnv: %v", sc.Env)
+	common.Logger(ctx).Debugf("setupEnv => %v", sc.Env)
 	return evaluator, nil
 }
 
