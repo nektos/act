@@ -604,8 +604,13 @@ func (rc *RunContext) withGithubEnv(env map[string]string) map[string]string {
 		for _, runnerLabel := range job.RunsOn() {
 			platformName := rc.ExprEval.Interpolate(runnerLabel)
 			if platformName != "" {
-				platformName = strings.SplitN(strings.Replace(platformName, `-`, ``, 1), `.`, 1)[0]
-				env["ImageOS"] = platformName
+				if platformName == "ubuntu-latest" {
+					// hardcode current ubuntu-latest since we have no way to check that 'on the fly'
+					env["ImageOS"] = "ubuntu20"
+				} else {
+					platformName = strings.SplitN(strings.Replace(platformName, `-`, ``, 1), `.`, 1)[0]
+					env["ImageOS"] = platformName
+				}
 			}
 		}
 	}
