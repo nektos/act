@@ -320,14 +320,7 @@ func (sc *StepContext) runAction(actionDir string, actionPath string) common.Exe
 	return func(ctx context.Context) error {
 		action := sc.Action
 		log.Debugf("About to run action %v", action)
-		for inputID, input := range action.Inputs {
-			envKey := regexp.MustCompile("[^A-Z0-9-]").ReplaceAllString(strings.ToUpper(inputID), "_")
-			envKey = fmt.Sprintf("INPUT_%s", envKey)
-			if _, ok := sc.Env[envKey]; !ok {
-				sc.Env[envKey] = rc.ExprEval.Interpolate(input.Default)
-			}
-		}
-
+		sc.populateEnvsFromInput(action, rc)
 		actionName, containerActionDir := sc.getContainerActionPaths(step, actionDir, rc)
 
 		sc.Env = mergeMaps(sc.Env, action.Runs.Env)
@@ -336,86 +329,104 @@ func (sc *StepContext) runAction(actionDir string, actionPath string) common.Exe
 
 		switch action.Runs.Using {
 		case model.ActionRunsUsingNode12:
-			if step.Type() == model.StepTypeUsesActionRemote {
-				err := removeGitIgnore(actionDir)
-				if err != nil {
-					return err
-				}
-				err = rc.JobContainer.CopyDir(containerActionDir+"/", actionDir)(ctx)
-				if err != nil {
-					return err
-				}
-			}
-			containerArgs := []string{"node", path.Join(containerActionDir, actionName, actionPath, action.Runs.Main)}
-			log.Debugf("executing remote job container: %s", containerArgs)
-			return rc.execJobContainer(containerArgs, sc.Env)(ctx)
+			return sc.execAsNode(ctx, step, actionDir, rc, containerActionDir, actionName, actionPath, action)
 		case model.ActionRunsUsingDocker:
-			var prepImage common.Executor
-			var image string
-			if strings.HasPrefix(action.Runs.Image, "docker://") {
-				image = strings.TrimPrefix(action.Runs.Image, "docker://")
-			} else {
-				image = fmt.Sprintf("%s:%s", regexp.MustCompile("[^a-zA-Z0-9]").ReplaceAllString(actionName, "-"), "latest")
-				image = fmt.Sprintf("act-%s", strings.TrimLeft(image, "-"))
-				image = strings.ToLower(image)
-				contextDir := filepath.Join(actionDir, actionPath, action.Runs.Main)
-
-				exists, err := container.ImageExistsLocally(ctx, image, "any")
-				if err != nil {
-					return err
-				}
-
-				if exists {
-					wasRemoved, err := container.DeleteImage(ctx, image)
-					if err != nil {
-						return err
-					}
-					if !wasRemoved {
-						return fmt.Errorf("failed to delete image '%s'", image)
-					}
-				}
-
-				prepImage = container.NewDockerBuildExecutor(container.NewDockerBuildExecutorInput{
-					ContextDir: contextDir,
-					ImageTag:   image,
-					Platform:   rc.Config.ContainerArchitecture,
-				})
-				exists, err = container.ImageExistsLocally(ctx, image, rc.Config.ContainerArchitecture)
-				if err != nil {
-					return err
-				}
-
-				if !exists {
-					return err
-				}
-			}
-
-			cmd, err := shellquote.Split(step.With["args"])
-			if err != nil {
-				return err
-			}
-			if len(cmd) == 0 {
-				cmd = action.Runs.Args
-			}
-			entrypoint := strings.Fields(step.With["entrypoint"])
-			if len(entrypoint) == 0 {
-				entrypoint = action.Runs.Entrypoint
-			}
-			stepContainer := sc.newStepContainer(ctx, image, cmd, entrypoint)
-			return common.NewPipelineExecutor(
-				prepImage,
-				stepContainer.Pull(rc.Config.ForcePull),
-				stepContainer.Remove().IfBool(!rc.Config.ReuseContainers),
-				stepContainer.Create(),
-				stepContainer.Start(true),
-			).Finally(
-				stepContainer.Remove().IfBool(!rc.Config.ReuseContainers),
-			)(ctx)
+			return sc.execAsDocker(ctx, action, actionName, actionDir, actionPath, rc, step)
 		default:
 			return fmt.Errorf(fmt.Sprintf("The runs.using key must be one of: %v, got %s", []string{
 				model.ActionRunsUsingDocker,
 				model.ActionRunsUsingNode12,
 			}, action.Runs.Using))
+		}
+	}
+}
+
+func (sc *StepContext) execAsDocker(ctx context.Context, action *model.Action, actionName string, actionDir string, actionPath string, rc *RunContext, step *model.Step) error {
+	var prepImage common.Executor
+	var image string
+	if strings.HasPrefix(action.Runs.Image, "docker://") {
+		image = strings.TrimPrefix(action.Runs.Image, "docker://")
+	} else {
+		image = fmt.Sprintf("%s:%s", regexp.MustCompile("[^a-zA-Z0-9]").ReplaceAllString(actionName, "-"), "latest")
+		image = fmt.Sprintf("act-%s", strings.TrimLeft(image, "-"))
+		image = strings.ToLower(image)
+		contextDir := filepath.Join(actionDir, actionPath, action.Runs.Main)
+
+		exists, err := container.ImageExistsLocally(ctx, image, "any")
+		if err != nil {
+			return err
+		}
+
+		if exists {
+			wasRemoved, err := container.DeleteImage(ctx, image)
+			if err != nil {
+				return err
+			}
+			if !wasRemoved {
+				return fmt.Errorf("failed to delete image '%s'", image)
+			}
+		}
+
+		prepImage = container.NewDockerBuildExecutor(container.NewDockerBuildExecutorInput{
+			ContextDir: contextDir,
+			ImageTag:   image,
+			Platform:   rc.Config.ContainerArchitecture,
+		})
+		exists, err = container.ImageExistsLocally(ctx, image, rc.Config.ContainerArchitecture)
+		if err != nil {
+			return err
+		}
+
+		if !exists {
+			return err
+		}
+	}
+
+	cmd, err := shellquote.Split(step.With["args"])
+	if err != nil {
+		return err
+	}
+	if len(cmd) == 0 {
+		cmd = action.Runs.Args
+	}
+	entrypoint := strings.Fields(step.With["entrypoint"])
+	if len(entrypoint) == 0 {
+		entrypoint = action.Runs.Entrypoint
+	}
+	stepContainer := sc.newStepContainer(ctx, image, cmd, entrypoint)
+	return common.NewPipelineExecutor(
+		prepImage,
+		stepContainer.Pull(rc.Config.ForcePull),
+		stepContainer.Remove().IfBool(!rc.Config.ReuseContainers),
+		stepContainer.Create(),
+		stepContainer.Start(true),
+	).Finally(
+		stepContainer.Remove().IfBool(!rc.Config.ReuseContainers),
+	)(ctx)
+}
+
+func (sc *StepContext) execAsNode(ctx context.Context, step *model.Step, actionDir string, rc *RunContext, containerActionDir string, actionName string, actionPath string, action *model.Action) error {
+	if step.Type() == model.StepTypeUsesActionRemote {
+		err := removeGitIgnore(actionDir)
+		if err != nil {
+			return err
+		}
+		err = rc.JobContainer.CopyDir(containerActionDir+"/", actionDir)(ctx)
+		if err != nil {
+			return err
+		}
+	}
+	containerArgs := []string{"node", path.Join(containerActionDir, actionName, actionPath, action.Runs.Main)}
+	log.Debugf("executing remote job container: %s", containerArgs)
+	return rc.execJobContainer(containerArgs, sc.Env)(ctx)
+}
+
+func (sc *StepContext) populateEnvsFromInput(action *model.Action, rc *RunContext) {
+	for inputID, input := range action.Inputs {
+		envKey := regexp.MustCompile("[^A-Z0-9-]").ReplaceAllString(strings.ToUpper(inputID), "_")
+		envKey = fmt.Sprintf("INPUT_%s", envKey)
+		if _, ok := sc.Env[envKey]; !ok {
+			sc.Env[envKey] = rc.ExprEval.Interpolate(input.Default)
 		}
 	}
 }
