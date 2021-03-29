@@ -34,7 +34,6 @@ func (rc *RunContext) commandHandler(ctx context.Context) common.LineHandler {
 		} else {
 			return true
 		}
-//         common.Logger(ctx).Infof("  \U00002699  rc.CurrentStep=%s, cmd=%s", rc.CurrentStep, command)
 
 		if resumeCommand != "" && command != resumeCommand {
 			return false
@@ -80,14 +79,9 @@ func (rc *RunContext) setEnv(ctx context.Context, kvPairs map[string]string, arg
 func (rc *RunContext) setOutput(ctx context.Context, kvPairs map[string]string, arg string) {
 	stepID := rc.CurrentStep
 	outputName := kvPairs["name"]
-// 	common.Logger(ctx).Infof("  \U00002699  A %s ::set-output:: %s=%s", stepID, outputName, arg)
-//     for k,v := range rc.OutputMappings {
-//         common.Logger(ctx).Infof("  \U00002699  rc.OutputMappings[%s]=%s", k, v)
-//     }
 	if outputMapping, ok := rc.OutputMappings[MappableOutput{StepID: stepID, OutputName: outputName}]; ok {
 		stepID = outputMapping.StepID
 		outputName = outputMapping.OutputName
-//     	common.Logger(ctx).Infof("  \U00002699  B %s ::set-output:: %s=%s", stepID, outputName, arg)
 	}
 
 	common.Logger(ctx).Infof("  \U00002699  %s ::set-output:: %s=%s", stepID, outputName, arg)
@@ -98,9 +92,6 @@ func (rc *RunContext) setOutput(ctx context.Context, kvPairs map[string]string, 
 
 	common.Logger(ctx).Infof("  \U00002699  ::set-output:: %s=%s", outputName, arg)
 	rc.StepResults[stepID].Outputs[outputName] = arg
-//     for k,v := range rc.StepResults {
-//     	common.Logger(ctx).Infof("  \U00002699  rc.StepResults[%s]=%s", k, v)
-//     }
 }
 func (rc *RunContext) addPath(ctx context.Context, arg string) {
 	common.Logger(ctx).Infof("  \U00002699  ::add-path:: %s", arg)

@@ -204,7 +204,6 @@ func (rc *RunContext) newStepExecutor(step *model.Step) common.Executor {
 	}
 	return func(ctx context.Context) error {
 		rc.CurrentStep = sc.Step.ID
-//         common.Logger(ctx).Infof("  \U00002699  (newStepExecutor)Adding StepResults for %s", rc.CurrentStep)
 		rc.StepResults[rc.CurrentStep] = &stepResult{
 			Success: true,
 			Outputs: make(map[string]string),
