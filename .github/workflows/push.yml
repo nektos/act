@@ -13,7 +13,7 @@ jobs:
         with:
           version: v1.32.2
 
-  test-linux:
+  test:
     name: Test on Linux
     runs-on: ubuntu-latest
     steps:
@@ -51,7 +51,7 @@ jobs:
     if: ${{ github.event_name == 'pull_request' }}
     needs:
       - lint
-      - test-linux
+      - test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -81,7 +81,7 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     needs:
       - lint
-      - test-linux
+      - test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
