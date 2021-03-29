@@ -79,6 +79,7 @@ func TestRunEvent(t *testing.T) {
 		"ubuntu-latest": "node:12.20.1-buster-slim",
 	}
 	tables := []TestJobFileInfo{
+		// {"testdata", "powershell", "push", "", platforms}, // Powershell is not available on default act test runner (yet) but preserving here for posterity
 		{"testdata", "basic", "push", "", platforms, "linux/amd64"},
 		{"testdata", "fail", "push", "exit with `FAILURE`: 1", platforms, "linux/amd64"},
 		{"testdata", "runs-on", "push", "", platforms, "linux/amd64"},
