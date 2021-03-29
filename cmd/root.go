@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 
 	"github.com/nektos/act/pkg/common"
@@ -57,6 +58,7 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.PersistentFlags().StringVarP(&input.secretfile, "secret-file", "", ".secrets", "file with list of secrets to read from (e.g. --secret-file .secrets)")
 	rootCmd.PersistentFlags().BoolVarP(&input.insecureSecrets, "insecure-secrets", "", false, "NOT RECOMMENDED! Doesn't hide secrets while printing logs.")
 	rootCmd.PersistentFlags().StringVarP(&input.envfile, "env-file", "", ".env", "environment file to read and use as env in the containers")
+	rootCmd.PersistentFlags().StringVarP(&input.containerArchitecture, "container-architecture", "", "", "Architecture which should be used to run containers, e.g.: linux/amd64. Defaults to linux/<your machine architecture> [linux/"+runtime.GOARCH+"]")
 	rootCmd.SetArgs(args())
 
 	if err := rootCmd.Execute(); err != nil {
@@ -204,7 +206,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			if os.IsNotExist(err) {
 				var answer string
 				confirmation := &survey.Select{
-					Message: "Please choose the default image you want to use with act:\n\n  - Large size image: +20GB Docker image, includes almost all tools used on GitHub Actions (only ubuntu-latest/ubuntu-18.04 platform is available)\n  - Medium size image: ~500MB, includes only necessary tools to bootstrap actions and aims to be compatible with all actions\n  - Micro size image: <200MB, contains only NodeJS required to bootstrap actions, doesn't work with all actions\n\nDefault image and other options can be changed manually in ~/.actrc (please refer to https://github.com/nektos/act#configuration for additional information about file structure)",
+					Message: "Please choose the default image you want to use with act:\n\n  - Large size image: +20GB Docker image, includes almost all tools used on GitHub Actions (IMPORTANT: currently only ubuntu-18.04 platform is available)\n  - Medium size image: ~500MB, includes only necessary tools to bootstrap actions and aims to be compatible with all actions\n  - Micro size image: <200MB, contains only NodeJS required to bootstrap actions, doesn't work with all actions\n\nDefault image and other options can be changed manually in ~/.actrc (please refer to https://github.com/nektos/act#configuration for additional information about file structure)",
 					Help:    "If you want to know why act asks you that, please go to https://github.com/nektos/act/issues/107",
 					Default: "Medium",
 					Options: []string{"Large", "Medium", "Micro"},
@@ -218,7 +220,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 				var option string
 				switch answer {
 				case "Large":
-					option = "-P ubuntu-latest=nektos/act-environments-ubuntu:18.04\n-P ubuntu-18.04=nektos/act-environments-ubuntu:18.04"
+					option = "-P ubuntu-18.04=nektos/act-environments-ubuntu:18.04"
 				case "Medium":
 					option = "-P ubuntu-latest=catthehacker/ubuntu:act-latest\n-P ubuntu-20.04=catthehacker/ubuntu:act-20.04\n-P ubuntu-18.04=catthehacker/ubuntu:act-18.04\nubuntu-16.04=catthehacker/ubuntu:act-16.04"
 				case "Micro":
@@ -248,21 +250,22 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 
 		// run the plan
 		config := &runner.Config{
-			Actor:           input.actor,
-			EventName:       eventName,
-			EventPath:       input.EventPath(),
-			DefaultBranch:   defaultbranch,
-			ForcePull:       input.forcePull,
-			ReuseContainers: input.reuseContainers,
-			Workdir:         input.Workdir(),
-			BindWorkdir:     input.bindWorkdir,
-			LogOutput:       !input.noOutput,
-			Env:             envs,
-			Secrets:         secrets,
-			InsecureSecrets: input.insecureSecrets,
-			Platforms:       input.newPlatforms(),
-			Privileged:      input.privileged,
-			UsernsMode:      input.usernsMode,
+			Actor:                 input.actor,
+			EventName:             eventName,
+			EventPath:             input.EventPath(),
+			DefaultBranch:         defaultbranch,
+			ForcePull:             input.forcePull,
+			ReuseContainers:       input.reuseContainers,
+			Workdir:               input.Workdir(),
+			BindWorkdir:           input.bindWorkdir,
+			LogOutput:             !input.noOutput,
+			Env:                   envs,
+			Secrets:               secrets,
+			InsecureSecrets:       input.insecureSecrets,
+			Platforms:             input.newPlatforms(),
+			Privileged:            input.privileged,
+			UsernsMode:            input.usernsMode,
+			ContainerArchitecture: input.containerArchitecture,
 		}
 		r, err := runner.New(config)
 		if err != nil {

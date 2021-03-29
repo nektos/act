@@ -24,10 +24,13 @@ import (
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stdcopy"
-	"github.com/nektos/act/pkg/common"
+	specs "github.com/opencontainers/image-spec/specs-go/v1"
+
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/term"
+
+	"github.com/nektos/act/pkg/common"
 )
 
 // NewContainerInput the input for the New function
@@ -45,6 +48,7 @@ type NewContainerInput struct {
 	NetworkMode string
 	Privileged  bool
 	UsernsMode  string
+	Platform    string
 }
 
 // FileEntry is a file to copy to a container
@@ -75,7 +79,7 @@ func NewContainer(input *NewContainerInput) Container {
 
 func (cr *containerReference) Create() common.Executor {
 	return common.
-		NewDebugExecutor("%sdocker create image=%s entrypoint=%+q cmd=%+q", logPrefix, cr.input.Image, cr.input.Entrypoint, cr.input.Cmd).
+		NewDebugExecutor("%sdocker create image=%s platform=%s entrypoint=%+q cmd=%+q", logPrefix, cr.input.Image, cr.input.Platform, cr.input.Entrypoint, cr.input.Cmd).
 		Then(
 			common.NewPipelineExecutor(
 				cr.connect(),
@@ -86,7 +90,7 @@ func (cr *containerReference) Create() common.Executor {
 }
 func (cr *containerReference) Start(attach bool) common.Executor {
 	return common.
-		NewInfoExecutor("%sdocker run image=%s entrypoint=%+q cmd=%+q", logPrefix, cr.input.Image, cr.input.Entrypoint, cr.input.Cmd).
+		NewInfoExecutor("%sdocker run image=%s platform=%s entrypoint=%+q cmd=%+q", logPrefix, cr.input.Image, cr.input.Platform, cr.input.Entrypoint, cr.input.Cmd).
 		Then(
 			common.NewPipelineExecutor(
 				cr.connect(),
@@ -101,6 +105,7 @@ func (cr *containerReference) Pull(forcePull bool) common.Executor {
 	return NewDockerPullExecutor(NewDockerPullExecutorInput{
 		Image:     cr.input.Image,
 		ForcePull: forcePull,
+		Platform:  cr.input.Platform,
 	})
 }
 func (cr *containerReference) Copy(destPath string, files ...*FileEntry) common.Executor {
@@ -269,17 +274,26 @@ func (cr *containerReference) create() common.Executor {
 			})
 		}
 
+		desiredPlatform := strings.SplitN(cr.input.Platform, `/`, 2)
+
+		if len(desiredPlatform) != 2 {
+			logger.Panicf("Incorrect container platform option. %s is not a valid platform.", cr.input.Platform)
+		}
+
 		resp, err := cr.cli.ContainerCreate(ctx, config, &container.HostConfig{
 			Binds:       input.Binds,
 			Mounts:      mounts,
 			NetworkMode: container.NetworkMode(input.NetworkMode),
 			Privileged:  input.Privileged,
 			UsernsMode:  container.UsernsMode(input.UsernsMode),
-		}, nil, input.Name)
+		}, nil, &specs.Platform{
+			Architecture: desiredPlatform[1],
+			OS:           desiredPlatform[0],
+		}, input.Name)
 		if err != nil {
 			return errors.WithStack(err)
 		}
-		logger.Debugf("Created container name=%s id=%v from image %v", input.Name, resp.ID, input.Image)
+		logger.Debugf("Created container name=%s id=%v from image %v (platform: %s)", input.Name, resp.ID, input.Image, input.Platform)
 		logger.Debugf("ENV ==> %v", input.Env)
 
 		cr.id = resp.ID
