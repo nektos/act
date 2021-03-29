@@ -84,14 +84,14 @@ func (rc *RunContext) setOutput(ctx context.Context, kvPairs map[string]string, 
 		outputName = outputMapping.OutputName
 	}
 
-	common.Logger(ctx).Infof("  \U00002699  %s ::set-output:: %s=%s", stepID, outputName, arg)
-    if _, ok := rc.StepResults[stepID]; ! ok {
-	    common.Logger(ctx).Errorf("  \U00002699 %s NOT in rc.StepResults[]", stepID)
-	    return
+	result, ok := rc.StepResults[stepID]
+	if !ok {
+		common.Logger(ctx).Infof("  \U00002757  no outputs used step '%s'", stepID)
+		return
 	}
 
 	common.Logger(ctx).Infof("  \U00002699  ::set-output:: %s=%s", outputName, arg)
-	rc.StepResults[stepID].Outputs[outputName] = arg
+	result.Outputs[outputName] = arg
 }
 func (rc *RunContext) addPath(ctx context.Context, arg string) {
 	common.Logger(ctx).Infof("  \U00002699  ::add-path:: %s", arg)
