@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"sort"
 	"testing"
 
 	"github.com/nektos/act/pkg/model"
@@ -15,7 +16,7 @@ func TestEvaluate(t *testing.T) {
 		Config: &Config{
 			Workdir: ".",
 			Secrets: map[string]string{
-				"LOWER_CASE_SECRET": "value",
+				"CASE_INSENSITIVE_SECRET": "value",
 			},
 		},
 		Env: map[string]string{
@@ -107,7 +108,8 @@ func TestEvaluate(t *testing.T) {
 		{"matrix.os", "Linux", ""},
 		{"matrix.foo", "bar", ""},
 		{"env.key", "value", ""},
-		{"secrets.lower_case_secret", "value", ""},
+		{"secrets.CASE_INSENSITIVE_SECRET", "value", ""},
+		{"secrets.case_insensitive_secret", "value", ""},
 	}
 
 	for _, table := range tables {
@@ -131,7 +133,7 @@ func TestInterpolate(t *testing.T) {
 		Config: &Config{
 			Workdir: ".",
 			Secrets: map[string]string{
-				"LOWER_CASE_SECRET": "value",
+				"CASE_INSENSITIVE_SECRET": "value",
 			},
 		},
 		Env: map[string]string{
@@ -160,7 +162,8 @@ func TestInterpolate(t *testing.T) {
 		{" ${{ env.KEYWITHNOTHING }} ", " valuewithnothing "},
 		{" ${{ env.KEY-WITH-HYPHENS }} ", " value-with-hyphens "},
 		{" ${{ env.KEY_WITH_UNDERSCORES }} ", " value_with_underscores "},
-		{" ${{ secrets.lower_case_secret }} ", " value "},
+		{"${{ secrets.CASE_INSENSITIVE_SECRET }}", "value"},
+		{"${{ secrets.case_insensitive_secret }}", "value"},
 		{"${{ env.UNKNOWN }}", ""},
 		{"${{ env.SOMETHING_TRUE }}", "true"},
 		{"${{ env.SOMETHING_FALSE }}", "false"},
@@ -198,11 +201,15 @@ func updateTestExpressionWorkflow(t *testing.T, tables []struct {
 }, rc *RunContext) {
 
 	var envs string
-	for k, v := range rc.Env {
-		envs += fmt.Sprintf(
-			`  %s: %s
-`, k, v)
+	keys := make([]string, 0, len(rc.Env))
+	for k := range rc.Env {
+		keys = append(keys, k)
 	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		envs += fmt.Sprintf("  %s: %s\n", k, rc.Env[k])
+	}
+
 	workflow := fmt.Sprintf(`
 name: "Test how expressions are handled on Github"
 on: push
@@ -223,10 +230,7 @@ jobs:
 		})
 		name := fmt.Sprintf(`%s -> %s should be equal to %s`, expr, table.in, table.out)
 		echo := `run: echo "Done "`
-		workflow += fmt.Sprintf(`
-     - name: %s
-       %s
-`, name, echo)
+		workflow += fmt.Sprintf("\n      - name: %s\n        %s\n", name, echo)
 	}
 
 	file, err := os.Create("../../.github/workflows/test-expressions.yml")

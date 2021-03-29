@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"sort"
 	"strings"
 	"testing"
 
@@ -158,11 +159,15 @@ func updateTestIfWorkflow(t *testing.T, tables []struct {
 }, rc *RunContext) {
 
 	var envs string
-	for k, v := range rc.Env {
-		envs += fmt.Sprintf(
-			`  %s: %s
-`, k, v)
+	keys := make([]string, 0, len(rc.Env))
+	for k := range rc.Env {
+		keys = append(keys, k)
 	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		envs += fmt.Sprintf("  %s: %s\n", k, rc.Env[k])
+	}
+
 	workflow := fmt.Sprintf(`
 name: "Test what expressions result in true and false on Github"
 on: push
@@ -191,18 +196,9 @@ jobs:
 			echo = `run: echo OK`
 			name = fmt.Sprintf(`"✅ I should run, expr: %s"`, expr)
 		}
-		workflow += fmt.Sprintf(`
-     - name: %s
-       id: step%d
-       if: %s
-       %s
-`, name, i, table.in, echo)
+		workflow += fmt.Sprintf("\n      - name: %s\n        id: step%d\n        if: %s\n        %s\n", name, i, table.in, echo)
 		if table.out {
-			workflow += fmt.Sprintf(`
-     - name: "Double checking expr: %s"
-       if: steps.step%d.conclusion == 'skipped'
-       run: echo "%s should have been true, but wasn't"
-`, expr, i, table.in)
+			workflow += fmt.Sprintf("\n      - name: \"Double checking expr: %s\"\n        if: steps.step%d.conclusion == 'skipped'\n        run: echo \"%s should have been true, but wasn't\"\n", expr, i, table.in)
 		}
 	}
 
