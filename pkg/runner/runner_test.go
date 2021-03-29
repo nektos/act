@@ -7,10 +7,10 @@ import (
 	"testing"
 
 	"github.com/joho/godotenv"
-	"github.com/nektos/act/pkg/model"
-
 	log "github.com/sirupsen/logrus"
 	"gotest.tools/v3/assert"
+
+	"github.com/nektos/act/pkg/model"
 )
 
 func TestGraphEvent(t *testing.T) {
@@ -32,11 +32,12 @@ func TestGraphEvent(t *testing.T) {
 }
 
 type TestJobFileInfo struct {
-	workdir      string
-	workflowPath string
-	eventName    string
-	errorMessage string
-	platforms    map[string]string
+	workdir               string
+	workflowPath          string
+	eventName             string
+	errorMessage          string
+	platforms             map[string]string
+	containerArchitecture string
 }
 
 func runTestJobFile(ctx context.Context, t *testing.T, tjfi TestJobFileInfo) {
@@ -45,11 +46,12 @@ func runTestJobFile(ctx context.Context, t *testing.T, tjfi TestJobFileInfo) {
 		assert.NilError(t, err, workdir)
 		fullWorkflowPath := filepath.Join(workdir, tjfi.workflowPath)
 		runnerConfig := &Config{
-			Workdir:         workdir,
-			BindWorkdir:     true,
-			EventName:       tjfi.eventName,
-			Platforms:       tjfi.platforms,
-			ReuseContainers: false,
+			Workdir:               workdir,
+			BindWorkdir:           true,
+			EventName:             tjfi.eventName,
+			Platforms:             tjfi.platforms,
+			ReuseContainers:       false,
+			ContainerArchitecture: tjfi.containerArchitecture,
 		}
 		runner, err := New(runnerConfig)
 		assert.NilError(t, err, tjfi.workflowPath)
@@ -77,23 +79,42 @@ func TestRunEvent(t *testing.T) {
 		"ubuntu-latest": "node:12.20.1-buster-slim",
 	}
 	tables := []TestJobFileInfo{
-		{"testdata", "basic", "push", "", platforms},
-		{"testdata", "fail", "push", "exit with `FAILURE`: 1", platforms},
-		{"testdata", "runs-on", "push", "", platforms},
-		{"testdata", "job-container", "push", "", platforms},
-		{"testdata", "job-container-non-root", "push", "", platforms},
-		{"testdata", "uses-docker-url", "push", "", platforms},
-		{"testdata", "remote-action-docker", "push", "", platforms},
-		{"testdata", "remote-action-js", "push", "", platforms},
-		{"testdata", "local-action-docker-url", "push", "", platforms},
-		{"testdata", "local-action-dockerfile", "push", "", platforms},
-		{"testdata", "local-action-js", "push", "", platforms},
-		{"testdata", "matrix", "push", "", platforms},
-		{"testdata", "matrix-include-exclude", "push", "", platforms},
-		{"testdata", "commands", "push", "", platforms},
-		{"testdata", "workdir", "push", "", platforms},
-		// {"testdata", "issue-228", "push", "", platforms}, // TODO [igni]: Remove this once everything passes
-		{"testdata", "defaults-run", "push", "", platforms},
+		{"testdata", "basic", "push", "", platforms, "linux/amd64"},
+		{"testdata", "fail", "push", "exit with `FAILURE`: 1", platforms, "linux/amd64"},
+		{"testdata", "runs-on", "push", "", platforms, "linux/amd64"},
+		{"testdata", "job-container", "push", "", platforms, "linux/amd64"},
+		{"testdata", "job-container-non-root", "push", "", platforms, "linux/amd64"},
+		{"testdata", "uses-docker-url", "push", "", platforms, "linux/amd64"},
+		{"testdata", "remote-action-docker", "push", "", platforms, "linux/amd64"},
+		{"testdata", "remote-action-js", "push", "", platforms, "linux/amd64"},
+		{"testdata", "local-action-docker-url", "push", "", platforms, "linux/amd64"},
+		{"testdata", "local-action-dockerfile", "push", "", platforms, "linux/amd64"},
+		{"testdata", "local-action-js", "push", "", platforms, "linux/amd64"},
+		{"testdata", "matrix", "push", "", platforms, "linux/amd64"},
+		{"testdata", "matrix-include-exclude", "push", "", platforms, "linux/amd64"},
+		{"testdata", "commands", "push", "", platforms, "linux/amd64"},
+		{"testdata", "workdir", "push", "", platforms, "linux/amd64"},
+		// {"testdata", "issue-228", "push", "", platforms, "linux/amd64"}, // TODO [igni]: Remove this once everything passes
+		{"testdata", "defaults-run", "push", "", platforms, "linux/amd64"},
+
+		// linux/arm64
+		{"testdata", "basic", "push", "", platforms, "linux/arm64"},
+		{"testdata", "fail", "push", "exit with `FAILURE`: 1", platforms, "linux/arm64"},
+		{"testdata", "runs-on", "push", "", platforms, "linux/arm64"},
+		{"testdata", "job-container", "push", "", platforms, "linux/arm64"},
+		{"testdata", "job-container-non-root", "push", "", platforms, "linux/arm64"},
+		{"testdata", "uses-docker-url", "push", "", platforms, "linux/arm64"},
+		{"testdata", "remote-action-docker", "push", "", platforms, "linux/arm64"},
+		{"testdata", "remote-action-js", "push", "", platforms, "linux/arm64"},
+		{"testdata", "local-action-docker-url", "push", "", platforms, "linux/arm64"},
+		{"testdata", "local-action-dockerfile", "push", "", platforms, "linux/arm64"},
+		{"testdata", "local-action-js", "push", "", platforms, "linux/arm64"},
+		{"testdata", "matrix", "push", "", platforms, "linux/arm64"},
+		{"testdata", "matrix-include-exclude", "push", "", platforms, "linux/arm64"},
+		{"testdata", "commands", "push", "", platforms, "linux/arm64"},
+		{"testdata", "workdir", "push", "", platforms, "linux/arm64"},
+		// {"testdata", "issue-228", "push", "", platforms, "linux/arm64"}, // TODO [igni]: Remove this once everything passes
+		{"testdata", "defaults-run", "push", "", platforms, "linux/arm64"},
 	}
 	log.SetLevel(log.DebugLevel)
 

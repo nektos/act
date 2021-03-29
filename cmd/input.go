@@ -7,24 +7,26 @@ import (
 
 // Input contains the input for the root command
 type Input struct {
-	actor           string
-	workdir         string
-	workflowsPath   string
-	autodetectEvent bool
-	eventPath       string
-	reuseContainers bool
-	bindWorkdir     bool
-	secrets         []string
-	envs            []string
-	platforms       []string
-	dryrun          bool
-	forcePull       bool
-	noOutput        bool
-	envfile         string
-	secretfile      string
-	insecureSecrets bool
-	defaultBranch   string
-	privileged      bool
+	actor                 string
+	workdir               string
+	workflowsPath         string
+	autodetectEvent       bool
+	eventPath             string
+	reuseContainers       bool
+	bindWorkdir           bool
+	secrets               []string
+	envs                  []string
+	platforms             []string
+	dryrun                bool
+	forcePull             bool
+	noOutput              bool
+	envfile               string
+	secretfile            string
+	insecureSecrets       bool
+	defaultBranch         string
+	privileged            bool
+	usernsMode            string
+	containerArchitecture string
 }
 
 func (i *Input) resolve(path string) string {

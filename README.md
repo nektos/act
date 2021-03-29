@@ -85,54 +85,66 @@ It will save that information to `~/.actrc`, please refer to [Configuration](#co
 # Flags
 
 ```none
-  -a, --actor string           user that triggered the event (default "nektos/act")
-  -b, --bind                   bind working directory to container, rather than copy
-      --defaultbranch string   the name of the main branch
-  -C, --directory string       working directory (default ".")
-  -n, --dryrun                 dryrun mode
-      --env-file string        environment file to read and use as env in the containers (default ".env")
-      --detect-event           Use first event type from workflow as event that triggered the workflow
-  -e, --eventpath string       path to event JSON file
-  -g, --graph                  draw workflows
-  -h, --help                   help for act
-      --insecure-secrets       NOT RECOMMENDED! Doesn't hide secrets while printing logs.
-  -j, --job string             run job
-  -l, --list                   list workflows
-  -P, --platform stringArray   custom image to use per platform (e.g. -P ubuntu-18.04=nektos/act-environments-ubuntu:18.04)
-      --privileged             use privileged mode
-  -p, --pull                   pull docker image(s) if already present
-  -q, --quiet                  disable logging of output from steps
-  -r, --reuse                  reuse action containers to maintain state
-  -s, --secret stringArray     secret to make available to actions with optional value (e.g. -s mysecret=foo or -s mysecret)
-      --secret-file string     file with list of secrets to read from (e.g. --secret-file .secrets) (default ".secrets")
-  -v, --verbose                verbose output
-      --version                version for act
-  -w, --watch                  watch the contents of the local repo and run when files change
-  -W, --workflows string       path to workflow file(s) (default "./.github/workflows/")
+  -a, --actor string                    user that triggered the event (default "nektos/act")
+  -b, --bind                            bind working directory to container, rather than copy
+      --container-architecture string   Architecture which should be used to run containers, e.g.: linux/amd64. Defaults to linux/<your machine architecture> [linux/amd64]
+      --defaultbranch string            the name of the main branch
+      --detect-event                    Use first event type from workflow as event that triggered the workflow
+  -C, --directory string                working directory (default ".")
+  -n, --dryrun                          dryrun mode
+      --env stringArray                 env to make available to actions with optional value (e.g. --e myenv=foo or -s myenv)
+      --env-file string                 environment file to read and use as env in the containers (default ".env")
+  -e, --eventpath string                path to event JSON file
+  -g, --graph                           draw workflows
+  -h, --help                            help for act
+      --insecure-secrets                NOT RECOMMENDED! Doesn't hide secrets while printing logs.
+  -j, --job string                      run job
+  -l, --list                            list workflows
+  -P, --platform stringArray            custom image to use per platform (e.g. -P ubuntu-18.04=nektos/act-environments-ubuntu:18.04)
+      --privileged                      use privileged mode
+  -p, --pull                            pull docker image(s) if already present
+  -q, --quiet                           disable logging of output from steps
+  -r, --reuse                           reuse action containers to maintain state
+  -s, --secret stringArray              secret to make available to actions with optional value (e.g. -s mysecret=foo or -s mysecret)
+      --secret-file string              file with list of secrets to read from (e.g. --secret-file .secrets) (default ".secrets")
+      --userns string                   user namespace to use
+  -v, --verbose                         verbose output
+  -w, --watch                           watch the contents of the local repo and run when files change
+  -W, --workflows string                path to workflow file(s) (default "./.github/workflows/")
 ```
 
 # Known Issues
 
-MODULE_NOT_FOUND during `docker cp` command [#228](https://github.com/nektos/act/issues/228)
+A `MODULE_NOT_FOUND` during `docker cp` command [#228](https://github.com/nektos/act/issues/228) can happen if you are relying on local changes that have not been pushed. This can get triggered if the action is using a path, like:
+
+```yaml
+
+    - name: test action locally
+      uses: ./
+```
+
+In this case, you _must_ use `actions/checkout@v2` with a path that _has the same name as your repository_. If your repository is called _my-action_, then your checkout step would look like:
 
 ```yaml
 steps:
   - name: Checkout
     uses: actions/checkout@v2
     with:
-      path: "your-action-root-directory"
+      path: "my-action"
 ```
+
+If the `path:` value doesn't match the name of the repository, a `MODULE_NOT_FOUND` will be thrown.
 
 # Runners
 
 GitHub Actions offers managed [virtual environments](https://help.github.com/en/actions/reference/virtual-environments-for-github-hosted-runners) for running workflows. In order for `act` to run your workflows locally, it must run a container for the runner defined in your workflow file. Here are the images that `act` uses for each runner type and size:
 
-| GitHub Runner  | Micro Docker Image                 | Medium Docker Image                      | Large Docker Image                            |
-| -------------- | ---------------------------------- | ---------------------------------------- | --------------------------------------------- |
-| ubuntu-latest  | [node:12.20.1-buster-slim][micro]  | [catthehacker/ubuntu:act-latest][medium] | [nektos/act-environments-ubuntu:18.04][large] |
-| ubuntu-20.04   | [node:12.20.1-buster-slim][micro]  | [catthehacker/ubuntu:act-20.04][medium]  | `unavailable`                                 |
-| ubuntu-18.04   | [node:12.20.1-buster-slim][micro]  | [catthehacker/ubuntu:act-18.04][medium]  | [nektos/act-environments-ubuntu:18.04][large] |
-| ubuntu-16.04   | [node:12.20.1-stretch-slim][micro] | [catthehacker/ubuntu:act-16.04][medium]  | `unavailable`                                 |
+| GitHub Runner | Micro Docker Image                 | Medium Docker Image                      | Large Docker Image                            |
+| ------------- | ---------------------------------- | ---------------------------------------- | --------------------------------------------- |
+| ubuntu-latest | [node:12.20.1-buster-slim][micro]  | [catthehacker/ubuntu:act-latest][medium] | `unavailable`                                 |
+| ubuntu-20.04  | [node:12.20.1-buster-slim][micro]  | [catthehacker/ubuntu:act-20.04][medium]  | `unavailable`                                 |
+| ubuntu-18.04  | [node:12.20.1-buster-slim][micro]  | [catthehacker/ubuntu:act-18.04][medium]  | [nektos/act-environments-ubuntu:18.04][large] |
+| ubuntu-16.04  | [node:12.20.1-stretch-slim][micro] | [catthehacker/ubuntu:act-16.04][medium]  | `unavailable`                                 |
 
 Below platforms are currently **unsupported and won't work** (see issue [#97])
 
