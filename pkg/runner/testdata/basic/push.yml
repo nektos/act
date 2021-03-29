@@ -16,8 +16,8 @@ jobs:
           args: echo ${INPUT_SOMEKEY} | grep somevalue
       - run: ls
       - run: echo 'hello world' 
-      - run: echo ${GITHUB_SHA} >> /github/sha.txt
-      - run: cat /github/sha.txt | grep ${GITHUB_SHA}
+      - run: echo ${GITHUB_SHA} >> $(dirname "${GITHUB_WORKSPACE}")/sha.txt
+      - run: cat $(dirname "${GITHUB_WORKSPACE}")/sha.txt | grep ${GITHUB_SHA}
   build:
     runs-on: ubuntu-latest
     needs: [check]
