@@ -18,6 +18,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+        with:
+          fetch-depth: 2
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v1
       - uses: actions/setup-go@v1
@@ -26,7 +28,8 @@ jobs:
       - run: go test -cover -coverprofile=coverage.txt -covermode=atomic ./...
         env:
           CGO_ENABLED: 0
-      - uses: codecov/codecov-action@v1
+      - name: Upload Codecov report
+        uses: codecov/codecov-action@v1.3.1
         with:
           files: coverage.txt
           fail_ci_if_error: true # optional (default = false)
