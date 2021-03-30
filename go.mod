@@ -4,6 +4,7 @@ go 1.14
 
 require (
 	github.com/AlecAivazis/survey/v2 v2.2.7
+	github.com/Masterminds/semver v1.5.0
 	github.com/MichaelTJones/walk v0.0.0-20161122175330-4748e29d5718 // indirect
 	github.com/andreaskoch/go-fswatch v1.0.0
 	github.com/containerd/containerd v1.4.1 // indirect

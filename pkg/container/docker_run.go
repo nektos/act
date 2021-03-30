@@ -26,6 +26,7 @@ import (
 	"github.com/docker/docker/pkg/stdcopy"
 	specs "github.com/opencontainers/image-spec/specs-go/v1"
 
+	"github.com/Masterminds/semver"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/term"
@@ -75,6 +76,25 @@ func NewContainer(input *NewContainerInput) Container {
 	cr := new(containerReference)
 	cr.input = input
 	return cr
+}
+
+// supportsContainerImagePlatform returns true if the underlying Docker server
+// API version is 1.41 and beyond
+func supportsContainerImagePlatform(cli *client.Client) bool {
+	ctx := context.TODO()
+	logger := common.Logger(ctx)
+	ver, err := cli.ServerVersion(ctx)
+	if err != nil {
+		logger.Panicf("Failed to get Docker API Version: %s", err)
+		return false
+	}
+	sv, err := semver.NewVersion(ver.APIVersion)
+	if err != nil {
+		logger.Panicf("Failed to unmarshal Docker Version: %s", err)
+		return false
+	}
+	constraint, _ := semver.NewConstraint(">= 1.41")
+	return constraint.Check(sv)
 }
 
 func (cr *containerReference) Create() common.Executor {
@@ -272,22 +292,26 @@ func (cr *containerReference) create() common.Executor {
 			})
 		}
 
-		desiredPlatform := strings.SplitN(cr.input.Platform, `/`, 2)
+		var platSpecs *specs.Platform
+		if supportsContainerImagePlatform(cr.cli) {
+			desiredPlatform := strings.SplitN(cr.input.Platform, `/`, 2)
 
-		if len(desiredPlatform) != 2 {
-			logger.Panicf("Incorrect container platform option. %s is not a valid platform.", cr.input.Platform)
+			if len(desiredPlatform) != 2 {
+				logger.Panicf("Incorrect container platform option. %s is not a valid platform.", cr.input.Platform)
+			}
+
+			platSpecs = &specs.Platform{
+				Architecture: desiredPlatform[1],
+				OS:           desiredPlatform[0],
+			}
 		}
-
 		resp, err := cr.cli.ContainerCreate(ctx, config, &container.HostConfig{
 			Binds:       input.Binds,
 			Mounts:      mounts,
 			NetworkMode: container.NetworkMode(input.NetworkMode),
 			Privileged:  input.Privileged,
 			UsernsMode:  container.UsernsMode(input.UsernsMode),
-		}, nil, &specs.Platform{
-			Architecture: desiredPlatform[1],
-			OS:           desiredPlatform[0],
-		}, input.Name)
+		}, nil, platSpecs, input.Name)
 		if err != nil {
 			return errors.WithStack(err)
 		}
