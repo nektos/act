@@ -87,7 +87,7 @@ It will save that information to `~/.actrc`, please refer to [Configuration](#co
 ```none
   -a, --actor string                    user that triggered the event (default "nektos/act")
   -b, --bind                            bind working directory to container, rather than copy
-      --container-architecture string   Architecture which should be used to run containers, e.g.: linux/amd64. Defaults to linux/<your machine architecture> [linux/amd64]
+      --container-architecture string   Architecture which should be used to run containers, e.g.: linux/amd64. Defaults to linux/<your machine architecture> [linux/amd64]. Requires Docker server API Version 1.41+. Ignored on earlier Docker server platforms.
       --defaultbranch string            the name of the main branch
       --detect-event                    Use first event type from workflow as event that triggered the workflow
   -C, --directory string                working directory (default ".")
