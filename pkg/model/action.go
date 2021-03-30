@@ -38,6 +38,16 @@ const (
 	ActionRunsUsingDocker = "docker"
 )
 
+// ActionRuns are a field in Action
+type ActionRuns struct {
+	Using      ActionRunsUsing   `yaml:"using"`
+	Env        map[string]string `yaml:"env"`
+	Main       string            `yaml:"main"`
+	Image      string            `yaml:"image"`
+	Entrypoint []string          `yaml:"entrypoint"`
+	Args       []string          `yaml:"args"`
+}
+
 // Action describes a metadata file for GitHub actions. The metadata filename must be either action.yml or action.yaml. The data in the metadata file defines the inputs, outputs and main entrypoint for your action.
 type Action struct {
 	Name        string            `yaml:"name"`
@@ -45,15 +55,8 @@ type Action struct {
 	Description string            `yaml:"description"`
 	Inputs      map[string]Input  `yaml:"inputs"`
 	Outputs     map[string]Output `yaml:"outputs"`
-	Runs        struct {
-		Using      ActionRunsUsing   `yaml:"using"`
-		Env        map[string]string `yaml:"env"`
-		Main       string            `yaml:"main"`
-		Image      string            `yaml:"image"`
-		Entrypoint []string          `yaml:"entrypoint"`
-		Args       []string          `yaml:"args"`
-	} `yaml:"runs"`
-	Branding struct {
+	Runs        ActionRuns        `yaml:"runs"`
+	Branding    struct {
 		Color string `yaml:"color"`
 		Icon  string `yaml:"icon"`
 	} `yaml:"branding"`

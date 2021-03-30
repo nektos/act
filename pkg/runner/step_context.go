@@ -2,7 +2,10 @@ package runner
 
 import (
 	"context"
+	// Go told me to?
+	_ "embed"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -296,12 +299,55 @@ func (sc *StepContext) runUsesContainer() common.Executor {
 	}
 }
 
+//go:embed res/trampoline.js
+var trampoline []byte
+
 func (sc *StepContext) setupAction(actionDir string, actionPath string) common.Executor {
 	return func(ctx context.Context) error {
 		f, err := os.Open(filepath.Join(actionDir, actionPath, "action.yml"))
 		if os.IsNotExist(err) {
 			f, err = os.Open(filepath.Join(actionDir, actionPath, "action.yaml"))
 			if err != nil {
+				if _, err2 := os.Stat(filepath.Join(actionDir, actionPath, "Dockerfile")); err2 == nil {
+					sc.Action = &model.Action{
+						Name: "(Synthetic)",
+						Runs: model.ActionRuns{
+							Using: "docker",
+							Image: "Dockerfile",
+						},
+					}
+					log.Debugf("Using synthetic action %v for Dockerfile", sc.Action)
+					return nil
+				}
+				if sc.Step.With != nil {
+					if val, ok := sc.Step.With["args"]; ok {
+						err2 := ioutil.WriteFile(filepath.Join(actionDir, actionPath, "trampoline.js"), trampoline, 0400)
+						if err2 != nil {
+							return err
+						}
+						sc.Action = &model.Action{
+							Name: "(Synthetic)",
+							Inputs: map[string]model.Input{
+								"cwd": {
+									Description: "(Actual working directory)",
+									Required:    false,
+									Default:     filepath.Join(actionDir, actionPath),
+								},
+								"command": {
+									Description: "(Actual program)",
+									Required:    false,
+									Default:     val,
+								},
+							},
+							Runs: model.ActionRuns{
+								Using: "node12",
+								Main:  "trampoline.js",
+							},
+						}
+						log.Debugf("Using synthetic action %v", sc.Action)
+						return nil
+					}
+				}
 				return err
 			}
 		} else if err != nil {
