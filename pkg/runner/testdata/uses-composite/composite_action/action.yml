@@ -26,19 +26,23 @@ runs:
         echo "test_input_required=${{ inputs.test_input_required }}"
         echo "test_input_optional=${{ inputs.test_input_optional }}"
         echo "---"
+      shell: bash
 
     # Let's test the inputs
     - run: |
         if [ "${{ inputs.test_input_required }}" != "test_input_required_value" ]; then
           exit 1
         fi
+      shell: bash
 
     - run: |
         if [ "${{ inputs.test_input_optional }}" != "test_input_optional_value" ]; then
           exit 1
         fi
+      shell: bash
 
     # Let's send up an output to test
     - run: echo "::set-output name=test_output::test_output_value"
+      shell: bash
 
 
