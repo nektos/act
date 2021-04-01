@@ -41,12 +41,4 @@ runs:
     # Let's send up an output to test
     - run: echo "::set-output name=test_output::test_output_value"
 
-    # Composite using a 3rd party action
-    - uses: actions/checkout@v2
-
-    # Composite using a docker URL
-    - uses: docker://alpine:3.13
-      with:
-        somekey: somevalue
-        args: echo ${INPUT_SOMEKEY} | grep somevalue
 
