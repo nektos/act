@@ -97,6 +97,7 @@ func TestRunEvent(t *testing.T) {
 		{"testdata", "workdir", "push", "", platforms, "linux/amd64"},
 		// {"testdata", "issue-228", "push", "", platforms, "linux/amd64"}, // TODO [igni]: Remove this once everything passes
 		{"testdata", "defaults-run", "push", "", platforms, "linux/amd64"},
+		{"testdata", "uses-composite", "push", "", platforms, "linux/amd64"},
 
 		// linux/arm64
 		{"testdata", "basic", "push", "", platforms, "linux/arm64"},
@@ -116,6 +117,7 @@ func TestRunEvent(t *testing.T) {
 		{"testdata", "workdir", "push", "", platforms, "linux/arm64"},
 		// {"testdata", "issue-228", "push", "", platforms, "linux/arm64"}, // TODO [igni]: Remove this once everything passes
 		{"testdata", "defaults-run", "push", "", platforms, "linux/arm64"},
+		{"testdata", "uses-composite", "push", "", platforms, "linux/arm64"},
 	}
 	log.SetLevel(log.DebugLevel)
 
