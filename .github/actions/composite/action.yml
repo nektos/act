@@ -1,0 +1,22 @@
+name: 'Test Composite Action'
+description: 'Test Composite Action'
+inputs:
+  input:
+    description: 'String to echo'
+    required: true
+    default: 'Hello World'
+outputs:
+  output:
+    description: 'Output string'
+    value: ${{ steps.set-output.outputs.string }}
+runs:
+  using: "composite"
+  steps:
+    - run: echo Hello ${{ inputs.input }}.
+      shell: bash
+    - id: set-output
+      run: echo "::set-output name=string::output string"
+      shell: bash
+    - run: |
+        ${{ github.action_path }}/script.sh
+      shell: bash

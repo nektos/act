@@ -312,6 +312,15 @@ func (s *Step) Type() StepType {
 	return StepTypeUsesActionRemote
 }
 
+func (s *Step) Validate() error {
+    if s.Type() != StepTypeRun {
+        return fmt.Errorf("(StepID: %s): Unexpected value 'uses'", s.String())
+    } else if s.Shell == "" {
+        return fmt.Errorf("(StepID: %s): Required property is missing: 'shell'", s.String())
+    }
+    return nil
+}
+
 // ReadWorkflow returns a list of jobs for a given workflow file reader
 func ReadWorkflow(in io.Reader) (*Workflow, error) {
 	w := new(Workflow)

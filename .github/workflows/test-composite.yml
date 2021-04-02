@@ -1,0 +1,25 @@
+name: "Test composite actions"
+on: push
+
+env:
+  ACT: true
+
+jobs:
+  test-composite-actions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: "✅ I should echo default 'Hello World'"
+        id: step0
+        uses: ./.github/actions/composite
+
+      - name: "Check action output"
+        if: steps.step0.outputs.output != 'output string'
+        run: echo "expected output to be 'output string' but it wasn't"
+
+      - name: "✅ I should echo 'Test string'"
+        id: step1
+        uses: ./.github/actions/composite
+        with:
+          input: 'Test string'
