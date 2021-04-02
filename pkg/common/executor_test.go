@@ -89,3 +89,41 @@ func TestNewParallelExecutor(t *testing.T) {
 
 	assert.Nil(err)
 }
+
+func TestNewParallelExecutorFailed(t *testing.T) {
+	assert := assert.New(t)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	count := 0
+	errorWorkflow := NewPipelineExecutor(func(ctx context.Context) error {
+		count++
+		return fmt.Errorf("fake error")
+	})
+	err := NewParallelExecutor(errorWorkflow)(ctx)
+	assert.Equal(1, count)
+	assert.ErrorIs(context.Canceled, err)
+}
+
+func TestNewParallelExecutorCanceled(t *testing.T) {
+	assert := assert.New(t)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	errExpected := fmt.Errorf("fake error")
+
+	count := 0
+	successWorkflow := NewPipelineExecutor(func(ctx context.Context) error {
+		count++
+		return nil
+	})
+	errorWorkflow := NewPipelineExecutor(func(ctx context.Context) error {
+		count++
+		return errExpected
+	})
+	err := NewParallelExecutor(errorWorkflow, successWorkflow, successWorkflow)(ctx)
+	assert.Equal(3, count)
+	assert.Error(errExpected, err)
+}
