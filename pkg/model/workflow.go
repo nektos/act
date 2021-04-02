@@ -292,11 +292,17 @@ const (
 
 	// StepTypeUsesActionRemote is all steps that have a `uses` that is a reference to a github repo
 	StepTypeUsesActionRemote
+
+	// StepTypeInvalid is for steps that have invalid step action
+	StepTypeInvalid
 )
 
 // Type returns the type of the step
 func (s *Step) Type() StepType {
 	if s.Run != "" {
+		if s.Uses != "" {
+			return StepTypeInvalid
+		}
 		return StepTypeRun
 	} else if strings.HasPrefix(s.Uses, "docker://") {
 		return StepTypeUsesDockerURL

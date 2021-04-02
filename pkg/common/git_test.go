@@ -161,7 +161,7 @@ func TestGitFindRef(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			dir := filepath.Join(basedir, name)
 			require.NoError(t, os.MkdirAll(dir, 0755))
-			require.NoError(t, gitCmd("-C", dir, "init"))
+			require.NoError(t, gitCmd("-C", dir, "init", "--initial-branch=master"))
 			require.NoError(t, cleanGitHooks(dir))
 			tt.Prepare(t, dir)
 			ref, err := FindGitRef(dir)

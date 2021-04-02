@@ -49,7 +49,7 @@ jobs:
 func TestReadWorkflow_MapEvent(t *testing.T) {
 	yaml := `
 name: local-action-docker-url
-on: 
+on:
   push:
     branches:
     - master
@@ -82,7 +82,7 @@ jobs:
     steps:
     - uses: ./actions/docker-url
   test2:
-    container: 
+    container:
       image: nginx:latest
       env:
         foo: bar
@@ -97,4 +97,36 @@ jobs:
 	assert.Contains(t, workflow.Jobs["test"].Container().Image, "nginx:latest")
 	assert.Contains(t, workflow.Jobs["test2"].Container().Image, "nginx:latest")
 	assert.Contains(t, workflow.Jobs["test2"].Container().Env["foo"], "bar")
+}
+
+func TestReadWorkflow_StepsTypes(t *testing.T) {
+	yaml := `
+name: invalid step definition
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: test1
+        uses: actions/checkout@v2
+        run: echo
+      - name: test2
+        run: echo
+      - name: test3
+        uses: actions/checkout@v2
+      - name: test4
+        uses: docker://nginx:latest
+      - name: test5
+        uses: ./local-action
+`
+
+	workflow, err := ReadWorkflow(strings.NewReader(yaml))
+	assert.NoError(t, err, "read workflow should succeed")
+	assert.Len(t, workflow.Jobs, 1)
+	assert.Len(t, workflow.Jobs["test"].Steps, 5)
+	assert.Equal(t, workflow.Jobs["test"].Steps[0].Type(), StepTypeInvalid)
+	assert.Equal(t, workflow.Jobs["test"].Steps[1].Type(), StepTypeRun)
+	assert.Equal(t, workflow.Jobs["test"].Steps[2].Type(), StepTypeUsesActionRemote)
+	assert.Equal(t, workflow.Jobs["test"].Steps[3].Type(), StepTypeUsesDockerURL)
+	assert.Equal(t, workflow.Jobs["test"].Steps[4].Type(), StepTypeUsesActionLocal)
 }
