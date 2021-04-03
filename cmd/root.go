@@ -14,6 +14,7 @@ import (
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/andreaskoch/go-fswatch"
 	"github.com/joho/godotenv"
+	"github.com/mitchellh/go-homedir"
 	gitignore "github.com/sabhiram/go-gitignore"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -67,15 +68,35 @@ func Execute(ctx context.Context, version string) {
 
 }
 
-func args() []string {
-	args := make([]string, 0)
-	actrc := []string{
-		filepath.Join(os.Getenv("HOME"), ".actrc"),
+func configLocations() []string {
+	home, err := homedir.Dir()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// reference: https://specifications.freedesktop.org/basedir-spec/latest/ar01s03.html
+	var actrcXdg string
+	if xdg, ok := os.LookupEnv("XDG_CONFIG_HOME"); ok && xdg != "" {
+		actrcXdg = filepath.Join(xdg, ".actrc")
+	} else {
+		actrcXdg = filepath.Join(home, ".config", ".actrc")
+	}
+
+	return []string{
+		filepath.Join(home, ".actrc"),
+		actrcXdg,
 		filepath.Join(".", ".actrc"),
 	}
+}
+
+func args() []string {
+	actrc := configLocations()
+
+	args := make([]string, 0)
 	for _, f := range actrc {
 		args = append(args, readArgsFile(f)...)
 	}
+
 	args = append(args, os.Args[1:]...)
 	return args
 }
@@ -196,53 +217,21 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			return err
 		}
 
-		// check platforms
+		// Check if platforms flag is set, if not, run default image survey
 		if len(input.platforms) == 0 {
-			actrcHome := filepath.Join(os.Getenv("HOME"), ".actrc")
-			actrcCwd := filepath.Join(".", ".actrc")
-			_, errHome := os.Stat(actrcHome)
-			_, errCwd := os.Stat(actrcCwd)
-			if os.IsNotExist(errHome) && os.IsNotExist(errCwd) {
-				var answer string
-				confirmation := &survey.Select{
-					Message: "Please choose the default image you want to use with act:\n\n  - Large size image: +20GB Docker image, includes almost all tools used on GitHub Actions (IMPORTANT: currently only ubuntu-18.04 platform is available)\n  - Medium size image: ~500MB, includes only necessary tools to bootstrap actions and aims to be compatible with all actions\n  - Micro size image: <200MB, contains only NodeJS required to bootstrap actions, doesn't work with all actions\n\nDefault image and other options can be changed manually in ~/.actrc (please refer to https://github.com/nektos/act#configuration for additional information about file structure)",
-					Help:    "If you want to know why act asks you that, please go to https://github.com/nektos/act/issues/107",
-					Default: "Medium",
-					Options: []string{"Large", "Medium", "Micro"},
+			cfgFound := false
+			cfgLocations := configLocations()
+			for _, v := range cfgLocations {
+				_, err := os.Stat(v)
+				if os.IsExist(err) {
+					cfgFound = true
 				}
-
-				err := survey.AskOne(confirmation, &answer)
-				if err != nil {
-					log.Error(err)
-					os.Exit(1)
-				}
-				var option string
-				switch answer {
-				case "Large":
-					option = "-P ubuntu-18.04=nektos/act-environments-ubuntu:18.04"
-				case "Medium":
-					option = "-P ubuntu-latest=catthehacker/ubuntu:act-latest\n-P ubuntu-20.04=catthehacker/ubuntu:act-20.04\n-P ubuntu-18.04=catthehacker/ubuntu:act-18.04\nubuntu-16.04=catthehacker/ubuntu:act-16.04"
-				case "Micro":
-					option = "-P ubuntu-latest=node:12.20.1-buster-slim\n-P ubuntu-20.04=node:12.20.1-buster-slim\n-P ubuntu-18.04=node:12.20.1-buster-slim\n-P ubuntu-16.04=node:12.20.1-stretch-slim"
-				}
-
-				f, err := os.Create(actrcHome)
-				if err != nil {
+			}
+			if !cfgFound && len(cfgLocations) > 0 {
+				if err := defaultImageSurvey(cfgLocations[0]); err != nil {
 					log.Fatal(err)
 				}
-
-				_, err = f.WriteString(option)
-				if err != nil {
-					log.Fatal(err)
-					_ = f.Close()
-				}
-
-				err = f.Close()
-				if err != nil {
-					log.Fatal(err)
-				}
-
-				input.platforms = readArgsFile(actrcHome)
+				input.platforms = readArgsFile(cfgLocations[0])
 			}
 		}
 
@@ -279,6 +268,49 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 
 		return r.NewPlanExecutor(plan)(ctx)
 	}
+}
+
+func defaultImageSurvey(actrc string) error {
+	var answer string
+	confirmation := &survey.Select{
+		Message: "Please choose the default image you want to use with act:\n\n  - Large size image: +20GB Docker image, includes almost all tools used on GitHub Actions (IMPORTANT: currently only ubuntu-18.04 platform is available)\n  - Medium size image: ~500MB, includes only necessary tools to bootstrap actions and aims to be compatible with all actions\n  - Micro size image: <200MB, contains only NodeJS required to bootstrap actions, doesn't work with all actions\n\nDefault image and other options can be changed manually in ~/.actrc (please refer to https://github.com/nektos/act#configuration for additional information about file structure)",
+		Help:    "If you want to know why act asks you that, please go to https://github.com/nektos/act/issues/107",
+		Default: "Medium",
+		Options: []string{"Large", "Medium", "Micro"},
+	}
+
+	err := survey.AskOne(confirmation, &answer)
+	if err != nil {
+		return err
+	}
+
+	var option string
+	switch answer {
+	case "Large":
+		option = "-P ubuntu-18.04=nektos/act-environments-ubuntu:18.04"
+	case "Medium":
+		option = "-P ubuntu-latest=catthehacker/ubuntu:act-latest\n-P ubuntu-20.04=catthehacker/ubuntu:act-20.04\n-P ubuntu-18.04=catthehacker/ubuntu:act-18.04\nubuntu-16.04=catthehacker/ubuntu:act-16.04"
+	case "Micro":
+		option = "-P ubuntu-latest=node:12.20.1-buster-slim\n-P ubuntu-20.04=node:12.20.1-buster-slim\n-P ubuntu-18.04=node:12.20.1-buster-slim\n-P ubuntu-16.04=node:12.20.1-stretch-slim"
+	}
+
+	f, err := os.Create(actrc)
+	if err != nil {
+		return err
+	}
+
+	_, err = f.WriteString(option)
+	if err != nil {
+		_ = f.Close()
+		return err
+	}
+
+	err = f.Close()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func watchAndRun(ctx context.Context, fn common.Executor) error {
