@@ -454,22 +454,29 @@ func (rc *RunContext) getStepsContext() map[string]*stepResult {
 }
 
 type githubContext struct {
-	Event      map[string]interface{} `json:"event"`
-	EventPath  string                 `json:"event_path"`
-	Workflow   string                 `json:"workflow"`
-	RunID      string                 `json:"run_id"`
-	RunNumber  string                 `json:"run_number"`
-	Actor      string                 `json:"actor"`
-	Repository string                 `json:"repository"`
-	EventName  string                 `json:"event_name"`
-	Sha        string                 `json:"sha"`
-	Ref        string                 `json:"ref"`
-	HeadRef    string                 `json:"head_ref"`
-	BaseRef    string                 `json:"base_ref"`
-	Token      string                 `json:"token"`
-	Workspace  string                 `json:"workspace"`
-	Action     string                 `json:"action"`
-	ActionPath string                 `json:"action_path"`
+	Event            map[string]interface{} `json:"event"`
+	EventPath        string                 `json:"event_path"`
+	Workflow         string                 `json:"workflow"`
+	RunID            string                 `json:"run_id"`
+	RunNumber        string                 `json:"run_number"`
+	Actor            string                 `json:"actor"`
+	Repository       string                 `json:"repository"`
+	EventName        string                 `json:"event_name"`
+	Sha              string                 `json:"sha"`
+	Ref              string                 `json:"ref"`
+	HeadRef          string                 `json:"head_ref"`
+	BaseRef          string                 `json:"base_ref"`
+	Token            string                 `json:"token"`
+	Workspace        string                 `json:"workspace"`
+	Action           string                 `json:"action"`
+	ActionPath       string                 `json:"action_path"`
+	ActionRef        string                 `json:"action_ref"`
+	ActionRepository string                 `json:"action_repository"`
+	Job              string                 `json:"job"`
+	RepositoryOwner  string                 `json:"repository_owner"`
+	RetentionDays    string                 `json:"retention_days"`
+	RunnerPerflog    string                 `json:"runner_perflog"`
+	RunnerTrackingID string                 `json:"runner_tracking_id"`
 }
 
 func (rc *RunContext) getGithubContext() *githubContext {
@@ -489,18 +496,37 @@ func (rc *RunContext) getGithubContext() *githubContext {
 	}
 
 	actionPath := rc.Config.Env["GITHUB_ACTION_PATH"]
+	actionRef := rc.Config.Env["RUNNER_ACTION_REF"]
+	actionRepository := rc.Config.Env["RUNNER_ACTION_REPOSITORY"]
+	repositoryOwner := rc.Config.Env["GITHUB_REPOSITORY_OWNER"]
+	retentionDays := rc.Config.Env["GITHUB_RETENTION_DAYS"]
+	if retentionDays == "" {
+		retentionDays = "0"
+	}
+	runnerPerfLog := rc.Config.Env["RUNNER_PERFLOG"]
+	if runnerPerfLog == "" {
+		runnerPerfLog = "/dev/null"
+	}
+	runnerTrackingID := rc.Config.Env["RUNNER_TRACKING_ID"]
+
 	ghc := &githubContext{
-		Event:      make(map[string]interface{}),
-		EventPath:  "/tmp/workflow/event.json",
-		Workflow:   rc.Run.Workflow.Name,
-		RunID:      runID,
-		RunNumber:  runNumber,
-		Actor:      rc.Config.Actor,
-		EventName:  rc.Config.EventName,
-		Token:      token,
-		Workspace:  rc.Config.ContainerWorkdir(),
-		Action:     rc.CurrentStep,
-		ActionPath: actionPath,
+		Event:            make(map[string]interface{}),
+		EventPath:        "/tmp/workflow/event.json",
+		Workflow:         rc.Run.Workflow.Name,
+		RunID:            runID,
+		RunNumber:        runNumber,
+		Actor:            rc.Config.Actor,
+		EventName:        rc.Config.EventName,
+		Token:            token,
+		Workspace:        rc.Config.ContainerWorkdir(),
+		Action:           rc.CurrentStep,
+		ActionPath:       actionPath,
+		ActionRef:        actionRef,
+		ActionRepository: actionRepository,
+		RepositoryOwner:  repositoryOwner,
+		RetentionDays:    retentionDays,
+		RunnerPerflog:    runnerPerfLog,
+		RunnerTrackingID: runnerTrackingID,
 	}
 
 	// Backwards compatibility for configs that require
@@ -655,6 +681,14 @@ func (rc *RunContext) withGithubEnv(env map[string]string) map[string]string {
 	env["GITHUB_SERVER_URL"] = "https://github.com"
 	env["GITHUB_API_URL"] = "https://api.github.com"
 	env["GITHUB_GRAPHQL_URL"] = "https://api.github.com/graphql"
+	env["GITHUB_ACTION_REF"] = github.ActionRef
+	env["GITHUB_ACTION_REPOSITORY"] = github.ActionRepository
+	env["GITHUB_BASE_REF"] = github.BaseRef
+	env["GITHUB_HEAD_REF"] = github.HeadRef
+	env["GITHUB_REPOSITORY_OWNER"] = github.RepositoryOwner
+	env["GITHUB_RETENTION_DAYS"] = github.RetentionDays
+	env["RUNNER_PERFLOG"] = github.RunnerPerflog
+	env["RUNNER_TRACKING_ID"] = github.RunnerTrackingID
 	if rc.Config.GitHubInstance != "github.com" {
 		env["GITHUB_SERVER_URL"] = fmt.Sprintf("https://%s", rc.Config.GitHubInstance)
 		env["GITHUB_API_URL"] = fmt.Sprintf("https://%s/api/v3", rc.Config.GitHubInstance)
