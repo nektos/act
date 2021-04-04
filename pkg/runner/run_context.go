@@ -469,6 +469,7 @@ type githubContext struct {
 	Token      string                 `json:"token"`
 	Workspace  string                 `json:"workspace"`
 	Action     string                 `json:"action"`
+	ActionPath string                 `json:"action_path"`
 }
 
 func (rc *RunContext) getGithubContext() *githubContext {
@@ -487,17 +488,19 @@ func (rc *RunContext) getGithubContext() *githubContext {
 		runNumber = "1"
 	}
 
+	actionPath := rc.Config.Env["GITHUB_ACTION_PATH"]
 	ghc := &githubContext{
-		Event:     make(map[string]interface{}),
-		EventPath: "/tmp/workflow/event.json",
-		Workflow:  rc.Run.Workflow.Name,
-		RunID:     runID,
-		RunNumber: runNumber,
-		Actor:     rc.Config.Actor,
-		EventName: rc.Config.EventName,
-		Token:     token,
-		Workspace: rc.Config.ContainerWorkdir(),
-		Action:    rc.CurrentStep,
+		Event:      make(map[string]interface{}),
+		EventPath:  "/tmp/workflow/event.json",
+		Workflow:   rc.Run.Workflow.Name,
+		RunID:      runID,
+		RunNumber:  runNumber,
+		Actor:      rc.Config.Actor,
+		EventName:  rc.Config.EventName,
+		Token:      token,
+		Workspace:  rc.Config.ContainerWorkdir(),
+		Action:     rc.CurrentStep,
+		ActionPath: actionPath,
 	}
 
 	// Backwards compatibility for configs that require
@@ -637,6 +640,9 @@ func (rc *RunContext) withGithubEnv(env map[string]string) map[string]string {
 	env["GITHUB_RUN_ID"] = github.RunID
 	env["GITHUB_RUN_NUMBER"] = github.RunNumber
 	env["GITHUB_ACTION"] = github.Action
+	if github.ActionPath != "" {
+		env["GITHUB_ACTION_PATH"] = github.ActionPath
+	}
 	env["GITHUB_ACTIONS"] = "true"
 	env["GITHUB_ACTOR"] = github.Actor
 	env["GITHUB_REPOSITORY"] = github.Repository
