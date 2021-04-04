@@ -33,6 +33,7 @@ type RunContext struct {
 	ExprEval       ExpressionEvaluator
 	JobContainer   container.Container
 	OutputMappings map[MappableOutput]MappableOutput
+	JobName        string
 }
 
 type MappableOutput struct {
@@ -473,6 +474,7 @@ type githubContext struct {
 	ActionRef        string                 `json:"action_ref"`
 	ActionRepository string                 `json:"action_repository"`
 	Job              string                 `json:"job"`
+	JobName          string                 `json:"job_name"`
 	RepositoryOwner  string                 `json:"repository_owner"`
 	RetentionDays    string                 `json:"retention_days"`
 	RunnerPerflog    string                 `json:"runner_perflog"`
@@ -685,6 +687,7 @@ func (rc *RunContext) withGithubEnv(env map[string]string) map[string]string {
 	env["GITHUB_ACTION_REPOSITORY"] = github.ActionRepository
 	env["GITHUB_BASE_REF"] = github.BaseRef
 	env["GITHUB_HEAD_REF"] = github.HeadRef
+	env["GITHUB_JOB"] = rc.JobName
 	env["GITHUB_REPOSITORY_OWNER"] = github.RepositoryOwner
 	env["GITHUB_RETENTION_DAYS"] = github.RetentionDays
 	env["RUNNER_PERFLOG"] = github.RunnerPerflog
