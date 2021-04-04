@@ -408,17 +408,22 @@ func (sc *StepContext) runAction(actionDir string, actionPath string) common.Exe
 
 		log.Debugf("type=%v actionDir=%s actionPath=%s Workdir=%s ActionCacheDir=%s actionName=%s containerActionDir=%s", step.Type(), actionDir, actionPath, rc.Config.Workdir, rc.ActionCacheDir(), actionName, containerActionDir)
 
+		maybeCopyToActionDir := func() error {
+			if step.Type() != model.StepTypeUsesActionRemote {
+				return nil
+			}
+			err := removeGitIgnore(actionDir)
+			if err != nil {
+				return err
+			}
+			return rc.JobContainer.CopyDir(containerActionDir+"/", actionDir, rc.Config.UseGitIgnore)(ctx)
+		}
+
 		switch action.Runs.Using {
 		case model.ActionRunsUsingNode12:
-			if step.Type() == model.StepTypeUsesActionRemote {
-				err := removeGitIgnore(actionDir)
-				if err != nil {
-					return err
-				}
-				err = rc.JobContainer.CopyDir(containerActionDir+"/", actionDir, rc.Config.UseGitIgnore)(ctx)
-				if err != nil {
-					return err
-				}
+			err := maybeCopyToActionDir()
+			if err != nil {
+				return err
 			}
 			containerArgs := []string{"node", path.Join(containerActionDir, actionName, actionPath, action.Runs.Main)}
 			log.Debugf("executing remote job container: %s", containerArgs)
