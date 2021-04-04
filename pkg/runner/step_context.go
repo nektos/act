@@ -493,6 +493,10 @@ func (sc *StepContext) runAction(actionDir string, actionPath string) common.Exe
 				stepContainer.Remove().IfBool(!rc.Config.ReuseContainers),
 			)(ctx)
 		case model.ActionRunsUsingComposite:
+			err := maybeCopyToActionDir()
+			if err != nil {
+				return err
+			}
 			for outputName, output := range action.Outputs {
 				re := regexp.MustCompile(`\${{ steps\.([a-zA-Z_][a-zA-Z0-9_-]+)\.outputs\.([a-zA-Z_][a-zA-Z0-9_-]+) }}`)
 				matches := re.FindStringSubmatch(output.Value)
