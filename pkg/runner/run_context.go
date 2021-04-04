@@ -496,13 +496,6 @@ func (rc *RunContext) getGithubContext() *githubContext {
 		ghc.Sha = sha
 	}
 
-	ref, err := common.FindGitRef(repoPath)
-	if err != nil {
-		log.Warningf("unable to get git ref: %v", err)
-	} else {
-		log.Debugf("using github ref: %s", ref)
-		ghc.Ref = ref
-	}
 	if rc.EventJSON != "" {
 		err = json.Unmarshal([]byte(rc.EventJSON), &ghc.Event)
 		if err != nil {
@@ -510,11 +503,25 @@ func (rc *RunContext) getGithubContext() *githubContext {
 		}
 	}
 
-	// set the branch in the event data
-	if rc.Config.DefaultBranch != "" {
-		ghc.Event = withDefaultBranch(rc.Config.DefaultBranch, ghc.Event)
+	maybeRef := nestedMapLookup(ghc.Event, ghc.EventName, "ref")
+	if maybeRef != nil {
+		log.Debugf("using github ref from event: %s", maybeRef)
+		ghc.Ref = maybeRef.(string)
 	} else {
-		ghc.Event = withDefaultBranch("master", ghc.Event)
+		ref, err := common.FindGitRef(repoPath)
+		if err != nil {
+			log.Warningf("unable to get git ref: %v", err)
+		} else {
+			log.Debugf("using github ref: %s", ref)
+			ghc.Ref = ref
+		}
+
+		// set the branch in the event data
+		if rc.Config.DefaultBranch != "" {
+			ghc.Event = withDefaultBranch(rc.Config.DefaultBranch, ghc.Event)
+		} else {
+			ghc.Event = withDefaultBranch("master", ghc.Event)
+		}
 	}
 
 	if ghc.EventName == "pull_request" {
