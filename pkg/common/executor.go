@@ -105,17 +105,17 @@ func NewParallelExecutor(executors ...Executor) Executor {
 			}()
 		}
 
+		// Executor waits all executors to cleanup these resources.
+		var firstErr error
 		for i := 0; i < len(executors); i++ {
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case err := <-errChan:
-				if err != nil {
-					return err
-				}
+			if err := <-errChan; err != nil && firstErr == nil {
+				firstErr = err
 			}
 		}
-		return nil
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		return firstErr
 	}
 }
 

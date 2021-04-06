@@ -190,7 +190,7 @@ type NewGitCloneExecutorInput struct {
 }
 
 // CloneIfRequired ...
-func CloneIfRequired(refName plumbing.ReferenceName, input NewGitCloneExecutorInput, logger log.FieldLogger) (*git.Repository, error) {
+func CloneIfRequired(ctx context.Context, refName plumbing.ReferenceName, input NewGitCloneExecutorInput, logger log.FieldLogger) (*git.Repository, error) {
 	r, err := git.PlainOpen(input.Dir)
 	if err != nil {
 		var progressWriter io.Writer
@@ -203,7 +203,7 @@ func CloneIfRequired(refName plumbing.ReferenceName, input NewGitCloneExecutorIn
 			progressWriter = os.Stdout
 		}
 
-		r, err = git.PlainClone(input.Dir, false, &git.CloneOptions{
+		r, err = git.PlainCloneContext(ctx, input.Dir, false, &git.CloneOptions{
 			URL:      input.URL,
 			Progress: progressWriter,
 		})
@@ -228,7 +228,7 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) Executor {
 		defer cloneLock.Unlock()
 
 		refName := plumbing.ReferenceName(fmt.Sprintf("refs/heads/%s", input.Ref))
-		r, err := CloneIfRequired(refName, input, logger)
+		r, err := CloneIfRequired(ctx, refName, input, logger)
 		if err != nil {
 			return err
 		}
