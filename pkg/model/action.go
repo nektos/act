@@ -20,10 +20,11 @@ func (a *ActionRunsUsing) UnmarshalYAML(unmarshal func(interface{}) error) error
 	// Force input to lowercase for case insensitive comparison
 	format := ActionRunsUsing(strings.ToLower(using))
 	switch format {
-	case ActionRunsUsingNode12, ActionRunsUsingDocker:
+	case ActionRunsUsingNode12, ActionRunsUsingDocker, ActionRunsUsingComposite:
 		*a = format
 	default:
 		return fmt.Errorf(fmt.Sprintf("The runs.using key in action.yml must be one of: %v, got %s", []string{
+			ActionRunsUsingComposite,
 			ActionRunsUsingDocker,
 			ActionRunsUsingNode12,
 		}, format))
@@ -36,6 +37,8 @@ const (
 	ActionRunsUsingNode12 = "node12"
 	// ActionRunsUsingDocker for running with docker
 	ActionRunsUsingDocker = "docker"
+	// ActionRunsUsingComposite for running composite
+	ActionRunsUsingComposite = "composite"
 )
 
 // ActionRuns are a field in Action
@@ -46,6 +49,7 @@ type ActionRuns struct {
 	Image      string            `yaml:"image"`
 	Entrypoint []string          `yaml:"entrypoint"`
 	Args       []string          `yaml:"args"`
+	Steps      []Step            `yaml:"steps"`
 }
 
 // Action describes a metadata file for GitHub actions. The metadata filename must be either action.yml or action.yaml. The data in the metadata file defines the inputs, outputs and main entrypoint for your action.
@@ -72,6 +76,7 @@ type Input struct {
 // Output parameters allow you to declare data that an action sets. Actions that run later in a workflow can use the output data set in previously run actions. For example, if you had an action that performed the addition of two inputs (x + y = z), the action could output the sum (z) for other actions to use as an input.
 type Output struct {
 	Description string `yaml:"description"`
+	Value       string `yaml:"value"`
 }
 
 // ReadAction reads an action from a reader

@@ -489,10 +489,72 @@ func (sc *StepContext) runAction(actionDir string, actionPath string) common.Exe
 			).Finally(
 				stepContainer.Remove().IfBool(!rc.Config.ReuseContainers),
 			)(ctx)
+		case model.ActionRunsUsingComposite:
+			for outputName, output := range action.Outputs {
+				re := regexp.MustCompile(`\${{ steps\.([a-zA-Z_][a-zA-Z0-9_-]+)\.outputs\.([a-zA-Z_][a-zA-Z0-9_-]+) }}`)
+				matches := re.FindStringSubmatch(output.Value)
+				if len(matches) > 2 {
+					if sc.RunContext.OutputMappings == nil {
+						sc.RunContext.OutputMappings = make(map[MappableOutput]MappableOutput)
+					}
+
+					k := MappableOutput{StepID: matches[1], OutputName: matches[2]}
+					v := MappableOutput{StepID: step.ID, OutputName: outputName}
+					sc.RunContext.OutputMappings[k] = v
+				}
+			}
+
+			var executors []common.Executor
+			stepID := 0
+			for _, compositeStep := range action.Runs.Steps {
+				stepClone := compositeStep
+                // Take a copy of the run context structure (rc is a pointer)
+                // Then take the address of the new structure
+                rcCloneStr := *rc
+                rcClone := &rcCloneStr
+				if stepClone.ID == "" {
+					stepClone.ID = fmt.Sprintf("composite-%d", stepID)
+					stepID++
+				}
+                rcClone.CurrentStep = stepClone.ID
+
+                if err := compositeStep.Validate(); err != nil {
+                    return err
+                }
+
+                // Setup the outputs for the composite steps
+                if _, ok := rcClone.StepResults[stepClone.ID]; ! ok {
+                    rcClone.StepResults[stepClone.ID]  = &stepResult{
+                        Success: true,
+                        Outputs: make(map[string]string),
+                    }
+                }
+
+				stepClone.Run = strings.ReplaceAll(stepClone.Run, "${{ github.action_path }}", filepath.Join(containerActionDir, actionName))
+
+				stepContext := StepContext{
+					RunContext: rcClone,
+					Step:       &stepClone,
+					Env:        mergeMaps(sc.Env, stepClone.Env),
+				}
+
+                // Interpolate the outer inputs into the composite step with items
+                exprEval := sc.NewExpressionEvaluator()
+                for k, v := range stepContext.Step.With {
+
+                    if strings.Contains(v, "inputs") {
+                        stepContext.Step.With[k] = exprEval.Interpolate(v)
+                    }
+                }
+
+				executors = append(executors, stepContext.Executor())
+			}
+			return common.NewPipelineExecutor(executors...)(ctx)
 		default:
 			return fmt.Errorf(fmt.Sprintf("The runs.using key must be one of: %v, got %s", []string{
 				model.ActionRunsUsingDocker,
 				model.ActionRunsUsingNode12,
+				model.ActionRunsUsingComposite,
 			}, action.Runs.Using))
 		}
 	}

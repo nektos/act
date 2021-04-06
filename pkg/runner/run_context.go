@@ -11,6 +11,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/mitchellh/go-homedir"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/nektos/act/pkg/common"
@@ -20,17 +21,23 @@ import (
 
 // RunContext contains info about current job
 type RunContext struct {
-	Name         string
-	Config       *Config
-	Matrix       map[string]interface{}
-	Run          *model.Run
-	EventJSON    string
-	Env          map[string]string
-	ExtraPath    []string
-	CurrentStep  string
-	StepResults  map[string]*stepResult
-	ExprEval     ExpressionEvaluator
-	JobContainer container.Container
+	Name           string
+	Config         *Config
+	Matrix         map[string]interface{}
+	Run            *model.Run
+	EventJSON      string
+	Env            map[string]string
+	ExtraPath      []string
+	CurrentStep    string
+	StepResults    map[string]*stepResult
+	ExprEval       ExpressionEvaluator
+	JobContainer   container.Container
+	OutputMappings map[MappableOutput]MappableOutput
+}
+
+type MappableOutput struct {
+	StepID     string
+	OutputName string
 }
 
 func (rc *RunContext) String() string {
@@ -164,9 +171,11 @@ func (rc *RunContext) stopJobContainer() common.Executor {
 func (rc *RunContext) ActionCacheDir() string {
 	var xdgCache string
 	var ok bool
-	if xdgCache, ok = os.LookupEnv("XDG_CACHE_HOME"); !ok {
-		if home, ok := os.LookupEnv("HOME"); ok {
-			xdgCache = fmt.Sprintf("%s/.cache", home)
+	if xdgCache, ok = os.LookupEnv("XDG_CACHE_HOME"); !ok || xdgCache == "" {
+		if home, err := homedir.Dir(); err == nil {
+			xdgCache = filepath.Join(home, ".cache")
+		} else if xdgCache, err = filepath.Abs("."); err != nil {
+			log.Fatal(err)
 		}
 	}
 	return filepath.Join(xdgCache, "act")
@@ -372,10 +381,19 @@ func createContainerName(parts ...string) string {
 		if i == len(parts)-1 {
 			name = append(name, pattern.ReplaceAllString(part, "-"))
 		} else {
-			name = append(name, trimToLen(pattern.ReplaceAllString(part, "-"), partLen))
+			// If any part has a '-<number>' on the end it is likely part of a matrix job.
+			// Let's preserve the number to prevent clashes in container names.
+			re := regexp.MustCompile("-[0-9]+$")
+			num := re.FindStringSubmatch(part)
+			if len(num) > 0 {
+				name = append(name, trimToLen(pattern.ReplaceAllString(part, "-"), partLen-len(num[0])))
+				name = append(name, num[0])
+			} else {
+				name = append(name, trimToLen(pattern.ReplaceAllString(part, "-"), partLen))
+			}
 		}
 	}
-	return strings.Trim(strings.Join(name, "-"), "-")
+	return strings.ReplaceAll(strings.Trim(strings.Join(name, "-"), "-"), "--", "-")
 }
 
 func trimToLen(s string, l int) string {
