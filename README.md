@@ -27,7 +27,7 @@ Alternatively, you can use the following:
 
 `curl https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash`
 
-NOTE: Currently not compatible with Apple Silicon (ARM). This project relies on Docker which has not been ported to Apple Silicon yet.
+NOTE: For running on Mac with Apple Silicon (ARM), use Docker for Apple Silicon Release Candidate. [Link here](https://docs.docker.com/docker-for-mac/apple-m1/).
 
 If you are running Windows, download the [latest release](https://github.com/nektos/act/releases/latest) and add the binary into your PATH.
 If you are using [Chocolatey](https://chocolatey.org/) then run:
