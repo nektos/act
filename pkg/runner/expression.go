@@ -422,7 +422,7 @@ func (rc *RunContext) vmNeeds() func(*otto.Otto) {
 
 	using := make(map[string]map[string]map[string]string)
 	for _, needs := range jobNeeds {
-		using[needs] = map[string]map[string]string {
+		using[needs] = map[string]map[string]string{
 			"outputs": jobs[needs].Outputs,
 		}
 	}
