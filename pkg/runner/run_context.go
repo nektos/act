@@ -235,7 +235,7 @@ func (rc *RunContext) newStepExecutor(step *model.Step) common.Executor {
 		}
 
 		common.Logger(ctx).Infof("\u2B50  Run %s", sc.Step)
-		err = sc.Executor()(ctx)
+		err = sc.Executor().Then(sc.interpolateOutputs())(ctx)
 		if err == nil {
 			common.Logger(ctx).Infof("  \u2705  Success - %s", sc.Step)
 		} else {
