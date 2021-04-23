@@ -7,6 +7,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
       - uses: actions/setup-go@v1
         with:
           go-version: 1.16
@@ -14,7 +16,19 @@ jobs:
         env:
           CGO_ENABLED: 0
         with:
-          version: v1.32.2
+          version: v1.39.0
+      - uses: github/super-linter@v3
+        env:
+          DEFAULT_BRANCH: master
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FILTER_REGEX_EXCLUDE: .*testdata/*
+          VALIDATE_ALL_CODEBASE: ${{ github.event_name != 'pull_request' }} # lint only new changes when pull_request
+          VALIDATE_BASH: false
+          VALIDATE_DOCKERFILE: false
+          VALIDATE_DOCKERFILE_HADOLINT: false
+          VALIDATE_GO: false # it's broken, see commit message
+          VALIDATE_JSCPD: false
+          VALIDATE_SHELL_SHFMT: false
 
   test:
     name: Test on Linux
