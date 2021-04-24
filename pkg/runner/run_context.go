@@ -27,19 +27,20 @@ const ActPath string = "/var/run/act"
 
 // RunContext contains info about current job
 type RunContext struct {
-	Name           string
-	Config         *Config
-	Matrix         map[string]interface{}
-	Run            *model.Run
-	EventJSON      string
-	Env            map[string]string
-	ExtraPath      []string
-	CurrentStep    string
-	StepResults    map[string]*stepResult
-	ExprEval       ExpressionEvaluator
-	JobContainer   container.Container
-	OutputMappings map[MappableOutput]MappableOutput
-	JobName        string
+	Name              string
+	Config            *Config
+	Matrix            map[string]interface{}
+	Run               *model.Run
+	EventJSON         string
+	Env               map[string]string
+	ExtraPath         []string
+	CurrentStep       string
+	StepResults       map[string]*stepResult
+	ExprEval          ExpressionEvaluator
+	JobContainer      container.Container
+	OutputMappings    map[MappableOutput]MappableOutput
+	JobName           string
+	ServiceContainers []container.Container
 }
 
 type MappableOutput struct {
@@ -167,25 +168,53 @@ func (rc *RunContext) startJobContainer() common.Executor {
 		envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_TEMP", "/tmp"))
 
 		binds, mounts := rc.GetBindsAndMounts()
+		// add service containers
+		for name, spec := range rc.Run.Job().Services {
+			mergedEnv := envList
+			for k, v := range spec.Env {
+				mergedEnv = append(mergedEnv, fmt.Sprintf("%s=%s", k, v))
+			}
+
+			mnt := mounts
+			mnt[name] = filepath.Dir(rc.Config.ContainerWorkdir())
+
+			c := container.NewContainer(&container.NewContainerInput{
+				Name:       name,
+				WorkingDir: rc.Config.ContainerWorkdir(),
+				Image:      spec.Image,
+				Username:   rc.Config.Secrets["DOCKER_USERNAME"],
+				Password:   rc.Config.Secrets["DOCKER_PASSWORD"],
+				Env:        mergedEnv,
+				Mounts:     mnt,
+				// NetworkMode: "host",
+				Binds:      binds,
+				Stdout:     logWriter,
+				Stderr:     logWriter,
+				Privileged: rc.Config.Privileged,
+				UsernsMode: rc.Config.UsernsMode,
+				Platform:   rc.Config.ContainerArchitecture,
+			})
+			rc.ServiceContainers = append(rc.ServiceContainers, c)
+		}
 
 		rc.JobContainer = container.NewContainer(&container.NewContainerInput{
-			Cmd:         nil,
-			Entrypoint:  []string{"/usr/bin/tail", "-f", "/dev/null"},
-			WorkingDir:  rc.Config.ContainerWorkdir(),
-			Image:       image,
-			Username:    username,
-			Password:    password,
-			Name:        name,
-			Env:         envList,
-			Mounts:      mounts,
-			NetworkMode: "host",
-			Binds:       binds,
-			Stdout:      logWriter,
-			Stderr:      logWriter,
-			Privileged:  rc.Config.Privileged,
-			UsernsMode:  rc.Config.UsernsMode,
-			Platform:    rc.Config.ContainerArchitecture,
-			Hostname:    hostname,
+			Cmd:        nil,
+			Entrypoint: []string{"/usr/bin/tail", "-f", "/dev/null"},
+			WorkingDir: rc.Config.ContainerWorkdir(),
+			Image:      image,
+			Username:   username,
+			Password:   password,
+			Name:       name,
+			Env:        envList,
+			Mounts:     mounts,
+			// NetworkMode: "host",
+			Binds:      binds,
+			Stdout:     logWriter,
+			Stderr:     logWriter,
+			Privileged: rc.Config.Privileged,
+			UsernsMode: rc.Config.UsernsMode,
+			Platform:   rc.Config.ContainerArchitecture,
+			Hostname:   hostname,
 		})
 
 		var copyWorkspace bool
@@ -197,10 +226,15 @@ func (rc *RunContext) startJobContainer() common.Executor {
 
 		return common.NewPipelineExecutor(
 			rc.JobContainer.Pull(rc.Config.ForcePull),
+			rc.stopServiceContainers(),
 			rc.stopJobContainer(),
+			rc.removeNetwork(),
+			rc.createNetwork(),
+			rc.startServiceContainers(),
 			rc.JobContainer.Create(rc.Config.ContainerCapAdd, rc.Config.ContainerCapDrop),
 			rc.JobContainer.Start(false),
 			rc.JobContainer.UpdateFromImageEnv(&rc.Env),
+			rc.JobContainer.ConnectToNetwork(defaultNetwork),
 			rc.JobContainer.UpdateFromEnv("/etc/environment", &rc.Env),
 			rc.JobContainer.Exec([]string{"mkdir", "-m", "0777", "-p", ActPath}, rc.Env, "root", ""),
 			rc.JobContainer.CopyDir(copyToPath, rc.Config.Workdir+string(filepath.Separator)+".", rc.Config.UseGitIgnore).IfBool(copyWorkspace),
@@ -221,6 +255,20 @@ func (rc *RunContext) startJobContainer() common.Executor {
 	}
 }
 
+const defaultNetwork = "act_github_actions_network"
+
+func (rc *RunContext) createNetwork() common.Executor {
+	return func(ctx context.Context) error {
+		return container.NewDockerNetworkCreateExecutor(defaultNetwork)(ctx)
+	}
+}
+
+func (rc *RunContext) removeNetwork() common.Executor {
+	return func(ctx context.Context) error {
+		return container.NewDockerNetworkRemoveExecutor(defaultNetwork)(ctx)
+	}
+}
+
 func (rc *RunContext) execJobContainer(cmd []string, env map[string]string, user, workdir string) common.Executor {
 	return func(ctx context.Context) error {
 		return rc.JobContainer.Exec(cmd, env, user, workdir)(ctx)
@@ -238,7 +286,30 @@ func (rc *RunContext) stopJobContainer() common.Executor {
 	}
 }
 
-// Prepare the mounts and binds for the worker
+func (rc *RunContext) startServiceContainers() common.Executor {
+	return func(ctx context.Context) error {
+		execs := []common.Executor{}
+		for _, c := range rc.ServiceContainers {
+			execs = append(execs, common.NewPipelineExecutor(
+				c.Pull(false),
+				c.Create([]string{}, []string{}),
+				c.Start(false),
+				c.ConnectToNetwork(defaultNetwork),
+			))
+		}
+		return common.NewParallelExecutor(execs...)(ctx)
+	}
+}
+
+func (rc *RunContext) stopServiceContainers() common.Executor {
+	return func(ctx context.Context) error {
+		execs := []common.Executor{}
+		for _, c := range rc.ServiceContainers {
+			execs = append(execs, c.Remove())
+		}
+		return common.NewParallelExecutor(execs...)(ctx)
+	}
+}
 
 // ActionCacheDir is for rc
 func (rc *RunContext) ActionCacheDir() string {
