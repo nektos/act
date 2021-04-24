@@ -169,6 +169,42 @@ func TestRunEventSecrets(t *testing.T) {
 	assert.NilError(t, err, workflowPath)
 }
 
+func TestRunWithService(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	log.SetLevel(log.DebugLevel)
+	ctx := context.Background()
+
+	platforms := map[string]string{
+		"ubuntu-latest": "node:12.20.1-buster-slim",
+	}
+
+	workflowPath := "services"
+	eventName := "push"
+
+	workdir, err := filepath.Abs("testdata")
+	assert.NilError(t, err, workflowPath)
+
+	runnerConfig := &Config{
+		Workdir:         workdir,
+		EventName:       eventName,
+		Platforms:       platforms,
+		ReuseContainers: false,
+	}
+	runner, err := New(runnerConfig)
+	assert.NilError(t, err, workflowPath)
+
+	planner, err := model.NewWorkflowPlanner(fmt.Sprintf("testdata/%s", workflowPath))
+	assert.NilError(t, err, workflowPath)
+
+	plan := planner.PlanEvent(eventName)
+
+	err = runner.NewPlanExecutor(plan)(ctx)
+	assert.NilError(t, err, workflowPath)
+}
+
 func TestRunEventPullRequest(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")

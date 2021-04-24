@@ -62,6 +62,7 @@ type FileEntry struct {
 // Container for managing docker run containers
 type Container interface {
 	Create() common.Executor
+	ConnectToNetwork(name string) common.Executor
 	Copy(destPath string, files ...*FileEntry) common.Executor
 	CopyDir(destPath string, srcPath string) common.Executor
 	Pull(forcePull bool) common.Executor
@@ -95,6 +96,17 @@ func supportsContainerImagePlatform(cli *client.Client) bool {
 	}
 	constraint, _ := semver.NewConstraint(">= 1.41")
 	return constraint.Check(sv)
+}
+
+func (cr *containerReference) ConnectToNetwork(name string) common.Executor {
+	return common.
+		NewDebugExecutor("%sdocker network connect %s %s", logPrefix, name, cr.input.Name).
+		Then(
+			common.NewPipelineExecutor(
+				cr.connect(),
+				cr.connectToNetwork(name),
+			).IfNot(common.Dryrun),
+		)
 }
 
 func (cr *containerReference) Create() common.Executor {
@@ -204,6 +216,12 @@ func GetDockerClient(ctx context.Context) (*client.Client, error) {
 	return cli, err
 }
 
+func (cr *containerReference) connectToNetwork(name string) common.Executor {
+	return func(ctx context.Context) error {
+		return cr.cli.NetworkConnect(ctx, name, cr.input.Name, nil)
+	}
+}
+
 func (cr *containerReference) connect() common.Executor {
 	return func(ctx context.Context) error {
 		if cr.cli != nil {
@@ -276,11 +294,15 @@ func (cr *containerReference) create() common.Executor {
 		input := cr.input
 		config := &container.Config{
 			Image:      input.Image,
-			Cmd:        input.Cmd,
-			Entrypoint: input.Entrypoint,
 			WorkingDir: input.WorkingDir,
 			Env:        input.Env,
 			Tty:        isTerminal,
+		}
+		if len(input.Cmd) > 0 {
+			config.Cmd = input.Cmd
+		}
+		if len(input.Entrypoint) > 0 {
+			config.Entrypoint = input.Entrypoint
 		}
 
 		mounts := make([]mount.Mount, 0)
@@ -305,6 +327,8 @@ func (cr *containerReference) create() common.Executor {
 				OS:           desiredPlatform[0],
 			}
 		}
+		fmt.Printf("%#v", len(input.Cmd))
+		fmt.Printf("%#v", config)
 		resp, err := cr.cli.ContainerCreate(ctx, config, &container.HostConfig{
 			Binds:       input.Binds,
 			Mounts:      mounts,
