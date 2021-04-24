@@ -508,27 +508,27 @@ func (sc *StepContext) runAction(actionDir string, actionPath string) common.Exe
 			stepID := 0
 			for _, compositeStep := range action.Runs.Steps {
 				stepClone := compositeStep
-                // Take a copy of the run context structure (rc is a pointer)
-                // Then take the address of the new structure
-                rcCloneStr := *rc
-                rcClone := &rcCloneStr
+				// Take a copy of the run context structure (rc is a pointer)
+				// Then take the address of the new structure
+				rcCloneStr := *rc
+				rcClone := &rcCloneStr
 				if stepClone.ID == "" {
 					stepClone.ID = fmt.Sprintf("composite-%d", stepID)
 					stepID++
 				}
-                rcClone.CurrentStep = stepClone.ID
+				rcClone.CurrentStep = stepClone.ID
 
-                if err := compositeStep.Validate(); err != nil {
-                    return err
-                }
+				if err := compositeStep.Validate(); err != nil {
+					return err
+				}
 
-                // Setup the outputs for the composite steps
-                if _, ok := rcClone.StepResults[stepClone.ID]; ! ok {
-                    rcClone.StepResults[stepClone.ID]  = &stepResult{
-                        Success: true,
-                        Outputs: make(map[string]string),
-                    }
-                }
+				// Setup the outputs for the composite steps
+				if _, ok := rcClone.StepResults[stepClone.ID]; !ok {
+					rcClone.StepResults[stepClone.ID] = &stepResult{
+						Success: true,
+						Outputs: make(map[string]string),
+					}
+				}
 
 				stepClone.Run = strings.ReplaceAll(stepClone.Run, "${{ github.action_path }}", filepath.Join(containerActionDir, actionName))
 
@@ -538,14 +538,13 @@ func (sc *StepContext) runAction(actionDir string, actionPath string) common.Exe
 					Env:        mergeMaps(sc.Env, stepClone.Env),
 				}
 
-                // Interpolate the outer inputs into the composite step with items
-                exprEval := sc.NewExpressionEvaluator()
-                for k, v := range stepContext.Step.With {
-
-                    if strings.Contains(v, "inputs") {
-                        stepContext.Step.With[k] = exprEval.Interpolate(v)
-                    }
-                }
+				// Interpolate the outer inputs into the composite step with items
+				exprEval := sc.NewExpressionEvaluator()
+				for k, v := range stepContext.Step.With {
+					if strings.Contains(v, "inputs") {
+						stepContext.Step.With[k] = exprEval.Interpolate(v)
+					}
+				}
 
 				executors = append(executors, stepContext.Executor())
 			}

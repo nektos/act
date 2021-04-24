@@ -334,7 +334,6 @@ func (rc *RunContext) EvalBool(expr string) (bool, error) {
 				!strings.Contains(part, "!")) && // but it's not negated
 				interpolatedPart == "false" && // and the interpolated string is false
 				(isString || previousOrNextPartIsAnOperator(i, parts)) { // and it's of type string or has an logical operator before or after
-
 				interpolatedPart = fmt.Sprintf("'%s'", interpolatedPart) // then we have to quote the false expression
 			}
 

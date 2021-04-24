@@ -62,9 +62,7 @@ func NewDockerPullExecutor(input NewDockerPullExecutorInput) common.Executor {
 			return err
 		}
 		return nil
-
 	}
-
 }
 
 func cleanImage(image string) string {

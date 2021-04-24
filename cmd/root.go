@@ -65,7 +65,6 @@ func Execute(ctx context.Context, version string) {
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}
-
 }
 
 func configLocations() []string {

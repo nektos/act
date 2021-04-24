@@ -8,7 +8,6 @@ import (
 )
 
 func drawGraph(plan *model.Plan) error {
-
 	drawings := make([]*common.Drawing, 0)
 
 	jobPen := common.NewPen(common.StyleSingleLine, 96)

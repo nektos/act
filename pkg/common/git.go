@@ -267,7 +267,6 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) Executor {
 		// Repos on disk point to commit hashes, and need to checkout input.Ref before
 		// we try and pull down any changes
 		if hash.String() != input.Ref {
-
 			// Run git fetch to make sure we have the latest sha
 			err := r.Fetch(&git.FetchOptions{})
 			if err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {

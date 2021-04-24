@@ -23,7 +23,6 @@ type Workflow struct {
 
 // On events for the workflow
 func (w *Workflow) On() []string {
-
 	switch w.RawOn.Kind {
 	case yaml.ScalarNode:
 		var val string
@@ -109,7 +108,6 @@ func (j *Job) Container() *ContainerSpec {
 
 // Needs list for Job
 func (j *Job) Needs() []string {
-
 	switch j.RawNeeds.Kind {
 	case yaml.ScalarNode:
 		var val string
@@ -131,7 +129,6 @@ func (j *Job) Needs() []string {
 
 // RunsOn list for Job
 func (j *Job) RunsOn() []string {
-
 	switch j.RawRunsOn.Kind {
 	case yaml.ScalarNode:
 		var val string
@@ -183,7 +180,6 @@ func (j *Job) GetMatrixes() []map[string]interface{} {
 			log.Debugf("Adding include '%v'", include)
 			matrixes = append(matrixes, include)
 		}
-
 	} else {
 		matrixes = append(matrixes, make(map[string]interface{}))
 	}
@@ -313,12 +309,12 @@ func (s *Step) Type() StepType {
 }
 
 func (s *Step) Validate() error {
-    if s.Type() != StepTypeRun {
-        return fmt.Errorf("(StepID: %s): Unexpected value 'uses'", s.String())
-    } else if s.Shell == "" {
-        return fmt.Errorf("(StepID: %s): Required property is missing: 'shell'", s.String())
-    }
-    return nil
+	if s.Type() != StepTypeRun {
+		return fmt.Errorf("(StepID: %s): Unexpected value 'uses'", s.String())
+	} else if s.Shell == "" {
+		return fmt.Errorf("(StepID: %s): Required property is missing: 'shell'", s.String())
+	}
+	return nil
 }
 
 // ReadWorkflow returns a list of jobs for a given workflow file reader

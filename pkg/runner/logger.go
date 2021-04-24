@@ -109,7 +109,6 @@ func (f *stepLogFormatter) print(b *bytes.Buffer, entry *logrus.Entry) {
 }
 
 func (f *stepLogFormatter) isColored(entry *logrus.Entry) bool {
-
 	isColored := checkIfTerminal(entry.Logger.Out)
 
 	if force, ok := os.LookupEnv("CLICOLOR_FORCE"); ok && force != "0" {
