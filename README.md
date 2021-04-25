@@ -1,7 +1,6 @@
-![](https://github.com/nektos/act/wiki/img/logo-150.png)
+![act-logo](https://github.com/nektos/act/wiki/img/logo-150.png)
 
 # Overview [![push](https://github.com/nektos/act/workflows/push/badge.svg?branch=master&event=push)](https://github.com/nektos/act/actions) [![Join the chat at https://gitter.im/nektos/act](https://badges.gitter.im/nektos/act.svg)](https://gitter.im/nektos/act?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) [![Go Report Card](https://goreportcard.com/badge/github.com/nektos/act)](https://goreportcard.com/report/github.com/nektos/act)[![awesome-runners](https://img.shields.io/badge/listed%20on-awesome--runners-blue.svg)](https://github.com/jonico/awesome-runners)
-
 
 > "Think globally, `act` locally"
 
@@ -269,7 +268,7 @@ Want to contribute to act? Awesome! Check out the [contributing guidelines](CONT
 
 ## Building from source
 
-- Install Go tools 1.16+ - (https://golang.org/doc/install)
+- Install Go tools 1.16+ - (<https://golang.org/doc/install>)
 - Clone this repo `git clone git@github.com:nektos/act.git`
 - Pull the default docker image `docker pull nektos/act-environments-ubuntu:18.04`
 - Run unit tests with `make test`
