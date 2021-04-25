@@ -1,14 +1,14 @@
 const { spawnSync } = require('child_process')
-const spawnArguments={
-  cwd: process.env['INPUT_CWD'],
+const spawnArguments = {
+  cwd: process.env.INPUT_CWD,
   stdio: [
     process.stdin,
     process.stdout,
-    process.stderr,
+    process.stderr
   ]
 }
-const child=spawnSync(
+const child = spawnSync(
   '/bin/sh',
-  [ '-c' ].concat(process.env['INPUT_COMMAND']),
+  ['-c'].concat(process.env.INPUT_COMMAND),
   spawnArguments)
 process.exit(child.status)
