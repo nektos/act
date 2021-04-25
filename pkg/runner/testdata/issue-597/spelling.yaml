@@ -1,0 +1,32 @@
+name: issue-598
+on: push
+  
+
+jobs:
+  my_first_job:
+    
+    runs-on: ubuntu-latest
+    steps:
+      - name: My first false step
+        if: "endsWith('Should not', 'o1')"
+        uses: actions/checkout@v2.0.0
+        with:
+          ref: refs/pull/${{github.event.pull_request.number}}/merge
+          fetch-depth: 5
+      - name: My first true step
+        if: ${{"!endsWith('Hello world', 'od')"}}
+        uses: actions/hello-world-javascript-action@main
+        with:
+          who-to-greet: "Renst the Octocat"
+      - name: My second false step
+        if: "endsWith('Should not evaluate', 'o2')"
+        uses: actions/checkout@v2.0.0
+        with:
+          ref: refs/pull/${{github.event.pull_request.number}}/merge
+          fetch-depth: 5
+      - name: My third false step
+        if: ${{endsWith('Should not evaluate', 'o3')}}
+        uses: actions/checkout@v2.0.0
+        with:
+          ref: refs/pull/${{github.event.pull_request.number}}/merge
+          fetch-depth: 5

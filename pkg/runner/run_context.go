@@ -216,23 +216,29 @@ func (rc *RunContext) newStepExecutor(step *model.Step) common.Executor {
 			Success: true,
 			Outputs: make(map[string]string),
 		}
+		runStep, err := rc.EvalBool(sc.Step.If)
+
+		if err != nil {
+			common.Logger(ctx).Errorf("  \u274C  Error in if: expression - %s", sc.Step)
+			exprEval, err := sc.setupEnv(ctx)
+			if err != nil {
+				return err
+			}
+			rc.ExprEval = exprEval
+			rc.StepResults[rc.CurrentStep].Success = false
+			return err
+		}
+
+		if !runStep {
+			log.Debugf("Skipping step '%s' due to '%s'", sc.Step.String(), sc.Step.If)
+			return nil
+		}
 
 		exprEval, err := sc.setupEnv(ctx)
 		if err != nil {
 			return err
 		}
 		rc.ExprEval = exprEval
-
-		runStep, err := rc.EvalBool(sc.Step.If)
-		if err != nil {
-			common.Logger(ctx).Errorf("  \u274C  Error in if: expression - %s", sc.Step)
-			rc.StepResults[rc.CurrentStep].Success = false
-			return err
-		}
-		if !runStep {
-			log.Debugf("Skipping step '%s' due to '%s'", sc.Step.String(), sc.Step.If)
-			return nil
-		}
 
 		common.Logger(ctx).Infof("\u2B50  Run %s", sc.Step)
 		err = sc.Executor()(ctx)
