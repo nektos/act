@@ -6,8 +6,17 @@ MINOR_VERSION = $(word 2, $(subst ., ,$(VERSION)))
 PATCH_VERSION = $(word 3, $(subst ., ,$(word 1,$(subst -, , $(VERSION)))))
 NEW_VERSION ?= $(MAJOR_VERSION).$(MINOR_VERSION).$(shell echo $$(( $(PATCH_VERSION) + 1)) )
 
+fix = false
+ifeq (true,$(fix))
+	FIX = --fix
+endif
+
 ACT ?= go run main.go
-export GITHUB_TOKEN := $(shell cat ~/.config/github/token)
+
+HAS_TOKEN = $(if $(test -e ~/.config/github/token),true,false)
+ifeq (true,$(HAS_TOKEN))
+	export GITHUB_TOKEN := $(shell cat ~/.config/github/token)
+endif
 
 .PHONY: build
 build:
@@ -21,6 +30,42 @@ format:
 test:
 	go test ./...
 	$(ACT)
+
+.PHONY: lint-go
+lint-go:
+	golangci-lint run $(FIX)
+
+.PHONY: lint-js
+lint-js:
+	standard $(FIX)
+
+.PHONY: lint-md
+lint-md:
+	markdownlint . $(FIX)
+
+.PHONY: lint-rest
+lint-rest:
+	docker run --rm -it \
+		-e 'RUN_LOCAL=true' \
+		-e 'FILTER_REGEX_EXCLUDE=.*testdata/*' \
+		-e 'VALIDATE_BASH=false' \
+		-e 'VALIDATE_DOCKERFILE=false' \
+		-e 'VALIDATE_DOCKERFILE_HADOLINT=false' \
+		-e 'VALIDATE_GO=false' \
+		-e 'VALIDATE_JSCPD=false' \
+		-e 'VALIDATE_SHELL_SHFMT=false' \
+		-v $(PWD):/tmp/lint \
+		github/super-linter
+
+.PHONY: lint
+lint: lint-go lint-rest
+
+.PHONY: lint-fix
+lint-fix: lint-md lint-go
+
+.PHONY: fix
+fix:
+	make lint-fix fix=true
 
 .PHONY: install
 install: build
