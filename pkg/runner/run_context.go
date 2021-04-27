@@ -96,10 +96,6 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			binds = append(binds, fmt.Sprintf("%s:%s%s", rc.Config.Workdir, rc.Config.Workdir, bindModifiers))
 		}
 
-		if rc.Config.ContainerArchitecture == "" {
-			rc.Config.ContainerArchitecture = fmt.Sprintf("%s/%s", "linux", runtime.GOARCH)
-		}
-
 		rc.JobContainer = container.NewContainer(&container.NewContainerInput{
 			Cmd:        nil,
 			Entrypoint: []string{"/usr/bin/tail", "-f", "/dev/null"},

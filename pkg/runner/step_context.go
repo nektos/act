@@ -252,10 +252,6 @@ func (sc *StepContext) newStepContainer(ctx context.Context, image string, cmd [
 		binds = append(binds, fmt.Sprintf("%s:%s%s", rc.Config.Workdir, rc.Config.Workdir, bindModifiers))
 	}
 
-	if rc.Config.ContainerArchitecture == "" {
-		rc.Config.ContainerArchitecture = fmt.Sprintf("%s/%s", "linux", runtime.GOARCH)
-	}
-
 	stepContainer := container.NewContainer(&container.NewContainerInput{
 		Cmd:        cmd,
 		Entrypoint: entrypoint,
@@ -438,33 +434,35 @@ func (sc *StepContext) runAction(actionDir string, actionPath string) common.Exe
 				image = strings.ToLower(image)
 				contextDir := filepath.Join(actionDir, actionPath, action.Runs.Main)
 
-				exists, err := container.ImageExistsLocally(ctx, image, "any")
+				anyArchExists, err := container.ImageExistsLocally(ctx, image, "any")
 				if err != nil {
 					return err
 				}
 
-				if exists {
-					wasRemoved, err := container.DeleteImage(ctx, image)
+				correctArchExists, err := container.ImageExistsLocally(ctx, image, rc.Config.ContainerArchitecture)
+				if err != nil {
+					return err
+				}
+
+				if anyArchExists && !correctArchExists {
+					wasRemoved, err := container.RemoveImage(ctx, image, true, true)
 					if err != nil {
 						return err
 					}
 					if !wasRemoved {
-						return fmt.Errorf("failed to delete image '%s'", image)
+						return fmt.Errorf("failed to remove image '%s'", image)
 					}
 				}
 
-				prepImage = container.NewDockerBuildExecutor(container.NewDockerBuildExecutorInput{
-					ContextDir: contextDir,
-					ImageTag:   image,
-					Platform:   rc.Config.ContainerArchitecture,
-				})
-				exists, err = container.ImageExistsLocally(ctx, image, rc.Config.ContainerArchitecture)
-				if err != nil {
-					return err
-				}
-
-				if !exists {
-					return err
+				if !correctArchExists {
+					log.Debugf("image '%s' for architecture '%s' will be built from context '%s", image, rc.Config.ContainerArchitecture, contextDir)
+					prepImage = container.NewDockerBuildExecutor(container.NewDockerBuildExecutorInput{
+						ContextDir: contextDir,
+						ImageTag:   image,
+						Platform:   rc.Config.ContainerArchitecture,
+					})
+				} else {
+					log.Debugf("image '%s' for architecture '%s' already exists", image, rc.Config.ContainerArchitecture)
 				}
 			}
 
@@ -508,27 +506,27 @@ func (sc *StepContext) runAction(actionDir string, actionPath string) common.Exe
 			stepID := 0
 			for _, compositeStep := range action.Runs.Steps {
 				stepClone := compositeStep
-                // Take a copy of the run context structure (rc is a pointer)
-                // Then take the address of the new structure
-                rcCloneStr := *rc
-                rcClone := &rcCloneStr
+				// Take a copy of the run context structure (rc is a pointer)
+				// Then take the address of the new structure
+				rcCloneStr := *rc
+				rcClone := &rcCloneStr
 				if stepClone.ID == "" {
 					stepClone.ID = fmt.Sprintf("composite-%d", stepID)
 					stepID++
 				}
-                rcClone.CurrentStep = stepClone.ID
+				rcClone.CurrentStep = stepClone.ID
 
-                if err := compositeStep.Validate(); err != nil {
-                    return err
-                }
+				if err := compositeStep.Validate(); err != nil {
+					return err
+				}
 
-                // Setup the outputs for the composite steps
-                if _, ok := rcClone.StepResults[stepClone.ID]; ! ok {
-                    rcClone.StepResults[stepClone.ID]  = &stepResult{
-                        Success: true,
-                        Outputs: make(map[string]string),
-                    }
-                }
+				// Setup the outputs for the composite steps
+				if _, ok := rcClone.StepResults[stepClone.ID]; !ok {
+					rcClone.StepResults[stepClone.ID] = &stepResult{
+						Success: true,
+						Outputs: make(map[string]string),
+					}
+				}
 
 				stepClone.Run = strings.ReplaceAll(stepClone.Run, "${{ github.action_path }}", filepath.Join(containerActionDir, actionName))
 
@@ -538,14 +536,14 @@ func (sc *StepContext) runAction(actionDir string, actionPath string) common.Exe
 					Env:        mergeMaps(sc.Env, stepClone.Env),
 				}
 
-                // Interpolate the outer inputs into the composite step with items
-                exprEval := sc.NewExpressionEvaluator()
-                for k, v := range stepContext.Step.With {
+				// Interpolate the outer inputs into the composite step with items
+				exprEval := sc.NewExpressionEvaluator()
+				for k, v := range stepContext.Step.With {
 
-                    if strings.Contains(v, "inputs") {
-                        stepContext.Step.With[k] = exprEval.Interpolate(v)
-                    }
-                }
+					if strings.Contains(v, "inputs") {
+						stepContext.Step.With[k] = exprEval.Interpolate(v)
+					}
+				}
 
 				executors = append(executors, stepContext.Executor())
 			}
