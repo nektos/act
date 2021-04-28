@@ -41,14 +41,38 @@ jobs:
     name: Test on MacOS
     runs-on: macos-latest
     continue-on-error: true # Don't let macos test fail whole workflow
+    env:
+      ISO_PATH: ~/.docker/machine/cache/boot2docker.iso
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-go@v1
         with:
           go-version: 1.16
-      - name: Install MacOS Docker
-        uses: docker-practice/actions-setup-docker@master
-      - run: go test -v -timeout 1h -cover ./...
+      - uses: actions/cache@v2
+        with:
+          key: boot2docker
+          path: ${{ env.ISO_PATH }}
+          restore-keys: boot2docker
+      - name: Install Docker on macOS
+        run: |
+          printf " 🛠️ Downloading boot2docker.iso 🛠️ \n\n"
+          mkdir -p ~/.docker/machine/cache/
+          test -f ${{ env.ISO_PATH }} && printf " 🛠️ ${{ env.ISO_PATH }} successfully restored 🛠️ \n\n" || wget "https://github.com/boot2docker/boot2docker/releases/download/v19.03.12/boot2docker.iso" -O ${{ env.ISO_PATH }}
+          printf " 🛠️ Installing Docker from Homebrew 🛠️ \n\n"
+          brew install docker docker-machine
+          printf " 🛠️ Creating Docker 🛠️ VM\n\n"
+          docker-machine create --driver virtualbox --virtualbox-boot2docker-url ${{ env.ISO_PATH }} default
+          docker-machine env default
+          printf " 🛠️ Adding Docker VM info to environment 🛠️ \n\n"
+          eval "$(docker-machine env default)"
+          echo "DOCKER_TLS_VERIFY=$DOCKER_TLS_VERIFY" | tee -a $GITHUB_ENV
+          echo "DOCKER_HOST=$DOCKER_HOST" | tee -a $GITHUB_ENV
+          echo "DOCKER_CERT_PATH=$DOCKER_CERT_PATH" | tee -a $GITHUB_ENV
+          echo "DOCKER_MACHINE_NAME=$DOCKER_MACHINE_NAME" | tee -a $GITHUB_ENV
+          printf " 🛠️ Install Qemu for running containers with different architecture 🛠️ \n\n"
+          docker run --rm --privileged tonistiigi/binfmt --install all
+          printf " 🛠️ Finished installing Docker 🛠️ \n\n"
+      - run: go test -v -timeout 30m -cover ./...
         env:
           CGO_ENABLED: 0
 
