@@ -1,5 +1,5 @@
 name: push
-on: [push, pull_request]
+on: [push, pull_request, workflow_dispatch]
 
 jobs:
   lint:
@@ -28,7 +28,14 @@ jobs:
       - uses: actions/setup-go@v1
         with:
           go-version: 1.16
-      - run: go test -cover -coverprofile=coverage.txt -covermode=atomic ./...
+      - uses: actions/cache@v2
+        if: ${{ !env.ACT }}
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+      - run: go test -v -cover -coverprofile=coverage.txt -covermode=atomic ./...
         env:
           CGO_ENABLED: 0
       - name: Upload Codecov report
@@ -49,6 +56,13 @@ jobs:
         with:
           go-version: 1.16
       - uses: actions/cache@v2
+        if: ${{ !env.ACT }}
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+      - uses: actions/cache@v2
         with:
           key: boot2docker
           path: ${{ env.ISO_PATH }}
@@ -60,7 +74,7 @@ jobs:
           test -f ${{ env.ISO_PATH }} && printf " 🛠️ ${{ env.ISO_PATH }} successfully restored 🛠️ \n\n" || wget "https://github.com/boot2docker/boot2docker/releases/download/v19.03.12/boot2docker.iso" -O ${{ env.ISO_PATH }}
           printf " 🛠️ Installing Docker from Homebrew 🛠️ \n\n"
           brew install docker docker-machine
-          printf " 🛠️ Creating Docker 🛠️ VM\n\n"
+          printf " 🛠️ Creating Docker VM 🛠️ \n\n"
           docker-machine create --driver virtualbox --virtualbox-boot2docker-url ${{ env.ISO_PATH }} default
           docker-machine env default
           printf " 🛠️ Adding Docker VM info to environment 🛠️ \n\n"
@@ -88,6 +102,13 @@ jobs:
       - uses: actions/setup-go@v1
         with:
           go-version: 1.16
+      - uses: actions/cache@v2
+        if: ${{ !env.ACT }}
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
       - name: GoReleaser
         uses: goreleaser/goreleaser-action@v2
         with:
@@ -123,6 +144,13 @@ jobs:
       - uses: actions/setup-go@v1
         with:
           go-version: 1.16
+      - uses: actions/cache@v2
+        if: ${{ !env.ACT }}
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
       - name: GoReleaser
         uses: goreleaser/goreleaser-action@v1
         with:
