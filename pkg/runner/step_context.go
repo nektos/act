@@ -81,7 +81,7 @@ func (sc *StepContext) Executor() common.Executor {
 		for _, blacklistItem := range unsupportedActionBlacklist {
 			if blacklistItem == actionName {
 				return func(ctx context.Context) error {
-					common.Logger(ctx).Infof("\U0001F6A7  Skipping currently unsupported remote action %v", actionName)
+					common.Logger(ctx).Infof("\U0001F6A7  Skipping remote action that act currently does not support: %v", actionName)
 					return nil
 				}
 			}
