@@ -1,0 +1,9 @@
+name: blacklisted-actions
+on: push
+
+jobs:
+  blacklist:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/cache@v2
+      - uses: actions/download-artifact@v2

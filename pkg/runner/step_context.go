@@ -70,6 +70,23 @@ func (sc *StepContext) Executor() common.Executor {
 		if remoteAction == nil {
 			return common.NewErrorExecutor(formatError(step.Uses))
 		}
+
+		// TODO: Add as remoteAction method?
+		unsupportedActionBlacklist := []string{
+			"actions/cache",
+			"actions/download-artifact",
+			"actions/upload-artifact",
+		}
+		actionName := remoteAction.Org + "/" + remoteAction.Repo
+		for _, blacklistItem := range unsupportedActionBlacklist {
+			if blacklistItem == actionName {
+				return func(ctx context.Context) error {
+					common.Logger(ctx).Warnf("SKIP: %v is not supported in act yet, sorry!", actionName)
+					return nil
+				}
+			}
+		}
+
 		if remoteAction.IsCheckout() && rc.getGithubContext().isLocalCheckout(step) {
 			return func(ctx context.Context) error {
 				common.Logger(ctx).Debugf("Skipping actions/checkout")
