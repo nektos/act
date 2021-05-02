@@ -293,7 +293,7 @@ func (cr *containerReference) create() common.Executor {
 		}
 
 		var platSpecs *specs.Platform
-		if supportsContainerImagePlatform(cr.cli) {
+		if supportsContainerImagePlatform(cr.cli) && cr.input.Platform != "" {
 			desiredPlatform := strings.SplitN(cr.input.Platform, `/`, 2)
 
 			if len(desiredPlatform) != 2 {
