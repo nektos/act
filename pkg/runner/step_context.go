@@ -165,8 +165,8 @@ func (sc *StepContext) setupShellCommand() common.Executor {
 		}
 		scriptName := fmt.Sprintf("workflow/%s", step.ID)
 
-		//Reference: https://github.com/actions/runner/blob/8109c962f09d9acc473d92c595ff43afceddb347/src/Runner.Worker/Handlers/ScriptHandlerHelpers.cs#L47-L64
-		//Reference: https://github.com/actions/runner/blob/8109c962f09d9acc473d92c595ff43afceddb347/src/Runner.Worker/Handlers/ScriptHandlerHelpers.cs#L19-L27
+		// Reference: https://github.com/actions/runner/blob/8109c962f09d9acc473d92c595ff43afceddb347/src/Runner.Worker/Handlers/ScriptHandlerHelpers.cs#L47-L64
+		// Reference: https://github.com/actions/runner/blob/8109c962f09d9acc473d92c595ff43afceddb347/src/Runner.Worker/Handlers/ScriptHandlerHelpers.cs#L19-L27
 		runPrepend := ""
 		runAppend := ""
 		scriptExt := ""
@@ -188,7 +188,7 @@ func (sc *StepContext) setupShellCommand() common.Executor {
 		run = runPrepend + "\n" + run + "\n" + runAppend
 
 		log.Debugf("Wrote command '%s' to '%s'", run, scriptName)
-		containerPath := fmt.Sprintf("%s/%s", filepath.Dir(rc.Config.Workdir), scriptName)
+		containerPath := fmt.Sprintf("%s/%s", rc.Config.ContainerWorkdir(), scriptName)
 
 		if step.Shell == "" {
 			step.Shell = rc.Run.Job().Defaults.Run.Shell
@@ -204,7 +204,7 @@ func (sc *StepContext) setupShellCommand() common.Executor {
 			sc.Cmd = strings.Fields(scResolvedCmd)
 		}
 
-		return rc.JobContainer.Copy(fmt.Sprintf("%s/", filepath.Dir(rc.Config.Workdir)), &container.FileEntry{
+		return rc.JobContainer.Copy(rc.Config.ContainerWorkdir(), &container.FileEntry{
 			Name: scriptName,
 			Mode: 0755,
 			Body: script.String(),
@@ -236,34 +236,20 @@ func (sc *StepContext) newStepContainer(ctx context.Context, image string, cmd [
 		entrypoint[i] = stepEE.Interpolate(v)
 	}
 
-	bindModifiers := ""
-	if runtime.GOOS == "darwin" {
-		bindModifiers = ":delegated"
-	}
-
 	envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_TOOL_CACHE", "/opt/hostedtoolcache"))
 	envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_OS", "Linux"))
 	envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_TEMP", "/tmp"))
 
-	binds := []string{
-		fmt.Sprintf("%s:%s", "/var/run/docker.sock", "/var/run/docker.sock"),
-	}
-	if rc.Config.BindWorkdir {
-		binds = append(binds, fmt.Sprintf("%s:%s%s", rc.Config.Workdir, rc.Config.Workdir, bindModifiers))
-	}
+	binds, mounts := rc.GetBindsAndMounts()
 
 	stepContainer := container.NewContainer(&container.NewContainerInput{
-		Cmd:        cmd,
-		Entrypoint: entrypoint,
-		WorkingDir: rc.Config.Workdir,
-		Image:      image,
-		Name:       createContainerName(rc.jobContainerName(), step.ID),
-		Env:        envList,
-		Mounts: map[string]string{
-			rc.jobContainerName(): filepath.Dir(rc.Config.Workdir),
-			"act-toolcache":       "/toolcache",
-			"act-actions":         "/actions",
-		},
+		Cmd:         cmd,
+		Entrypoint:  entrypoint,
+		WorkingDir:  rc.Config.ContainerWorkdir(),
+		Image:       image,
+		Name:        createContainerName(rc.jobContainerName(), step.ID),
+		Env:         envList,
+		Mounts:      mounts,
 		NetworkMode: fmt.Sprintf("container:%s", rc.jobContainerName()),
 		Binds:       binds,
 		Stdout:      logWriter,
@@ -371,12 +357,15 @@ func getOsSafeRelativePath(s, prefix string) string {
 func (sc *StepContext) getContainerActionPaths(step *model.Step, actionDir string, rc *RunContext) (string, string) {
 	actionName := ""
 	containerActionDir := "."
-	if step.Type() == model.StepTypeUsesActionLocal {
+	if !rc.Config.BindWorkdir && step.Type() != model.StepTypeUsesActionRemote {
 		actionName = getOsSafeRelativePath(actionDir, rc.Config.Workdir)
-		containerActionDir = rc.Config.Workdir
+		containerActionDir = rc.Config.ContainerWorkdir() + "/_actions/" + actionName
 	} else if step.Type() == model.StepTypeUsesActionRemote {
 		actionName = getOsSafeRelativePath(actionDir, rc.ActionCacheDir())
-		containerActionDir = "/actions"
+		containerActionDir = rc.Config.ContainerWorkdir() + "/_actions/" + actionName
+	} else if step.Type() == model.StepTypeUsesActionLocal {
+		actionName = getOsSafeRelativePath(actionDir, rc.Config.Workdir)
+		containerActionDir = rc.Config.ContainerWorkdir() + "/_actions/" + actionName
 	}
 
 	if actionName == "" {
@@ -388,6 +377,7 @@ func (sc *StepContext) getContainerActionPaths(step *model.Step, actionDir strin
 	return actionName, containerActionDir
 }
 
+// nolint: gocyclo
 func (sc *StepContext) runAction(actionDir string, actionPath string) common.Executor {
 	rc := sc.RunContext
 	step := sc.Step
@@ -402,7 +392,13 @@ func (sc *StepContext) runAction(actionDir string, actionPath string) common.Exe
 			}
 		}
 
-		actionName, containerActionDir := sc.getContainerActionPaths(step, actionDir, rc)
+		actionLocation := ""
+		if actionPath != "" {
+			actionLocation = path.Join(actionDir, actionPath)
+		} else {
+			actionLocation = actionDir
+		}
+		actionName, containerActionDir := sc.getContainerActionPaths(step, actionLocation, rc)
 
 		sc.Env = mergeMaps(sc.Env, action.Runs.Env)
 
@@ -416,7 +412,7 @@ func (sc *StepContext) runAction(actionDir string, actionPath string) common.Exe
 			if err != nil {
 				return err
 			}
-			return rc.JobContainer.CopyDir(containerActionDir+"/", actionDir, rc.Config.UseGitIgnore)(ctx)
+			return rc.JobContainer.CopyDir(containerActionDir+"/", actionLocation, rc.Config.UseGitIgnore)(ctx)
 		}
 
 		switch action.Runs.Using {
@@ -425,7 +421,7 @@ func (sc *StepContext) runAction(actionDir string, actionPath string) common.Exe
 			if err != nil {
 				return err
 			}
-			containerArgs := []string{"node", path.Join(containerActionDir, actionName, actionPath, action.Runs.Main)}
+			containerArgs := []string{"node", path.Join(containerActionDir, action.Runs.Main)}
 			log.Debugf("executing remote job container: %s", containerArgs)
 			return rc.execJobContainer(containerArgs, sc.Env)(ctx)
 		case model.ActionRunsUsingDocker:

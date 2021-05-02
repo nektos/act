@@ -5,13 +5,11 @@ jobs:
   workdir:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-    - run: ls -alFt "${GITHUB_WORKSPACE}/workdir"
+    - run: mkdir -p "${GITHUB_WORKSPACE}/workdir"
     - run: '[[ "$(pwd)" == "${GITHUB_WORKSPACE}/workdir" ]]'
       working-directory: workdir
 
   noworkdir:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
       - run: '[[ "$(pwd)" == "${GITHUB_WORKSPACE}" ]]'
