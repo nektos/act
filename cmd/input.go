@@ -28,6 +28,7 @@ type Input struct {
 	usernsMode            string
 	containerArchitecture string
 	noWorkflowRecurse     bool
+	useGitIgnore          bool
 }
 
 func (i *Input) resolve(path string) string {
