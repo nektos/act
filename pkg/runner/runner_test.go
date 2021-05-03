@@ -14,7 +14,7 @@ import (
 )
 
 func TestGraphEvent(t *testing.T) {
-	planner, err := model.NewWorkflowPlanner("testdata/basic")
+	planner, err := model.NewWorkflowPlanner("testdata/basic", true)
 	assert.NilError(t, err)
 
 	plan := planner.PlanEvent("push")
@@ -56,7 +56,7 @@ func runTestJobFile(ctx context.Context, t *testing.T, tjfi TestJobFileInfo) {
 		runner, err := New(runnerConfig)
 		assert.NilError(t, err, tjfi.workflowPath)
 
-		planner, err := model.NewWorkflowPlanner(fullWorkflowPath)
+		planner, err := model.NewWorkflowPlanner(fullWorkflowPath, true)
 		assert.NilError(t, err, fullWorkflowPath)
 
 		plan := planner.PlanEvent(tjfi.eventName)
@@ -79,45 +79,28 @@ func TestRunEvent(t *testing.T) {
 		"ubuntu-latest": "node:12.20.1-buster-slim",
 	}
 	tables := []TestJobFileInfo{
-		// {"testdata", "powershell", "push", "", platforms}, // Powershell is not available on default act test runner (yet) but preserving here for posterity
-		{"testdata", "basic", "push", "", platforms, "linux/amd64"},
-		{"testdata", "fail", "push", "exit with `FAILURE`: 1", platforms, "linux/amd64"},
-		{"testdata", "runs-on", "push", "", platforms, "linux/amd64"},
-		{"testdata", "job-container", "push", "", platforms, "linux/amd64"},
-		{"testdata", "job-container-non-root", "push", "", platforms, "linux/amd64"},
-		{"testdata", "uses-docker-url", "push", "", platforms, "linux/amd64"},
-		{"testdata", "remote-action-docker", "push", "", platforms, "linux/amd64"},
-		{"testdata", "remote-action-js", "push", "", platforms, "linux/amd64"},
-		{"testdata", "local-action-docker-url", "push", "", platforms, "linux/amd64"},
-		{"testdata", "local-action-dockerfile", "push", "", platforms, "linux/amd64"},
-		{"testdata", "local-action-js", "push", "", platforms, "linux/amd64"},
-		{"testdata", "matrix", "push", "", platforms, "linux/amd64"},
-		{"testdata", "matrix-include-exclude", "push", "", platforms, "linux/amd64"},
-		{"testdata", "commands", "push", "", platforms, "linux/amd64"},
-		{"testdata", "workdir", "push", "", platforms, "linux/amd64"},
-		// {"testdata", "issue-228", "push", "", platforms, "linux/amd64"}, // TODO [igni]: Remove this once everything passes
-		{"testdata", "defaults-run", "push", "", platforms, "linux/amd64"},
-		{"testdata", "uses-composite", "push", "", platforms, "linux/amd64"},
+		{"testdata", "basic", "push", "", platforms, ""},
+		{"testdata", "fail", "push", "exit with `FAILURE`: 1", platforms, ""},
+		{"testdata", "runs-on", "push", "", platforms, ""},
+		{"testdata", "job-container", "push", "", platforms, ""},
+		{"testdata", "job-container-non-root", "push", "", platforms, ""},
+		{"testdata", "uses-docker-url", "push", "", platforms, ""},
+		{"testdata", "remote-action-docker", "push", "", platforms, ""},
+		{"testdata", "remote-action-js", "push", "", platforms, ""},
+		{"testdata", "local-action-docker-url", "push", "", platforms, ""},
+		{"testdata", "local-action-dockerfile", "push", "", platforms, ""},
+		{"testdata", "local-action-js", "push", "", platforms, ""},
+		{"testdata", "matrix", "push", "", platforms, ""},
+		{"testdata", "matrix-include-exclude", "push", "", platforms, ""},
+		{"testdata", "commands", "push", "", platforms, ""},
+		{"testdata", "workdir", "push", "", platforms, ""},
+		{"testdata", "defaults-run", "push", "", platforms, ""},
+		{"testdata", "uses-composite", "push", "", platforms, ""},
+		// {"testdata", "powershell", "push", "", platforms, ""}, // Powershell is not available on default act test runner (yet) but preserving here for posterity
+		// {"testdata", "issue-228", "push", "", platforms, ""}, // TODO [igni]: Remove this once everything passes
 
-		// linux/arm64
+		// single test for different architecture: linux/arm64
 		{"testdata", "basic", "push", "", platforms, "linux/arm64"},
-		{"testdata", "fail", "push", "exit with `FAILURE`: 1", platforms, "linux/arm64"},
-		{"testdata", "runs-on", "push", "", platforms, "linux/arm64"},
-		{"testdata", "job-container", "push", "", platforms, "linux/arm64"},
-		{"testdata", "job-container-non-root", "push", "", platforms, "linux/arm64"},
-		{"testdata", "uses-docker-url", "push", "", platforms, "linux/arm64"},
-		{"testdata", "remote-action-docker", "push", "", platforms, "linux/arm64"},
-		{"testdata", "remote-action-js", "push", "", platforms, "linux/arm64"},
-		{"testdata", "local-action-docker-url", "push", "", platforms, "linux/arm64"},
-		{"testdata", "local-action-dockerfile", "push", "", platforms, "linux/arm64"},
-		{"testdata", "local-action-js", "push", "", platforms, "linux/arm64"},
-		{"testdata", "matrix", "push", "", platforms, "linux/arm64"},
-		{"testdata", "matrix-include-exclude", "push", "", platforms, "linux/arm64"},
-		{"testdata", "commands", "push", "", platforms, "linux/arm64"},
-		{"testdata", "workdir", "push", "", platforms, "linux/arm64"},
-		// {"testdata", "issue-228", "push", "", platforms, "linux/arm64"}, // TODO [igni]: Remove this once everything passes
-		{"testdata", "defaults-run", "push", "", platforms, "linux/arm64"},
-		{"testdata", "uses-composite", "push", "", platforms, "linux/arm64"},
 	}
 	log.SetLevel(log.DebugLevel)
 
@@ -160,7 +143,7 @@ func TestRunEventSecrets(t *testing.T) {
 	runner, err := New(runnerConfig)
 	assert.NilError(t, err, workflowPath)
 
-	planner, err := model.NewWorkflowPlanner(fmt.Sprintf("testdata/%s", workflowPath))
+	planner, err := model.NewWorkflowPlanner(fmt.Sprintf("testdata/%s", workflowPath), true)
 	assert.NilError(t, err, workflowPath)
 
 	plan := planner.PlanEvent(eventName)
@@ -197,7 +180,7 @@ func TestRunEventPullRequest(t *testing.T) {
 	runner, err := New(runnerConfig)
 	assert.NilError(t, err, workflowPath)
 
-	planner, err := model.NewWorkflowPlanner(fmt.Sprintf("testdata/%s", workflowPath))
+	planner, err := model.NewWorkflowPlanner(fmt.Sprintf("testdata/%s", workflowPath), true)
 	assert.NilError(t, err, workflowPath)
 
 	plan := planner.PlanEvent(eventName)

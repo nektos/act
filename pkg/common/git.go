@@ -71,6 +71,40 @@ func FindGitRef(file string) (string, error) {
 
 	log.Debugf("HEAD points to '%s'", ref)
 
+	// Prefer the git library to iterate over the references and find a matching tag or branch.
+	var refTag = ""
+	var refBranch = ""
+	r, err := git.PlainOpen(filepath.Join(gitDir, ".."))
+	if err == nil {
+		iter, err := r.References()
+		if err == nil {
+			for {
+				r, err := iter.Next()
+				if r == nil || err != nil {
+					break
+				}
+				log.Debugf("Reference: name=%s sha=%s", r.Name().String(), r.Hash().String())
+				if r.Hash().String() == ref {
+					if r.Name().IsTag() {
+						refTag = r.Name().String()
+					}
+					if r.Name().IsBranch() {
+						refBranch = r.Name().String()
+					}
+				}
+			}
+			iter.Close()
+		}
+	}
+	if refTag != "" {
+		return refTag, nil
+	}
+	if refBranch != "" {
+		return refBranch, nil
+	}
+
+	// If the above doesn't work, fall back to the old way
+
 	// try tags first
 	tag, err := findGitPrettyRef(ref, gitDir, "refs/tags")
 	if err != nil || tag != "" {

@@ -252,10 +252,6 @@ func (sc *StepContext) newStepContainer(ctx context.Context, image string, cmd [
 		binds = append(binds, fmt.Sprintf("%s:%s%s", rc.Config.Workdir, rc.Config.Workdir, bindModifiers))
 	}
 
-	if rc.Config.ContainerArchitecture == "" {
-		rc.Config.ContainerArchitecture = fmt.Sprintf("%s/%s", "linux", runtime.GOARCH)
-	}
-
 	stepContainer := container.NewContainer(&container.NewContainerInput{
 		Cmd:        cmd,
 		Entrypoint: entrypoint,
@@ -419,7 +415,7 @@ func (sc *StepContext) runAction(actionDir string, actionPath string) common.Exe
 				if err != nil {
 					return err
 				}
-				err = rc.JobContainer.CopyDir(containerActionDir+"/", actionDir)(ctx)
+				err = rc.JobContainer.CopyDir(containerActionDir+"/", actionDir, rc.Config.UseGitIgnore)(ctx)
 				if err != nil {
 					return err
 				}
@@ -438,33 +434,35 @@ func (sc *StepContext) runAction(actionDir string, actionPath string) common.Exe
 				image = strings.ToLower(image)
 				contextDir := filepath.Join(actionDir, actionPath, action.Runs.Main)
 
-				exists, err := container.ImageExistsLocally(ctx, image, "any")
+				anyArchExists, err := container.ImageExistsLocally(ctx, image, "any")
 				if err != nil {
 					return err
 				}
 
-				if exists {
-					wasRemoved, err := container.DeleteImage(ctx, image)
+				correctArchExists, err := container.ImageExistsLocally(ctx, image, rc.Config.ContainerArchitecture)
+				if err != nil {
+					return err
+				}
+
+				if anyArchExists && !correctArchExists {
+					wasRemoved, err := container.RemoveImage(ctx, image, true, true)
 					if err != nil {
 						return err
 					}
 					if !wasRemoved {
-						return fmt.Errorf("failed to delete image '%s'", image)
+						return fmt.Errorf("failed to remove image '%s'", image)
 					}
 				}
 
-				prepImage = container.NewDockerBuildExecutor(container.NewDockerBuildExecutorInput{
-					ContextDir: contextDir,
-					ImageTag:   image,
-					Platform:   rc.Config.ContainerArchitecture,
-				})
-				exists, err = container.ImageExistsLocally(ctx, image, rc.Config.ContainerArchitecture)
-				if err != nil {
-					return err
-				}
-
-				if !exists {
-					return err
+				if !correctArchExists {
+					log.Debugf("image '%s' for architecture '%s' will be built from context '%s", image, rc.Config.ContainerArchitecture, contextDir)
+					prepImage = container.NewDockerBuildExecutor(container.NewDockerBuildExecutorInput{
+						ContextDir: contextDir,
+						ImageTag:   image,
+						Platform:   rc.Config.ContainerArchitecture,
+					})
+				} else {
+					log.Debugf("image '%s' for architecture '%s' already exists", image, rc.Config.ContainerArchitecture)
 				}
 			}
 
