@@ -96,13 +96,12 @@ func TestRunEvent(t *testing.T) {
 		{"testdata", "workdir", "push", "", platforms, ""},
 		{"testdata", "defaults-run", "push", "", platforms, ""},
 		{"testdata", "uses-composite", "push", "", platforms, ""},
-    {"testdata", "issue-597", "push", "", platforms, ""},
+		{"testdata", "issue-597", "push", "", platforms, ""},
 		// {"testdata", "powershell", "push", "", platforms, ""}, // Powershell is not available on default act test runner (yet) but preserving here for posterity
 		// {"testdata", "issue-228", "push", "", platforms, ""}, // TODO [igni]: Remove this once everything passes
 
 		// single test for different architecture: linux/arm64
 		{"testdata", "basic", "push", "", platforms, "linux/arm64"},
-
 	}
 	log.SetLevel(log.DebugLevel)
 
