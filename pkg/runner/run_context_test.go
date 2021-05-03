@@ -264,6 +264,9 @@ func TestRunContext_GetBindsAndMounts(t *testing.T) {
 					// Name binds/mounts are either/or
 					if config.BindWorkdir {
 						fullBind := testcase.name + ":" + testcase.wantbind
+						if runtime.GOOS == "darwin" {
+							fullBind += ":delegated"
+						}
 						a.Contains(t, gotbind, fullBind)
 					} else {
 						mountkey := testcase.rc.jobContainerName()
