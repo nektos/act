@@ -1,9 +1,10 @@
 module github.com/nektos/act
 
-go 1.14
+go 1.16
 
 require (
 	github.com/AlecAivazis/survey/v2 v2.2.7
+	github.com/Masterminds/semver v1.5.0
 	github.com/andreaskoch/go-fswatch v1.0.0
 	github.com/containerd/containerd v1.4.1 // indirect
 	github.com/containerd/continuity v0.0.0-20200928162600-f2cc35102c2a // indirect
@@ -19,6 +20,7 @@ require (
 	github.com/joho/godotenv v1.3.0
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/kevinburke/ssh_config v0.0.0-20201106050909-4977a11b4351 // indirect
+	github.com/mitchellh/go-homedir v1.1.0
 	github.com/moby/buildkit v0.8.1
 	github.com/moby/sys/mount v0.2.0 // indirect
 	github.com/opencontainers/image-spec v1.0.1

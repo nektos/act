@@ -1,86 +1,165 @@
 name: push
-on: [push, pull_request]
+on: [push, pull_request, workflow_dispatch]
 
 jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-    - uses: golangci/golangci-lint-action@v2
-      env:
-        CGO_ENABLED: 0
-      with:
-        version: v1.32.2
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v1
+        with:
+          go-version: 1.16
+      - uses: golangci/golangci-lint-action@v2
+        env:
+          CGO_ENABLED: 0
+        with:
+          version: v1.32.2
 
   test:
-    name: Test
+    name: Test on Linux
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-    - name: Set up QEMU
-      uses: docker/setup-qemu-action@v1
-    - uses: actions/setup-go@v1
-      with:
-        go-version: 1.14
-    - run: go test -cover -coverprofile=coverage.txt -covermode=atomic ./...
-      env:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 2
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+      - uses: actions/setup-go@v1
+        with:
+          go-version: 1.16
+      - uses: actions/cache@v2
+        if: ${{ !env.ACT }}
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+      - run: go test -v -cover -coverprofile=coverage.txt -covermode=atomic ./...
+        env:
           CGO_ENABLED: 0
-    - uses: codecov/codecov-action@v1
-      with:
-        files: coverage.txt
-        fail_ci_if_error: true # optional (default = false)
+      - name: Upload Codecov report
+        uses: codecov/codecov-action@v1.3.1
+        with:
+          files: coverage.txt
+          fail_ci_if_error: true # optional (default = false)
+
+  test-macos:
+    name: Test on MacOS
+    runs-on: macos-latest
+    continue-on-error: true # Don't let macos test fail whole workflow
+    env:
+      ISO_PATH: ~/.docker/machine/cache/boot2docker.iso
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v1
+        with:
+          go-version: 1.16
+      - uses: actions/cache@v2
+        if: ${{ !env.ACT }}
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+      - uses: actions/cache@v2
+        with:
+          key: boot2docker
+          path: ${{ env.ISO_PATH }}
+          restore-keys: boot2docker
+      - name: Install Docker on macOS
+        run: |
+          printf " 🛠️ Downloading boot2docker.iso 🛠️ \n\n"
+          mkdir -p ~/.docker/machine/cache/
+          test -f ${{ env.ISO_PATH }} && printf " 🛠️ ${{ env.ISO_PATH }} successfully restored 🛠️ \n\n" || wget "https://github.com/boot2docker/boot2docker/releases/download/v19.03.12/boot2docker.iso" -O ${{ env.ISO_PATH }}
+          printf " 🛠️ Installing Docker from Homebrew 🛠️ \n\n"
+          brew install docker docker-machine
+          printf " 🛠️ Creating Docker VM 🛠️ \n\n"
+          docker-machine create --driver virtualbox --virtualbox-boot2docker-url ${{ env.ISO_PATH }} default
+          docker-machine env default
+          printf " 🛠️ Adding Docker VM info to environment 🛠️ \n\n"
+          eval "$(docker-machine env default)"
+          echo "DOCKER_TLS_VERIFY=$DOCKER_TLS_VERIFY" | tee -a $GITHUB_ENV
+          echo "DOCKER_HOST=$DOCKER_HOST" | tee -a $GITHUB_ENV
+          echo "DOCKER_CERT_PATH=$DOCKER_CERT_PATH" | tee -a $GITHUB_ENV
+          echo "DOCKER_MACHINE_NAME=$DOCKER_MACHINE_NAME" | tee -a $GITHUB_ENV
+          printf " 🛠️ Install Qemu for running containers with different architecture 🛠️ \n\n"
+          docker run --rm --privileged tonistiigi/binfmt --install all
+          printf " 🛠️ Finished installing Docker 🛠️ \n\n"
+      - run: go test -v -timeout 30m -cover ./...
+        env:
+          CGO_ENABLED: 0
 
   snapshot:
     name: Snapshot
     if: ${{ github.event_name == 'pull_request' }}
     needs:
-    - lint
-    - test
+      - lint
+      - test
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-    - name: GoReleaser
-      uses: goreleaser/goreleaser-action@v2
-      with:
-        version: latest
-        args: release --snapshot --rm-dist
-    - name: Capture Linux Binary
-      uses: actions/upload-artifact@v2
-      with:
-        name: act-linux
-        path: dist/act_linux_amd64/act
-    - name: Capture Windows Binary
-      uses: actions/upload-artifact@v2
-      with:
-        name: act-windows
-        path: dist/act_windows_amd64/act.exe
-    - name: Capture MacOS Binary
-      uses: actions/upload-artifact@v2
-      with:
-        name: act-macos
-        path: dist/act_darwin_amd64/act
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v1
+        with:
+          go-version: 1.16
+      - uses: actions/cache@v2
+        if: ${{ !env.ACT }}
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+      - name: GoReleaser
+        uses: goreleaser/goreleaser-action@v2
+        with:
+          version: latest
+          args: release --snapshot --rm-dist
+      - name: Capture Linux Binary
+        uses: actions/upload-artifact@v2
+        with:
+          name: act-linux
+          path: dist/act_linux_amd64/act
+      - name: Capture Windows Binary
+        uses: actions/upload-artifact@v2
+        with:
+          name: act-windows
+          path: dist/act_windows_amd64/act.exe
+      - name: Capture MacOS Binary
+        uses: actions/upload-artifact@v2
+        with:
+          name: act-macos
+          path: dist/act_darwin_amd64/act
 
   release:
     name: Release
     if: startsWith(github.ref, 'refs/tags/v')
     needs:
-    - lint
-    - test
+      - lint
+      - test
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-      with:
-        fetch-depth: 0
-    - name: GoReleaser
-      uses: goreleaser/goreleaser-action@v1
-      with:
-        version: latest
-        args: release --rm-dist
-      env:
-        GITHUB_TOKEN: ${{ secrets.GORELEASER_GITHUB_TOKEN }}
-    - name: Chocolatey
-      uses: ./.github/actions/choco
-      with:
-        version: ${{ github.ref }}
-        apiKey: ${{ secrets.CHOCO_APIKEY }}
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v1
+        with:
+          go-version: 1.16
+      - uses: actions/cache@v2
+        if: ${{ !env.ACT }}
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+      - name: GoReleaser
+        uses: goreleaser/goreleaser-action@v1
+        with:
+          version: latest
+          args: release --rm-dist
+        env:
+          GITHUB_TOKEN: ${{ secrets.GORELEASER_GITHUB_TOKEN }}
+      - name: Chocolatey
+        uses: ./.github/actions/choco
+        with:
+          version: ${{ github.ref }}
+          apiKey: ${{ secrets.CHOCO_APIKEY }}

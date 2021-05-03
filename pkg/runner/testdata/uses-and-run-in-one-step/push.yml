@@ -1,0 +1,10 @@
+name: uses-and-run-in-one-step
+on: push
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Test
+        run: echo
+        uses: actions/checkout@v2

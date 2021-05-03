@@ -1,6 +1,7 @@
 ![](https://github.com/nektos/act/wiki/img/logo-150.png)
 
-# Overview [![push](https://github.com/nektos/act/workflows/push/badge.svg?branch=master&event=push)](https://github.com/nektos/act/actions) [![Join the chat at https://gitter.im/nektos/act](https://badges.gitter.im/nektos/act.svg)](https://gitter.im/nektos/act?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) [![Go Report Card](https://goreportcard.com/badge/github.com/nektos/act)](https://goreportcard.com/report/github.com/nektos/act)
+# Overview [![push](https://github.com/nektos/act/workflows/push/badge.svg?branch=master&event=push)](https://github.com/nektos/act/actions) [![Join the chat at https://gitter.im/nektos/act](https://badges.gitter.im/nektos/act.svg)](https://gitter.im/nektos/act?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) [![Go Report Card](https://goreportcard.com/badge/github.com/nektos/act)](https://goreportcard.com/report/github.com/nektos/act)[![awesome-runners](https://img.shields.io/badge/listed%20on-awesome--runners-blue.svg)](https://github.com/jonico/awesome-runners)
+
 
 > "Think globally, `act` locally"
 
@@ -87,7 +88,7 @@ It will save that information to `~/.actrc`, please refer to [Configuration](#co
 ```none
   -a, --actor string                    user that triggered the event (default "nektos/act")
   -b, --bind                            bind working directory to container, rather than copy
-      --container-architecture string   Architecture which should be used to run containers, e.g.: linux/amd64. Defaults to linux/<your machine architecture> [linux/amd64]
+      --container-architecture string   Architecture which should be used to run containers, e.g.: linux/amd64. If not specified, will use host default architecture. Requires Docker server API Version 1.41+. Ignored on earlier Docker server platforms.
       --defaultbranch string            the name of the main branch
       --detect-event                    Use first event type from workflow as event that triggered the workflow
   -C, --directory string                working directory (default ".")
@@ -102,7 +103,7 @@ It will save that information to `~/.actrc`, please refer to [Configuration](#co
   -l, --list                            list workflows
   -P, --platform stringArray            custom image to use per platform (e.g. -P ubuntu-18.04=nektos/act-environments-ubuntu:18.04)
       --privileged                      use privileged mode
-  -p, --pull                            pull docker image(s) if already present
+  -p, --pull                            pull docker image(s) even if already present
   -q, --quiet                           disable logging of output from steps
   -r, --reuse                           reuse action containers to maintain state
   -s, --secret stringArray              secret to make available to actions with optional value (e.g. -s mysecret=foo or -s mysecret)
@@ -268,7 +269,7 @@ Want to contribute to act? Awesome! Check out the [contributing guidelines](CONT
 
 ## Building from source
 
-- Install Go tools 1.11.4+ - (https://golang.org/doc/install)
+- Install Go tools 1.16+ - (https://golang.org/doc/install)
 - Clone this repo `git clone git@github.com:nektos/act.git`
 - Pull the default docker image `docker pull nektos/act-environments-ubuntu:18.04`
 - Run unit tests with `make test`

@@ -1,0 +1,12 @@
+name: invalid-job-name
+on: push
+
+jobs:
+  invalid-JOB-Name-v1.2.3-docker_hub:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo hi
+  valid-JOB-Name-v123-docker_hub:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo hi

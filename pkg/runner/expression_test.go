@@ -211,7 +211,7 @@ func updateTestExpressionWorkflow(t *testing.T, tables []struct {
 	}
 
 	workflow := fmt.Sprintf(`
-name: "Test how expressions are handled on Github"
+name: "Test how expressions are handled on GitHub"
 on: push
 
 env:

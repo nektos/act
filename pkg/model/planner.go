@@ -1,11 +1,13 @@
 package model
 
 import (
+	"fmt"
 	"io"
 	"io/ioutil"
 	"math"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 
 	"github.com/pkg/errors"
@@ -91,6 +93,12 @@ func NewWorkflowPlanner(path string) (WorkflowPlanner, error) {
 			}
 			if workflow.Name == "" {
 				workflow.Name = file.Name()
+			}
+			jobNameRegex := regexp.MustCompile(`^([[:alpha:]_][[:alnum:]_\-]*)$`)
+			for k := range workflow.Jobs {
+				if ok := jobNameRegex.MatchString(k); !ok {
+					return nil, fmt.Errorf("The workflow is not valid. %s: Job name %s is invalid. Names must start with a letter or '_' and contain only alphanumeric characters, '-', or '_'", workflow.Name, k)
+				}
 			}
 			wp.workflows = append(wp.workflows, workflow)
 			f.Close()

@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"strings"
 
 	"github.com/nektos/act/pkg/common"
@@ -14,6 +13,7 @@ import (
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/andreaskoch/go-fswatch"
 	"github.com/joho/godotenv"
+	"github.com/mitchellh/go-homedir"
 	gitignore "github.com/sabhiram/go-gitignore"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -27,7 +27,7 @@ func Execute(ctx context.Context, version string) {
 	input := new(Input)
 	var rootCmd = &cobra.Command{
 		Use:              "act [event name to run]\nIf no event name passed, will default to \"on: push\"",
-		Short:            "Run Github actions locally by specifying the event name (e.g. `push`) or an action name directly.",
+		Short:            "Run GitHub actions locally by specifying the event name (e.g. `push`) or an action name directly.",
 		Args:             cobra.MaximumNArgs(1),
 		RunE:             newRunCommand(ctx, input),
 		PersistentPreRun: setupLogging,
@@ -43,7 +43,7 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.Flags().StringArrayVarP(&input.platforms, "platform", "P", []string{}, "custom image to use per platform (e.g. -P ubuntu-18.04=nektos/act-environments-ubuntu:18.04)")
 	rootCmd.Flags().BoolVarP(&input.reuseContainers, "reuse", "r", false, "reuse action containers to maintain state")
 	rootCmd.Flags().BoolVarP(&input.bindWorkdir, "bind", "b", false, "bind working directory to container, rather than copy")
-	rootCmd.Flags().BoolVarP(&input.forcePull, "pull", "p", false, "pull docker image(s) if already present")
+	rootCmd.Flags().BoolVarP(&input.forcePull, "pull", "p", false, "pull docker image(s) even if already present")
 	rootCmd.Flags().BoolVarP(&input.autodetectEvent, "detect-event", "", false, "Use first event type from workflow as event that triggered the workflow")
 	rootCmd.Flags().StringVarP(&input.eventPath, "eventpath", "e", "", "path to event JSON file")
 	rootCmd.Flags().StringVar(&input.defaultBranch, "defaultbranch", "", "the name of the main branch")
@@ -58,7 +58,7 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.PersistentFlags().StringVarP(&input.secretfile, "secret-file", "", ".secrets", "file with list of secrets to read from (e.g. --secret-file .secrets)")
 	rootCmd.PersistentFlags().BoolVarP(&input.insecureSecrets, "insecure-secrets", "", false, "NOT RECOMMENDED! Doesn't hide secrets while printing logs.")
 	rootCmd.PersistentFlags().StringVarP(&input.envfile, "env-file", "", ".env", "environment file to read and use as env in the containers")
-	rootCmd.PersistentFlags().StringVarP(&input.containerArchitecture, "container-architecture", "", "", "Architecture which should be used to run containers, e.g.: linux/amd64. Defaults to linux/<your machine architecture> [linux/"+runtime.GOARCH+"]")
+	rootCmd.PersistentFlags().StringVarP(&input.containerArchitecture, "container-architecture", "", "", "Architecture which should be used to run containers, e.g.: linux/amd64. If not specified, will use host default architecture. Requires Docker server API Version 1.41+. Ignored on earlier Docker server platforms.")
 	rootCmd.SetArgs(args())
 
 	if err := rootCmd.Execute(); err != nil {
@@ -67,15 +67,35 @@ func Execute(ctx context.Context, version string) {
 
 }
 
-func args() []string {
-	args := make([]string, 0)
-	actrc := []string{
-		filepath.Join(os.Getenv("HOME"), ".actrc"),
+func configLocations() []string {
+	home, err := homedir.Dir()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// reference: https://specifications.freedesktop.org/basedir-spec/latest/ar01s03.html
+	var actrcXdg string
+	if xdg, ok := os.LookupEnv("XDG_CONFIG_HOME"); ok && xdg != "" {
+		actrcXdg = filepath.Join(xdg, ".actrc")
+	} else {
+		actrcXdg = filepath.Join(home, ".config", ".actrc")
+	}
+
+	return []string{
+		filepath.Join(home, ".actrc"),
+		actrcXdg,
 		filepath.Join(".", ".actrc"),
 	}
+}
+
+func args() []string {
+	actrc := configLocations()
+
+	args := make([]string, 0)
 	for _, f := range actrc {
 		args = append(args, readArgsFile(f)...)
 	}
+
 	args = append(args, os.Args[1:]...)
 	return args
 }
@@ -197,54 +217,21 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			return err
 		}
 
-		// check platforms
+		// Check if platforms flag is set, if not, run default image survey
 		if len(input.platforms) == 0 {
-			actrc := []string{
-				filepath.Join(os.Getenv("HOME"), ".actrc"),
+			cfgFound := false
+			cfgLocations := configLocations()
+			for _, v := range cfgLocations {
+				_, err := os.Stat(v)
+				if os.IsExist(err) {
+					cfgFound = true
+				}
 			}
-			_, err = os.Stat(actrc[0])
-			if os.IsNotExist(err) {
-				var answer string
-				confirmation := &survey.Select{
-					Message: "Please choose the default image you want to use with act:\n\n  - Large size image: +20GB Docker image, includes almost all tools used on GitHub Actions (IMPORTANT: currently only ubuntu-18.04 platform is available)\n  - Medium size image: ~500MB, includes only necessary tools to bootstrap actions and aims to be compatible with all actions\n  - Micro size image: <200MB, contains only NodeJS required to bootstrap actions, doesn't work with all actions\n\nDefault image and other options can be changed manually in ~/.actrc (please refer to https://github.com/nektos/act#configuration for additional information about file structure)",
-					Help:    "If you want to know why act asks you that, please go to https://github.com/nektos/act/issues/107",
-					Default: "Medium",
-					Options: []string{"Large", "Medium", "Micro"},
-				}
-				configFileArgs := make([]string, 0)
-				err := survey.AskOne(confirmation, &answer)
-				if err != nil {
-					log.Error(err)
-					os.Exit(1)
-				}
-				var option string
-				switch answer {
-				case "Large":
-					option = "-P ubuntu-18.04=nektos/act-environments-ubuntu:18.04"
-				case "Medium":
-					option = "-P ubuntu-latest=catthehacker/ubuntu:act-latest\n-P ubuntu-20.04=catthehacker/ubuntu:act-20.04\n-P ubuntu-18.04=catthehacker/ubuntu:act-18.04\nubuntu-16.04=catthehacker/ubuntu:act-16.04"
-				case "Micro":
-					option = "-P ubuntu-latest=node:12.20.1-buster-slim\n-P ubuntu-20.04=node:12.20.1-buster-slim\n-P ubuntu-18.04=node:12.20.1-buster-slim\n-P ubuntu-16.04=node:12.20.1-stretch-slim"
-				}
-
-				f, err := os.Create(actrc[0])
-				if err != nil {
+			if !cfgFound && len(cfgLocations) > 0 {
+				if err := defaultImageSurvey(cfgLocations[0]); err != nil {
 					log.Fatal(err)
 				}
-
-				_, err = f.WriteString(option)
-				if err != nil {
-					log.Fatal(err)
-					_ = f.Close()
-				}
-
-				err = f.Close()
-				if err != nil {
-					log.Fatal(err)
-				}
-
-				configFileArgs = append(configFileArgs, readArgsFile(actrc[0])...)
-				cmd.SetArgs(configFileArgs)
+				input.platforms = readArgsFile(cfgLocations[0])
 			}
 		}
 
@@ -281,6 +268,49 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 
 		return r.NewPlanExecutor(plan)(ctx)
 	}
+}
+
+func defaultImageSurvey(actrc string) error {
+	var answer string
+	confirmation := &survey.Select{
+		Message: "Please choose the default image you want to use with act:\n\n  - Large size image: +20GB Docker image, includes almost all tools used on GitHub Actions (IMPORTANT: currently only ubuntu-18.04 platform is available)\n  - Medium size image: ~500MB, includes only necessary tools to bootstrap actions and aims to be compatible with all actions\n  - Micro size image: <200MB, contains only NodeJS required to bootstrap actions, doesn't work with all actions\n\nDefault image and other options can be changed manually in ~/.actrc (please refer to https://github.com/nektos/act#configuration for additional information about file structure)",
+		Help:    "If you want to know why act asks you that, please go to https://github.com/nektos/act/issues/107",
+		Default: "Medium",
+		Options: []string{"Large", "Medium", "Micro"},
+	}
+
+	err := survey.AskOne(confirmation, &answer)
+	if err != nil {
+		return err
+	}
+
+	var option string
+	switch answer {
+	case "Large":
+		option = "-P ubuntu-18.04=nektos/act-environments-ubuntu:18.04"
+	case "Medium":
+		option = "-P ubuntu-latest=catthehacker/ubuntu:act-latest\n-P ubuntu-20.04=catthehacker/ubuntu:act-20.04\n-P ubuntu-18.04=catthehacker/ubuntu:act-18.04\nubuntu-16.04=catthehacker/ubuntu:act-16.04"
+	case "Micro":
+		option = "-P ubuntu-latest=node:12.20.1-buster-slim\n-P ubuntu-20.04=node:12.20.1-buster-slim\n-P ubuntu-18.04=node:12.20.1-buster-slim\n-P ubuntu-16.04=node:12.20.1-stretch-slim"
+	}
+
+	f, err := os.Create(actrc)
+	if err != nil {
+		return err
+	}
+
+	_, err = f.WriteString(option)
+	if err != nil {
+		_ = f.Close()
+		return err
+	}
+
+	err = f.Close()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func watchAndRun(ctx context.Context, fn common.Executor) error {
