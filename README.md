@@ -20,6 +20,7 @@ Let's see it in action with a [sample repo](https://github.com/cplee/github-acti
 # Installation
 
 ## Necessary prerequisites for running `act`
+
 `act` depends on `docker` to run workflows.
 
 If you are using macOS, please be sure to follow the steps outlined in [Docker Docs for how to install Docker Desktop for Mac](https://docs.docker.com/docker-for-mac/install/).
@@ -47,14 +48,15 @@ curl https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash
 If you are running Windows, download the [latest release](https://github.com/nektos/act/releases/latest) and add the binary into your PATH.
 If you are using [Chocolatey](https://chocolatey.org/) then run:
 
-[![](https://img.shields.io/chocolatey/v/act-cli)](https://community.chocolatey.org/packages/act-cli)
+[![choco-shield](https://img.shields.io/chocolatey/v/act-cli)](https://community.chocolatey.org/packages/act-cli)
+
 ```shell
 choco install act-cli
 ```
 
 If you are using [Scoop](https://scoop.sh/) then run:
 
-[![](https://img.shields.io/scoop/v/act)](https://github.com/ScoopInstaller/Main/blob/master/bucket/act.json)
+[![scoop-shield](https://img.shields.io/scoop/v/act)](https://github.com/ScoopInstaller/Main/blob/master/bucket/act.json)
 
 ```shell
 scoop install act
@@ -62,7 +64,7 @@ scoop install act
 
 If you are running Arch Linux, you can install the [act](https://aur.archlinux.org/packages/act/) package with your favorite package manager:
 
-[![](https://img.shields.io/aur/version/act)](https://aur.archlinux.org/packages/act/)
+[![aur-shield](https://img.shields.io/aur/version/act)](https://aur.archlinux.org/packages/act/)
 
 ```shell
 yay -S act
