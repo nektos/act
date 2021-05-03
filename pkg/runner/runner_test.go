@@ -14,7 +14,7 @@ import (
 )
 
 func TestGraphEvent(t *testing.T) {
-	planner, err := model.NewWorkflowPlanner("testdata/basic")
+	planner, err := model.NewWorkflowPlanner("testdata/basic", true)
 	assert.NilError(t, err)
 
 	plan := planner.PlanEvent("push")
@@ -56,7 +56,7 @@ func runTestJobFile(ctx context.Context, t *testing.T, tjfi TestJobFileInfo) {
 		runner, err := New(runnerConfig)
 		assert.NilError(t, err, tjfi.workflowPath)
 
-		planner, err := model.NewWorkflowPlanner(fullWorkflowPath)
+		planner, err := model.NewWorkflowPlanner(fullWorkflowPath, true)
 		assert.NilError(t, err, fullWorkflowPath)
 
 		plan := planner.PlanEvent(tjfi.eventName)
@@ -143,7 +143,7 @@ func TestRunEventSecrets(t *testing.T) {
 	runner, err := New(runnerConfig)
 	assert.NilError(t, err, workflowPath)
 
-	planner, err := model.NewWorkflowPlanner(fmt.Sprintf("testdata/%s", workflowPath))
+	planner, err := model.NewWorkflowPlanner(fmt.Sprintf("testdata/%s", workflowPath), true)
 	assert.NilError(t, err, workflowPath)
 
 	plan := planner.PlanEvent(eventName)
@@ -180,7 +180,7 @@ func TestRunEventPullRequest(t *testing.T) {
 	runner, err := New(runnerConfig)
 	assert.NilError(t, err, workflowPath)
 
-	planner, err := model.NewWorkflowPlanner(fmt.Sprintf("testdata/%s", workflowPath))
+	planner, err := model.NewWorkflowPlanner(fmt.Sprintf("testdata/%s", workflowPath), true)
 	assert.NilError(t, err, workflowPath)
 
 	plan := planner.PlanEvent(eventName)
