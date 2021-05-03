@@ -28,7 +28,6 @@ func CopyFile(source string, dest string) (err error) {
 		if err != nil {
 			_ = os.Chmod(dest, sourceinfo.Mode())
 		}
-
 	}
 
 	return
@@ -36,7 +35,6 @@ func CopyFile(source string, dest string) (err error) {
 
 // CopyDir recursive copy of directory
 func CopyDir(source string, dest string) (err error) {
-
 	// get properties of source dir
 	sourceinfo, err := os.Stat(source)
 	if err != nil {
@@ -55,7 +53,6 @@ func CopyDir(source string, dest string) (err error) {
 	objects, err := directory.Readdir(-1)
 
 	for _, obj := range objects {
-
 		sourcefilepointer := source + "/" + obj.Name()
 
 		destinationfilepointer := dest + "/" + obj.Name()
@@ -73,7 +70,6 @@ func CopyDir(source string, dest string) (err error) {
 				fmt.Println(err)
 			}
 		}
-
 	}
 	return err
 }

@@ -1,7 +1,6 @@
-![](https://github.com/nektos/act/wiki/img/logo-150.png)
+![act-logo](https://github.com/nektos/act/wiki/img/logo-150.png)
 
 # Overview [![push](https://github.com/nektos/act/workflows/push/badge.svg?branch=master&event=push)](https://github.com/nektos/act/actions) [![Join the chat at https://gitter.im/nektos/act](https://badges.gitter.im/nektos/act.svg)](https://gitter.im/nektos/act?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) [![Go Report Card](https://goreportcard.com/badge/github.com/nektos/act)](https://goreportcard.com/report/github.com/nektos/act) [![awesome-runners](https://img.shields.io/badge/listed%20on-awesome--runners-blue.svg)](https://github.com/jonico/awesome-runners)
-
 
 > "Think globally, `act` locally"
 
@@ -21,6 +20,7 @@ Let's see it in action with a [sample repo](https://github.com/cplee/github-acti
 # Installation
 
 ## Necessary prerequisites for running `act`
+
 `act` depends on `docker` to run workflows.
 
 If you are using macOS, please be sure to follow the steps outlined in [Docker Docs for how to install Docker Desktop for Mac](https://docs.docker.com/docker-for-mac/install/).
@@ -48,14 +48,15 @@ curl https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash
 If you are running Windows, download the [latest release](https://github.com/nektos/act/releases/latest) and add the binary into your PATH.
 If you are using [Chocolatey](https://chocolatey.org/) then run:
 
-[![](https://img.shields.io/chocolatey/v/act-cli)](https://community.chocolatey.org/packages/act-cli)
+[![choco-shield](https://img.shields.io/chocolatey/v/act-cli)](https://community.chocolatey.org/packages/act-cli)
+
 ```shell
 choco install act-cli
 ```
 
 If you are using [Scoop](https://scoop.sh/) then run:
 
-[![](https://img.shields.io/scoop/v/act)](https://github.com/ScoopInstaller/Main/blob/master/bucket/act.json)
+[![scoop-shield](https://img.shields.io/scoop/v/act)](https://github.com/ScoopInstaller/Main/blob/master/bucket/act.json)
 
 ```shell
 scoop install act
@@ -63,7 +64,7 @@ scoop install act
 
 If you are running Arch Linux, you can install the [act](https://aur.archlinux.org/packages/act/) package with your favorite package manager:
 
-[![](https://img.shields.io/aur/version/act)](https://aur.archlinux.org/packages/act/)
+[![aur-shield](https://img.shields.io/aur/version/act)](https://aur.archlinux.org/packages/act/)
 
 ```shell
 yay -S act
@@ -315,7 +316,7 @@ Want to contribute to act? Awesome! Check out the [contributing guidelines](CONT
 
 ## Building from source
 
-- Install Go tools 1.16+ - (https://golang.org/doc/install)
+- Install Go tools 1.16+ - (<https://golang.org/doc/install>)
 - Clone this repo `git clone git@github.com:nektos/act.git`
 - Run unit tests with `make test`
 - Build and install: `make install`

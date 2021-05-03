@@ -539,7 +539,6 @@ func (sc *StepContext) runAction(actionDir string, actionPath string) common.Exe
 				// Interpolate the outer inputs into the composite step with items
 				exprEval := sc.NewExpressionEvaluator()
 				for k, v := range stepContext.Step.With {
-
 					if strings.Contains(v, "inputs") {
 						stepContext.Step.With[k] = exprEval.Interpolate(v)
 					}
