@@ -12,17 +12,11 @@ func TestStepContextExecutor(t *testing.T) {
 		"ubuntu-latest": "node:12.20.1-buster-slim",
 	}
 	tables := []TestJobFileInfo{
-		{"testdata", "uses-and-run-in-one-step", "push", "Invalid run/uses syntax for job:test step:Test", platforms, "linux/amd64"},
-		{"testdata", "uses-github-empty", "push", "Expected format {org}/{repo}[/path]@ref", platforms, "linux/amd64"},
-		{"testdata", "uses-github-noref", "push", "Expected format {org}/{repo}[/path]@ref", platforms, "linux/amd64"},
-		{"testdata", "uses-github-root", "push", "", platforms, "linux/amd64"},
-		{"testdata", "uses-github-path", "push", "", platforms, "linux/amd64"},
-
-		{"testdata", "uses-and-run-in-one-step", "push", "Invalid run/uses syntax for job:test step:Test", platforms, "linux/arm64"},
-		{"testdata", "uses-github-empty", "push", "Expected format {org}/{repo}[/path]@ref", platforms, "linux/arm64"},
-		{"testdata", "uses-github-noref", "push", "Expected format {org}/{repo}[/path]@ref", platforms, "linux/arm64"},
-		{"testdata", "uses-github-root", "push", "", platforms, "linux/arm64"},
-		{"testdata", "uses-github-path", "push", "", platforms, "linux/arm64"},
+		{"testdata", "uses-and-run-in-one-step", "push", "Invalid run/uses syntax for job:test step:Test", platforms, ""},
+		{"testdata", "uses-github-empty", "push", "Expected format {org}/{repo}[/path]@ref", platforms, ""},
+		{"testdata", "uses-github-noref", "push", "Expected format {org}/{repo}[/path]@ref", platforms, ""},
+		{"testdata", "uses-github-root", "push", "", platforms, ""},
+		{"testdata", "uses-github-path", "push", "", platforms, ""},
 	}
 	// These tests are sufficient to only check syntax.
 	ctx := common.WithDryrun(context.Background(), true)

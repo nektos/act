@@ -27,6 +27,7 @@ type Input struct {
 	privileged            bool
 	usernsMode            string
 	containerArchitecture string
+	useGitIgnore          bool
 }
 
 func (i *Input) resolve(path string) string {
