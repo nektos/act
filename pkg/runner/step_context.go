@@ -88,10 +88,10 @@ func (sc *StepContext) Executor() common.Executor {
 			sc.runAction(actionDir, remoteAction.Path),
 		)
 	case model.StepTypeInvalid:
-		return common.NewErrorExecutor(fmt.Errorf("Invalid run/uses syntax for job:%s step:%+v", rc.Run, step))
+		return common.NewErrorExecutor(fmt.Errorf("invalid run/uses syntax for job:%s step:%+v", rc.Run, step))
 	}
 
-	return common.NewErrorExecutor(fmt.Errorf("Unable to determine how to run job:%s step:%+v", rc.Run, step))
+	return common.NewErrorExecutor(fmt.Errorf("unable to determine how to run job:%s step:%+v", rc.Run, step))
 }
 
 func (sc *StepContext) mergeEnv() map[string]string {
@@ -250,10 +250,6 @@ func (sc *StepContext) newStepContainer(ctx context.Context, image string, cmd [
 	}
 	if rc.Config.BindWorkdir {
 		binds = append(binds, fmt.Sprintf("%s:%s%s", rc.Config.Workdir, rc.Config.Workdir, bindModifiers))
-	}
-
-	if rc.Config.ContainerArchitecture == "" {
-		rc.Config.ContainerArchitecture = fmt.Sprintf("%s/%s", "linux", runtime.GOARCH)
 	}
 
 	stepContainer := container.NewContainer(&container.NewContainerInput{
@@ -433,33 +429,35 @@ func (sc *StepContext) execAsDocker(ctx context.Context, action *model.Action, a
 		image = strings.ToLower(image)
 		contextDir := filepath.Join(actionDir, actionPath, action.Runs.Main)
 
-		exists, err := container.ImageExistsLocally(ctx, image, "any")
+		anyArchExists, err := container.ImageExistsLocally(ctx, image, "any")
 		if err != nil {
 			return err
 		}
 
-		if exists {
+		correctArchExists, err := container.ImageExistsLocally(ctx, image, rc.Config.ContainerArchitecture)
+		if err != nil {
+			return err
+		}
+
+		if anyArchExists && !correctArchExists {
 			wasRemoved, err := container.RemoveImage(ctx, image, true, true)
 			if err != nil {
 				return err
 			}
 			if !wasRemoved {
-				return fmt.Errorf("failed to delete image '%s'", image)
+				return fmt.Errorf("failed to remove image '%s'", image)
 			}
 		}
 
-		prepImage = container.NewDockerBuildExecutor(container.NewDockerBuildExecutorInput{
-			ContextDir: contextDir,
-			ImageTag:   image,
-			Platform:   rc.Config.ContainerArchitecture,
-		})
-		exists, err = container.ImageExistsLocally(ctx, image, rc.Config.ContainerArchitecture)
-		if err != nil {
-			return err
-		}
-
-		if !exists {
-			return err
+		if !correctArchExists {
+			log.Debugf("image '%s' for architecture '%s' will be built from context '%s", image, rc.Config.ContainerArchitecture, contextDir)
+			prepImage = container.NewDockerBuildExecutor(container.NewDockerBuildExecutorInput{
+				ContextDir: contextDir,
+				ImageTag:   image,
+				Platform:   rc.Config.ContainerArchitecture,
+			})
+		} else {
+			log.Debugf("image '%s' for architecture '%s' already exists", image, rc.Config.ContainerArchitecture)
 		}
 	}
 
@@ -502,7 +500,7 @@ func (sc *StepContext) execAsNode(ctx context.Context, step *model.Step, actionD
 	return rc.execJobContainer(containerArgs, sc.Env)(ctx)
 }
 
-func (sc *StepContext) execAsComposite(ctx context.Context, step *model.Step, actionDir string, rc *RunContext, containerActionDir string, actionName string, actionPath string, action *model.Action) error {
+func (sc *StepContext) execAsComposite(ctx context.Context, step *model.Step, _ string, rc *RunContext, containerActionDir string, actionName string, _ string, action *model.Action) error {
 	for outputName, output := range action.Outputs {
 		re := regexp.MustCompile(`\${{ steps\.([a-zA-Z_][a-zA-Z0-9_-]+)\.outputs\.([a-zA-Z_][a-zA-Z0-9_-]+) }}`)
 		matches := re.FindStringSubmatch(output.Value)
