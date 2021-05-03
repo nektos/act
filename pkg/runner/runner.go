@@ -33,6 +33,7 @@ type Config struct {
 	Privileged            bool              // use privileged mode
 	UsernsMode            string            // user namespace to use
 	ContainerArchitecture string            // Desired OS/architecture platform for running containers
+	UseGitIgnore     bool              // controls if paths in .gitignore should not be copied into container, default true
 }
 
 type runnerImpl struct {
