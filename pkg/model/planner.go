@@ -50,6 +50,40 @@ func (r *Run) Job() *Job {
 	return r.Workflow.GetJob(r.JobID)
 }
 
+// Helper function for FixIfstatement
+func FixIfStatement1(val string, lines [][][]byte, l int) (string, error) {
+	if val != "" {
+		line := lines[l-1][0]
+		outcome := regexp.MustCompile(`\s+if:\s+".*".*`).FindSubmatch(line)
+		if outcome != nil {
+			oldLines := regexp.MustCompile(`"(.*?)"`).FindAllSubmatch(line, 2)
+			val = "${{" + string(oldLines[0][1]) + "}}"
+		}
+	}
+	return val, nil
+}
+
+// Fixes faulty if statements from decoder
+func FixIfStatement(content []byte, wr *Workflow) error {
+	jobs := wr.Jobs
+	lines := regexp.MustCompile(".*\n|.+$").FindAllSubmatch(content, -1)
+	for j := range jobs {
+		val, err := FixIfStatement1(jobs[j].If.Value, lines, jobs[j].If.Line)
+		if err != nil {
+			return err
+		}
+		jobs[j].If.Value = val
+		for i := range jobs[j].Steps {
+			val, err = FixIfStatement1(jobs[j].Steps[i].If.Value, lines, jobs[j].Steps[i].If.Line)
+			if err != nil {
+				return err
+			}
+			jobs[j].Steps[i].If.Value = val
+		}
+	}
+	return nil
+}
+
 type WorkflowFiles struct {
 	workflowFileInfo os.FileInfo
 	dirPath          string
@@ -135,6 +169,18 @@ func NewWorkflowPlanner(path string, noWorkflowRecurse bool) (WorkflowPlanner, e
 				}
 				return nil, err
 			}
+			_, err = f.Seek(0, 0)
+			if err != nil {
+				f.Close()
+				return nil, errors.WithMessagef(err, "error occuring when resetting io pointer, %s", wf.workflowFileInfo.Name())
+			}
+			log.Debugf("Correcting if statements '%s'", f.Name())
+			content, err := ioutil.ReadFile(filepath.Join(wf.dirPath, wf.workflowFileInfo.Name()))
+			if err != nil {
+				return nil, errors.WithMessagef(err, "error occuring when reading file, %s", wf.workflowFileInfo.Name())
+			}
+
+			err = FixIfStatement(content, workflow)
 
 			if workflow.Name == "" {
 				workflow.Name = wf.workflowFileInfo.Name()
