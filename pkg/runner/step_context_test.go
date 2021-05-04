@@ -2,8 +2,10 @@ package runner
 
 import (
 	"context"
+	"path/filepath"
 	"testing"
 
+	"github.com/joho/godotenv"
 	"github.com/nektos/act/pkg/common"
 )
 
@@ -20,7 +22,8 @@ func TestStepContextExecutor(t *testing.T) {
 	}
 	// These tests are sufficient to only check syntax.
 	ctx := common.WithDryrun(context.Background(), true)
+	secrets, _ := godotenv.Read(filepath.Join("..", ".secrets"))
 	for _, table := range tables {
-		runTestJobFile(ctx, t, table)
+		runTestJobFile(ctx, t, table, secrets)
 	}
 }
