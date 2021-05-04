@@ -2,7 +2,6 @@ package container
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/docker/docker/api/types"
 	"github.com/nektos/act/pkg/common"
@@ -15,11 +14,10 @@ func NewDockerNetworkCreateExecutor(name string) common.Executor {
 			return err
 		}
 
-		network, err := cli.NetworkCreate(ctx, name, types.NetworkCreate{})
+		_, err = cli.NetworkCreate(ctx, name, types.NetworkCreate{})
 		if err != nil {
 			return err
 		}
-		fmt.Printf("%#v", network.ID)
 
 		return nil
 	}
