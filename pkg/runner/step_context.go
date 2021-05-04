@@ -406,13 +406,16 @@ func (sc *StepContext) runAction(actionDir string, actionPath string) common.Exe
 
 		maybeCopyToActionDir := func() error {
 			if step.Type() != model.StepTypeUsesActionRemote {
-				return nil
+				// If the workdir is bound to our repository then we don't need to copy the file
+				if rc.Config.BindWorkdir {
+					return nil
+				}
 			}
 			err := removeGitIgnore(actionDir)
 			if err != nil {
 				return err
 			}
-			return rc.JobContainer.CopyDir(containerActionDir+"/", actionLocation, rc.Config.UseGitIgnore)(ctx)
+			return rc.JobContainer.CopyDir(containerActionDir+"/", actionLocation+"/", rc.Config.UseGitIgnore)(ctx)
 		}
 
 		switch action.Runs.Using {
