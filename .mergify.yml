@@ -1,0 +1,87 @@
+pull_request_rules:
+  - name: warn on conflicts
+    conditions:
+      - conflict
+    actions:
+      comment:
+        message: "@{{author}} this pull request is now in conflict 😩"
+      label:
+        add:
+          - conflict
+  - name: remove conflict label if not needed
+    conditions:
+      - -conflict
+    actions:
+      label:
+        remove:
+          - conflict
+  - name: warn on needs-work
+    conditions:
+      - "#check-failure>=1"
+    actions:
+      comment:
+        message: "@{{author}} this pull request has failed checks 🛠"
+      label:
+        add:
+          - needs-work
+  - name: remove needs-work label if not needed
+    conditions:
+      - check-success=lint
+      - check-success=test-linux
+      - check-success=test-macos
+      - check-success=codecov/patch
+      - check-success=codecov/project
+      - check-success=snapshot
+    actions:
+      label:
+        remove:
+          - needs-work
+  - name: Automatic maintainer assignment
+    conditions:
+      - -draft
+      - -merged
+      - -closed
+      - -conflict
+      - check-success=lint
+      - check-success=test-linux
+      - check-success=test-macos
+      - check-success=codecov/patch
+      - check-success=codecov/project
+      - check-success=snapshot
+    actions:
+      request_reviews:
+        teams: 
+        - "@nektos/act-maintainers"
+  - name: Automatic committer assignment
+    conditions:
+      - "approved-reviews-by=@nektos/act-maintainers"
+      - -draft
+      - -merged
+      - -closed
+      - -conflict
+      - check-success=lint
+      - check-success=test-linux
+      - check-success=test-macos
+      - check-success=codecov/patch
+      - check-success=codecov/project
+      - check-success=snapshot
+    actions:
+      request_reviews:
+        teams: 
+        - "@nektos/act-committers"
+  - name: Automatic merge on approval
+    conditions:
+      - "#changes-requested-reviews-by=0"
+      - "approved-reviews-by=@nektos/act-committers"
+      - -draft
+      - -merged
+      - -closed
+      - check-success=lint
+      - check-success=test-linux
+      - check-success=test-macos
+      - check-success=codecov/patch
+      - check-success=codecov/project
+      - check-success=snapshot
+    actions:
+      merge:
+        method: squash

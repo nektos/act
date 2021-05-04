@@ -1,9 +1,9 @@
-name: push
-on: [push, pull_request, workflow_dispatch]
+name: checks
+on: [pull_request, workflow_dispatch]
 
 jobs:
   lint:
-    name: Lint
+    name: lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -22,7 +22,7 @@ jobs:
           DEFAULT_BRANCH: master
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           FILTER_REGEX_EXCLUDE: .*testdata/*
-          VALIDATE_ALL_CODEBASE: ${{ github.event_name != 'pull_request' }} # lint only new changes when pull_request
+          VALIDATE_ALL_CODEBASE: false
           VALIDATE_BASH: false
           VALIDATE_DOCKERFILE: false
           VALIDATE_DOCKERFILE_HADOLINT: false
@@ -30,8 +30,8 @@ jobs:
           VALIDATE_JSCPD: false
           VALIDATE_SHELL_SHFMT: false
 
-  test:
-    name: Test on Linux
+  test-linux:
+    name: test-linux
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -59,7 +59,7 @@ jobs:
           fail_ci_if_error: true # optional (default = false)
 
   test-macos:
-    name: Test on MacOS
+    name: test-macos
     runs-on: macos-latest
     continue-on-error: true # Don't let macos test fail whole workflow
     env:
@@ -105,11 +105,7 @@ jobs:
           CGO_ENABLED: 0
 
   snapshot:
-    name: Snapshot
-    if: ${{ github.event_name == 'pull_request' }}
-    needs:
-      - lint
-      - test
+    name: snapshot
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -143,37 +139,3 @@ jobs:
         with:
           name: act-macos
           path: dist/act_darwin_amd64/act
-
-  release:
-    name: Release
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs:
-      - lint
-      - test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-go@v1
-        with:
-          go-version: 1.16
-      - uses: actions/cache@v2
-        if: ${{ !env.ACT }}
-        with:
-          path: ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
-      - name: GoReleaser
-        uses: goreleaser/goreleaser-action@v1
-        with:
-          version: latest
-          args: release --rm-dist
-        env:
-          GITHUB_TOKEN: ${{ secrets.GORELEASER_GITHUB_TOKEN }}
-      - name: Chocolatey
-        uses: ./.github/actions/choco
-        with:
-          version: ${{ github.ref }}
-          apiKey: ${{ secrets.CHOCO_APIKEY }}
