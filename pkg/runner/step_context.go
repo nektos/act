@@ -424,7 +424,7 @@ func (sc *StepContext) runAction(actionDir string, actionPath string) common.Exe
 		case model.ActionRunsUsingDocker:
 			return sc.execAsDocker(ctx, action, actionName, actionDir, actionPath, rc, step)
 		case model.ActionRunsUsingComposite:
-			return sc.execAsComposite(ctx, step, actionDir, rc, containerActionDir, actionName, actionPath, action)
+			return sc.execAsComposite(ctx, step, actionDir, rc, containerActionDir, actionName, actionPath, action, maybeCopyToActionDir)
 		default:
 			return fmt.Errorf(fmt.Sprintf("The runs.using key must be one of: %v, got %s", []string{
 				model.ActionRunsUsingDocker,
@@ -501,27 +501,13 @@ func (sc *StepContext) execAsDocker(ctx context.Context, action *model.Action, a
 	)(ctx)
 }
 
-func (sc *StepContext) execAsNode(ctx context.Context, step *model.Step, actionDir string, rc *RunContext, containerActionDir string, actionName string, actionPath string, action *model.Action) error {
-	if step.Type() == model.StepTypeUsesActionRemote {
-		err := removeGitIgnore(actionDir)
-		if err != nil {
-			return err
-		}
-		err = rc.JobContainer.CopyDir(containerActionDir+"/", actionDir)(ctx)
-		if err != nil {
-			return err
-		}
-	}
-	containerArgs := []string{"node", path.Join(containerActionDir, actionName, actionPath, action.Runs.Main)}
-	log.Debugf("executing remote job container: %s", containerArgs)
-	return rc.execJobContainer(containerArgs, sc.Env)(ctx)
-}
-
-func (sc *StepContext) execAsComposite(ctx context.Context, step *model.Step, _ string, rc *RunContext, containerActionDir string, actionName string, _ string, action *model.Action) error {
+func (sc *StepContext) execAsComposite(ctx context.Context, step *model.Step, _ string, rc *RunContext, containerActionDir string, actionName string, _ string, action *model.Action, maybeCopyToActionDir func() error) error {
 	err := maybeCopyToActionDir()
-			if err != nil {
-				return err
-			}for outputName, output := range action.Outputs {
+
+	if err != nil {
+		return err
+	}
+	for outputName, output := range action.Outputs {
 		re := regexp.MustCompile(`\${{ steps\.([a-zA-Z_][a-zA-Z0-9_-]+)\.outputs\.([a-zA-Z_][a-zA-Z0-9_-]+) }}`)
 		matches := re.FindStringSubmatch(output.Value)
 		if len(matches) > 2 {
