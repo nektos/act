@@ -129,7 +129,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			rc.stopJobContainer(),
 			rc.JobContainer.Create(),
 			rc.JobContainer.Start(false),
-			rc.JobContainer.CopyDir(copyToPath, rc.Config.Workdir+string(filepath.Separator)+".").IfBool(copyWorkspace),
+			rc.JobContainer.CopyDir(copyToPath, rc.Config.Workdir+string(filepath.Separator)+".", rc.Config.UseGitIgnore).IfBool(copyWorkspace),
 			rc.JobContainer.Copy(filepath.Dir(rc.Config.Workdir), &container.FileEntry{
 				Name: "workflow/event.json",
 				Mode: 0644,
@@ -216,23 +216,29 @@ func (rc *RunContext) newStepExecutor(step *model.Step) common.Executor {
 			Success: true,
 			Outputs: make(map[string]string),
 		}
+		runStep, err := rc.EvalBool(sc.Step.If)
+
+		if err != nil {
+			common.Logger(ctx).Errorf("  \u274C  Error in if: expression - %s", sc.Step)
+			exprEval, err := sc.setupEnv(ctx)
+			if err != nil {
+				return err
+			}
+			rc.ExprEval = exprEval
+			rc.StepResults[rc.CurrentStep].Success = false
+			return err
+		}
+
+		if !runStep {
+			log.Debugf("Skipping step '%s' due to '%s'", sc.Step.String(), sc.Step.If)
+			return nil
+		}
 
 		exprEval, err := sc.setupEnv(ctx)
 		if err != nil {
 			return err
 		}
 		rc.ExprEval = exprEval
-
-		runStep, err := rc.EvalBool(sc.Step.If)
-		if err != nil {
-			common.Logger(ctx).Errorf("  \u274C  Error in if: expression - %s", sc.Step)
-			rc.StepResults[rc.CurrentStep].Success = false
-			return err
-		}
-		if !runStep {
-			log.Debugf("Skipping step '%s' due to '%s'", sc.Step.String(), sc.Step.If)
-			return nil
-		}
 
 		common.Logger(ctx).Infof("\u2B50  Run %s", sc.Step)
 		err = sc.Executor()(ctx)
@@ -334,7 +340,6 @@ func (rc *RunContext) EvalBool(expr string) (bool, error) {
 				!strings.Contains(part, "!")) && // but it's not negated
 				interpolatedPart == "false" && // and the interpolated string is false
 				(isString || previousOrNextPartIsAnOperator(i, parts)) { // and it's of type string or has an logical operator before or after
-
 				interpolatedPart = fmt.Sprintf("'%s'", interpolatedPart) // then we have to quote the false expression
 			}
 
@@ -499,13 +504,6 @@ func (rc *RunContext) getGithubContext() *githubContext {
 		ghc.Sha = sha
 	}
 
-	ref, err := common.FindGitRef(repoPath)
-	if err != nil {
-		log.Warningf("unable to get git ref: %v", err)
-	} else {
-		log.Debugf("using github ref: %s", ref)
-		ghc.Ref = ref
-	}
 	if rc.EventJSON != "" {
 		err = json.Unmarshal([]byte(rc.EventJSON), &ghc.Event)
 		if err != nil {
@@ -513,11 +511,25 @@ func (rc *RunContext) getGithubContext() *githubContext {
 		}
 	}
 
-	// set the branch in the event data
-	if rc.Config.DefaultBranch != "" {
-		ghc.Event = withDefaultBranch(rc.Config.DefaultBranch, ghc.Event)
+	maybeRef := nestedMapLookup(ghc.Event, ghc.EventName, "ref")
+	if maybeRef != nil {
+		log.Debugf("using github ref from event: %s", maybeRef)
+		ghc.Ref = maybeRef.(string)
 	} else {
-		ghc.Event = withDefaultBranch("master", ghc.Event)
+		ref, err := common.FindGitRef(repoPath)
+		if err != nil {
+			log.Warningf("unable to get git ref: %v", err)
+		} else {
+			log.Debugf("using github ref: %s", ref)
+			ghc.Ref = ref
+		}
+
+		// set the branch in the event data
+		if rc.Config.DefaultBranch != "" {
+			ghc.Event = withDefaultBranch(rc.Config.DefaultBranch, ghc.Event)
+		} else {
+			ghc.Event = withDefaultBranch("master", ghc.Event)
+		}
 	}
 
 	if ghc.EventName == "pull_request" {

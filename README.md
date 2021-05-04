@@ -1,7 +1,6 @@
-![](https://github.com/nektos/act/wiki/img/logo-150.png)
+![act-logo](https://github.com/nektos/act/wiki/img/logo-150.png)
 
-# Overview [![push](https://github.com/nektos/act/workflows/push/badge.svg?branch=master&event=push)](https://github.com/nektos/act/actions) [![Join the chat at https://gitter.im/nektos/act](https://badges.gitter.im/nektos/act.svg)](https://gitter.im/nektos/act?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) [![Go Report Card](https://goreportcard.com/badge/github.com/nektos/act)](https://goreportcard.com/report/github.com/nektos/act)[![awesome-runners](https://img.shields.io/badge/listed%20on-awesome--runners-blue.svg)](https://github.com/jonico/awesome-runners)
-
+# Overview [![push](https://github.com/nektos/act/workflows/push/badge.svg?branch=master&event=push)](https://github.com/nektos/act/actions) [![Join the chat at https://gitter.im/nektos/act](https://badges.gitter.im/nektos/act.svg)](https://gitter.im/nektos/act?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) [![Go Report Card](https://goreportcard.com/badge/github.com/nektos/act)](https://goreportcard.com/report/github.com/nektos/act) [![awesome-runners](https://img.shields.io/badge/listed%20on-awesome--runners-blue.svg)](https://github.com/jonico/awesome-runners)
 
 > "Think globally, `act` locally"
 
@@ -20,34 +19,68 @@ Let's see it in action with a [sample repo](https://github.com/cplee/github-acti
 
 # Installation
 
+## Necessary prerequisites for running `act`
+
+`act` depends on `docker` to run workflows.
+
+If you are using macOS, please be sure to follow the steps outlined in [Docker Docs for how to install Docker Desktop for Mac](https://docs.docker.com/docker-for-mac/install/).
+
+If you are using Windows, please follow steps for [installing Docker Desktop on Windows](https://docs.docker.com/docker-for-windows/install/).
+
+If you are using Linux, you will need to [install Docker Engine](https://docs.docker.com/engine/install/).
+
+`act` is currently not supported with `podman` or other container backends (it might work, but it's not guaranteed). Please see [#303](https://github.com/nektos/act/issues/303) for updates.
+
+## Homebrew
+
 To install with [Homebrew](https://brew.sh/), run:
 
-`brew install act`
+```shell
+brew install act
+```
 
 Alternatively, you can use the following:
 
-`curl https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash`
-
-NOTE: Currently not compatible with Apple Silicon (ARM). This project relies on Docker which has not been ported to Apple Silicon yet.
+```shell
+curl https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash
+```
 
 If you are running Windows, download the [latest release](https://github.com/nektos/act/releases/latest) and add the binary into your PATH.
 If you are using [Chocolatey](https://chocolatey.org/) then run:
-`choco install act-cli`
+
+[![choco-shield](https://img.shields.io/chocolatey/v/act-cli)](https://community.chocolatey.org/packages/act-cli)
+
+```shell
+choco install act-cli
+```
 
 If you are using [Scoop](https://scoop.sh/) then run:
-`scoop install act`
+
+[![scoop-shield](https://img.shields.io/scoop/v/act)](https://github.com/ScoopInstaller/Main/blob/master/bucket/act.json)
+
+```shell
+scoop install act
+```
 
 If you are running Arch Linux, you can install the [act](https://aur.archlinux.org/packages/act/) package with your favorite package manager:
 
-`yay -S act`
+[![aur-shield](https://img.shields.io/aur/version/act)](https://aur.archlinux.org/packages/act/)
+
+```shell
+yay -S act
+```
 
 If you are using NixOS or the Nix package manager on another platform you can install act globally by running
 
-`nix-env -iA nixpkgs.act`
+```sh
+nix-env -iA nixpkgs.act
+```
 
 or in a shell by running
 
-`nix-shell -p act`
+```sh
+nix-shell -p act
+```
 
 # Commands
 
@@ -108,6 +141,7 @@ It will save that information to `~/.actrc`, please refer to [Configuration](#co
   -r, --reuse                           reuse action containers to maintain state
   -s, --secret stringArray              secret to make available to actions with optional value (e.g. -s mysecret=foo or -s mysecret)
       --secret-file string              file with list of secrets to read from (e.g. --secret-file .secrets) (default ".secrets")
+      --use-gitignore                   Controls whether paths specified in .gitignore should be copied into container (default true)
       --userns string                   user namespace to use
   -v, --verbose                         verbose output
   -w, --watch                           watch the contents of the local repo and run when files change
@@ -115,6 +149,8 @@ It will save that information to `~/.actrc`, please refer to [Configuration](#co
 ```
 
 # Known Issues
+
+## `MODULE_NOT_FOUND`
 
 A `MODULE_NOT_FOUND` during `docker cp` command [#228](https://github.com/nektos/act/issues/228) can happen if you are relying on local changes that have not been pushed. This can get triggered if the action is using a path, like:
 
@@ -136,41 +172,52 @@ steps:
 
 If the `path:` value doesn't match the name of the repository, a `MODULE_NOT_FOUND` will be thrown.
 
+## `act` on Windows
+
+Running `act` on Windows host is currently broken - see [#587](https://github.com/nektos/act/issues/587)
+
 # Runners
 
 GitHub Actions offers managed [virtual environments](https://help.github.com/en/actions/reference/virtual-environments-for-github-hosted-runners) for running workflows. In order for `act` to run your workflows locally, it must run a container for the runner defined in your workflow file. Here are the images that `act` uses for each runner type and size:
 
-| GitHub Runner | Micro Docker Image                 | Medium Docker Image                      | Large Docker Image                            |
-| ------------- | ---------------------------------- | ---------------------------------------- | --------------------------------------------- |
-| ubuntu-latest | [node:12.20.1-buster-slim][micro]  | [catthehacker/ubuntu:act-latest][medium] | `unavailable`                                 |
-| ubuntu-20.04  | [node:12.20.1-buster-slim][micro]  | [catthehacker/ubuntu:act-20.04][medium]  | `unavailable`                                 |
-| ubuntu-18.04  | [node:12.20.1-buster-slim][micro]  | [catthehacker/ubuntu:act-18.04][medium]  | [nektos/act-environments-ubuntu:18.04][large] |
-| ubuntu-16.04  | [node:12.20.1-stretch-slim][micro] | [catthehacker/ubuntu:act-16.04][medium]  | `unavailable`                                 |
+| GitHub Runner   | Micro Docker Image                   | Medium Docker Image                        | Large Docker Image                                     |
+| --------------- | ------------------------------------ | ------------------------------------------ | ------------------------------------------------------ |
+| `ubuntu-latest` | [`node:12.20.1-buster-slim`][micro]  | [`catthehacker/ubuntu:act-latest`][medium] | [`catthehacker/ubuntu:full-20.04`][large-cat]          |
+| `ubuntu-20.04`  | [`node:12.20.1-buster-slim`][micro]  | [`catthehacker/ubuntu:act-20.04`][medium]  | [`catthehacker/ubuntu:full-20.04`][large-cat]          |
+| `ubuntu-18.04`  | [`node:12.20.1-buster-slim`][micro]  | [`catthehacker/ubuntu:act-18.04`][medium]  | [`nektos/act-environments-ubuntu:18.04`][large-act]    |
+| `ubuntu-16.04`  | [`node:12.20.1-stretch-slim`][micro] | [`catthehacker/ubuntu:act-16.04`][medium]  | `unavailable`                                          |
 
-Below platforms are currently **unsupported and won't work** (see issue [#97])
+[micro]: https://hub.docker.com/_/buildpack-deps
+[medium]: https://github.com/catthehacker/docker_images
+[large-cat]: https://github.com/catthehacker/act-environments
+[large-act]: https://github.com/nektos/act-environments
+
+Below platforms are currently **unsupported and won't work** (see issue [#97](https://github.com/nektos/act/issues/97))
 
 - `windows-latest`
 - `windows-2019`
 - `macos-latest`
 - `macos-10.15`
 
-[micro]: https://hub.docker.com/_/buildpack-deps
-[medium]: https://github.com/catthehacker/docker_images
-[large]: https://github.com/nektos/act-environments
-[#97]: https://github.com/nektos/act/issues/97
+## Please see [IMAGES.md](./IMAGES.md) for more information about the Docker images that can be used with `act`
 
 ## Default runners are intentionally incomplete
 
 These default images do **not** contain **all** the tools that GitHub Actions offers by default in their runners.
 Many things can work improperly or not at all while running those image.
+Additionally, some software might still not work even if installed properly, since GitHub Actions are running in fully virtualized machines while `act` is using Docker containers (e.g. Docker does not support running `systemd`).
+In case of any problems [please create issue](https://github.com/nektos/act/issues/new/choose) in respective repository (issues with `act` in this repository, issues with `nektos/act-environments-ubuntu:18.04` in [`nektos/act-environments`](https://github.com/nektos/act-environments) and issues with any image from user `catthehacker` in [`catthehacker/docker_images`](https://github.com/catthehacker/docker_images))
 
 ## Alternative runner images
 
 If you need an environment that works just like the corresponding GitHub runner then consider using an image provided by [nektos/act-environments](https://github.com/nektos/act-environments):
 
-- [nektos/act-environments-ubuntu:18.04](https://hub.docker.com/r/nektos/act-environments-ubuntu/tags) - built from the Packer file GitHub uses in [actions/virtual-environments](https://github.com/actions/runner).
+- [`nektos/act-environments-ubuntu:18.04`](https://hub.docker.com/r/nektos/act-environments-ubuntu/tags) - built from the Packer file GitHub uses in [actions/virtual-environments](https://github.com/actions/runner).
 
 :warning: :elephant: `*** WARNING - this image is >18GB 😱***`
+
+- [`catthehacker/ubuntu:full-20.04`](https://hub.docker.com/r/catthehacker/ubuntu/tags) - built from Dockerfile based on the Packer template from [actions/virtual-environments](https://github.com/actions/runner).
+This image size is about `61GB` unpacked (`23GB` compressed) but contains more recent software versions (as of date of build).
 
 ## Use an alternative runner image
 
@@ -269,8 +316,7 @@ Want to contribute to act? Awesome! Check out the [contributing guidelines](CONT
 
 ## Building from source
 
-- Install Go tools 1.16+ - (https://golang.org/doc/install)
+- Install Go tools 1.16+ - (<https://golang.org/doc/install>)
 - Clone this repo `git clone git@github.com:nektos/act.git`
-- Pull the default docker image `docker pull nektos/act-environments-ubuntu:18.04`
 - Run unit tests with `make test`
 - Build and install: `make install`

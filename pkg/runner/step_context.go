@@ -401,9 +401,26 @@ func (sc *StepContext) runAction(actionDir string, actionPath string) common.Exe
 
 		log.Debugf("type=%v actionDir=%s actionPath=%s Workdir=%s ActionCacheDir=%s actionName=%s containerActionDir=%s", step.Type(), actionDir, actionPath, rc.Config.Workdir, rc.ActionCacheDir(), actionName, containerActionDir)
 
+		maybeCopyToActionDir := func() error {
+			if step.Type() != model.StepTypeUsesActionRemote {
+				return nil
+			}
+			err := removeGitIgnore(actionDir)
+			if err != nil {
+				return err
+			}
+			return rc.JobContainer.CopyDir(containerActionDir+"/", actionDir, rc.Config.UseGitIgnore)(ctx)
+		}
+
 		switch action.Runs.Using {
 		case model.ActionRunsUsingNode12:
-			return sc.execAsNode(ctx, step, actionDir, rc, containerActionDir, actionName, actionPath, action)
+			err := maybeCopyToActionDir()
+			if err != nil {
+				return err
+			}
+			containerArgs := []string{"node", path.Join(containerActionDir, actionName, actionPath, action.Runs.Main)}
+			log.Debugf("executing remote job container: %s", containerArgs)
+			return rc.execJobContainer(containerArgs, sc.Env)(ctx)
 		case model.ActionRunsUsingDocker:
 			return sc.execAsDocker(ctx, action, actionName, actionDir, actionPath, rc, step)
 		case model.ActionRunsUsingComposite:
@@ -501,7 +518,10 @@ func (sc *StepContext) execAsNode(ctx context.Context, step *model.Step, actionD
 }
 
 func (sc *StepContext) execAsComposite(ctx context.Context, step *model.Step, _ string, rc *RunContext, containerActionDir string, actionName string, _ string, action *model.Action) error {
-	for outputName, output := range action.Outputs {
+	err := maybeCopyToActionDir()
+			if err != nil {
+				return err
+			}for outputName, output := range action.Outputs {
 		re := regexp.MustCompile(`\${{ steps\.([a-zA-Z_][a-zA-Z0-9_-]+)\.outputs\.([a-zA-Z_][a-zA-Z0-9_-]+) }}`)
 		matches := re.FindStringSubmatch(output.Value)
 		if len(matches) > 2 {

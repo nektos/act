@@ -40,7 +40,6 @@ func TestFindGitSlug(t *testing.T) {
 		assert.Equal(tt.provider, provider)
 		assert.Equal(tt.slug, slug)
 	}
-
 }
 
 func testDir(t *testing.T) string {
