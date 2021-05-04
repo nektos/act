@@ -63,7 +63,6 @@ func NewDockerBuildExecutor(input NewDockerBuildExecutorInput) common.Executor {
 		}
 		return nil
 	}
-
 }
 func createBuildContext(contextDir string, relDockerfile string) (io.ReadCloser, error) {
 	log.Debugf("Creating archive for build context dir '%s' with relative dockerfile '%s'", contextDir, relDockerfile)

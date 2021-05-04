@@ -50,34 +50,78 @@ func (r *Run) Job() *Job {
 	return r.Workflow.GetJob(r.JobID)
 }
 
-// NewWorkflowPlanner will load a specific workflow or all workflows from a directory
-func NewWorkflowPlanner(path string) (WorkflowPlanner, error) {
+type WorkflowFiles struct {
+	workflowFileInfo os.FileInfo
+	dirPath          string
+}
+
+// NewWorkflowPlanner will load a specific workflow, all workflows from a directory or all workflows from a directory and its subdirectories
+func NewWorkflowPlanner(path string, noWorkflowRecurse bool) (WorkflowPlanner, error) {
+	path, err := filepath.Abs(path)
+	if err != nil {
+		return nil, err
+	}
+
 	fi, err := os.Stat(path)
 	if err != nil {
 		return nil, err
 	}
 
-	var files []os.FileInfo
-	var dirname string
+	var workflows []WorkflowFiles
 
 	if fi.IsDir() {
 		log.Debugf("Loading workflows from '%s'", path)
-		dirname = path
-		files, err = ioutil.ReadDir(path)
+		if noWorkflowRecurse {
+			files, err := ioutil.ReadDir(path)
+			if err != nil {
+				return nil, err
+			}
+
+			for _, v := range files {
+				workflows = append(workflows, WorkflowFiles{
+					dirPath:          path,
+					workflowFileInfo: v,
+				})
+			}
+		} else {
+			log.Debug("Loading workflows recursively")
+			if err := filepath.Walk(path,
+				func(p string, f os.FileInfo, err error) error {
+					if err != nil {
+						return err
+					}
+
+					if !f.IsDir() {
+						log.Debugf("Found workflow '%s' in '%s'", f.Name(), p)
+						workflows = append(workflows, WorkflowFiles{
+							dirPath:          filepath.Dir(p),
+							workflowFileInfo: f,
+						})
+					}
+
+					return nil
+				}); err != nil {
+				return nil, err
+			}
+		}
 	} else {
 		log.Debugf("Loading workflow '%s'", path)
-		dirname, err = filepath.Abs(filepath.Dir(path))
-		files = []os.FileInfo{fi}
+		dirname := filepath.Dir(path)
+
+		workflows = append(workflows, WorkflowFiles{
+			dirPath:          dirname,
+			workflowFileInfo: fi,
+		})
 	}
 	if err != nil {
 		return nil, err
 	}
 
 	wp := new(workflowPlanner)
-	for _, file := range files {
-		ext := filepath.Ext(file.Name())
+	for _, wf := range workflows {
+		ext := filepath.Ext(wf.workflowFileInfo.Name())
 		if ext == ".yml" || ext == ".yaml" {
-			f, err := os.Open(filepath.Join(dirname, file.Name()))
+			f, err := os.Open(filepath.Join(wf.dirPath, wf.workflowFileInfo.Name()))
 			if err != nil {
 				return nil, err
 			}
@@ -87,19 +131,22 @@ func NewWorkflowPlanner(path string) (WorkflowPlanner, error) {
 			if err != nil {
 				f.Close()
 				if err == io.EOF {
-					return nil, errors.WithMessagef(err, "unable to read workflow, %s file is empty", file.Name())
+					return nil, errors.WithMessagef(err, "unable to read workflow, %s file is empty", wf.workflowFileInfo.Name())
 				}
 				return nil, err
 			}
+
 			if workflow.Name == "" {
-				workflow.Name = file.Name()
+				workflow.Name = wf.workflowFileInfo.Name()
 			}
+
 			jobNameRegex := regexp.MustCompile(`^([[:alpha:]_][[:alnum:]_\-]*)$`)
 			for k := range workflow.Jobs {
 				if ok := jobNameRegex.MatchString(k); !ok {
-					return nil, fmt.Errorf("The workflow is not valid. %s: Job name %s is invalid. Names must start with a letter or '_' and contain only alphanumeric characters, '-', or '_'", workflow.Name, k)
+					return nil, fmt.Errorf("workflow is not valid. '%s': Job name '%s' is invalid. Names must start with a letter or '_' and contain only alphanumeric characters, '-', or '_'", workflow.Name, k)
 				}
 			}
+
 			wp.workflows = append(wp.workflows, workflow)
 			f.Close()
 		}

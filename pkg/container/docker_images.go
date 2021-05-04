@@ -29,7 +29,7 @@ func ImageExistsLocally(ctx context.Context, imageName string, platform string) 
 	}
 
 	if len(images) > 0 {
-		if platform == "any" {
+		if platform == "any" || platform == "" {
 			return true, nil
 		}
 		for _, v := range images {
@@ -48,9 +48,9 @@ func ImageExistsLocally(ctx context.Context, imageName string, platform string) 
 	return false, nil
 }
 
-// DeleteImage removes image from local store, the function is used to run different
+// RemoveImage removes image from local store, the function is used to run different
 // container image architectures
-func DeleteImage(ctx context.Context, imageName string) (bool, error) {
+func RemoveImage(ctx context.Context, imageName string, force bool, pruneChildren bool) (bool, error) {
 	if exists, err := ImageExistsLocally(ctx, imageName, "any"); !exists {
 		return false, err
 	}
@@ -75,8 +75,8 @@ func DeleteImage(ctx context.Context, imageName string) (bool, error) {
 	if len(images) > 0 {
 		for _, v := range images {
 			if _, err = cli.ImageRemove(ctx, v.ID, types.ImageRemoveOptions{
-				Force:         true,
-				PruneChildren: true,
+				Force:         force,
+				PruneChildren: pruneChildren,
 			}); err != nil {
 				return false, err
 			}

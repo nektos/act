@@ -64,7 +64,7 @@ type Container interface {
 	Create() common.Executor
 	ConnectToNetwork(name string) common.Executor
 	Copy(destPath string, files ...*FileEntry) common.Executor
-	CopyDir(destPath string, srcPath string) common.Executor
+	CopyDir(destPath string, srcPath string, useGitIgnore bool) common.Executor
 	Pull(forcePull bool) common.Executor
 	Start(attach bool) common.Executor
 	Exec(command []string, env map[string]string) common.Executor
@@ -148,13 +148,13 @@ func (cr *containerReference) Copy(destPath string, files ...*FileEntry) common.
 	).IfNot(common.Dryrun)
 }
 
-func (cr *containerReference) CopyDir(destPath string, srcPath string) common.Executor {
+func (cr *containerReference) CopyDir(destPath string, srcPath string, useGitIgnore bool) common.Executor {
 	return common.NewPipelineExecutor(
 		common.NewInfoExecutor("%sdocker cp src=%s dst=%s", logPrefix, srcPath, destPath),
 		cr.connect(),
 		cr.find(),
 		cr.exec([]string{"mkdir", "-p", destPath}, nil),
-		cr.copyDir(destPath, srcPath),
+		cr.copyDir(destPath, srcPath, useGitIgnore),
 	).IfNot(common.Dryrun)
 }
 
@@ -163,7 +163,6 @@ func (cr *containerReference) UpdateFromGithubEnv(env *map[string]string) common
 }
 
 func (cr *containerReference) Exec(command []string, env map[string]string) common.Executor {
-
 	return common.NewPipelineExecutor(
 		cr.connect(),
 		cr.find(),
@@ -315,7 +314,7 @@ func (cr *containerReference) create() common.Executor {
 		}
 
 		var platSpecs *specs.Platform
-		if supportsContainerImagePlatform(cr.cli) {
+		if supportsContainerImagePlatform(cr.cli) && cr.input.Platform != "" {
 			desiredPlatform := strings.SplitN(cr.input.Platform, `/`, 2)
 
 			if len(desiredPlatform) != 2 {
@@ -470,7 +469,7 @@ func (cr *containerReference) exec(cmd []string, env map[string]string) common.E
 }
 
 // nolint: gocyclo
-func (cr *containerReference) copyDir(dstPath string, srcPath string) common.Executor {
+func (cr *containerReference) copyDir(dstPath string, srcPath string, useGitIgnore bool) common.Executor {
 	return func(ctx context.Context) error {
 		logger := common.Logger(ctx)
 		tarFile, err := ioutil.TempFile("", "act")
@@ -488,12 +487,15 @@ func (cr *containerReference) copyDir(dstPath string, srcPath string) common.Exe
 		}
 		log.Debugf("Stripping prefix:%s src:%s", srcPrefix, srcPath)
 
-		ps, err := gitignore.ReadPatterns(polyfill.New(osfs.New(srcPath)), nil)
-		if err != nil {
-			log.Debugf("Error loading .gitignore: %v", err)
-		}
+		var ignorer gitignore.Matcher
+		if useGitIgnore {
+			ps, err := gitignore.ReadPatterns(polyfill.New(osfs.New(srcPath)), nil)
+			if err != nil {
+				log.Debugf("Error loading .gitignore: %v", err)
+			}
 
-		ignorer := gitignore.NewMatcher(ps)
+			ignorer = gitignore.NewMatcher(ps)
+		}
 
 		err = filepath.Walk(srcPath, func(file string, fi os.FileInfo, err error) error {
 			if err != nil {
@@ -502,7 +504,7 @@ func (cr *containerReference) copyDir(dstPath string, srcPath string) common.Exe
 
 			sansPrefix := strings.TrimPrefix(file, srcPrefix)
 			split := strings.Split(sansPrefix, string(filepath.Separator))
-			if ignorer.Match(split, fi.IsDir()) {
+			if ignorer != nil && ignorer.Match(split, fi.IsDir()) {
 				if fi.IsDir() {
 					return filepath.SkipDir
 				}

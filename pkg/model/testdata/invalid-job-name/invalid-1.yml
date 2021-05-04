@@ -1,4 +1,4 @@
-name: invalid-job-name
+name: invalid-job-name-1
 on: push
 
 jobs:
