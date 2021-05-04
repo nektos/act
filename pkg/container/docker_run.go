@@ -367,8 +367,6 @@ func (cr *containerReference) create(capAdd []string, capDrop []string) common.E
 				OS:           desiredPlatform[0],
 			}
 		}
-		fmt.Printf("%#v", len(input.Cmd))
-		fmt.Printf("%#v", config)
 		resp, err := cr.cli.ContainerCreate(ctx, config, &container.HostConfig{
 			CapAdd:      capAdd,
 			CapDrop:     capDrop,
