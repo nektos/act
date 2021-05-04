@@ -97,9 +97,6 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			binds = append(binds, fmt.Sprintf("%s:%s%s", rc.Config.Workdir, rc.Config.Workdir, bindModifiers))
 		}
 
-		if rc.Config.ContainerArchitecture == "" {
-			rc.Config.ContainerArchitecture = fmt.Sprintf("%s/%s", "linux", runtime.GOARCH)
-		}
 		// add service containers
 		for name, spec := range rc.Run.Job().Services {
 			mergedEnv := envList
