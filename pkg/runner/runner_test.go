@@ -83,14 +83,13 @@ func TestRunEvent(t *testing.T) {
 	platforms := map[string]string{
 		"ubuntu-latest": "node:12.20.1-buster-slim",
 	}
-	pwshplatforms := map[string]string{
-		"ubuntu-latest": "ghcr.io/justingrote/act-pwsh:latest",
-	}
+
 	tables := []TestJobFileInfo{
 		{"testdata", "basic", "push", "", platforms, ""},
 		{"testdata", "fail", "push", "exit with `FAILURE`: 1", platforms, ""},
 		{"testdata", "runs-on", "push", "", platforms, ""},
-		{"testdata", "powershell", "push", "", pwshplatforms, ""},
+		// Pwsh is not available in default worker (yet) so we use a separate image for testing
+		{"testdata", "powershell", "push", "", map[string]string{"ubuntu-latest": "ghcr.io/justingrote/act-pwsh:latest"}, ""},
 		{"testdata", "job-container", "push", "", platforms, ""},
 		{"testdata", "job-container-non-root", "push", "", platforms, ""},
 		{"testdata", "uses-docker-url", "push", "", platforms, ""},
