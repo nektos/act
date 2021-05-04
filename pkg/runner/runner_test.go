@@ -190,7 +190,7 @@ func TestRunWithService(t *testing.T) {
 	ctx := context.Background()
 
 	platforms := map[string]string{
-		"ubuntu-latest": "node:12.20.1-buster-slim",
+		"ubuntu-latest": baseImage,
 	}
 
 	workflowPath := "services"

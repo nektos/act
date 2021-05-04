@@ -1,8 +1,7 @@
 name: services
 on: push
 jobs:
-  services:
-    name: Reproduction of failing Services interpolation
+  postgres:
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -23,4 +22,20 @@ jobs:
         run: |
           echo "id: ${{ job.services.postgres.id }}"
           echo "network: ${{ job.services.postgres.network }}"
-          echo "ports: ${{ job.services.postgres.ports }}"
+          echo "ports: ${{ toJSON(job.services.postgres.ports) }}"
+  mongodb:
+    runs-on: ubuntu-latest
+    services:
+      mongodb:
+        image: mongo:5
+        env:
+          MONGO_INITDB_ROOT_USERNAME: root
+          MONGO_INITDB_ROOT_PASSWORD: example
+        ports:
+        - 27017:27017
+    steps:
+      - name: Echo the Mongodb service ID / Network / Ports
+        run: |
+          echo "id: ${{ job.services.mongodb.id }}"
+          echo "network: ${{ job.services.mongodb.network }}"
+          echo "ports: ${{ toJSON(job.services.mongodb.ports) }}"

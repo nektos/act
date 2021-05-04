@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/docker/docker/api/types"
 	"github.com/google/shlex"
 	"github.com/spf13/pflag"
 
@@ -40,7 +41,7 @@ type RunContext struct {
 	JobContainer      container.Container
 	OutputMappings    map[MappableOutput]MappableOutput
 	JobName           string
-	ServiceContainers []container.Container
+	ServiceContainers map[string]container.Container
 }
 
 type MappableOutput struct {
@@ -138,7 +139,13 @@ func (rc *RunContext) GetBindsAndMounts() ([]string, map[string]string) {
 	return binds, mounts
 }
 
+// JobNetworkName returns formatted network name used in main container and its services
+func (rc *RunContext) JobNetworkName() string {
+	return createNetworkName("act", rc.Run.Workflow.Name, rc.Run.JobID, rc.Name)
+}
+
 func (rc *RunContext) startJobContainer() common.Executor {
+	job := rc.Run.Job()
 	image := rc.platformImage()
 	hostname := rc.hostname()
 
@@ -160,6 +167,9 @@ func (rc *RunContext) startJobContainer() common.Executor {
 
 		common.Logger(ctx).Infof("\U0001f680  Start image=%s", image)
 		name := rc.jobContainerName()
+		networkName := rc.JobNetworkName()
+		workdir := rc.Config.ContainerWorkdir()
+		binds, mounts := rc.GetBindsAndMounts()
 
 		envList := make([]string, 0)
 
@@ -167,48 +177,47 @@ func (rc *RunContext) startJobContainer() common.Executor {
 		envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_OS", "Linux"))
 		envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_TEMP", "/tmp"))
 
-		binds, mounts := rc.GetBindsAndMounts()
+		if job.Services != nil {
+			rc.ServiceContainers = make(map[string]container.Container, len(job.Services))
+			for name, spec := range job.Services {
+				mergedEnv := envList
+				for k, v := range spec.Env {
+					mergedEnv = append(mergedEnv, fmt.Sprintf("%s=%s", k, v))
+				}
 
-		// add service containers
-		for name, spec := range rc.Run.Job().Services {
-			mergedEnv := envList
-			for k, v := range spec.Env {
-				mergedEnv = append(mergedEnv, fmt.Sprintf("%s=%s", k, v))
+				mnt := mounts
+				mnt[name] = filepath.Dir(workdir)
+
+				c := container.NewContainer(&container.NewContainerInput{
+					Name:       name,
+					Hostname:   name,
+					WorkingDir: workdir,
+					Image:      spec.Image,
+					Username:   username,
+					Password:   password,
+					Env:        mergedEnv,
+					Mounts:     mnt,
+					Binds:      binds,
+					Stdout:     logWriter,
+					Stderr:     logWriter,
+					Privileged: rc.Config.Privileged,
+					UsernsMode: rc.Config.UsernsMode,
+					Platform:   rc.Config.ContainerArchitecture,
+				})
+				rc.ServiceContainers[name] = c
 			}
-
-			mnt := mounts
-			mnt[name] = filepath.Dir(rc.Config.ContainerWorkdir())
-
-			c := container.NewContainer(&container.NewContainerInput{
-				Name:       name,
-				WorkingDir: rc.Config.ContainerWorkdir(),
-				Image:      spec.Image,
-				Username:   rc.Config.Secrets["DOCKER_USERNAME"],
-				Password:   rc.Config.Secrets["DOCKER_PASSWORD"],
-				Env:        mergedEnv,
-				Mounts:     mnt,
-				// NetworkMode: "host",
-				Binds:      binds,
-				Stdout:     logWriter,
-				Stderr:     logWriter,
-				Privileged: rc.Config.Privileged,
-				UsernsMode: rc.Config.UsernsMode,
-				Platform:   rc.Config.ContainerArchitecture,
-			})
-			rc.ServiceContainers = append(rc.ServiceContainers, c)
 		}
 
 		rc.JobContainer = container.NewContainer(&container.NewContainerInput{
 			Cmd:        nil,
 			Entrypoint: []string{"/usr/bin/tail", "-f", "/dev/null"},
-			WorkingDir: rc.Config.ContainerWorkdir(),
+			WorkingDir: workdir,
 			Image:      image,
 			Username:   username,
 			Password:   password,
 			Name:       name,
 			Env:        envList,
 			Mounts:     mounts,
-			// NetworkMode: "host",
 			Binds:      binds,
 			Stdout:     logWriter,
 			Stderr:     logWriter,
@@ -218,25 +227,31 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			Hostname:   hostname,
 		})
 
+		if job.Services == nil {
+			rc.JobContainer.SetContainerNetworkMode("host")
+		}
+
 		var copyWorkspace bool
 		var copyToPath string
 		if !rc.Config.BindWorkdir {
 			copyToPath, copyWorkspace = rc.localCheckoutPath()
-			copyToPath = filepath.Join(rc.Config.ContainerWorkdir(), copyToPath)
+			copyToPath = filepath.Join(workdir, copyToPath)
 		}
 
-		networkName := fmt.Sprintf("act-%s-network", rc.Run.JobID)
 		return common.NewPipelineExecutor(
 			rc.JobContainer.Pull(rc.Config.ForcePull),
 			rc.stopServiceContainers(),
 			rc.stopJobContainer(),
-			rc.removeNetwork(networkName),
-			rc.createNetwork(networkName),
-			rc.startServiceContainers(networkName),
+			common.NewPipelineExecutor(
+				rc.createNetwork(networkName, types.NetworkCreate{CheckDuplicate: true}).IfBool(!container.DockerNetworkExists(ctx, networkName)),
+				rc.startServiceContainers(networkName),
+			).IfBool(job.Services != nil || job.Container() != nil),
 			rc.JobContainer.Create(rc.Config.ContainerCapAdd, rc.Config.ContainerCapDrop),
 			rc.JobContainer.Start(false),
 			rc.JobContainer.UpdateFromImageEnv(&rc.Env),
-			rc.JobContainer.ConnectToNetwork(networkName),
+			common.NewPipelineExecutor(
+				rc.JobContainer.ConnectToNetwork(networkName),
+			).IfBool(job.Services != nil || job.Container() != nil),
 			rc.JobContainer.UpdateFromEnv("/etc/environment", &rc.Env),
 			rc.JobContainer.Exec([]string{"mkdir", "-m", "0777", "-p", ActPath}, rc.Env, "root", ""),
 			rc.JobContainer.CopyDir(copyToPath, rc.Config.Workdir+string(filepath.Separator)+".", rc.Config.UseGitIgnore).IfBool(copyWorkspace),
@@ -257,9 +272,9 @@ func (rc *RunContext) startJobContainer() common.Executor {
 	}
 }
 
-func (rc *RunContext) createNetwork(name string) common.Executor {
+func (rc *RunContext) createNetwork(name string, config types.NetworkCreate) common.Executor {
 	return func(ctx context.Context) error {
-		return container.NewDockerNetworkCreateExecutor(name)(ctx)
+		return container.NewDockerNetworkCreateExecutor(name, config)(ctx)
 	}
 }
 
@@ -279,8 +294,11 @@ func (rc *RunContext) execJobContainer(cmd []string, env map[string]string, user
 func (rc *RunContext) stopJobContainer() common.Executor {
 	return func(ctx context.Context) error {
 		if rc.JobContainer != nil && !rc.Config.ReuseContainers {
-			return rc.JobContainer.Remove().
-				Then(container.NewDockerVolumeRemoveExecutor(rc.jobContainerName(), false))(ctx)
+			return common.NewPipelineExecutor(
+				rc.stopServiceContainers(),
+				rc.JobContainer.Remove().Then(container.NewDockerVolumeRemoveExecutor(rc.jobContainerName(), false)),
+				rc.removeNetwork(rc.JobNetworkName()).IfBool((rc.Run.Job().Services != nil || rc.Run.Job().Container() != nil) && !rc.Config.ReuseContainers && container.DockerNetworkExists(ctx, rc.JobNetworkName())),
+			)(ctx)
 		}
 		return nil
 	}
@@ -291,10 +309,10 @@ func (rc *RunContext) startServiceContainers(networkName string) common.Executor
 		execs := []common.Executor{}
 		for _, c := range rc.ServiceContainers {
 			execs = append(execs, common.NewPipelineExecutor(
-				c.Pull(false),
+				c.Pull(rc.Config.ForcePull),
 				c.Create([]string{}, []string{}),
-				c.Start(false),
 				c.ConnectToNetwork(networkName),
+				c.Start(false),
 			))
 		}
 		return common.NewParallelExecutor(execs...)(ctx)
@@ -551,6 +569,10 @@ func createContainerName(parts ...string) string {
 	return strings.ReplaceAll(strings.Trim(strings.Join(name, "-"), "-"), "--", "-")
 }
 
+func createNetworkName(parts ...string) string {
+	return strings.ReplaceAll(strings.Trim(strings.Join(parts, "_"), "-"), "--", "-")
+}
+
 func trimToLen(s string, l int) string {
 	if l < 0 {
 		l = 0
@@ -562,17 +584,25 @@ func trimToLen(s string, l int) string {
 }
 
 type jobContext struct {
-	Status    string `json:"status"`
-	Container struct {
-		ID      string `json:"id"`
-		Network string `json:"network"`
-	} `json:"container"`
-	Services map[string]struct {
-		ID string `json:"id"`
-	} `json:"services"`
+	Status    string                       `json:"status"`
+	Container jobContainerContext          `json:"container"`
+	Services  map[string]jobServiceContext `json:"services"`
+}
+
+type jobContainerContext struct {
+	ID      string `json:"id"`
+	Network string `json:"network"`
+}
+
+type jobServiceContext struct {
+	ID      string            `json:"id"`
+	Network string            `json:"network"`
+	Ports   map[string]string `json:"ports"`
 }
 
 func (rc *RunContext) getJobContext() *jobContext {
+	job := rc.Run.Job()
+
 	jobStatus := "success"
 	for _, stepStatus := range rc.StepResults {
 		if stepStatus.Conclusion == stepStatusFailure {
@@ -580,8 +610,34 @@ func (rc *RunContext) getJobContext() *jobContext {
 			break
 		}
 	}
+
+	container := jobContainerContext{}
+	if job.Container() != nil {
+		container = jobContainerContext{
+			ID:      rc.JobContainer.ID(),
+			Network: "host",
+		}
+	}
+
+	services := make(map[string]jobServiceContext, len(job.Services))
+	for name, container := range rc.ServiceContainers {
+		service := job.Services[name]
+		ports := make(map[string]string, len(service.Ports))
+		for _, v := range service.Ports {
+			split := strings.Split(v, `:`)
+			ports[split[0]] = split[1]
+		}
+		services[name] = jobServiceContext{
+			ID:      container.ID(),
+			Network: rc.JobNetworkName(),
+			Ports:   ports,
+		}
+	}
+
 	return &jobContext{
-		Status: jobStatus,
+		Status:    jobStatus,
+		Container: container,
+		Services:  services,
 	}
 }
 
