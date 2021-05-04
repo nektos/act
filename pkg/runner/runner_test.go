@@ -208,7 +208,7 @@ func TestRunWithService(t *testing.T) {
 	runner, err := New(runnerConfig)
 	assert.Nil(t, err, workflowPath)
 
-	planner, err := model.NewWorkflowPlanner(fmt.Sprintf("testdata/%s", workflowPath), false)
+	planner, err := model.NewWorkflowPlanner(fmt.Sprintf("testdata/%s", workflowPath), true)
 	assert.Nil(t, err, workflowPath)
 
 	plan := planner.PlanEvent(eventName)
