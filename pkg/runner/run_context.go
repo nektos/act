@@ -117,7 +117,6 @@ func (rc *RunContext) startJobContainer() common.Executor {
 					"act-toolcache": "/toolcache",
 					"act-actions":   "/actions",
 				},
-				// NetworkMode: "host",
 				Binds:      binds,
 				Stdout:     logWriter,
 				Stderr:     logWriter,
@@ -140,7 +139,6 @@ func (rc *RunContext) startJobContainer() common.Executor {
 				"act-toolcache": "/toolcache",
 				"act-actions":   "/actions",
 			},
-			// NetworkMode: "host",
 			Binds:      binds,
 			Stdout:     logWriter,
 			Stderr:     logWriter,
@@ -156,16 +154,17 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			copyToPath = filepath.Join(rc.Config.Workdir, copyToPath)
 		}
 
+		networkName := fmt.Sprintf("act-%s-network", rc.Run.JobID)
 		return common.NewPipelineExecutor(
 			rc.JobContainer.Pull(rc.Config.ForcePull),
 			rc.stopServiceContainers(),
 			rc.stopJobContainer(),
-			rc.removeNetwork(),
-			rc.createNetwork(),
-			rc.startServiceContainers(),
+			rc.removeNetwork(networkName),
+			rc.createNetwork(networkName),
+			rc.startServiceContainers(networkName),
 			rc.JobContainer.Create(),
 			rc.JobContainer.Start(false),
-			rc.JobContainer.ConnectToNetwork(defaultNetwork),
+			rc.JobContainer.ConnectToNetwork(networkName),
 			rc.JobContainer.CopyDir(copyToPath, rc.Config.Workdir+string(filepath.Separator)+".").IfBool(copyWorkspace),
 			rc.JobContainer.Copy(filepath.Dir(rc.Config.Workdir), &container.FileEntry{
 				Name: "workflow/event.json",
@@ -184,17 +183,15 @@ func (rc *RunContext) startJobContainer() common.Executor {
 	}
 }
 
-const defaultNetwork = "act_github_actions_network"
-
-func (rc *RunContext) createNetwork() common.Executor {
+func (rc *RunContext) createNetwork(name string) common.Executor {
 	return func(ctx context.Context) error {
-		return container.NewDockerNetworkCreateExecutor(defaultNetwork)(ctx)
+		return container.NewDockerNetworkCreateExecutor(name)(ctx)
 	}
 }
 
-func (rc *RunContext) removeNetwork() common.Executor {
+func (rc *RunContext) removeNetwork(name string) common.Executor {
 	return func(ctx context.Context) error {
-		return container.NewDockerNetworkRemoveExecutor(defaultNetwork)(ctx)
+		return container.NewDockerNetworkRemoveExecutor(name)(ctx)
 	}
 }
 
@@ -215,7 +212,7 @@ func (rc *RunContext) stopJobContainer() common.Executor {
 	}
 }
 
-func (rc *RunContext) startServiceContainers() common.Executor {
+func (rc *RunContext) startServiceContainers(networkName string) common.Executor {
 	return func(ctx context.Context) error {
 		execs := []common.Executor{}
 		for _, c := range rc.ServiceContainers {
@@ -223,7 +220,7 @@ func (rc *RunContext) startServiceContainers() common.Executor {
 				c.Pull(false),
 				c.Create(),
 				c.Start(false),
-				c.ConnectToNetwork(defaultNetwork),
+				c.ConnectToNetwork(networkName),
 			))
 		}
 		return common.NewParallelExecutor(execs...)(ctx)

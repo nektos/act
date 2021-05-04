@@ -327,8 +327,6 @@ func (cr *containerReference) create() common.Executor {
 				OS:           desiredPlatform[0],
 			}
 		}
-		fmt.Printf("%#v", len(input.Cmd))
-		fmt.Printf("%#v", config)
 		resp, err := cr.cli.ContainerCreate(ctx, config, &container.HostConfig{
 			Binds:       input.Binds,
 			Mounts:      mounts,

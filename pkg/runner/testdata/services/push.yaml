@@ -1,8 +1,5 @@
 name: services
-
-on:
-  push:
-
+on: push
 jobs:
   services:
     name: Reproduction of failing Services interpolation
