@@ -88,10 +88,10 @@ func (sc *StepContext) Executor() common.Executor {
 			sc.runAction(actionDir, remoteAction.Path),
 		)
 	case model.StepTypeInvalid:
-		return common.NewErrorExecutor(fmt.Errorf("invalid run/uses syntax for job:%s step:%+v", rc.Run, step))
+		return common.NewErrorExecutor(fmt.Errorf("Invalid run/uses syntax for job:%s step:%+v", rc.Run, step))
 	}
 
-	return common.NewErrorExecutor(fmt.Errorf("unable to determine how to run job:%s step:%+v", rc.Run, step))
+	return common.NewErrorExecutor(fmt.Errorf("Unable to determine how to run job:%s step:%+v", rc.Run, step))
 }
 
 func (sc *StepContext) mergeEnv() map[string]string {
