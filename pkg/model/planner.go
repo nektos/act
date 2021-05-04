@@ -181,6 +181,9 @@ func NewWorkflowPlanner(path string, noWorkflowRecurse bool) (WorkflowPlanner, e
 			}
 
 			err = FixIfStatement(content, workflow)
+			if err != nil {
+				return err
+			}
 
 			if workflow.Name == "" {
 				workflow.Name = wf.workflowFileInfo.Name()
