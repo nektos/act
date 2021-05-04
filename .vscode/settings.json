@@ -1,0 +1,6 @@
+{
+    "go.lintTool": "golangci-lint",
+    "go.lintFlags": [
+        "--fix"
+    ]
+}

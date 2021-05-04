@@ -21,7 +21,7 @@ If you've identified a bug in `act`, please [submit an issue](#issue) to our Git
 
 All feature requests should start with [submitting an issue](#issue) documenting the user story and acceptance criteria.  Again, feel free to submit a [Pull Request](#pr) with a proposed implementation of the feature.
 
-## <a name="process"></a> Ready to Contribute!
+## <a name="process"></a> Ready to Contribute
 
 ### <a name="issue"></a> Create an issue
 

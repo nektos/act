@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"runtime"
 	"sort"
 	"strings"
 	"testing"
@@ -157,7 +158,6 @@ func updateTestIfWorkflow(t *testing.T, tables []struct {
 	out     bool
 	wantErr bool
 }, rc *RunContext) {
-
 	var envs string
 	keys := make([]string, 0, len(rc.Env))
 	for k := range rc.Env {
@@ -210,5 +210,70 @@ jobs:
 	_, err = file.WriteString(workflow)
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestRunContext_GetBindsAndMounts(t *testing.T) {
+	rctemplate := &RunContext{
+		Name: "TestRCName",
+		Run: &model.Run{
+			Workflow: &model.Workflow{
+				Name: "TestWorkflowName",
+			},
+		},
+		Config: &Config{
+			BindWorkdir: false,
+		},
+	}
+
+	tests := []struct {
+		windowsPath bool
+		name        string
+		rc          *RunContext
+		wantbind    string
+		wantmount   string
+	}{
+		{false, "/mnt/linux", rctemplate, "/mnt/linux", "/mnt/linux"},
+		{false, "/mnt/path with spaces/linux", rctemplate, "/mnt/path with spaces/linux", "/mnt/path with spaces/linux"},
+		{true, "C:\\Users\\TestPath\\MyTestPath", rctemplate, "/mnt/c/Users/TestPath/MyTestPath", "/mnt/c/Users/TestPath/MyTestPath"},
+		{true, "C:\\Users\\Test Path with Spaces\\MyTestPath", rctemplate, "/mnt/c/Users/Test Path with Spaces/MyTestPath", "/mnt/c/Users/Test Path with Spaces/MyTestPath"},
+		{true, "/LinuxPathOnWindowsShouldFail", rctemplate, "", ""},
+	}
+
+	isWindows := runtime.GOOS == "windows"
+
+	for _, testcase := range tests {
+		// pin for scopelint
+		testcase := testcase
+		for _, bindWorkDir := range []bool{true, false} {
+			// pin for scopelint
+			bindWorkDir := bindWorkDir
+			testBindSuffix := ""
+			if bindWorkDir {
+				testBindSuffix = "Bind"
+			}
+
+			// Only run windows path tests on windows and non-windows on non-windows
+			if (isWindows && testcase.windowsPath) || (!isWindows && !testcase.windowsPath) {
+				t.Run((testcase.name + testBindSuffix), func(t *testing.T) {
+					config := testcase.rc.Config
+					config.Workdir = testcase.name
+					config.BindWorkdir = bindWorkDir
+					gotbind, gotmount := rctemplate.GetBindsAndMounts()
+
+					// Name binds/mounts are either/or
+					if config.BindWorkdir {
+						fullBind := testcase.name + ":" + testcase.wantbind
+						if runtime.GOOS == "darwin" {
+							fullBind += ":delegated"
+						}
+						a.Contains(t, gotbind, fullBind)
+					} else {
+						mountkey := testcase.rc.jobContainerName()
+						a.EqualValues(t, testcase.wantmount, gotmount[mountkey])
+					}
+				})
+			}
+		}
 	}
 }

@@ -6,19 +6,22 @@ linters-settings:
     # minimal code complexity to report, 30 by default (but we recommend 10-20)
     mi-complexity: 15
   gocritic:
-     disabled-checks:
+    disabled-checks:
       - ifElseChain
 
 linters:
   enable:
-  - megacheck
-  - govet
-  - golint
-  - gocyclo
-  - gosec
-  - unconvert
-  - dupl
-  - nakedret
-  - prealloc
-  - scopelint
-  - gocritic
+    - megacheck
+    - govet
+    - golint
+    - gocyclo
+    - gosec
+    - unconvert
+    - dupl
+    - nakedret
+    - prealloc
+    - exportloopref
+    - gocritic
+    - goimports
+    - whitespace
+    - misspell

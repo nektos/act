@@ -151,7 +151,6 @@ func (cr *containerReference) UpdateFromGithubEnv(env *map[string]string) common
 }
 
 func (cr *containerReference) Exec(command []string, env map[string]string) common.Executor {
-
 	return common.NewPipelineExecutor(
 		cr.connect(),
 		cr.find(),

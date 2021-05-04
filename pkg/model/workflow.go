@@ -23,7 +23,6 @@ type Workflow struct {
 
 // On events for the workflow
 func (w *Workflow) On() []string {
-
 	switch w.RawOn.Kind {
 	case yaml.ScalarNode:
 		var val string
@@ -110,7 +109,6 @@ func (j *Job) Container() *ContainerSpec {
 
 // Needs list for Job
 func (j *Job) Needs() []string {
-
 	switch j.RawNeeds.Kind {
 	case yaml.ScalarNode:
 		var val string
@@ -132,7 +130,6 @@ func (j *Job) Needs() []string {
 
 // RunsOn list for Job
 func (j *Job) RunsOn() []string {
-
 	switch j.RawRunsOn.Kind {
 	case yaml.ScalarNode:
 		var val string
@@ -184,7 +181,6 @@ func (j *Job) GetMatrixes() []map[string]interface{} {
 			log.Debugf("Adding include '%v'", include)
 			matrixes = append(matrixes, include)
 		}
-
 	} else {
 		matrixes = append(matrixes, make(map[string]interface{}))
 	}
