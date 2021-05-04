@@ -168,6 +168,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 		envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_TEMP", "/tmp"))
 
 		binds, mounts := rc.GetBindsAndMounts()
+
 		// add service containers
 		for name, spec := range rc.Run.Job().Services {
 			mergedEnv := envList
