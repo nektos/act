@@ -307,6 +307,15 @@ act -e pull-request.json
 
 Act will properly provide `github.head_ref` and `github.base_ref` to the action as expected.
 
+# GitHub Enterprise
+
+Act supports using and authenticating against private GitHub Enterprise servers.
+To use your custom GHE server, set the CLI flag `--github-instance` to your hostname (e.g. `github.company.com`).
+
+Please note that if your GHE server requires authentication, we will use the secret provided via `GITHUB_TOKEN`.
+
+Please also see the [official documentation for GitHub actions on GHE](https://docs.github.com/en/enterprise-server@3.0/admin/github-actions/about-using-actions-in-your-enterprise) for more information on how to use actions.
+
 # Support
 
 Need help? Ask on [Gitter](https://gitter.im/nektos/act)!
