@@ -15,6 +15,7 @@ import (
 
 	git "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-ini/ini"
 	log "github.com/sirupsen/logrus"
 )
@@ -226,9 +227,10 @@ func findGitDirectory(fromFile string) (string, error) {
 
 // NewGitCloneExecutorInput the input for the NewGitCloneExecutor
 type NewGitCloneExecutorInput struct {
-	URL string
-	Ref string
-	Dir string
+	URL   string
+	Ref   string
+	Dir   string
+	Token string
 }
 
 // CloneIfRequired ...
@@ -245,10 +247,24 @@ func CloneIfRequired(ctx context.Context, refName plumbing.ReferenceName, input 
 			progressWriter = os.Stdout
 		}
 
-		r, err = git.PlainCloneContext(ctx, input.Dir, false, &git.CloneOptions{
-			URL:      input.URL,
-			Progress: progressWriter,
-		})
+		var cloneOptions git.CloneOptions
+		if input.Token != "" {
+			cloneOptions = git.CloneOptions{
+				URL:      input.URL,
+				Progress: progressWriter,
+				Auth: &http.BasicAuth{
+					Username: "token",
+					Password: input.Token,
+				},
+			}
+		} else {
+			cloneOptions = git.CloneOptions{
+				URL:      input.URL,
+				Progress: progressWriter,
+			}
+		}
+
+		r, err = git.PlainCloneContext(ctx, input.Dir, false, &cloneOptions)
 		if err != nil {
 			logger.Errorf("Unable to clone %v %s: %v", input.URL, refName, err)
 			return nil, err

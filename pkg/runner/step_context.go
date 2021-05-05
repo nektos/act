@@ -73,7 +73,8 @@ func (sc *StepContext) Executor() common.Executor {
 
 		remoteAction.URL = rc.Config.GitHubInstance
 
-		if remoteAction.IsCheckout() && rc.getGithubContext().isLocalCheckout(step) {
+		github := rc.getGithubContext()
+		if remoteAction.IsCheckout() && github.isLocalCheckout(step) {
 			return func(ctx context.Context) error {
 				common.Logger(ctx).Debugf("Skipping actions/checkout")
 				return nil
@@ -83,9 +84,10 @@ func (sc *StepContext) Executor() common.Executor {
 		actionDir := fmt.Sprintf("%s/%s", rc.ActionCacheDir(), strings.ReplaceAll(step.Uses, "/", "-"))
 		return common.NewPipelineExecutor(
 			common.NewGitCloneExecutor(common.NewGitCloneExecutorInput{
-				URL: remoteAction.CloneURL(),
-				Ref: remoteAction.Ref,
-				Dir: actionDir,
+				URL:   remoteAction.CloneURL(),
+				Ref:   remoteAction.Ref,
+				Dir:   actionDir,
+				Token: github.Token,
 			}),
 			sc.setupAction(actionDir, remoteAction.Path),
 			sc.runAction(actionDir, remoteAction.Path),
