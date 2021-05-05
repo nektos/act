@@ -630,7 +630,7 @@ func (rc *RunContext) withGithubEnv(env map[string]string) map[string]string {
 	github := rc.getGithubContext()
 	env["CI"] = "true"
 	env["GITHUB_ENV"] = fmt.Sprintf("%s/%s", rc.Config.ContainerWorkdir(), "workflow/envs.txt")
-	env["GITHUB_PATH"] = fmt.Sprintf("%s/%s", filepath.Dir(rc.Config.Workdir), "workflow/paths.txt")
+	env["GITHUB_PATH"] = fmt.Sprintf("%s/%s", rc.Config.ContainerWorkdir(), "workflow/paths.txt")
 	env["GITHUB_WORKFLOW"] = github.Workflow
 	env["GITHUB_RUN_ID"] = github.RunID
 	env["GITHUB_RUN_NUMBER"] = github.RunNumber
