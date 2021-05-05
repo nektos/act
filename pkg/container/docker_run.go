@@ -338,6 +338,7 @@ func (cr *containerReference) extractGithubEnv(env *map[string]string) common.Ex
 		if err != nil {
 			return nil
 		}
+		defer githubEnvTar.Close()
 		reader := tar.NewReader(githubEnvTar)
 		_, err = reader.Next()
 		if err != nil && err != io.EOF {
