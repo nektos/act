@@ -182,7 +182,7 @@ func NewWorkflowPlanner(path string, noWorkflowRecurse bool) (WorkflowPlanner, e
 
 			err = FixIfStatement(content, workflow)
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			if workflow.Name == "" {
