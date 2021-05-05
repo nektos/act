@@ -56,6 +56,7 @@ pull_request_rules:
   - name: Automatic committer assignment
     conditions:
       - "approved-reviews-by=@nektos/act-maintainers"
+      - "-approved-reviews-by=@nektos/act-committers"
       - -draft
       - -merged
       - -closed
