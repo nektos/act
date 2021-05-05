@@ -79,7 +79,7 @@ func getImagePullOptions(ctx context.Context, input NewDockerPullExecutorInput) 
 	}
 	if input.Username != "" && input.Password != "" {
 		logger := common.Logger(ctx)
-		logger.Debugf("  using authentication")
+		logger.Debugf("using authentication for docker pull")
 
 		authConfig := types.AuthConfig{
 			Username: input.Username,
