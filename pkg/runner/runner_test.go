@@ -56,6 +56,7 @@ func runTestJobFile(ctx context.Context, t *testing.T, tjfi TestJobFileInfo, sec
 			ReuseContainers:       false,
 			ContainerArchitecture: tjfi.containerArchitecture,
 			Secrets:               secrets,
+			GitHubInstance:        "github.com",
 		}
 
 		runner, err := New(runnerConfig)

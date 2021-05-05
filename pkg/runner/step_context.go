@@ -70,7 +70,11 @@ func (sc *StepContext) Executor() common.Executor {
 		if remoteAction == nil {
 			return common.NewErrorExecutor(formatError(step.Uses))
 		}
-		if remoteAction.IsCheckout() && rc.getGithubContext().isLocalCheckout(step) {
+
+		remoteAction.URL = rc.Config.GitHubInstance
+
+		github := rc.getGithubContext()
+		if remoteAction.IsCheckout() && github.isLocalCheckout(step) {
 			return func(ctx context.Context) error {
 				common.Logger(ctx).Debugf("Skipping actions/checkout")
 				return nil
@@ -80,9 +84,10 @@ func (sc *StepContext) Executor() common.Executor {
 		actionDir := fmt.Sprintf("%s/%s", rc.ActionCacheDir(), strings.ReplaceAll(step.Uses, "/", "-"))
 		return common.NewPipelineExecutor(
 			common.NewGitCloneExecutor(common.NewGitCloneExecutorInput{
-				URL: remoteAction.CloneURL(),
-				Ref: remoteAction.Ref,
-				Dir: actionDir,
+				URL:   remoteAction.CloneURL(),
+				Ref:   remoteAction.Ref,
+				Dir:   actionDir,
+				Token: github.Token,
 			}),
 			sc.setupAction(actionDir, remoteAction.Path),
 			sc.runAction(actionDir, remoteAction.Path),
@@ -568,6 +573,7 @@ func (sc *StepContext) runAction(actionDir string, actionPath string) common.Exe
 }
 
 type remoteAction struct {
+	URL  string
 	Org  string
 	Repo string
 	Path string
@@ -575,7 +581,7 @@ type remoteAction struct {
 }
 
 func (ra *remoteAction) CloneURL() string {
-	return fmt.Sprintf("https://github.com/%s/%s", ra.Org, ra.Repo)
+	return fmt.Sprintf("https://%s/%s/%s", ra.URL, ra.Org, ra.Repo)
 }
 
 func (ra *remoteAction) IsCheckout() bool {
@@ -601,6 +607,7 @@ func newRemoteAction(action string) *remoteAction {
 		Repo: matches[2],
 		Path: matches[4],
 		Ref:  matches[6],
+		URL:  "github.com",
 	}
 }
 

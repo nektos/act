@@ -15,6 +15,7 @@ import (
 
 	git "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-ini/ini"
 	log "github.com/sirupsen/logrus"
 )
@@ -142,12 +143,12 @@ func findGitPrettyRef(head, root, sub string) (string, error) {
 }
 
 // FindGithubRepo get the repo
-func FindGithubRepo(file string) (string, error) {
+func FindGithubRepo(file string, githubInstance string) (string, error) {
 	url, err := findGitRemoteURL(file)
 	if err != nil {
 		return "", err
 	}
-	_, slug, err := findGitSlug(url)
+	_, slug, err := findGitSlug(url, githubInstance)
 	return slug, err
 }
 
@@ -174,7 +175,7 @@ func findGitRemoteURL(file string) (string, error) {
 	return url, nil
 }
 
-func findGitSlug(url string) (string, string, error) {
+func findGitSlug(url string, githubInstance string) (string, string, error) {
 	if matches := codeCommitHTTPRegex.FindStringSubmatch(url); matches != nil {
 		return "CodeCommit", matches[2], nil
 	} else if matches := codeCommitSSHRegex.FindStringSubmatch(url); matches != nil {
@@ -183,6 +184,14 @@ func findGitSlug(url string) (string, string, error) {
 		return "GitHub", fmt.Sprintf("%s/%s", matches[1], matches[2]), nil
 	} else if matches := githubSSHRegex.FindStringSubmatch(url); matches != nil {
 		return "GitHub", fmt.Sprintf("%s/%s", matches[1], matches[2]), nil
+	} else if githubInstance != "github.com" {
+		gheHTTPRegex := regexp.MustCompile(fmt.Sprintf(`^https?://%s/(.+)/(.+?)(?:.git)?$`, githubInstance))
+		gheSSHRegex := regexp.MustCompile(fmt.Sprintf(`%s[:/](.+)/(.+).git$`, githubInstance))
+		if matches := gheHTTPRegex.FindStringSubmatch(url); matches != nil {
+			return "GitHubEnterprise", fmt.Sprintf("%s/%s", matches[1], matches[2]), nil
+		} else if matches := gheSSHRegex.FindStringSubmatch(url); matches != nil {
+			return "GitHubEnterprise", fmt.Sprintf("%s/%s", matches[1], matches[2]), nil
+		}
 	}
 	return "", url, nil
 }
@@ -218,9 +227,10 @@ func findGitDirectory(fromFile string) (string, error) {
 
 // NewGitCloneExecutorInput the input for the NewGitCloneExecutor
 type NewGitCloneExecutorInput struct {
-	URL string
-	Ref string
-	Dir string
+	URL   string
+	Ref   string
+	Dir   string
+	Token string
 }
 
 // CloneIfRequired ...
@@ -237,10 +247,24 @@ func CloneIfRequired(ctx context.Context, refName plumbing.ReferenceName, input 
 			progressWriter = os.Stdout
 		}
 
-		r, err = git.PlainCloneContext(ctx, input.Dir, false, &git.CloneOptions{
-			URL:      input.URL,
-			Progress: progressWriter,
-		})
+		var cloneOptions git.CloneOptions
+		if input.Token != "" {
+			cloneOptions = git.CloneOptions{
+				URL:      input.URL,
+				Progress: progressWriter,
+				Auth: &http.BasicAuth{
+					Username: "token",
+					Password: input.Token,
+				},
+			}
+		} else {
+			cloneOptions = git.CloneOptions{
+				URL:      input.URL,
+				Progress: progressWriter,
+			}
+		}
+
+		r, err = git.PlainCloneContext(ctx, input.Dir, false, &cloneOptions)
 		if err != nil {
 			logger.Errorf("Unable to clone %v %s: %v", input.URL, refName, err)
 			return nil, err

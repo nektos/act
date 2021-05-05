@@ -129,6 +129,7 @@ It will save that information to `~/.actrc`, please refer to [Configuration](#co
       --env stringArray                 env to make available to actions with optional value (e.g. --e myenv=foo or -s myenv)
       --env-file string                 environment file to read and use as env in the containers (default ".env")
   -e, --eventpath string                path to event JSON file
+      --github-instance string          GitHub instance to use. Don't use this if you are not using GitHub Enterprise Server. (default "github.com")
   -g, --graph                           draw workflows
   -h, --help                            help for act
       --insecure-secrets                NOT RECOMMENDED! Doesn't hide secrets while printing logs.
@@ -305,6 +306,15 @@ act -e pull-request.json
 ```
 
 Act will properly provide `github.head_ref` and `github.base_ref` to the action as expected.
+
+# GitHub Enterprise
+
+Act supports using and authenticating against private GitHub Enterprise servers.
+To use your custom GHE server, set the CLI flag `--github-instance` to your hostname (e.g. `github.company.com`).
+
+Please note that if your GHE server requires authentication, we will use the secret provided via `GITHUB_TOKEN`.
+
+Please also see the [official documentation for GitHub actions on GHE](https://docs.github.com/en/enterprise-server@3.0/admin/github-actions/about-using-actions-in-your-enterprise) for more information on how to use actions.
 
 # Support
 
