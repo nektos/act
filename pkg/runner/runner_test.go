@@ -83,10 +83,13 @@ func TestRunEvent(t *testing.T) {
 	platforms := map[string]string{
 		"ubuntu-latest": "node:12.20.1-buster-slim",
 	}
+
 	tables := []TestJobFileInfo{
 		{"testdata", "basic", "push", "", platforms, ""},
 		{"testdata", "fail", "push", "exit with `FAILURE`: 1", platforms, ""},
 		{"testdata", "runs-on", "push", "", platforms, ""},
+		// Pwsh is not available in default worker (yet) so we use a separate image for testing
+		{"testdata", "powershell", "push", "", map[string]string{"ubuntu-latest": "ghcr.io/justingrote/act-pwsh:latest"}, ""},
 		{"testdata", "job-container", "push", "", platforms, ""},
 		{"testdata", "job-container-non-root", "push", "", platforms, ""},
 		{"testdata", "uses-docker-url", "push", "", platforms, ""},
@@ -102,8 +105,6 @@ func TestRunEvent(t *testing.T) {
 		{"testdata", "defaults-run", "push", "", platforms, ""},
 		{"testdata", "uses-composite", "push", "", platforms, ""},
 		{"testdata", "issue-597", "push", "", platforms, ""},
-		{"testdata", "issue-598", "push", "", platforms, ""},
-		// {"testdata", "powershell", "push", "", platforms, ""}, // Powershell is not available on default act test runner (yet) but preserving here for posterity
 		// {"testdata", "issue-228", "push", "", platforms, ""}, // TODO [igni]: Remove this once everything passes
 
 		// single test for different architecture: linux/arm64

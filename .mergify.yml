@@ -38,6 +38,7 @@ pull_request_rules:
           - needs-work
   - name: Automatic maintainer assignment
     conditions:
+      - "-approved-reviews-by=@nektos/act-maintainers"
       - -draft
       - -merged
       - -closed
@@ -55,6 +56,7 @@ pull_request_rules:
   - name: Automatic committer assignment
     conditions:
       - "approved-reviews-by=@nektos/act-maintainers"
+      - "-approved-reviews-by=@nektos/act-committers"
       - -draft
       - -merged
       - -closed
@@ -85,3 +87,4 @@ pull_request_rules:
     actions:
       merge:
         method: squash
+        strict: true
