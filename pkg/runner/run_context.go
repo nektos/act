@@ -118,6 +118,8 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			Entrypoint:  []string{"/usr/bin/tail", "-f", "/dev/null"},
 			WorkingDir:  rc.Config.ContainerWorkdir(),
 			Image:       image,
+			Username:    rc.Config.Secrets["DOCKER_USERNAME"],
+			Password:    rc.Config.Secrets["DOCKER_PASSWORD"],
 			Name:        name,
 			Env:         envList,
 			Mounts:      mounts,

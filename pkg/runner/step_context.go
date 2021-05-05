@@ -247,6 +247,8 @@ func (sc *StepContext) newStepContainer(ctx context.Context, image string, cmd [
 		Entrypoint:  entrypoint,
 		WorkingDir:  rc.Config.ContainerWorkdir(),
 		Image:       image,
+		Username:    rc.Config.Secrets["DOCKER_USERNAME"],
+		Password:    rc.Config.Secrets["DOCKER_PASSWORD"],
 		Name:        createContainerName(rc.jobContainerName(), step.ID),
 		Env:         envList,
 		Mounts:      mounts,
