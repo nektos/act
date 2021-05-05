@@ -38,6 +38,7 @@ pull_request_rules:
           - needs-work
   - name: Automatic maintainer assignment
     conditions:
+      - "-approved-reviews-by=@nektos/act-maintainers"
       - -draft
       - -merged
       - -closed
