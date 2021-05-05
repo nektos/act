@@ -2,6 +2,8 @@ package container
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -17,6 +19,8 @@ type NewDockerPullExecutorInput struct {
 	Image     string
 	ForcePull bool
 	Platform  string
+	Username  string
+	Password  string
 }
 
 // NewDockerPullExecutor function to create a run executor for the container
@@ -54,9 +58,27 @@ func NewDockerPullExecutor(input NewDockerPullExecutorInput) common.Executor {
 			return err
 		}
 
-		reader, err := cli.ImagePull(ctx, imageRef, types.ImagePullOptions{
+		imagePullOptions := types.ImagePullOptions{
 			Platform: input.Platform,
-		})
+		}
+		if input.Username != "" && input.Password != "" {
+			logger.Debugf("  using authentication")
+
+			authConfig := types.AuthConfig{
+				Username: input.Username,
+				Password: input.Password,
+			}
+
+			encodedJSON, err := json.Marshal(authConfig)
+			if err != nil {
+				return err
+			}
+
+			imagePullOptions.RegistryAuth = base64.URLEncoding.EncodeToString(encodedJSON)
+		}
+
+		reader, err := cli.ImagePull(ctx, imageRef, imagePullOptions)
+
 		_ = logDockerResponse(logger, reader, err != nil)
 		if err != nil {
 			return err

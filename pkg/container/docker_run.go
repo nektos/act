@@ -37,6 +37,8 @@ import (
 // NewContainerInput the input for the New function
 type NewContainerInput struct {
 	Image       string
+	Username    string
+	Password    string
 	Entrypoint  []string
 	Cmd         []string
 	WorkingDir  string
@@ -126,6 +128,8 @@ func (cr *containerReference) Pull(forcePull bool) common.Executor {
 		Image:     cr.input.Image,
 		ForcePull: forcePull,
 		Platform:  cr.input.Platform,
+		Username:  cr.input.Username,
+		Password:  cr.input.Password,
 	})
 }
 func (cr *containerReference) Copy(destPath string, files ...*FileEntry) common.Executor {
