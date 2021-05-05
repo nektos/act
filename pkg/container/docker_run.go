@@ -69,7 +69,7 @@ type Container interface {
 	Pull(forcePull bool) common.Executor
 	Start(attach bool) common.Executor
 	Exec(command []string, env map[string]string) common.Executor
-	UpdateFromGithubEnv(env *map[string]string) common.Executor
+	UpdateFromEnv(srcPath string, env *map[string]string) common.Executor
 	Remove() common.Executor
 }
 
@@ -132,6 +132,7 @@ func (cr *containerReference) Pull(forcePull bool) common.Executor {
 		Password:  cr.input.Password,
 	})
 }
+
 func (cr *containerReference) Copy(destPath string, files ...*FileEntry) common.Executor {
 	return common.NewPipelineExecutor(
 		cr.connect(),
@@ -150,8 +151,8 @@ func (cr *containerReference) CopyDir(destPath string, srcPath string, useGitIgn
 	).IfNot(common.Dryrun)
 }
 
-func (cr *containerReference) UpdateFromGithubEnv(env *map[string]string) common.Executor {
-	return cr.extractGithubEnv(env).IfNot(common.Dryrun)
+func (cr *containerReference) UpdateFromEnv(srcPath string, env *map[string]string) common.Executor {
+	return cr.extractEnv(srcPath, env).IfNot(common.Dryrun)
 }
 
 func (cr *containerReference) Exec(command []string, env map[string]string) common.Executor {
@@ -161,6 +162,7 @@ func (cr *containerReference) Exec(command []string, env map[string]string) comm
 		cr.exec(command, env),
 	).IfNot(common.Dryrun)
 }
+
 func (cr *containerReference) Remove() common.Executor {
 	return common.NewPipelineExecutor(
 		cr.connect(),
@@ -328,7 +330,7 @@ func (cr *containerReference) create() common.Executor {
 
 var singleLineEnvPattern, mulitiLineEnvPattern *regexp.Regexp
 
-func (cr *containerReference) extractGithubEnv(env *map[string]string) common.Executor {
+func (cr *containerReference) extractEnv(srcPath string, env *map[string]string) common.Executor {
 	if singleLineEnvPattern == nil {
 		singleLineEnvPattern = regexp.MustCompile("^([^=]+)=([^=]+)$")
 		mulitiLineEnvPattern = regexp.MustCompile(`^([^<]+)<<(\w+)$`)
@@ -336,11 +338,11 @@ func (cr *containerReference) extractGithubEnv(env *map[string]string) common.Ex
 
 	localEnv := *env
 	return func(ctx context.Context) error {
-		githubEnvTar, _, err := cr.cli.CopyFromContainer(ctx, cr.id, localEnv["GITHUB_ENV"])
+		envTar, _, err := cr.cli.CopyFromContainer(ctx, cr.id, srcPath)
 		if err != nil {
 			return nil
 		}
-		reader := tar.NewReader(githubEnvTar)
+		reader := tar.NewReader(envTar)
 		_, err = reader.Next()
 		if err != nil && err != io.EOF {
 			return errors.WithStack(err)
