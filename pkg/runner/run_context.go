@@ -62,6 +62,32 @@ func (rc *RunContext) jobContainerName() string {
 	return createContainerName("act", rc.String())
 }
 
+// Returns the binds and mounts for the container, resolving paths as appopriate
+func (rc *RunContext) GetBindsAndMounts() ([]string, map[string]string) {
+	name := rc.jobContainerName()
+
+	binds := []string{
+		fmt.Sprintf("%s:%s", "/var/run/docker.sock", "/var/run/docker.sock"),
+	}
+
+	mounts := map[string]string{
+		"act-toolcache": "/toolcache",
+		"act-actions":   "/actions",
+	}
+
+	if rc.Config.BindWorkdir {
+		bindModifiers := ""
+		if runtime.GOOS == "darwin" {
+			bindModifiers = ":delegated"
+		}
+		binds = append(binds, fmt.Sprintf("%s:%s%s", rc.Config.Workdir, rc.Config.ContainerWorkdir(), bindModifiers))
+	} else {
+		mounts[name] = rc.Config.ContainerWorkdir()
+	}
+
+	return binds, mounts
+}
+
 func (rc *RunContext) startJobContainer() common.Executor {
 	image := rc.platformImage()
 
@@ -80,34 +106,21 @@ func (rc *RunContext) startJobContainer() common.Executor {
 		name := rc.jobContainerName()
 
 		envList := make([]string, 0)
-		bindModifiers := ""
-		if runtime.GOOS == "darwin" {
-			bindModifiers = ":delegated"
-		}
 
 		envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_TOOL_CACHE", "/opt/hostedtoolcache"))
 		envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_OS", "Linux"))
 		envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_TEMP", "/tmp"))
 
-		binds := []string{
-			fmt.Sprintf("%s:%s", "/var/run/docker.sock", "/var/run/docker.sock"),
-		}
-		if rc.Config.BindWorkdir {
-			binds = append(binds, fmt.Sprintf("%s:%s%s", rc.Config.Workdir, rc.Config.Workdir, bindModifiers))
-		}
+		binds, mounts := rc.GetBindsAndMounts()
 
 		rc.JobContainer = container.NewContainer(&container.NewContainerInput{
-			Cmd:        nil,
-			Entrypoint: []string{"/usr/bin/tail", "-f", "/dev/null"},
-			WorkingDir: rc.Config.Workdir,
-			Image:      image,
-			Name:       name,
-			Env:        envList,
-			Mounts: map[string]string{
-				name:            filepath.Dir(rc.Config.Workdir),
-				"act-toolcache": "/toolcache",
-				"act-actions":   "/actions",
-			},
+			Cmd:         nil,
+			Entrypoint:  []string{"/usr/bin/tail", "-f", "/dev/null"},
+			WorkingDir:  rc.Config.ContainerWorkdir(),
+			Image:       image,
+			Name:        name,
+			Env:         envList,
+			Mounts:      mounts,
 			NetworkMode: "host",
 			Binds:       binds,
 			Stdout:      logWriter,
@@ -121,7 +134,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 		var copyToPath string
 		if !rc.Config.BindWorkdir {
 			copyToPath, copyWorkspace = rc.localCheckoutPath()
-			copyToPath = filepath.Join(rc.Config.Workdir, copyToPath)
+			copyToPath = filepath.Join(rc.Config.ContainerWorkdir(), copyToPath)
 		}
 
 		return common.NewPipelineExecutor(
@@ -130,7 +143,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			rc.JobContainer.Create(),
 			rc.JobContainer.Start(false),
 			rc.JobContainer.CopyDir(copyToPath, rc.Config.Workdir+string(filepath.Separator)+".", rc.Config.UseGitIgnore).IfBool(copyWorkspace),
-			rc.JobContainer.Copy(filepath.Dir(rc.Config.Workdir), &container.FileEntry{
+			rc.JobContainer.Copy(rc.Config.ContainerWorkdir(), &container.FileEntry{
 				Name: "workflow/event.json",
 				Mode: 0644,
 				Body: rc.EventJSON,
@@ -166,6 +179,8 @@ func (rc *RunContext) stopJobContainer() common.Executor {
 		return nil
 	}
 }
+
+// Prepare the mounts and binds for the worker
 
 // ActionCacheDir is for rc
 func (rc *RunContext) ActionCacheDir() string {
@@ -472,14 +487,14 @@ func (rc *RunContext) getGithubContext() *githubContext {
 	}
 	ghc := &githubContext{
 		Event:     make(map[string]interface{}),
-		EventPath: fmt.Sprintf("%s/%s", filepath.Dir(rc.Config.Workdir), "workflow/event.json"),
+		EventPath: fmt.Sprintf("%s/%s", rc.Config.ContainerWorkdir(), "workflow/event.json"),
 		Workflow:  rc.Run.Workflow.Name,
 		RunID:     runID,
 		RunNumber: runNumber,
 		Actor:     rc.Config.Actor,
 		EventName: rc.Config.EventName,
 		Token:     token,
-		Workspace: rc.Config.Workdir,
+		Workspace: rc.Config.ContainerWorkdir(),
 		Action:    rc.CurrentStep,
 	}
 
@@ -541,6 +556,10 @@ func (rc *RunContext) getGithubContext() *githubContext {
 }
 
 func (ghc *githubContext) isLocalCheckout(step *model.Step) bool {
+	if step.Type() != model.StepTypeInvalid {
+		// This will be errored out by the executor later, we need this here to avoid a null panic though
+		return false
+	}
 	if step.Type() != model.StepTypeUsesActionRemote {
 		return false
 	}
@@ -610,7 +629,7 @@ func withDefaultBranch(b string, event map[string]interface{}) map[string]interf
 func (rc *RunContext) withGithubEnv(env map[string]string) map[string]string {
 	github := rc.getGithubContext()
 	env["CI"] = "true"
-	env["GITHUB_ENV"] = fmt.Sprintf("%s/%s", filepath.Dir(rc.Config.Workdir), "workflow/envs.txt")
+	env["GITHUB_ENV"] = fmt.Sprintf("%s/%s", rc.Config.ContainerWorkdir(), "workflow/envs.txt")
 	env["GITHUB_PATH"] = fmt.Sprintf("%s/%s", filepath.Dir(rc.Config.Workdir), "workflow/paths.txt")
 	env["GITHUB_WORKFLOW"] = github.Workflow
 	env["GITHUB_RUN_ID"] = github.RunID

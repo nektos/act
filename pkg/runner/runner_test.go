@@ -3,7 +3,10 @@ package runner
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/joho/godotenv"
@@ -40,19 +43,21 @@ type TestJobFileInfo struct {
 	containerArchitecture string
 }
 
-func runTestJobFile(ctx context.Context, t *testing.T, tjfi TestJobFileInfo) {
+func runTestJobFile(ctx context.Context, t *testing.T, tjfi TestJobFileInfo, secrets map[string]string) {
 	t.Run(tjfi.workflowPath, func(t *testing.T) {
 		workdir, err := filepath.Abs(tjfi.workdir)
 		assert.NilError(t, err, workdir)
 		fullWorkflowPath := filepath.Join(workdir, tjfi.workflowPath)
 		runnerConfig := &Config{
 			Workdir:               workdir,
-			BindWorkdir:           true,
+			BindWorkdir:           false,
 			EventName:             tjfi.eventName,
 			Platforms:             tjfi.platforms,
 			ReuseContainers:       false,
 			ContainerArchitecture: tjfi.containerArchitecture,
+			Secrets:               secrets,
 		}
+
 		runner, err := New(runnerConfig)
 		assert.NilError(t, err, tjfi.workflowPath)
 
@@ -78,10 +83,13 @@ func TestRunEvent(t *testing.T) {
 	platforms := map[string]string{
 		"ubuntu-latest": "node:12.20.1-buster-slim",
 	}
+
 	tables := []TestJobFileInfo{
 		{"testdata", "basic", "push", "", platforms, ""},
 		{"testdata", "fail", "push", "exit with `FAILURE`: 1", platforms, ""},
 		{"testdata", "runs-on", "push", "", platforms, ""},
+		// Pwsh is not available in default worker (yet) so we use a separate image for testing
+		{"testdata", "powershell", "push", "", map[string]string{"ubuntu-latest": "ghcr.io/justingrote/act-pwsh:latest"}, ""},
 		{"testdata", "job-container", "push", "", platforms, ""},
 		{"testdata", "job-container-non-root", "push", "", platforms, ""},
 		{"testdata", "uses-docker-url", "push", "", platforms, ""},
@@ -98,7 +106,6 @@ func TestRunEvent(t *testing.T) {
 		{"testdata", "uses-composite", "push", "", platforms, ""},
 		{"testdata", "issue-597", "push", "", platforms, ""},
 		{"testdata", "env-and-path", "push", "", platforms, "linux/arm64"},
-		// {"testdata", "powershell", "push", "", platforms, ""}, // Powershell is not available on default act test runner (yet) but preserving here for posterity
 		// {"testdata", "issue-228", "push", "", platforms, ""}, // TODO [igni]: Remove this once everything passes
 
 		// single test for different architecture: linux/arm64
@@ -107,9 +114,11 @@ func TestRunEvent(t *testing.T) {
 	log.SetLevel(log.DebugLevel)
 
 	ctx := context.Background()
+	secretspath, _ := filepath.Abs("../../.secrets")
+	secrets, _ := godotenv.Read(secretspath)
 
 	for _, table := range tables {
-		runTestJobFile(ctx, t, table)
+		runTestJobFile(ctx, t, table, secrets)
 	}
 }
 
@@ -189,4 +198,61 @@ func TestRunEventPullRequest(t *testing.T) {
 
 	err = runner.NewPlanExecutor(plan)(ctx)
 	assert.NilError(t, err, workflowPath)
+}
+
+func TestContainerPath(t *testing.T) {
+	type containerPathJob struct {
+		destinationPath string
+		sourcePath      string
+		workDir         string
+	}
+
+	if runtime.GOOS == "windows" {
+		cwd, err := os.Getwd()
+		if err != nil {
+			log.Error(err)
+		}
+
+		rootDrive := os.Getenv("SystemDrive")
+		rootDriveLetter := strings.ReplaceAll(strings.ToLower(rootDrive), `:`, "")
+		for _, v := range []containerPathJob{
+			{"/mnt/c/Users/act/go/src/github.com/nektos/act", "C:\\Users\\act\\go\\src\\github.com\\nektos\\act\\", ""},
+			{"/mnt/f/work/dir", `F:\work\dir`, ""},
+			{"/mnt/c/windows/to/unix", "windows/to/unix", fmt.Sprintf("%s\\", rootDrive)},
+			{fmt.Sprintf("/mnt/%v/act", rootDriveLetter), "act", fmt.Sprintf("%s\\", rootDrive)},
+		} {
+			if v.workDir != "" {
+				if err := os.Chdir(v.workDir); err != nil {
+					log.Error(err)
+					t.Fail()
+				}
+			}
+
+			runnerConfig := &Config{
+				Workdir: v.sourcePath,
+			}
+
+			assert.Equal(t, v.destinationPath, runnerConfig.containerPath(runnerConfig.Workdir))
+		}
+
+		if err := os.Chdir(cwd); err != nil {
+			log.Error(err)
+		}
+	} else {
+		cwd, err := os.Getwd()
+		if err != nil {
+			log.Error(err)
+		}
+		for _, v := range []containerPathJob{
+			{"/home/act/go/src/github.com/nektos/act", "/home/act/go/src/github.com/nektos/act", ""},
+			{"/home/act", `/home/act/`, ""},
+			{cwd, ".", ""},
+		} {
+			runnerConfig := &Config{
+				Workdir: v.sourcePath,
+			}
+
+			assert.Equal(t, v.destinationPath, runnerConfig.containerPath(runnerConfig.Workdir))
+		}
+	}
 }
