@@ -1,0 +1,49 @@
+{
+  "action": "purchased",
+  "effective_date": "2017-10-25T00:00:00+00:00",
+  "sender": {
+    "login": "username",
+    "id": 3877742,
+    "avatar_url": "https://avatars2.githubusercontent.com/u/3877742?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/username",
+    "html_url": "https://github.com/username",
+    "followers_url": "https://api.github.com/users/username/followers",
+    "following_url": "https://api.github.com/users/username/following{/other_user}",
+    "gists_url": "https://api.github.com/users/username/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/username/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/username/subscriptions",
+    "organizations_url": "https://api.github.com/users/username/orgs",
+    "repos_url": "https://api.github.com/users/username/repos",
+    "events_url": "https://api.github.com/users/username/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/username/received_events",
+    "type": "User",
+    "site_admin": true,
+    "email": "username@email.com"
+  },
+  "marketplace_purchase": {
+    "account": {
+      "type": "Organization",
+      "id": 18404719,
+      "node_id": "MDEyOk9yZ2FuaXphdGlvbjE=",
+      "login": "username",
+      "organization_billing_email": "username@email.com"
+    },
+    "billing_cycle": "monthly",
+    "unit_count": 1,
+    "on_free_trial": false,
+    "free_trial_ends_on": null,
+    "next_billing_date": "2017-11-05T00:00:00+00:00",
+    "plan": {
+      "id": 435,
+      "name": "Basic Plan",
+      "description": "Basic Plan",
+      "monthly_price_in_cents": 1000,
+      "yearly_price_in_cents": 10000,
+      "price_model": "per-unit",
+      "has_free_trial": true,
+      "unit_name": "seat",
+      "bullets": ["Is Basic", "Because Basic "]
+    }
+  }
+}
