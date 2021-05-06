@@ -1,0 +1,82 @@
+{
+  "action": "added",
+  "installation": {
+    "id": 957387,
+    "account": {
+      "login": "Codertocat",
+      "id": 21031067,
+      "node_id": "MDQ6VXNlcjIxMDMxMDY3",
+      "avatar_url": "https://avatars1.githubusercontent.com/u/21031067?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/Codertocat",
+      "html_url": "https://github.com/Codertocat",
+      "followers_url": "https://api.github.com/users/Codertocat/followers",
+      "following_url": "https://api.github.com/users/Codertocat/following{/other_user}",
+      "gists_url": "https://api.github.com/users/Codertocat/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/Codertocat/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/Codertocat/subscriptions",
+      "organizations_url": "https://api.github.com/users/Codertocat/orgs",
+      "repos_url": "https://api.github.com/users/Codertocat/repos",
+      "events_url": "https://api.github.com/users/Codertocat/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/Codertocat/received_events",
+      "type": "User",
+      "site_admin": false
+    },
+    "repository_selection": "selected",
+    "access_tokens_url": "https://api.github.com/app/installations/957387/access_tokens",
+    "repositories_url": "https://api.github.com/installation/repositories",
+    "html_url": "https://github.com/settings/installations/957387",
+    "app_id": 29310,
+    "target_id": 21031067,
+    "target_type": "User",
+    "permissions": {
+      "administration": "write",
+      "statuses": "write",
+      "repository_projects": "write",
+      "repository_hooks": "write",
+      "pull_requests": "write",
+      "pages": "write",
+      "issues": "write",
+      "deployments": "write",
+      "contents": "write",
+      "checks": "write",
+      "metadata": "read",
+      "vulnerability_alerts": "read"
+    },
+    "events": [],
+    "created_at": 1557933591,
+    "updated_at": 1557933591,
+    "single_file_name": null
+  },
+  "repository_selection": "selected",
+  "repositories_added": [
+    {
+      "id": 186853007,
+      "node_id": "MDEwOlJlcG9zaXRvcnkxODY4NTMwMDc=",
+      "name": "Space",
+      "full_name": "Codertocat/Space",
+      "private": false
+    }
+  ],
+  "repositories_removed": [],
+  "sender": {
+    "login": "Codertocat",
+    "id": 21031067,
+    "node_id": "MDQ6VXNlcjIxMDMxMDY3",
+    "avatar_url": "https://avatars1.githubusercontent.com/u/21031067?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Codertocat",
+    "html_url": "https://github.com/Codertocat",
+    "followers_url": "https://api.github.com/users/Codertocat/followers",
+    "following_url": "https://api.github.com/users/Codertocat/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Codertocat/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Codertocat/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Codertocat/subscriptions",
+    "organizations_url": "https://api.github.com/users/Codertocat/orgs",
+    "repos_url": "https://api.github.com/users/Codertocat/repos",
+    "events_url": "https://api.github.com/users/Codertocat/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Codertocat/received_events",
+    "type": "User",
+    "site_admin": false
+  }
+}

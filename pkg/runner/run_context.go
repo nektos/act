@@ -519,12 +519,12 @@ type githubContext struct {
 func (rc *RunContext) getGithubContext() *githubContext {
 	ghc := &githubContext{
 		Event:            make(map[string]interface{}),
+		EventName:        rc.Config.EventName,
 		EventPath:        ActPath + "/workflow/event.json",
 		Workflow:         rc.Run.Workflow.Name,
 		RunID:            rc.Config.Env["GITHUB_RUN_ID"],
 		RunNumber:        rc.Config.Env["GITHUB_RUN_NUMBER"],
 		Actor:            rc.Config.Actor,
-		EventName:        rc.Config.EventName,
 		Workspace:        rc.Config.ContainerWorkdir(),
 		Action:           rc.CurrentStep,
 		Token:            rc.Config.Secrets["GITHUB_TOKEN"],

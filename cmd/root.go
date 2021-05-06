@@ -3,10 +3,12 @@ package cmd
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"sort"
 	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
@@ -190,8 +192,9 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 		if input.autodetectEvent && len(events) > 0 {
 			// set default event type to first event
 			// this way user dont have to specify the event.
-			log.Debugf("Using detected workflow event: %s", events[0])
 			eventName = events[0]
+		} else if input.eventPath != "" {
+			eventName = getEventFromFile(input.eventPath)
 		} else {
 			if len(args) > 0 {
 				eventName = args[0]
@@ -199,6 +202,10 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 				eventName = "push"
 			}
 		}
+		if res := sort.SearchStrings(model.Events, eventName); res == 0 {
+			return fmt.Errorf("event type '%s' not found in a list of acceptable events", eventName)
+		}
+		log.Debugf("Using detected workflow event: %s", eventName)
 
 		// build the plan for this run
 		var plan *model.Plan

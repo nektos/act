@@ -14,6 +14,18 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// Events contains all allowed event names
+// https://github.com/github/docs/blob/a926da8b08ce8230a1c0dd616f3d635cb175b055/content/developers/webhooks-and-events/webhook-events-and-payloads.md
+var Events = []string{
+	"check_run", "check_suite", "code_scanning_alert", "commit_comment", "content_reference", "create", "delete", "deploy_key",
+	"deployment", "deployment_status", "discussion", "discussion_comment", "fork", "github_app_authorization", "gollum", "installation",
+	"installation_repositories", "issue_comment", "issues", "label", "marketplace_purchase", "member", "membership", "meta", "milestone",
+	"organization", "org_block", "package", "page_build", "ping", "project_card", "project_column", "project", "public", "pull_request",
+	"pull_request_review", "pull_request_review_comment", "push", "release", "repository_dispatch", "repository", "repository_import",
+	"repository_vulnerability_alert", "secret_scanning_alert", "security_advisory", "sponsorship", "star", "status", "team", "team_add",
+	"watch", "workflow_dispatch", "workflow_run",
+}
+
 // WorkflowPlanner contains methods for creating plans
 type WorkflowPlanner interface {
 	PlanEvent(eventName string) *Plan

@@ -1,0 +1,71 @@
+{
+  "action": "deleted",
+  "installation": {
+    "id": 2,
+    "account": {
+      "login": "octocat",
+      "id": 1,
+      "node_id": "MDQ6VXNlcjE=",
+      "avatar_url": "https://github.com/images/error/octocat_happy.gif",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/octocat",
+      "html_url": "https://github.com/octocat",
+      "followers_url": "https://api.github.com/users/octocat/followers",
+      "following_url": "https://api.github.com/users/octocat/following{/other_user}",
+      "gists_url": "https://api.github.com/users/octocat/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/octocat/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/octocat/subscriptions",
+      "organizations_url": "https://api.github.com/users/octocat/orgs",
+      "repos_url": "https://api.github.com/users/octocat/repos",
+      "events_url": "https://api.github.com/users/octocat/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/octocat/received_events",
+      "type": "User",
+      "site_admin": false
+    },
+    "repository_selection": "selected",
+    "access_tokens_url": "https://api.github.com/installations/2/access_tokens",
+    "repositories_url": "https://api.github.com/installation/repositories",
+    "html_url": "https://github.com/settings/installations/2",
+    "app_id": 5725,
+    "target_id": 3880403,
+    "target_type": "User",
+    "permissions": {
+      "metadata": "read",
+      "contents": "read",
+      "issues": "write"
+    },
+    "events": ["push", "pull_request"],
+    "created_at": 1525109898,
+    "updated_at": 1525109899,
+    "single_file_name": "config.yml"
+  },
+  "repositories": [
+    {
+      "id": 1296269,
+      "node_id": "MDEwOlJlcG9zaXRvcnkxODY4NTMwMDc=",
+      "name": "Hello-World",
+      "full_name": "octocat/Hello-World",
+      "private": false
+    }
+  ],
+  "sender": {
+    "login": "octocat",
+    "id": 1,
+    "node_id": "MDQ6VXNlcjE=",
+    "avatar_url": "https://github.com/images/error/octocat_happy.gif",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/octocat",
+    "html_url": "https://github.com/octocat",
+    "followers_url": "https://api.github.com/users/octocat/followers",
+    "following_url": "https://api.github.com/users/octocat/following{/other_user}",
+    "gists_url": "https://api.github.com/users/octocat/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/octocat/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/octocat/subscriptions",
+    "organizations_url": "https://api.github.com/users/octocat/orgs",
+    "repos_url": "https://api.github.com/users/octocat/repos",
+    "events_url": "https://api.github.com/users/octocat/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/octocat/received_events",
+    "type": "User",
+    "site_admin": false
+  }
+}

@@ -187,29 +187,31 @@ func TestRunEventPullRequest(t *testing.T) {
 		"ubuntu-latest": baseImage,
 	}
 
-	workflowPath := "pull-request"
-	eventName := "pull_request"
+	for _, event := range model.Events {
+		workflowPath := strings.ReplaceAll(event, `_`, `-`)
+		eventName := event
 
-	workdir, err := filepath.Abs("testdata")
-	assert.Nil(t, err, workflowPath)
+		workdir, err := filepath.Abs("testdata/event-types")
+		assert.Nil(t, err, workflowPath)
 
-	runnerConfig := &Config{
-		Workdir:         workdir,
-		EventName:       eventName,
-		EventPath:       filepath.Join(workdir, workflowPath, "event.json"),
-		Platforms:       platforms,
-		ReuseContainers: false,
+		runnerConfig := &Config{
+			Workdir:         workdir,
+			EventName:       eventName,
+			EventPath:       filepath.Join(workdir, workflowPath, "event.json"),
+			Platforms:       platforms,
+			ReuseContainers: false,
+		}
+		runner, err := New(runnerConfig)
+		assert.Nil(t, err, workflowPath)
+
+		planner, err := model.NewWorkflowPlanner(filepath.Join("testdata", "event-types", workflowPath), true)
+		assert.Nil(t, err, workflowPath)
+
+		plan := planner.PlanEvent(eventName)
+
+		err = runner.NewPlanExecutor(plan)(ctx)
+		assert.Nil(t, err, workflowPath)
 	}
-	runner, err := New(runnerConfig)
-	assert.Nil(t, err, workflowPath)
-
-	planner, err := model.NewWorkflowPlanner(fmt.Sprintf("testdata/%s", workflowPath), true)
-	assert.Nil(t, err, workflowPath)
-
-	plan := planner.PlanEvent(eventName)
-
-	err = runner.NewPlanExecutor(plan)(ctx)
-	assert.Nil(t, err, workflowPath)
 }
 
 func TestContainerPath(t *testing.T) {

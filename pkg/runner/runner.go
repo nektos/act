@@ -104,6 +104,7 @@ func New(runnerConfig *Config) (Runner, error) {
 			return nil, err
 		}
 		runner.eventJSON = string(eventJSONBytes)
+		log.Debugf("Event JSON: '%s'", runner.eventJSON)
 	}
 	return runner, nil
 }

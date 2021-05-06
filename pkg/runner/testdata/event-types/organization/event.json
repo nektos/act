@@ -1,0 +1,63 @@
+{
+  "action": "member_added",
+  "membership": {
+    "url": "https://api.github.com/orgs/Octocoders/memberships/hacktocat",
+    "state": "pending",
+    "role": "member",
+    "organization_url": "https://api.github.com/orgs/Octocoders",
+    "user": {
+      "login": "hacktocat",
+      "id": 39652351,
+      "node_id": "MDQ6VXNlcjM5NjUyMzUx",
+      "avatar_url": "https://avatars2.githubusercontent.com/u/39652351?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/hacktocat",
+      "html_url": "https://github.com/hacktocat",
+      "followers_url": "https://api.github.com/users/hacktocat/followers",
+      "following_url": "https://api.github.com/users/hacktocat/following{/other_user}",
+      "gists_url": "https://api.github.com/users/hacktocat/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/hacktocat/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/hacktocat/subscriptions",
+      "organizations_url": "https://api.github.com/users/hacktocat/orgs",
+      "repos_url": "https://api.github.com/users/hacktocat/repos",
+      "events_url": "https://api.github.com/users/hacktocat/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/hacktocat/received_events",
+      "type": "User",
+      "site_admin": false
+    }
+  },
+  "organization": {
+    "login": "Octocoders",
+    "id": 38302899,
+    "node_id": "MDEyOk9yZ2FuaXphdGlvbjM4MzAyODk5",
+    "url": "https://api.github.com/orgs/Octocoders",
+    "repos_url": "https://api.github.com/orgs/Octocoders/repos",
+    "events_url": "https://api.github.com/orgs/Octocoders/events",
+    "hooks_url": "https://api.github.com/orgs/Octocoders/hooks",
+    "issues_url": "https://api.github.com/orgs/Octocoders/issues",
+    "members_url": "https://api.github.com/orgs/Octocoders/members{/member}",
+    "public_members_url": "https://api.github.com/orgs/Octocoders/public_members{/member}",
+    "avatar_url": "https://avatars1.githubusercontent.com/u/38302899?v=4",
+    "description": ""
+  },
+  "sender": {
+    "login": "Codertocat",
+    "id": 21031067,
+    "node_id": "MDQ6VXNlcjIxMDMxMDY3",
+    "avatar_url": "https://avatars1.githubusercontent.com/u/21031067?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Codertocat",
+    "html_url": "https://github.com/Codertocat",
+    "followers_url": "https://api.github.com/users/Codertocat/followers",
+    "following_url": "https://api.github.com/users/Codertocat/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Codertocat/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Codertocat/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Codertocat/subscriptions",
+    "organizations_url": "https://api.github.com/users/Codertocat/orgs",
+    "repos_url": "https://api.github.com/users/Codertocat/repos",
+    "events_url": "https://api.github.com/users/Codertocat/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Codertocat/received_events",
+    "type": "User",
+    "site_admin": false
+  }
+}
