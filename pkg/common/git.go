@@ -17,6 +17,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-ini/ini"
+	"github.com/mattn/go-isatty"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -238,29 +239,25 @@ func CloneIfRequired(ctx context.Context, refName plumbing.ReferenceName, input 
 	r, err := git.PlainOpen(input.Dir)
 	if err != nil {
 		var progressWriter io.Writer
-		if entry, ok := logger.(*log.Entry); ok {
-			progressWriter = entry.WriterLevel(log.DebugLevel)
-		} else if lgr, ok := logger.(*log.Logger); ok {
-			progressWriter = lgr.WriterLevel(log.DebugLevel)
-		} else {
-			log.Errorf("Unable to get writer from logger (type=%T)", logger)
-			progressWriter = os.Stdout
+		if isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd()) {
+			if entry, ok := logger.(*log.Entry); ok {
+				progressWriter = entry.WriterLevel(log.DebugLevel)
+			} else if lgr, ok := logger.(*log.Logger); ok {
+				progressWriter = lgr.WriterLevel(log.DebugLevel)
+			} else {
+				log.Errorf("Unable to get writer from logger (type=%T)", logger)
+				progressWriter = os.Stdout
+			}
 		}
 
-		var cloneOptions git.CloneOptions
+		cloneOptions := git.CloneOptions{
+			URL:      input.URL,
+			Progress: progressWriter,
+		}
 		if input.Token != "" {
-			cloneOptions = git.CloneOptions{
-				URL:      input.URL,
-				Progress: progressWriter,
-				Auth: &http.BasicAuth{
-					Username: "token",
-					Password: input.Token,
-				},
-			}
-		} else {
-			cloneOptions = git.CloneOptions{
-				URL:      input.URL,
-				Progress: progressWriter,
+			cloneOptions.Auth = &http.BasicAuth{
+				Username: "token",
+				Password: input.Token,
 			}
 		}
 
