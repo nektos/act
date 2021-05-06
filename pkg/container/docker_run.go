@@ -69,7 +69,8 @@ type Container interface {
 	Pull(forcePull bool) common.Executor
 	Start(attach bool) common.Executor
 	Exec(command []string, env map[string]string) common.Executor
-	UpdateFromEnvAndPath(srcPath string, env *map[string]string) common.Executor
+	UpdateFromEnv(srcPath string, env *map[string]string) common.Executor
+	UpdateFromPath(env *map[string]string) common.Executor
 	Remove() common.Executor
 }
 
@@ -151,10 +152,12 @@ func (cr *containerReference) CopyDir(destPath string, srcPath string, useGitIgn
 	).IfNot(common.Dryrun)
 }
 
-func (cr *containerReference) UpdateFromEnvAndPath(srcPath string, env *map[string]string) common.Executor {
-	envExec := cr.extractEnv(srcPath, env).IfNot(common.Dryrun)
-	pathExec := cr.extractPath(env).IfNot(common.Dryrun)
-	return envExec.Then(pathExec)
+func (cr *containerReference) UpdateFromEnv(srcPath string, env *map[string]string) common.Executor {
+	return cr.extractEnv(srcPath, env).IfNot(common.Dryrun)
+}
+
+func (cr *containerReference) UpdateFromPath(env *map[string]string) common.Executor {
+	return cr.extractPath(env).IfNot(common.Dryrun)
 }
 
 func (cr *containerReference) Exec(command []string, env map[string]string) common.Executor {

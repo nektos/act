@@ -131,7 +131,11 @@ func (sc *StepContext) setupEnv(ctx context.Context) (ExpressionEvaluator, error
 	rc := sc.RunContext
 	sc.Env = sc.mergeEnv()
 	if sc.Env != nil {
-		err := rc.JobContainer.UpdateFromEnvAndPath(sc.Env["GITHUB_ENV"], &sc.Env)(ctx)
+		err := rc.JobContainer.UpdateFromEnv(sc.Env["GITHUB_ENV"], &sc.Env)(ctx)
+		if err != nil {
+			return nil, err
+		}
+		err = rc.JobContainer.UpdateFromPath(&sc.Env)(ctx)
 		if err != nil {
 			return nil, err
 		}
