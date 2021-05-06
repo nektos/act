@@ -33,6 +33,7 @@ type RunContext struct {
 	ExprEval       ExpressionEvaluator
 	JobContainer   container.Container
 	OutputMappings map[MappableOutput]MappableOutput
+	JobName        string
 }
 
 type MappableOutput struct {
@@ -454,50 +455,67 @@ func (rc *RunContext) getStepsContext() map[string]*stepResult {
 }
 
 type githubContext struct {
-	Event      map[string]interface{} `json:"event"`
-	EventPath  string                 `json:"event_path"`
-	Workflow   string                 `json:"workflow"`
-	RunID      string                 `json:"run_id"`
-	RunNumber  string                 `json:"run_number"`
-	Actor      string                 `json:"actor"`
-	Repository string                 `json:"repository"`
-	EventName  string                 `json:"event_name"`
-	Sha        string                 `json:"sha"`
-	Ref        string                 `json:"ref"`
-	HeadRef    string                 `json:"head_ref"`
-	BaseRef    string                 `json:"base_ref"`
-	Token      string                 `json:"token"`
-	Workspace  string                 `json:"workspace"`
-	Action     string                 `json:"action"`
+	Event            map[string]interface{} `json:"event"`
+	EventPath        string                 `json:"event_path"`
+	Workflow         string                 `json:"workflow"`
+	RunID            string                 `json:"run_id"`
+	RunNumber        string                 `json:"run_number"`
+	Actor            string                 `json:"actor"`
+	Repository       string                 `json:"repository"`
+	EventName        string                 `json:"event_name"`
+	Sha              string                 `json:"sha"`
+	Ref              string                 `json:"ref"`
+	HeadRef          string                 `json:"head_ref"`
+	BaseRef          string                 `json:"base_ref"`
+	Token            string                 `json:"token"`
+	Workspace        string                 `json:"workspace"`
+	Action           string                 `json:"action"`
+	ActionPath       string                 `json:"action_path"`
+	ActionRef        string                 `json:"action_ref"`
+	ActionRepository string                 `json:"action_repository"`
+	Job              string                 `json:"job"`
+	JobName          string                 `json:"job_name"`
+	RepositoryOwner  string                 `json:"repository_owner"`
+	RetentionDays    string                 `json:"retention_days"`
+	RunnerPerflog    string                 `json:"runner_perflog"`
+	RunnerTrackingID string                 `json:"runner_tracking_id"`
 }
 
 func (rc *RunContext) getGithubContext() *githubContext {
-	token, ok := rc.Config.Secrets["GITHUB_TOKEN"]
-	if !ok {
-		token = os.Getenv("GITHUB_TOKEN")
-	}
-
-	runID := rc.Config.Env["GITHUB_RUN_ID"]
-	if runID == "" {
-		runID = "1"
-	}
-
-	runNumber := rc.Config.Env["GITHUB_RUN_NUMBER"]
-	if runNumber == "" {
-		runNumber = "1"
-	}
-
 	ghc := &githubContext{
-		Event:     make(map[string]interface{}),
-		EventPath: "/tmp/workflow/event.json",
-		Workflow:  rc.Run.Workflow.Name,
-		RunID:     runID,
-		RunNumber: runNumber,
-		Actor:     rc.Config.Actor,
-		EventName: rc.Config.EventName,
-		Token:     token,
-		Workspace: rc.Config.ContainerWorkdir(),
-		Action:    rc.CurrentStep,
+		Event:            make(map[string]interface{}),
+		EventPath:        "/tmp/workflow/event.json",
+		Workflow:         rc.Run.Workflow.Name,
+		RunID:            rc.Config.Env["GITHUB_RUN_ID"],
+		RunNumber:        rc.Config.Env["GITHUB_RUN_NUMBER"],
+		Actor:            rc.Config.Actor,
+		EventName:        rc.Config.EventName,
+		Workspace:        rc.Config.ContainerWorkdir(),
+		Action:           rc.CurrentStep,
+		Token:            rc.Config.Secrets["GITHUB_TOKEN"],
+		ActionPath:       rc.Config.Env["GITHUB_ACTION_PATH"],
+		ActionRef:        rc.Config.Env["RUNNER_ACTION_REF"],
+		ActionRepository: rc.Config.Env["RUNNER_ACTION_REPOSITORY"],
+		RepositoryOwner:  rc.Config.Env["GITHUB_REPOSITORY_OWNER"],
+		RetentionDays:    rc.Config.Env["GITHUB_RETENTION_DAYS"],
+		RunnerPerflog:    rc.Config.Env["RUNNER_PERFLOG"],
+		RunnerTrackingID: rc.Config.Env["RUNNER_TRACKING_ID"],
+	}
+
+	if ghc.RunID == "" {
+		ghc.RunID = "1"
+	}
+
+	if ghc.RunNumber == "" {
+		ghc.RunNumber = "1"
+	}
+
+	if ghc.RetentionDays == "" {
+		ghc.RetentionDays = "0"
+	}
+
+	if ghc.RunnerPerflog == "" {
+		ghc.RunnerPerflog = "/dev/null"
 	}
 
 	// Backwards compatibility for configs that require
@@ -512,6 +530,9 @@ func (rc *RunContext) getGithubContext() *githubContext {
 		log.Warningf("unable to get git repo: %v", err)
 	} else {
 		ghc.Repository = repo
+		if ghc.RepositoryOwner == "" {
+			ghc.RepositoryOwner = strings.Split(repo, "/")[0]
+		}
 	}
 
 	_, sha, err := common.FindGitRevision(repoPath)
@@ -637,6 +658,9 @@ func (rc *RunContext) withGithubEnv(env map[string]string) map[string]string {
 	env["GITHUB_RUN_ID"] = github.RunID
 	env["GITHUB_RUN_NUMBER"] = github.RunNumber
 	env["GITHUB_ACTION"] = github.Action
+	if github.ActionPath != "" {
+		env["GITHUB_ACTION_PATH"] = github.ActionPath
+	}
 	env["GITHUB_ACTIONS"] = "true"
 	env["GITHUB_ACTOR"] = github.Actor
 	env["GITHUB_REPOSITORY"] = github.Repository
@@ -649,6 +673,15 @@ func (rc *RunContext) withGithubEnv(env map[string]string) map[string]string {
 	env["GITHUB_SERVER_URL"] = "https://github.com"
 	env["GITHUB_API_URL"] = "https://api.github.com"
 	env["GITHUB_GRAPHQL_URL"] = "https://api.github.com/graphql"
+	env["GITHUB_ACTION_REF"] = github.ActionRef
+	env["GITHUB_ACTION_REPOSITORY"] = github.ActionRepository
+	env["GITHUB_BASE_REF"] = github.BaseRef
+	env["GITHUB_HEAD_REF"] = github.HeadRef
+	env["GITHUB_JOB"] = rc.JobName
+	env["GITHUB_REPOSITORY_OWNER"] = github.RepositoryOwner
+	env["GITHUB_RETENTION_DAYS"] = github.RetentionDays
+	env["RUNNER_PERFLOG"] = github.RunnerPerflog
+	env["RUNNER_TRACKING_ID"] = github.RunnerTrackingID
 	if rc.Config.GitHubInstance != "github.com" {
 		env["GITHUB_SERVER_URL"] = fmt.Sprintf("https://%s", rc.Config.GitHubInstance)
 		env["GITHUB_API_URL"] = fmt.Sprintf("https://%s/api/v3", rc.Config.GitHubInstance)
