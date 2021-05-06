@@ -557,7 +557,12 @@ func (sc *StepContext) execAsComposite(ctx context.Context, step *model.Step, _ 
 			}
 		}
 
-		stepClone.Run = strings.ReplaceAll(stepClone.Run, "${{ github.action_path }}", filepath.Join(containerActionDir, actionName))
+		if stepClone.Env == nil {
+			stepClone.Env = make(map[string]string)
+		}
+		actionPath := filepath.Join(containerActionDir, actionName)
+		stepClone.Env["GITHUB_ACTION_PATH"] = actionPath
+		stepClone.Run = strings.ReplaceAll(stepClone.Run, "${{ github.action_path }}", actionPath)
 
 		stepContext := StepContext{
 			RunContext: rcClone,

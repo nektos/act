@@ -11,7 +11,9 @@ import (
 
 	"github.com/nektos/act/pkg/model"
 	a "github.com/stretchr/testify/assert"
+	"gotest.tools/v3/assert"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 )
 
@@ -276,4 +278,45 @@ func TestRunContext_GetBindsAndMounts(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestGetGitHubContext(t *testing.T) {
+	log.SetLevel(log.DebugLevel)
+
+	cwd, err := os.Getwd()
+	assert.NilError(t, err)
+
+	rc := &RunContext{
+		Config: &Config{
+			EventName: "push",
+			Workdir:   cwd,
+		},
+		Run: &model.Run{
+			Workflow: &model.Workflow{
+				Name: "GitHubContextTest",
+			},
+		},
+		Name:           "GitHubContextTest",
+		CurrentStep:    "step",
+		Matrix:         map[string]interface{}{},
+		Env:            map[string]string{},
+		ExtraPath:      []string{},
+		StepResults:    map[string]*stepResult{},
+		OutputMappings: map[MappableOutput]MappableOutput{},
+	}
+
+	ghc := rc.getGithubContext()
+
+	log.Debugf("%v", ghc)
+
+	assert.Equal(t, ghc.RunID, "1")
+	assert.Equal(t, ghc.Workspace, cwd)
+	assert.Equal(t, ghc.RunNumber, "1")
+	assert.Equal(t, ghc.RetentionDays, "0")
+	assert.Equal(t, ghc.Actor, "nektos/act")
+	assert.Equal(t, ghc.Repository, "nektos/act")
+	assert.Equal(t, ghc.RepositoryOwner, "nektos")
+	assert.Equal(t, ghc.RunnerPerflog, "/dev/null")
+	assert.Equal(t, ghc.EventPath, "/tmp/workflow/event.json")
+	assert.Equal(t, ghc.Token, rc.Config.Secrets["GITHUB_TOKEN"])
 }
