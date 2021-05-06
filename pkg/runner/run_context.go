@@ -530,6 +530,9 @@ func (rc *RunContext) getGithubContext() *githubContext {
 		log.Warningf("unable to get git repo: %v", err)
 	} else {
 		ghc.Repository = repo
+		if ghc.RepositoryOwner == "" {
+			ghc.RepositoryOwner = strings.Split(repo, "/")[0]
+		}
 	}
 
 	_, sha, err := common.FindGitRevision(repoPath)
