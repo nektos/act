@@ -70,6 +70,7 @@ type Container interface {
 	Start(attach bool) common.Executor
 	Exec(command []string, env map[string]string) common.Executor
 	UpdateFromEnv(srcPath string, env *map[string]string) common.Executor
+	UpdateFromPath(env *map[string]string) common.Executor
 	Remove() common.Executor
 }
 
@@ -153,6 +154,10 @@ func (cr *containerReference) CopyDir(destPath string, srcPath string, useGitIgn
 
 func (cr *containerReference) UpdateFromEnv(srcPath string, env *map[string]string) common.Executor {
 	return cr.extractEnv(srcPath, env).IfNot(common.Dryrun)
+}
+
+func (cr *containerReference) UpdateFromPath(env *map[string]string) common.Executor {
+	return cr.extractPath(env).IfNot(common.Dryrun)
 }
 
 func (cr *containerReference) Exec(command []string, env map[string]string) common.Executor {
@@ -342,6 +347,7 @@ func (cr *containerReference) extractEnv(srcPath string, env *map[string]string)
 		if err != nil {
 			return nil
 		}
+		defer envTar.Close()
 		reader := tar.NewReader(envTar)
 		_, err = reader.Next()
 		if err != nil && err != io.EOF {
@@ -371,6 +377,31 @@ func (cr *containerReference) extractEnv(srcPath string, env *map[string]string)
 				multiLineEnvDelimiter = mulitiLineEnvStart[2]
 			}
 		}
+		env = &localEnv
+		return nil
+	}
+}
+
+func (cr *containerReference) extractPath(env *map[string]string) common.Executor {
+	localEnv := *env
+	return func(ctx context.Context) error {
+		pathTar, _, err := cr.cli.CopyFromContainer(ctx, cr.id, localEnv["GITHUB_PATH"])
+		if err != nil {
+			return errors.WithStack(err)
+		}
+		defer pathTar.Close()
+
+		reader := tar.NewReader(pathTar)
+		_, err = reader.Next()
+		if err != nil && err != io.EOF {
+			return errors.WithStack(err)
+		}
+		s := bufio.NewScanner(reader)
+		for s.Scan() {
+			line := s.Text()
+			localEnv["PATH"] = fmt.Sprintf("%s:%s", localEnv["PATH"], line)
+		}
+
 		env = &localEnv
 		return nil
 	}
@@ -413,6 +444,8 @@ func (cr *containerReference) exec(cmd []string, env map[string]string) common.E
 		if err != nil {
 			return errors.WithStack(err)
 		}
+		defer resp.Close()
+
 		var outWriter io.Writer
 		outWriter = cr.input.Stdout
 		if outWriter == nil {
