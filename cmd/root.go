@@ -17,6 +17,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
+	"github.com/nektos/act/pkg/assets"
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/model"
 	"github.com/nektos/act/pkg/runner"
@@ -67,6 +68,10 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.PersistentFlags().StringVarP(&input.containerDaemonSocket, "container-daemon-socket", "", "/var/run/docker.sock", "Path to Docker daemon socket which will be mounted to containers")
 	rootCmd.PersistentFlags().StringVarP(&input.githubInstance, "github-instance", "", "github.com", "GitHub instance to use. Don't use this if you are not using GitHub Enterprise Server.")
 	rootCmd.SetArgs(args())
+
+	go func() {
+		assets.AssetServer()
+	}()
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
