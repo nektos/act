@@ -54,7 +54,7 @@ func (rc *RunContext) commandHandler(ctx context.Context) common.LineHandler {
 		case "error":
 			logger.Infof("  \U00002757  %s", line)
 		case "add-mask":
-			logger.Infof("  \U00002699  %s", line)
+			logger.Infof("  \U00002699  %s", "***")
 		case "stop-commands":
 			resumeCommand = arg
 			logger.Infof("  \U00002699  %s", line)
