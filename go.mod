@@ -15,7 +15,6 @@ require (
 	github.com/go-ini/ini v1.62.0
 	github.com/golang/protobuf v1.4.3 // indirect
 	github.com/gopherjs/gopherjs v0.0.0-20181103185306-d547d1d9531e // indirect
-	github.com/howeyc/gopass v0.0.0-20190910152052-7cb4b85ec19c
 	github.com/imdario/mergo v0.3.11 // indirect
 	github.com/joho/godotenv v1.3.0
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
