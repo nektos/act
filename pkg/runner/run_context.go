@@ -482,53 +482,40 @@ type githubContext struct {
 }
 
 func (rc *RunContext) getGithubContext() *githubContext {
-	token, ok := rc.Config.Secrets["GITHUB_TOKEN"]
-	if !ok {
-		token = os.Getenv("GITHUB_TOKEN")
-	}
-
-	runID := rc.Config.Env["GITHUB_RUN_ID"]
-	if runID == "" {
-		runID = "1"
-	}
-
-	runNumber := rc.Config.Env["GITHUB_RUN_NUMBER"]
-	if runNumber == "" {
-		runNumber = "1"
-	}
-
-	actionPath := rc.Config.Env["GITHUB_ACTION_PATH"]
-	actionRef := rc.Config.Env["RUNNER_ACTION_REF"]
-	actionRepository := rc.Config.Env["RUNNER_ACTION_REPOSITORY"]
-	repositoryOwner := rc.Config.Env["GITHUB_REPOSITORY_OWNER"]
-	retentionDays := rc.Config.Env["GITHUB_RETENTION_DAYS"]
-	if retentionDays == "" {
-		retentionDays = "0"
-	}
-	runnerPerfLog := rc.Config.Env["RUNNER_PERFLOG"]
-	if runnerPerfLog == "" {
-		runnerPerfLog = "/dev/null"
-	}
-	runnerTrackingID := rc.Config.Env["RUNNER_TRACKING_ID"]
-
 	ghc := &githubContext{
 		Event:            make(map[string]interface{}),
 		EventPath:        "/tmp/workflow/event.json",
 		Workflow:         rc.Run.Workflow.Name,
-		RunID:            runID,
-		RunNumber:        runNumber,
+		RunID:            rc.Config.Env["GITHUB_RUN_ID"],
+		RunNumber:        rc.Config.Env["GITHUB_RUN_NUMBER"],
 		Actor:            rc.Config.Actor,
 		EventName:        rc.Config.EventName,
-		Token:            token,
 		Workspace:        rc.Config.ContainerWorkdir(),
 		Action:           rc.CurrentStep,
-		ActionPath:       actionPath,
-		ActionRef:        actionRef,
-		ActionRepository: actionRepository,
-		RepositoryOwner:  repositoryOwner,
-		RetentionDays:    retentionDays,
-		RunnerPerflog:    runnerPerfLog,
-		RunnerTrackingID: runnerTrackingID,
+		Token:            rc.Config.Secrets["GITHUB_TOKEN"],
+		ActionPath:       rc.Config.Env["GITHUB_ACTION_PATH"],
+		ActionRef:        rc.Config.Env["RUNNER_ACTION_REF"],
+		ActionRepository: rc.Config.Env["RUNNER_ACTION_REPOSITORY"],
+		RepositoryOwner:  rc.Config.Env["GITHUB_REPOSITORY_OWNER"],
+		RetentionDays:    rc.Config.Env["GITHUB_RETENTION_DAYS"],
+		RunnerPerflog:    rc.Config.Env["RUNNER_PERFLOG"],
+		RunnerTrackingID: rc.Config.Env["RUNNER_TRACKING_ID"],
+	}
+
+	if ghc.RunID == "" {
+		ghc.RunID = "1"
+	}
+
+	if ghc.RunNumber == "" {
+		ghc.RunNumber = "1"
+	}
+
+	if ghc.RetentionDays == "" {
+		ghc.RetentionDays = "0"
+	}
+
+	if ghc.RunnerPerflog == "" {
+		ghc.RunnerPerflog = "/dev/null"
 	}
 
 	// Backwards compatibility for configs that require
