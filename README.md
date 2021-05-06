@@ -184,10 +184,6 @@ steps:
 
 If the `path:` value doesn't match the name of the repository, a `MODULE_NOT_FOUND` will be thrown.
 
-## `act` on Windows
-
-Running `act` on Windows host is currently broken - see [#587](https://github.com/nektos/act/issues/587)
-
 # Runners
 
 GitHub Actions offers managed [virtual environments](https://help.github.com/en/actions/reference/virtual-environments-for-github-hosted-runners) for running workflows. In order for `act` to run your workflows locally, it must run a container for the runner defined in your workflow file. Here are the images that `act` uses for each runner type and size:
