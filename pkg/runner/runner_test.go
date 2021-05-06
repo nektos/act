@@ -107,6 +107,7 @@ func TestRunEvent(t *testing.T) {
 		{"testdata", "uses-composite", "push", "", platforms, ""},
 		{"testdata", "issue-597", "push", "", platforms, ""},
 		{"testdata", "issue-598", "push", "", platforms, ""},
+		{"testdata", "env-and-path", "push", "", platforms, ""},
 		// {"testdata", "issue-228", "push", "", platforms, ""}, // TODO [igni]: Remove this once everything passes
 
 		// single test for different architecture: linux/arm64

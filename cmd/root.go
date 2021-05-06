@@ -145,6 +145,7 @@ func readEnvs(path string, envs map[string]string) bool {
 	return false
 }
 
+//nolint:gocyclo
 func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, args []string) error {
 		log.Debugf("Loading environment from %s", input.Envfile())
