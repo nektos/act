@@ -70,7 +70,11 @@ func (sc *StepContext) Executor() common.Executor {
 		if remoteAction == nil {
 			return common.NewErrorExecutor(formatError(step.Uses))
 		}
-		if remoteAction.IsCheckout() && rc.getGithubContext().isLocalCheckout(step) {
+
+		remoteAction.URL = rc.Config.GitHubInstance
+
+		github := rc.getGithubContext()
+		if remoteAction.IsCheckout() && github.isLocalCheckout(step) {
 			return func(ctx context.Context) error {
 				common.Logger(ctx).Debugf("Skipping actions/checkout")
 				return nil
@@ -80,9 +84,10 @@ func (sc *StepContext) Executor() common.Executor {
 		actionDir := fmt.Sprintf("%s/%s", rc.ActionCacheDir(), strings.ReplaceAll(step.Uses, "/", "-"))
 		return common.NewPipelineExecutor(
 			common.NewGitCloneExecutor(common.NewGitCloneExecutorInput{
-				URL: remoteAction.CloneURL(),
-				Ref: remoteAction.Ref,
-				Dir: actionDir,
+				URL:   remoteAction.CloneURL(),
+				Ref:   remoteAction.Ref,
+				Dir:   actionDir,
+				Token: github.Token,
 			}),
 			sc.setupAction(actionDir, remoteAction.Path),
 			sc.runAction(actionDir, remoteAction.Path),
@@ -109,7 +114,7 @@ func (sc *StepContext) mergeEnv() map[string]string {
 
 	env["PATH"] = `/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin`
 	if (rc.ExtraPath != nil) && (len(rc.ExtraPath) > 0) {
-		env["PATH"] = strings.Join(append(rc.ExtraPath, env["PATH"]), `:`)
+		env["PATH"] = strings.Join(rc.ExtraPath, `:`)
 	}
 
 	sc.Env = rc.withGithubEnv(env)
@@ -126,7 +131,7 @@ func (sc *StepContext) setupEnv(ctx context.Context) (ExpressionEvaluator, error
 	rc := sc.RunContext
 	sc.Env = sc.mergeEnv()
 	if sc.Env != nil {
-		err := rc.JobContainer.UpdateFromGithubEnvAndPath(&sc.Env)(ctx)
+		err := rc.JobContainer.UpdateFromEnvAndPath(sc.Env["GITHUB_ENV"], &sc.Env)(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -247,6 +252,8 @@ func (sc *StepContext) newStepContainer(ctx context.Context, image string, cmd [
 		Entrypoint:  entrypoint,
 		WorkingDir:  rc.Config.ContainerWorkdir(),
 		Image:       image,
+		Username:    rc.Config.Secrets["DOCKER_USERNAME"],
+		Password:    rc.Config.Secrets["DOCKER_PASSWORD"],
 		Name:        createContainerName(rc.jobContainerName(), step.ID),
 		Env:         envList,
 		Mounts:      mounts,
@@ -557,7 +564,6 @@ func (sc *StepContext) execAsComposite(ctx context.Context, step *model.Step, _ 
 		// Interpolate the outer inputs into the composite step with items
 		exprEval := sc.NewExpressionEvaluator()
 		for k, v := range stepContext.Step.With {
-
 			if strings.Contains(v, "inputs") {
 				stepContext.Step.With[k] = exprEval.Interpolate(v)
 			}
@@ -579,6 +585,7 @@ func (sc *StepContext) populateEnvsFromInput(action *model.Action, rc *RunContex
 }
 
 type remoteAction struct {
+	URL  string
 	Org  string
 	Repo string
 	Path string
@@ -586,7 +593,7 @@ type remoteAction struct {
 }
 
 func (ra *remoteAction) CloneURL() string {
-	return fmt.Sprintf("https://github.com/%s/%s", ra.Org, ra.Repo)
+	return fmt.Sprintf("https://%s/%s/%s", ra.URL, ra.Org, ra.Repo)
 }
 
 func (ra *remoteAction) IsCheckout() bool {
@@ -612,6 +619,7 @@ func newRemoteAction(action string) *remoteAction {
 		Repo: matches[2],
 		Path: matches[4],
 		Ref:  matches[6],
+		URL:  "github.com",
 	}
 }
 

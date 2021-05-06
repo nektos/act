@@ -34,7 +34,7 @@ func TestFindGitSlug(t *testing.T) {
 	}
 
 	for _, tt := range slugTests {
-		provider, slug, err := findGitSlug(tt.url)
+		provider, slug, err := findGitSlug(tt.url, "github.com")
 
 		assert.NoError(err)
 		assert.Equal(tt.provider, provider)

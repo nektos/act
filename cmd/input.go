@@ -29,6 +29,7 @@ type Input struct {
 	containerArchitecture string
 	noWorkflowRecurse     bool
 	useGitIgnore          bool
+	githubInstance        string
 }
 
 func (i *Input) resolve(path string) string {

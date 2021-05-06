@@ -56,6 +56,7 @@ func runTestJobFile(ctx context.Context, t *testing.T, tjfi TestJobFileInfo, sec
 			ReuseContainers:       false,
 			ContainerArchitecture: tjfi.containerArchitecture,
 			Secrets:               secrets,
+			GitHubInstance:        "github.com",
 		}
 
 		runner, err := New(runnerConfig)
@@ -105,6 +106,7 @@ func TestRunEvent(t *testing.T) {
 		{"testdata", "defaults-run", "push", "", platforms, ""},
 		{"testdata", "uses-composite", "push", "", platforms, ""},
 		{"testdata", "issue-597", "push", "", platforms, ""},
+		{"testdata", "issue-598", "push", "", platforms, ""},
 		{"testdata", "env-and-path", "push", "", platforms, ""},
 		// {"testdata", "issue-228", "push", "", platforms, ""}, // TODO [igni]: Remove this once everything passes
 

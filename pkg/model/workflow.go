@@ -59,7 +59,7 @@ type Job struct {
 	RawNeeds       yaml.Node                 `yaml:"needs"`
 	RawRunsOn      yaml.Node                 `yaml:"runs-on"`
 	Env            map[string]string         `yaml:"env"`
-	If             string                    `yaml:"if"`
+	If             yaml.Node                 `yaml:"if"`
 	Steps          []*Step                   `yaml:"steps"`
 	TimeoutMinutes int64                     `yaml:"timeout-minutes"`
 	Services       map[string]*ContainerSpec `yaml:"services"`
@@ -211,7 +211,7 @@ type ContainerSpec struct {
 // Step is the structure of one step in a job
 type Step struct {
 	ID               string            `yaml:"id"`
-	If               string            `yaml:"if"`
+	If               yaml.Node         `yaml:"if"`
 	Name             string            `yaml:"name"`
 	Uses             string            `yaml:"uses"`
 	Run              string            `yaml:"run"`
@@ -256,13 +256,13 @@ func (s *Step) ShellCommand() string {
 	//Reference: https://github.com/actions/runner/blob/8109c962f09d9acc473d92c595ff43afceddb347/src/Runner.Worker/Handlers/ScriptHandlerHelpers.cs#L9-L17
 	switch s.Shell {
 	case "", "bash":
-		shellCommand = "bash --login --noprofile --norc -e -o pipefail {0}"
+		shellCommand = "bash --noprofile --norc -e -o pipefail {0}"
 	case "pwsh":
 		shellCommand = "pwsh -command . '{0}'"
 	case "python":
 		shellCommand = "python {0}"
 	case "sh":
-		shellCommand = "sh -l -e -c {0}"
+		shellCommand = "sh -e -c {0}"
 	case "cmd":
 		shellCommand = "%ComSpec% /D /E:ON /V:OFF /S /C \"CALL \"{0}\"\""
 	case "powershell":
