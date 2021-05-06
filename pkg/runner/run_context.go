@@ -450,21 +450,22 @@ func (rc *RunContext) getStepsContext() map[string]*stepResult {
 }
 
 type githubContext struct {
-	Event      map[string]interface{} `json:"event"`
-	EventPath  string                 `json:"event_path"`
-	Workflow   string                 `json:"workflow"`
-	RunID      string                 `json:"run_id"`
-	RunNumber  string                 `json:"run_number"`
-	Actor      string                 `json:"actor"`
-	Repository string                 `json:"repository"`
-	EventName  string                 `json:"event_name"`
-	Sha        string                 `json:"sha"`
-	Ref        string                 `json:"ref"`
-	HeadRef    string                 `json:"head_ref"`
-	BaseRef    string                 `json:"base_ref"`
-	Token      string                 `json:"token"`
-	Workspace  string                 `json:"workspace"`
-	Action     string                 `json:"action"`
+	Event           map[string]interface{} `json:"event"`
+	EventPath       string                 `json:"event_path"`
+	Workflow        string                 `json:"workflow"`
+	RunID           string                 `json:"run_id"`
+	RunNumber       string                 `json:"run_number"`
+	Actor           string                 `json:"actor"`
+	Repository      string                 `json:"repository"`
+	RepositoryOwner string                 `json:"repository_owner"`
+	EventName       string                 `json:"event_name"`
+	Sha             string                 `json:"sha"`
+	Ref             string                 `json:"ref"`
+	HeadRef         string                 `json:"head_ref"`
+	BaseRef         string                 `json:"base_ref"`
+	Token           string                 `json:"token"`
+	Workspace       string                 `json:"workspace"`
+	Action          string                 `json:"action"`
 }
 
 func (rc *RunContext) getGithubContext() *githubContext {
@@ -508,6 +509,7 @@ func (rc *RunContext) getGithubContext() *githubContext {
 		log.Warningf("unable to get git repo: %v", err)
 	} else {
 		ghc.Repository = repo
+		ghc.RepositoryOwner = strings.Split(repo, "/")[0]
 	}
 
 	_, sha, err := common.FindGitRevision(repoPath)
