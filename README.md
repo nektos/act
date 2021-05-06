@@ -82,6 +82,18 @@ or in a shell by running
 nix-shell -p act
 ```
 
+If you have Go 1.16+, you can install latest released version of `act` directly from source by running:
+
+```sh
+go install github.com/nektos/act@latest
+```
+
+or if you want to install latest unreleased version:
+
+```sh
+go install github.com/nektos/act@master
+```
+
 # Commands
 
 ```sh
@@ -156,9 +168,8 @@ It will save that information to `~/.actrc`, please refer to [Configuration](#co
 A `MODULE_NOT_FOUND` during `docker cp` command [#228](https://github.com/nektos/act/issues/228) can happen if you are relying on local changes that have not been pushed. This can get triggered if the action is using a path, like:
 
 ```yaml
-
-    - name: test action locally
-      uses: ./
+- name: test action locally
+  uses: ./
 ```
 
 In this case, you _must_ use `actions/checkout@v2` with a path that _has the same name as your repository_. If your repository is called _my-action_, then your checkout step would look like:
@@ -181,12 +192,12 @@ Running `act` on Windows host is currently broken - see [#587](https://github.co
 
 GitHub Actions offers managed [virtual environments](https://help.github.com/en/actions/reference/virtual-environments-for-github-hosted-runners) for running workflows. In order for `act` to run your workflows locally, it must run a container for the runner defined in your workflow file. Here are the images that `act` uses for each runner type and size:
 
-| GitHub Runner   | Micro Docker Image                   | Medium Docker Image                        | Large Docker Image                                     |
-| --------------- | ------------------------------------ | ------------------------------------------ | ------------------------------------------------------ |
-| `ubuntu-latest` | [`node:12.20.1-buster-slim`][micro]  | [`catthehacker/ubuntu:act-latest`][medium] | [`catthehacker/ubuntu:full-20.04`][large-cat]          |
-| `ubuntu-20.04`  | [`node:12.20.1-buster-slim`][micro]  | [`catthehacker/ubuntu:act-20.04`][medium]  | [`catthehacker/ubuntu:full-20.04`][large-cat]          |
-| `ubuntu-18.04`  | [`node:12.20.1-buster-slim`][micro]  | [`catthehacker/ubuntu:act-18.04`][medium]  | [`nektos/act-environments-ubuntu:18.04`][large-act]    |
-| `ubuntu-16.04`  | [`node:12.20.1-stretch-slim`][micro] | [`catthehacker/ubuntu:act-16.04`][medium]  | `unavailable`                                          |
+| GitHub Runner   | Micro Docker Image                   | Medium Docker Image                        | Large Docker Image                                  |
+| --------------- | ------------------------------------ | ------------------------------------------ | --------------------------------------------------- |
+| `ubuntu-latest` | [`node:12.20.1-buster-slim`][micro]  | [`catthehacker/ubuntu:act-latest`][medium] | [`catthehacker/ubuntu:full-20.04`][large-cat]       |
+| `ubuntu-20.04`  | [`node:12.20.1-buster-slim`][micro]  | [`catthehacker/ubuntu:act-20.04`][medium]  | [`catthehacker/ubuntu:full-20.04`][large-cat]       |
+| `ubuntu-18.04`  | [`node:12.20.1-buster-slim`][micro]  | [`catthehacker/ubuntu:act-18.04`][medium]  | [`nektos/act-environments-ubuntu:18.04`][large-act] |
+| `ubuntu-16.04`  | [`node:12.20.1-stretch-slim`][micro] | [`catthehacker/ubuntu:act-16.04`][medium]  | `unavailable`                                       |
 
 [micro]: https://hub.docker.com/_/buildpack-deps
 [medium]: https://github.com/catthehacker/docker_images
@@ -218,7 +229,7 @@ If you need an environment that works just like the corresponding GitHub runner 
 :warning: :elephant: `*** WARNING - this image is >18GB 😱***`
 
 - [`catthehacker/ubuntu:full-20.04`](https://hub.docker.com/r/catthehacker/ubuntu/tags) - built from Dockerfile based on the Packer template from [actions/virtual-environments](https://github.com/actions/runner).
-This image size is about `61GB` unpacked (`23GB` compressed) but contains more recent software versions (as of date of build).
+  This image size is about `61GB` unpacked (`23GB` compressed) but contains more recent software versions (as of date of build).
 
 ## Use an alternative runner image
 
@@ -324,7 +335,7 @@ Need help? Ask on [Gitter](https://gitter.im/nektos/act)!
 
 Want to contribute to act? Awesome! Check out the [contributing guidelines](CONTRIBUTING.md) to get involved.
 
-## Building from source
+## Manually building from source
 
 - Install Go tools 1.16+ - (<https://golang.org/doc/install>)
 - Clone this repo `git clone git@github.com:nektos/act.git`
