@@ -40,6 +40,7 @@ type Config struct {
 	ContainerDaemonSocket string            // Path to Docker daemon socket
 	UseGitIgnore          bool              // controls if paths in .gitignore should not be copied into container, default true
 	GitHubInstance        string            // GitHub instance to use, default "github.com"
+	ArtifactServerPath    string            // the path where the artifact server stores uploads
 }
 
 // Resolves the equivalent host path inside the container
