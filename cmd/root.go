@@ -66,8 +66,10 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.PersistentFlags().StringVarP(&input.githubInstance, "github-instance", "", "github.com", "GitHub instance to use. Don't use this if you are not using GitHub Enterprise Server.")
 	rootCmd.SetArgs(args())
 
+	// todo: where to start the server?
+	// todo: instead of env ASSET_PATH and PORT would prefer flags. how to integrate with these?
 	go func() {
-		assets.AssetServer()
+		assets.ServeAssets()
 	}()
 
 	if err := rootCmd.Execute(); err != nil {
