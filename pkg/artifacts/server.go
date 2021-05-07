@@ -1,4 +1,4 @@
-package assets
+package artifacts
 
 import (
 	"encoding/json"
@@ -42,7 +42,7 @@ type ResponseMessage struct {
 	Message string `json:"message"`
 }
 
-func uploads(router *httprouter.Router, assetPath string) {
+func uploads(router *httprouter.Router, artifactPath string) {
 	router.POST("/_apis/pipelines/workflows/:runId/artifacts", func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
 		runID := params.ByName("runId")
 
@@ -53,7 +53,6 @@ func uploads(router *httprouter.Router, assetPath string) {
 			panic(err)
 		}
 
-		// get runId from path
 		_, err = w.Write(json)
 		if err != nil {
 			panic(err)
@@ -64,7 +63,7 @@ func uploads(router *httprouter.Router, assetPath string) {
 		itemPath := req.URL.Query().Get("itemPath")
 		runID := params.ByName("runId")
 
-		filePath := fmt.Sprintf("%s/%s/%s", assetPath, runID, itemPath)
+		filePath := fmt.Sprintf("%s/%s/%s", artifactPath, runID, itemPath)
 
 		err := os.MkdirAll(path.Dir(filePath), os.ModePerm)
 		if err != nil {
@@ -89,7 +88,6 @@ func uploads(router *httprouter.Router, assetPath string) {
 			panic(err)
 		}
 
-		// get runId from path
 		_, err = w.Write(json)
 		if err != nil {
 			panic(err)
@@ -104,7 +102,6 @@ func uploads(router *httprouter.Router, assetPath string) {
 			panic(err)
 		}
 
-		// get runId from path
 		_, err = w.Write(json)
 		if err != nil {
 			panic(err)
@@ -112,10 +109,10 @@ func uploads(router *httprouter.Router, assetPath string) {
 	})
 }
 
-func downloads(router *httprouter.Router, assetPath string) {
+func downloads(router *httprouter.Router, artifactPath string) {
 	router.GET("/_apis/pipelines/workflows/:runId/artifacts", func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
 		runID := params.ByName("runId")
-		dirPath := fmt.Sprintf("%s/%s", assetPath, runID)
+		dirPath := fmt.Sprintf("%s/%s", artifactPath, runID)
 
 		files, err := ioutil.ReadDir(dirPath)
 		if err != nil {
@@ -138,7 +135,6 @@ func downloads(router *httprouter.Router, assetPath string) {
 			panic(err)
 		}
 
-		// get runId from path
 		_, err = w.Write(json)
 		if err != nil {
 			panic(err)
@@ -148,7 +144,7 @@ func downloads(router *httprouter.Router, assetPath string) {
 	router.GET("/download/:container", func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
 		container := params.ByName("container")
 		itemPath := req.URL.Query().Get("itemPath")
-		dirPath := fmt.Sprintf("%s/%s/%s", assetPath, container, itemPath)
+		dirPath := fmt.Sprintf("%s/%s/%s", artifactPath, container, itemPath)
 
 		var files []ContainerItem
 		err := filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
@@ -161,7 +157,7 @@ func downloads(router *httprouter.Router, assetPath string) {
 				files = append(files, ContainerItem{
 					Path:            fmt.Sprintf("%s/%s", itemPath, rel),
 					ItemType:        "file",
-					ContentLocation: fmt.Sprintf("http://%s/asset/%s/%s/%s", req.Host, container, itemPath, rel),
+					ContentLocation: fmt.Sprintf("http://%s/artifact/%s/%s/%s", req.Host, container, itemPath, rel),
 				})
 			}
 			return nil
@@ -177,16 +173,15 @@ func downloads(router *httprouter.Router, assetPath string) {
 			panic(err)
 		}
 
-		// get runId from path
 		_, err = w.Write(json)
 		if err != nil {
 			panic(err)
 		}
 	})
 
-	router.GET("/asset/*path", func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
+	router.GET("/artifact/*path", func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
 		path := params.ByName("path")
-		dirPath := fmt.Sprintf("%s/%s", assetPath, path)
+		dirPath := fmt.Sprintf("%s/%s", artifactPath, path)
 
 		file, err := os.Open(dirPath)
 		if err != nil {
@@ -200,27 +195,19 @@ func downloads(router *httprouter.Router, assetPath string) {
 	})
 }
 
-func ServeAssets() {
-	router := httprouter.New()
-
-	// todo: how to name this env var?
-	assetPath := os.Getenv("ASSET_PATH")
-	if assetPath == "" {
-		absPath, err := filepath.Abs("./.act")
-		if err != nil {
-			panic(err)
-		}
-
-		assetPath = absPath
+func Serve(artifactPath string) {
+	if artifactPath == "" {
+		return
 	}
 
-	uploads(router, assetPath)
-	downloads(router, assetPath)
+	router := httprouter.New()
 
-	// todo: how to name this env var?
-	port := os.Getenv("PORT")
+	uploads(router, artifactPath)
+	downloads(router, artifactPath)
+
+	port := os.Getenv("ACT_ARTIFACT_SERVER_PORT")
 	if port == "" {
-		port = "8080"
+		port = "34567"
 	}
 
 	log.Fatal(http.ListenAndServe(fmt.Sprintf("localhost:%s", port), router))
