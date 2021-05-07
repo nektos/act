@@ -130,30 +130,8 @@ func (sc *StepContext) mergeEnv() map[string]string {
 		env["PATH"] = strings.Join(rc.ExtraPath, `:`)
 	}
 
-	if rc.Config.ArtifactServerPath != "" {
-		setActionRuntimeVars(env)
-	}
-
 	sc.Env = rc.withGithubEnv(env)
 	return env
-}
-
-func setActionRuntimeVars(env map[string]string) {
-	actionsRuntimeURL := os.Getenv("ACTIONS_RUNTIME_URL")
-	if actionsRuntimeURL == "" {
-		port := os.Getenv("ACT_ARTIFACT_SERVER_PORT")
-		if port == "" {
-			port = "34567"
-		}
-		actionsRuntimeURL = fmt.Sprintf("http://localhost:%s/", port)
-	}
-	env["ACTIONS_RUNTIME_URL"] = actionsRuntimeURL
-
-	actionsRuntimeToken := os.Getenv("ACTIONS_RUNTIME_TOKEN")
-	if actionsRuntimeToken == "" {
-		actionsRuntimeToken = "token"
-	}
-	env["ACTIONS_RUNTIME_TOKEN"] = actionsRuntimeToken
 }
 
 func (sc *StepContext) interpolateEnv(exprEval ExpressionEvaluator) {
