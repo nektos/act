@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/kballard/go-shellquote"
+	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/nektos/act/pkg/common"
@@ -82,13 +83,17 @@ func (sc *StepContext) Executor() common.Executor {
 		}
 
 		actionDir := fmt.Sprintf("%s/%s", rc.ActionCacheDir(), strings.ReplaceAll(step.Uses, "/", "-"))
+		gitClone := common.NewGitCloneExecutor(common.NewGitCloneExecutorInput{
+			URL:   remoteAction.CloneURL(),
+			Ref:   remoteAction.Ref,
+			Dir:   actionDir,
+			Token: github.Token,
+		})
+		if err := gitClone(context.TODO()); err != nil {
+			err = errors.Cause(err)
+			return common.NewErrorExecutor(fmt.Errorf("Unable to resolve action `%s`, the provided ref `%s` is the shortened version of a commit SHA, which is not supported. Please use the full commit SHA `%s` instead", step.Uses, remoteAction.Ref, err.Error()))
+		}
 		return common.NewPipelineExecutor(
-			common.NewGitCloneExecutor(common.NewGitCloneExecutorInput{
-				URL:   remoteAction.CloneURL(),
-				Ref:   remoteAction.Ref,
-				Dir:   actionDir,
-				Token: github.Token,
-			}),
 			sc.setupAction(actionDir, remoteAction.Path),
 			sc.runAction(actionDir, remoteAction.Path),
 		)
