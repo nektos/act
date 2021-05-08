@@ -1,0 +1,8 @@
+name: local-action-node12
+on: push
+
+jobs:
+  checkout:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2

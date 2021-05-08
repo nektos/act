@@ -89,6 +89,7 @@ func TestRunEvent(t *testing.T) {
 		{"testdata", "basic", "push", "", platforms, ""},
 		{"testdata", "fail", "push", "exit with `FAILURE`: 1", platforms, ""},
 		{"testdata", "runs-on", "push", "", platforms, ""},
+		{"testdata", "checkout", "push", "", platforms, ""},
 		// Pwsh is not available in default worker (yet) so we use a separate image for testing
 		{"testdata", "powershell", "push", "", map[string]string{"ubuntu-latest": "ghcr.io/justingrote/act-pwsh:latest"}, ""},
 		{"testdata", "job-container", "push", "", platforms, ""},
