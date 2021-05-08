@@ -221,7 +221,7 @@ func TestContainerPath(t *testing.T) {
 		for _, v := range []containerPathJob{
 			{"/mnt/c/Users/act/go/src/github.com/nektos/act", "C:\\Users\\act\\go\\src\\github.com\\nektos\\act\\", ""},
 			{"/mnt/f/work/dir", `F:\work\dir`, ""},
-			{"/mnt/c/windows/to/unix", "windows/to/unix", fmt.Sprintf("%s\\", rootDrive)},
+			{"/mnt/c/windows/to/unix", "windows\\to\\unix", fmt.Sprintf("%s\\", rootDrive)},
 			{fmt.Sprintf("/mnt/%v/act", rootDriveLetter), "act", fmt.Sprintf("%s\\", rootDrive)},
 		} {
 			if v.workDir != "" {
