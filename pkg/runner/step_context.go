@@ -3,11 +3,9 @@ package runner
 import (
 	"archive/tar"
 	"context"
-	"io"
-
-	// Go told me to?
-	_ "embed"
+	"embed"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path"
@@ -335,7 +333,7 @@ func (sc *StepContext) runUsesContainer() common.Executor {
 }
 
 //go:embed res/trampoline.js
-var trampoline []byte
+var trampoline embed.FS
 
 func (sc *StepContext) setupAction(actionDir string, actionPath string, localAction bool) common.Executor {
 	return func(ctx context.Context) error {
@@ -378,7 +376,11 @@ func (sc *StepContext) setupAction(actionDir string, actionPath string, localAct
 				}
 				if sc.Step.With != nil {
 					if val, ok := sc.Step.With["args"]; ok {
-						err2 := ioutil.WriteFile(filepath.Join(actionDir, actionPath, "trampoline.js"), trampoline, 0400)
+						var b []byte
+						if b, err = trampoline.ReadFile("res/trampoline.js"); err != nil {
+							return err
+						}
+						err2 := ioutil.WriteFile(filepath.Join(actionDir, actionPath, "trampoline.js"), b, 0400)
 						if err2 != nil {
 							return err
 						}
