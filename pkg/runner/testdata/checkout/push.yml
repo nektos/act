@@ -1,4 +1,4 @@
-name: local-action-node12
+name: checkout
 on: push
 
 jobs:
