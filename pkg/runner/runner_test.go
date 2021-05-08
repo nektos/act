@@ -43,7 +43,7 @@ type TestJobFileInfo struct {
 	containerArchitecture string
 }
 
-func runTestJobFile(ctx context.Context, t *testing.T, tjfi TestJobFileInfo, secrets map[string]string) {
+func runTestJobFile(ctx context.Context, t *testing.T, tjfi TestJobFileInfo) {
 	t.Run(tjfi.workflowPath, func(t *testing.T) {
 		workdir, err := filepath.Abs(tjfi.workdir)
 		assert.NilError(t, err, workdir)
@@ -55,7 +55,6 @@ func runTestJobFile(ctx context.Context, t *testing.T, tjfi TestJobFileInfo, sec
 			Platforms:             tjfi.platforms,
 			ReuseContainers:       false,
 			ContainerArchitecture: tjfi.containerArchitecture,
-			Secrets:               secrets,
 			GitHubInstance:        "github.com",
 		}
 
@@ -117,11 +116,9 @@ func TestRunEvent(t *testing.T) {
 	log.SetLevel(log.DebugLevel)
 
 	ctx := context.Background()
-	secretspath, _ := filepath.Abs("../../.secrets")
-	secrets, _ := godotenv.Read(secretspath)
 
 	for _, table := range tables {
-		runTestJobFile(ctx, t, table, secrets)
+		runTestJobFile(ctx, t, table)
 	}
 }
 
