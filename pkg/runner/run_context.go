@@ -587,6 +587,10 @@ func (ghc *githubContext) isLocalCheckout(step *model.Step) bool {
 		return false
 	}
 	remoteAction := newRemoteAction(step.Uses)
+	if remoteAction == nil {
+		// IsCheckout() will nil panic if we dont bail out early
+		return false
+	}
 	if !remoteAction.IsCheckout() {
 		return false
 	}
