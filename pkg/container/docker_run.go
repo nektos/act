@@ -138,11 +138,42 @@ func (cr *containerReference) Copy(destPath string, files ...*FileEntry) common.
 	return common.NewPipelineExecutor(
 		cr.connect(),
 		cr.find(),
+		cr.mkdir(destPath),
 		cr.copyContent(destPath, files...),
-		// Used instead of CopyUIDGID because of https://github.com/moby/moby/issues/34142
-		// TODO: Replace hardcoded HOME path with inspection of the container
-		cr.exec([]string{"sudo", "chown", "-R", "--reference=/home/runner", destPath}, nil),
+		cr.chownIfRunningAsUser(destPath),
 	).IfNot(common.Dryrun)
+}
+
+// Set owner recursively of a path inside the container using the change ownership (chown command)
+// Used instead of CopyUIDGID because of https://github.com/moby/moby/issues/34142
+// We also assume sudo is available if container is running as user and not root. It will error saying sudo not found otherwise
+func (cr *containerReference) chown(destPath string, user string) common.Executor {
+	return cr.exec([]string{"sudo", "chown", "-R", user, destPath}, nil)
+}
+
+// Check container config if running as normal user and adjust the path owner to the container user
+func (cr *containerReference) chownIfRunningAsUser(destPath string) common.Executor {
+	// This runs chown as a nested anonymous function so that cr.config.User evaluates correctly after create
+	return func(ctx context.Context) error {
+		if cr.config.User != "" {
+			crChown := cr.chown(destPath, cr.config.User)
+			return crChown(ctx)
+		} else {
+			return nil
+		}
+	}
+}
+
+// Create a container directory if it doesn't exist. Use sudo if not running as root
+func (cr *containerReference) mkdir(destPath string) common.Executor {
+	return func(ctx context.Context) error {
+		mkdirCmd := []string{"mkdir", "-p", destPath}
+		if cr.config.User != "" {
+			mkdirCmd = append([]string{"sudo"}, mkdirCmd...)
+		}
+		crMkdir := cr.exec(mkdirCmd, nil)
+		return crMkdir(ctx)
+	}
 }
 
 func (cr *containerReference) CopyDir(destPath string, srcPath string, useGitIgnore bool) common.Executor {
@@ -150,12 +181,9 @@ func (cr *containerReference) CopyDir(destPath string, srcPath string, useGitIgn
 		common.NewInfoExecutor("%sdocker cp src=%s dst=%s", logPrefix, srcPath, destPath),
 		cr.connect(),
 		cr.find(),
-		cr.exec([]string{"sudo", "mkdir", "-p", destPath}, nil),
+		cr.mkdir(destPath),
 		cr.copyDir(destPath, srcPath, useGitIgnore),
-		// This is required because docker cp with SETUIDGID incorrectly does a host lookup, not a container lookup
-		//Reference: https://github.com/moby/moby/issues/34142
-		// TODO: Replace hardcoded HOME path with inspection of the container
-		cr.exec([]string{"sudo", "chown", "-R", "--reference=/home/runner", destPath}, nil),
+		cr.chownIfRunningAsUser(destPath),
 	).IfNot(common.Dryrun)
 }
 
@@ -185,9 +213,10 @@ func (cr *containerReference) Remove() common.Executor {
 }
 
 type containerReference struct {
-	cli   *client.Client
-	id    string
-	input *NewContainerInput
+	cli    *client.Client
+	id     string
+	input  *NewContainerInput
+	config *container.Config
 }
 
 func GetDockerClient(ctx context.Context) (*client.Client, error) {
@@ -336,6 +365,13 @@ func (cr *containerReference) create() common.Executor {
 		logger.Debugf("ENV ==> %v", input.Env)
 
 		cr.id = resp.ID
+
+		configResp, err := cr.cli.ContainerInspect(ctx, cr.id)
+		if err != nil {
+			return errors.WithStack(err)
+		}
+		cr.config = configResp.Config
+
 		return nil
 	}
 }
@@ -487,7 +523,6 @@ func (cr *containerReference) exec(cmd []string, env map[string]string) common.E
 		if inspectResp.ExitCode == 0 {
 			return nil
 		}
-
 		return fmt.Errorf("exit with `FAILURE`: %v", inspectResp.ExitCode)
 	}
 }
