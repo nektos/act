@@ -158,9 +158,9 @@ func (cr *containerReference) chownIfRunningAsUser(destPath string) common.Execu
 		if cr.config.User != "" {
 			crChown := cr.chown(destPath, cr.config.User)
 			return crChown(ctx)
-		} else {
-			return nil
 		}
+
+		return nil
 	}
 }
 
