@@ -139,6 +139,9 @@ func (cr *containerReference) Copy(destPath string, files ...*FileEntry) common.
 		cr.connect(),
 		cr.find(),
 		cr.copyContent(destPath, files...),
+		// Used instead of CopyUIDGID because of https://github.com/moby/moby/issues/34142
+		// TODO: Replace hardcoded HOME path with inspection of the container
+		cr.exec([]string{"sudo", "chown", "-R", "--reference=/home/runner", destPath}, nil),
 	).IfNot(common.Dryrun)
 }
 
@@ -147,8 +150,12 @@ func (cr *containerReference) CopyDir(destPath string, srcPath string, useGitIgn
 		common.NewInfoExecutor("%sdocker cp src=%s dst=%s", logPrefix, srcPath, destPath),
 		cr.connect(),
 		cr.find(),
-		cr.exec([]string{"mkdir", "-p", destPath}, nil),
+		cr.exec([]string{"sudo", "mkdir", "-p", destPath}, nil),
 		cr.copyDir(destPath, srcPath, useGitIgnore),
+		// This is required because docker cp with SETUIDGID incorrectly does a host lookup, not a container lookup
+		//Reference: https://github.com/moby/moby/issues/34142
+		// TODO: Replace hardcoded HOME path with inspection of the container
+		cr.exec([]string{"sudo", "chown", "-R", "--reference=/home/runner", destPath}, nil),
 	).IfNot(common.Dryrun)
 }
 
