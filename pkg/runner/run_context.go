@@ -579,7 +579,7 @@ func (rc *RunContext) getGithubContext() *githubContext {
 }
 
 func (ghc *githubContext) isLocalCheckout(step *model.Step) bool {
-	if step.Type() != model.StepTypeInvalid {
+	if step.Type() == model.StepTypeInvalid {
 		// This will be errored out by the executor later, we need this here to avoid a null panic though
 		return false
 	}
@@ -587,6 +587,10 @@ func (ghc *githubContext) isLocalCheckout(step *model.Step) bool {
 		return false
 	}
 	remoteAction := newRemoteAction(step.Uses)
+	if remoteAction == nil {
+		// IsCheckout() will nil panic if we dont bail out early
+		return false
+	}
 	if !remoteAction.IsCheckout() {
 		return false
 	}
