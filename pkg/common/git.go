@@ -55,7 +55,7 @@ func FindGitRevision(file string) (shortSha string, sha string, err error) {
 		refBuf = []byte(ref)
 	}
 
-	log.Debugf("Found revision: %s", refBuf)
+	// log.Debugf("Found revision: %s", refBuf)
 	return string(refBuf[:7]), strings.TrimSpace(string(refBuf)), nil
 }
 
@@ -86,7 +86,8 @@ func FindGitRef(file string) (string, error) {
 				if r == nil || err != nil {
 					break
 				}
-				log.Debugf("Reference: name=%s sha=%s", r.Name().String(), r.Hash().String())
+				// This is super noisy, enable only when needed
+				// log.Debugf("Reference: name=%s sha=%s", r.Name().String(), r.Hash().String())
 				if r.Hash().String() == ref {
 					if r.Name().IsTag() {
 						refTag = r.Name().String()
