@@ -11,17 +11,17 @@ import (
 
 	"github.com/joho/godotenv"
 	log "github.com/sirupsen/logrus"
-	"gotest.tools/v3/assert"
+	assert "github.com/stretchr/testify/assert"
 
 	"github.com/nektos/act/pkg/model"
 )
 
 func TestGraphEvent(t *testing.T) {
 	planner, err := model.NewWorkflowPlanner("testdata/basic", true)
-	assert.NilError(t, err)
+	assert.Nil(t, err)
 
 	plan := planner.PlanEvent("push")
-	assert.NilError(t, err)
+	assert.Nil(t, err)
 	assert.Equal(t, len(plan.Stages), 3, "stages")
 	assert.Equal(t, len(plan.Stages[0].Runs), 1, "stage0.runs")
 	assert.Equal(t, len(plan.Stages[1].Runs), 1, "stage1.runs")
@@ -46,7 +46,7 @@ type TestJobFileInfo struct {
 func runTestJobFile(ctx context.Context, t *testing.T, tjfi TestJobFileInfo, secrets map[string]string) {
 	t.Run(tjfi.workflowPath, func(t *testing.T) {
 		workdir, err := filepath.Abs(tjfi.workdir)
-		assert.NilError(t, err, workdir)
+		assert.Nil(t, err, workdir)
 		fullWorkflowPath := filepath.Join(workdir, tjfi.workflowPath)
 		runnerConfig := &Config{
 			Workdir:               workdir,
@@ -60,18 +60,18 @@ func runTestJobFile(ctx context.Context, t *testing.T, tjfi TestJobFileInfo, sec
 		}
 
 		runner, err := New(runnerConfig)
-		assert.NilError(t, err, tjfi.workflowPath)
+		assert.Nil(t, err, tjfi.workflowPath)
 
 		planner, err := model.NewWorkflowPlanner(fullWorkflowPath, true)
-		assert.NilError(t, err, fullWorkflowPath)
+		assert.Nil(t, err, fullWorkflowPath)
 
 		plan := planner.PlanEvent(tjfi.eventName)
 
 		err = runner.NewPlanExecutor(plan)(ctx)
 		if tjfi.errorMessage == "" {
-			assert.NilError(t, err, fullWorkflowPath)
+			assert.Nil(t, err, fullWorkflowPath)
 		} else {
-			assert.ErrorContains(t, err, tjfi.errorMessage)
+			assert.Error(t, err, tjfi.errorMessage)
 		}
 	})
 }
@@ -140,7 +140,7 @@ func TestRunEventSecrets(t *testing.T) {
 	eventName := "push"
 
 	workdir, err := filepath.Abs("testdata")
-	assert.NilError(t, err, workflowPath)
+	assert.Nil(t, err, workflowPath)
 
 	env, _ := godotenv.Read(filepath.Join(workdir, workflowPath, ".env"))
 	secrets, _ := godotenv.Read(filepath.Join(workdir, workflowPath, ".secrets"))
@@ -154,15 +154,15 @@ func TestRunEventSecrets(t *testing.T) {
 		Env:             env,
 	}
 	runner, err := New(runnerConfig)
-	assert.NilError(t, err, workflowPath)
+	assert.Nil(t, err, workflowPath)
 
 	planner, err := model.NewWorkflowPlanner(fmt.Sprintf("testdata/%s", workflowPath), true)
-	assert.NilError(t, err, workflowPath)
+	assert.Nil(t, err, workflowPath)
 
 	plan := planner.PlanEvent(eventName)
 
 	err = runner.NewPlanExecutor(plan)(ctx)
-	assert.NilError(t, err, workflowPath)
+	assert.Nil(t, err, workflowPath)
 }
 
 func TestRunEventPullRequest(t *testing.T) {
@@ -181,7 +181,7 @@ func TestRunEventPullRequest(t *testing.T) {
 	eventName := "pull_request"
 
 	workdir, err := filepath.Abs("testdata")
-	assert.NilError(t, err, workflowPath)
+	assert.Nil(t, err, workflowPath)
 
 	runnerConfig := &Config{
 		Workdir:         workdir,
@@ -191,15 +191,15 @@ func TestRunEventPullRequest(t *testing.T) {
 		ReuseContainers: false,
 	}
 	runner, err := New(runnerConfig)
-	assert.NilError(t, err, workflowPath)
+	assert.Nil(t, err, workflowPath)
 
 	planner, err := model.NewWorkflowPlanner(fmt.Sprintf("testdata/%s", workflowPath), true)
-	assert.NilError(t, err, workflowPath)
+	assert.Nil(t, err, workflowPath)
 
 	plan := planner.PlanEvent(eventName)
 
 	err = runner.NewPlanExecutor(plan)(ctx)
-	assert.NilError(t, err, workflowPath)
+	assert.Nil(t, err, workflowPath)
 }
 
 func TestContainerPath(t *testing.T) {
