@@ -43,7 +43,7 @@ type TestJobFileInfo struct {
 	containerArchitecture string
 }
 
-func runTestJobFile(ctx context.Context, t *testing.T, tjfi TestJobFileInfo, secrets map[string]string) {
+func runTestJobFile(ctx context.Context, t *testing.T, tjfi TestJobFileInfo) {
 	t.Run(tjfi.workflowPath, func(t *testing.T) {
 		workdir, err := filepath.Abs(tjfi.workdir)
 		assert.NilError(t, err, workdir)
@@ -55,7 +55,6 @@ func runTestJobFile(ctx context.Context, t *testing.T, tjfi TestJobFileInfo, sec
 			Platforms:             tjfi.platforms,
 			ReuseContainers:       false,
 			ContainerArchitecture: tjfi.containerArchitecture,
-			Secrets:               secrets,
 			GitHubInstance:        "github.com",
 		}
 
@@ -89,6 +88,7 @@ func TestRunEvent(t *testing.T) {
 		{"testdata", "basic", "push", "", platforms, ""},
 		{"testdata", "fail", "push", "exit with `FAILURE`: 1", platforms, ""},
 		{"testdata", "runs-on", "push", "", platforms, ""},
+		{"testdata", "checkout", "push", "", platforms, ""},
 		// Pwsh is not available in default worker (yet) so we use a separate image for testing
 		{"testdata", "powershell", "push", "", map[string]string{"ubuntu-latest": "ghcr.io/justingrote/act-pwsh:latest"}, ""},
 		{"testdata", "job-container", "push", "", platforms, ""},
@@ -107,6 +107,7 @@ func TestRunEvent(t *testing.T) {
 		{"testdata", "uses-composite", "push", "", platforms, ""},
 		{"testdata", "issue-597", "push", "", platforms, ""},
 		{"testdata", "issue-598", "push", "", platforms, ""},
+		{"testdata", "env-and-path", "push", "", platforms, ""},
 		// {"testdata", "issue-228", "push", "", platforms, ""}, // TODO [igni]: Remove this once everything passes
 
 		// single test for different architecture: linux/arm64
@@ -115,11 +116,9 @@ func TestRunEvent(t *testing.T) {
 	log.SetLevel(log.DebugLevel)
 
 	ctx := context.Background()
-	secretspath, _ := filepath.Abs("../../.secrets")
-	secrets, _ := godotenv.Read(secretspath)
 
 	for _, table := range tables {
-		runTestJobFile(ctx, t, table, secrets)
+		runTestJobFile(ctx, t, table)
 	}
 }
 
@@ -219,7 +218,7 @@ func TestContainerPath(t *testing.T) {
 		for _, v := range []containerPathJob{
 			{"/mnt/c/Users/act/go/src/github.com/nektos/act", "C:\\Users\\act\\go\\src\\github.com\\nektos\\act\\", ""},
 			{"/mnt/f/work/dir", `F:\work\dir`, ""},
-			{"/mnt/c/windows/to/unix", "windows/to/unix", fmt.Sprintf("%s\\", rootDrive)},
+			{"/mnt/c/windows/to/unix", "windows\\to\\unix", fmt.Sprintf("%s\\", rootDrive)},
 			{fmt.Sprintf("/mnt/%v/act", rootDriveLetter), "act", fmt.Sprintf("%s\\", rootDrive)},
 		} {
 			if v.workDir != "" {

@@ -2,7 +2,6 @@ package common
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -14,9 +13,12 @@ import (
 	"sync"
 
 	git "github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-ini/ini"
+	"github.com/mattn/go-isatty"
+	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -119,16 +121,13 @@ func findGitPrettyRef(head, root, sub string) (string, error) {
 	var name string
 	var err = filepath.Walk(filepath.Join(root, sub), func(path string, info os.FileInfo, err error) error {
 		if err != nil {
+			return err
+		}
+		if name != "" || info.IsDir() {
 			return nil
 		}
-		if name != "" {
-			return nil
-		}
-		if info.IsDir() {
-			return nil
-		}
-		bts, err := ioutil.ReadFile(path)
-		if err != nil {
+		var bts []byte
+		if bts, err = ioutil.ReadFile(path); err != nil {
 			return err
 		}
 		var pointsTo = strings.TrimSpace(string(bts))
@@ -238,29 +237,25 @@ func CloneIfRequired(ctx context.Context, refName plumbing.ReferenceName, input 
 	r, err := git.PlainOpen(input.Dir)
 	if err != nil {
 		var progressWriter io.Writer
-		if entry, ok := logger.(*log.Entry); ok {
-			progressWriter = entry.WriterLevel(log.DebugLevel)
-		} else if lgr, ok := logger.(*log.Logger); ok {
-			progressWriter = lgr.WriterLevel(log.DebugLevel)
-		} else {
-			log.Errorf("Unable to get writer from logger (type=%T)", logger)
-			progressWriter = os.Stdout
+		if isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd()) {
+			if entry, ok := logger.(*log.Entry); ok {
+				progressWriter = entry.WriterLevel(log.DebugLevel)
+			} else if lgr, ok := logger.(*log.Logger); ok {
+				progressWriter = lgr.WriterLevel(log.DebugLevel)
+			} else {
+				log.Errorf("Unable to get writer from logger (type=%T)", logger)
+				progressWriter = os.Stdout
+			}
 		}
 
-		var cloneOptions git.CloneOptions
+		cloneOptions := git.CloneOptions{
+			URL:      input.URL,
+			Progress: progressWriter,
+		}
 		if input.Token != "" {
-			cloneOptions = git.CloneOptions{
-				URL:      input.URL,
-				Progress: progressWriter,
-				Auth: &http.BasicAuth{
-					Username: "token",
-					Password: input.Token,
-				},
-			}
-		} else {
-			cloneOptions = git.CloneOptions{
-				URL:      input.URL,
-				Progress: progressWriter,
+			cloneOptions.Auth = &http.BasicAuth{
+				Username: "token",
+				Password: input.Token,
 			}
 		}
 
@@ -269,13 +264,17 @@ func CloneIfRequired(ctx context.Context, refName plumbing.ReferenceName, input 
 			logger.Errorf("Unable to clone %v %s: %v", input.URL, refName, err)
 			return nil, err
 		}
-		_ = os.Chmod(input.Dir, 0755)
+
+		if err = os.Chmod(input.Dir, 0755); err != nil {
+			return nil, err
+		}
 	}
 
 	return r, nil
 }
 
 // NewGitCloneExecutor creates an executor to clone git repos
+// nolint:gocyclo
 func NewGitCloneExecutor(input NewGitCloneExecutorInput) Executor {
 	return func(ctx context.Context) error {
 		logger := Logger(ctx)
@@ -291,9 +290,22 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) Executor {
 			return err
 		}
 
-		w, err := r.Worktree()
-		if err != nil {
+		// fetch latest changes
+		err = r.Fetch(&git.FetchOptions{
+			RefSpecs: []config.RefSpec{"refs/*:refs/*", "HEAD:refs/heads/HEAD"},
+		})
+		if err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
 			return err
+		}
+
+		var hash *plumbing.Hash
+		rev := plumbing.Revision(input.Ref)
+		if hash, err = r.ResolveRevision(rev); err != nil {
+			logger.Errorf("Unable to resolve %s: %v", input.Ref, err)
+		}
+
+		if hash.String() != input.Ref && strings.HasPrefix(hash.String(), input.Ref) {
+			return errors.Wrap(errors.New(hash.String()), "short SHA references are not supported")
 		}
 
 		// At this point we need to know if it's a tag or a branch
@@ -302,7 +314,7 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) Executor {
 		// If err is nil, it's a tag so let's proceed with that hash like we would if
 		// it was a sha
 		refType := "tag"
-		rev := plumbing.Revision(path.Join("refs", "tags", input.Ref))
+		rev = plumbing.Revision(path.Join("refs", "tags", input.Ref))
 		if _, err := r.Tag(input.Ref); errors.Is(err, git.ErrTagNotFound) {
 			rName := plumbing.ReferenceName(path.Join("refs", "remotes", "origin", input.Ref))
 			if _, err := r.Reference(rName, false); errors.Is(err, plumbing.ErrReferenceNotFound) {
@@ -313,9 +325,14 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) Executor {
 				rev = plumbing.Revision(rName)
 			}
 		}
-		hash, err := r.ResolveRevision(rev)
-		if err != nil {
+
+		if hash, err = r.ResolveRevision(rev); err != nil {
 			logger.Errorf("Unable to resolve %s: %v", input.Ref, err)
+			return err
+		}
+
+		var w *git.Worktree
+		if w, err = r.Worktree(); err != nil {
 			return err
 		}
 
@@ -324,49 +341,37 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) Executor {
 		//
 		// Repos on disk point to commit hashes, and need to checkout input.Ref before
 		// we try and pull down any changes
-		if hash.String() != input.Ref {
-			// Run git fetch to make sure we have the latest sha
-			err := r.Fetch(&git.FetchOptions{})
-			if err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
-				logger.Debugf("Unable to fetch: %v", err)
-			}
-
-			if refType == "branch" {
-				logger.Debugf("Provided ref is not a sha. Checking out branch before pulling changes")
-				sourceRef := plumbing.ReferenceName(path.Join("refs", "remotes", "origin", input.Ref))
-				err := w.Checkout(&git.CheckoutOptions{
-					Branch: sourceRef,
-					Force:  true,
-				})
-				if err != nil {
-					logger.Errorf("Unable to checkout %s: %v", sourceRef, err)
-					return err
-				}
+		if hash.String() != input.Ref && refType == "branch" {
+			logger.Debugf("Provided ref is not a sha. Checking out branch before pulling changes")
+			sourceRef := plumbing.ReferenceName(path.Join("refs", "remotes", "origin", input.Ref))
+			if err = w.Checkout(&git.CheckoutOptions{
+				Branch: sourceRef,
+				Force:  true,
+			}); err != nil {
+				logger.Errorf("Unable to checkout %s: %v", sourceRef, err)
+				return err
 			}
 		}
 
-		err = w.Pull(&git.PullOptions{
+		if err = w.Pull(&git.PullOptions{
 			Force: true,
-		})
-		if err != nil && err.Error() != "already up-to-date" {
+		}); err != nil && err.Error() != "already up-to-date" {
 			logger.Debugf("Unable to pull %s: %v", refName, err)
 		}
 		logger.Debugf("Cloned %s to %s", input.URL, input.Dir)
 
-		err = w.Checkout(&git.CheckoutOptions{
+		if err = w.Checkout(&git.CheckoutOptions{
 			Hash:  *hash,
 			Force: true,
-		})
-		if err != nil {
+		}); err != nil {
 			logger.Errorf("Unable to checkout %s: %v", *hash, err)
 			return err
 		}
 
-		err = w.Reset(&git.ResetOptions{
+		if err = w.Reset(&git.ResetOptions{
 			Mode:   git.HardReset,
 			Commit: *hash,
-		})
-		if err != nil {
+		}); err != nil {
 			logger.Errorf("Unable to reset to %s: %v", hash.String(), err)
 			return err
 		}

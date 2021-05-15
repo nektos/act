@@ -41,6 +41,15 @@ runs:
         fi
       shell: bash
 
+    - run: |
+        if [ -z "$GITHUB_ACTION_PATH" ]; then
+          exit 1
+        fi
+        if [ -z "${{ github.action_path }}" ]; then
+          exit 2
+        fi
+      shell: bash
+
     # Let's send up an output to test
     - run: echo "::set-output name=test_output::test_output_value"
       shell: bash
