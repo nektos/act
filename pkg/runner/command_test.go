@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/nektos/act/pkg/common"
+	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -87,4 +89,18 @@ func TestAddpathADO(t *testing.T) {
 
 	handler("##[add-path]/boo\n")
 	a.Equal("/boo", rc.ExtraPath[1])
+}
+
+func TestAddmask(t *testing.T) {
+	logger, hook := test.NewNullLogger()
+
+	a := assert.New(t)
+	ctx := context.Background()
+	loggerCtx := common.WithLogger(ctx, logger)
+
+	rc := new(RunContext)
+	handler := rc.commandHandler(loggerCtx)
+	handler("::add-mask::my-secret-value\n")
+
+	a.NotEqual("  \U00002699  *my-secret-value", hook.LastEntry().Message)
 }
