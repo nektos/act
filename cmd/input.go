@@ -36,6 +36,7 @@ type Input struct {
 	containerCapDrop      []string
 	autoRemove            bool
 	artifactServerPath    string
+	artifactServerPort    string
 }
 
 func (i *Input) resolve(path string) string {

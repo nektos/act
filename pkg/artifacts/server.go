@@ -195,7 +195,7 @@ func downloads(router *httprouter.Router, artifactPath string) {
 	})
 }
 
-func Serve(artifactPath string) {
+func Serve(artifactPath string, port string) {
 	if artifactPath == "" {
 		return
 	}
@@ -204,11 +204,6 @@ func Serve(artifactPath string) {
 
 	uploads(router, artifactPath)
 	downloads(router, artifactPath)
-
-	port := os.Getenv("ACT_ARTIFACT_SERVER_PORT")
-	if port == "" {
-		port = "34567"
-	}
 
 	log.Fatal(http.ListenAndServe(fmt.Sprintf("localhost:%s", port), router))
 }

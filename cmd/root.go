@@ -68,12 +68,8 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.PersistentFlags().StringVarP(&input.containerDaemonSocket, "container-daemon-socket", "", "/var/run/docker.sock", "Path to Docker daemon socket which will be mounted to containers")
 	rootCmd.PersistentFlags().StringVarP(&input.githubInstance, "github-instance", "", "github.com", "GitHub instance to use. Don't use this if you are not using GitHub Enterprise Server.")
 	rootCmd.PersistentFlags().StringVarP(&input.artifactServerPath, "artifact-server-path", "", "", "Defines the path where the artifact server stores uploads and retrieves downloads from. If not specified the artifact server will not start.")
+	rootCmd.PersistentFlags().StringVarP(&input.artifactServerPort, "artifact-server-port", "", "34567", "Defines the port where the artifact server listens (will only bind to localhost).")
 	rootCmd.SetArgs(args())
-
-	// todo: where to start the server?
-	go func() {
-		artifacts.Serve(input.artifactServerPath)
-	}()
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
@@ -282,11 +278,16 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			ContainerCapDrop:      input.containerCapDrop,
 			AutoRemove:            input.autoRemove,
 			ArtifactServerPath:    input.artifactServerPath,
+			ArtifactServerPort:    input.artifactServerPort,
 		}
 		r, err := runner.New(config)
 		if err != nil {
 			return err
 		}
+
+		go func() {
+			artifacts.Serve(input.artifactServerPath, input.artifactServerPort)
+		}()
 
 		ctx = common.WithDryrun(ctx, input.dryrun)
 		if watch, err := cmd.Flags().GetBool("watch"); err != nil {

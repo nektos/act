@@ -44,6 +44,7 @@ type Config struct {
 	ContainerCapDrop      []string          // list of kernel capabilities to remove from the containers
 	AutoRemove            bool              // controls if the container is automatically removed upon workflow completion
 	ArtifactServerPath    string            // the path where the artifact server stores uploads
+	ArtifactServerPort    string            // the port the artifact server binds to
 }
 
 // Resolves the equivalent host path inside the container
