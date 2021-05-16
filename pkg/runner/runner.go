@@ -41,6 +41,7 @@ type Config struct {
 	UseGitIgnore          bool              // controls if paths in .gitignore should not be copied into container, default true
 	GitHubInstance        string            // GitHub instance to use, default "github.com"
 	ArtifactServerPath    string            // the path where the artifact server stores uploads
+	ArtifactServerPort    string            // the port the artifact server binds to
 }
 
 // Resolves the equivalent host path inside the container

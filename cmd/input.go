@@ -33,6 +33,7 @@ type Input struct {
 	useGitIgnore          bool
 	githubInstance        string
 	artifactServerPath    string
+	artifactServerPort    string
 }
 
 func (i *Input) resolve(path string) string {
