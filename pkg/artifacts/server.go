@@ -2,9 +2,10 @@ package artifacts
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
+	"io/fs"
 	"log"
 	"net/http"
 	"os"
@@ -42,7 +43,20 @@ type ResponseMessage struct {
 	Message string `json:"message"`
 }
 
-func uploads(router *httprouter.Router, artifactPath string) {
+type MkdirFS interface {
+	fs.FS
+	MkdirAll(path string, perm fs.FileMode) error
+}
+
+type MkdirFsImpl struct {
+	fs.FS
+}
+
+func (fsys MkdirFsImpl) MkdirAll(path string, perm fs.FileMode) error {
+	return os.MkdirAll(path, perm)
+}
+
+func uploads(router *httprouter.Router, fsys MkdirFS) {
 	router.POST("/_apis/pipelines/workflows/:runId/artifacts", func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
 		runID := params.ByName("runId")
 
@@ -63,20 +77,29 @@ func uploads(router *httprouter.Router, artifactPath string) {
 		itemPath := req.URL.Query().Get("itemPath")
 		runID := params.ByName("runId")
 
-		filePath := fmt.Sprintf("%s/%s/%s", artifactPath, runID, itemPath)
+		filePath := fmt.Sprintf("%s/%s", runID, itemPath)
 
-		err := os.MkdirAll(path.Dir(filePath), os.ModePerm)
+		err := fsys.MkdirAll(path.Dir(filePath), os.ModePerm)
 		if err != nil {
 			panic(err)
 		}
 
-		file, err := os.Create(filePath)
+		file, err := fsys.Open(filePath)
 		if err != nil {
 			panic(err)
 		}
 		defer file.Close()
 
-		_, err = io.Copy(file, req.Body)
+		writer, ok := file.(io.Writer)
+		if !ok {
+			panic(errors.New("File is not writable"))
+		}
+
+		if req.Body == nil {
+			panic(errors.New("No body given"))
+		}
+
+		_, err = io.Copy(writer, req.Body)
 		if err != nil {
 			panic(err)
 		}
@@ -109,20 +132,19 @@ func uploads(router *httprouter.Router, artifactPath string) {
 	})
 }
 
-func downloads(router *httprouter.Router, artifactPath string) {
+func downloads(router *httprouter.Router, fsys fs.FS) {
 	router.GET("/_apis/pipelines/workflows/:runId/artifacts", func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
 		runID := params.ByName("runId")
-		dirPath := fmt.Sprintf("%s/%s", artifactPath, runID)
 
-		files, err := ioutil.ReadDir(dirPath)
+		entries, err := fs.ReadDir(fsys, runID)
 		if err != nil {
 			panic(err)
 		}
 
 		var list []NamedFileContainerResourceURL
-		for _, file := range files {
+		for _, entry := range entries {
 			list = append(list, NamedFileContainerResourceURL{
-				Name:                     file.Name(),
+				Name:                     entry.Name(),
 				FileContainerResourceURL: fmt.Sprintf("http://%s/download/%s", req.Host, runID),
 			})
 		}
@@ -144,11 +166,11 @@ func downloads(router *httprouter.Router, artifactPath string) {
 	router.GET("/download/:container", func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
 		container := params.ByName("container")
 		itemPath := req.URL.Query().Get("itemPath")
-		dirPath := fmt.Sprintf("%s/%s/%s", artifactPath, container, itemPath)
+		dirPath := fmt.Sprintf("%s/%s", container, itemPath)
 
 		var files []ContainerItem
-		err := filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
-			if !info.IsDir() {
+		err := fs.WalkDir(fsys, dirPath, func(path string, entry fs.DirEntry, err error) error {
+			if !entry.IsDir() {
 				rel, err := filepath.Rel(dirPath, path)
 				if err != nil {
 					panic(err)
@@ -180,10 +202,9 @@ func downloads(router *httprouter.Router, artifactPath string) {
 	})
 
 	router.GET("/artifact/*path", func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
-		path := params.ByName("path")
-		dirPath := fmt.Sprintf("%s/%s", artifactPath, path)
+		path := params.ByName("path")[1:]
 
-		file, err := os.Open(dirPath)
+		file, err := fsys.Open(path)
 		if err != nil {
 			panic(err)
 		}
@@ -202,8 +223,9 @@ func Serve(artifactPath string, port string) {
 
 	router := httprouter.New()
 
-	uploads(router, artifactPath)
-	downloads(router, artifactPath)
+	fs := os.DirFS(artifactPath)
+	uploads(router, MkdirFsImpl{fs})
+	downloads(router, fs)
 
 	log.Fatal(http.ListenAndServe(fmt.Sprintf("localhost:%s", port), router))
 }
