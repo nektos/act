@@ -161,6 +161,8 @@ It will save that information to `~/.actrc`, please refer to [Configuration](#co
   -W, --workflows string                path to workflow file(s) (default "./.github/workflows/")
 ```
 
+In case you want to pass a value for `${{ github.token }}`, you should pass `GITHUB_TOKEN` as secret: `act -s GITHUB_TOKEN=[insert token or leave blank for secure input]`.
+
 # Known Issues
 
 ## `MODULE_NOT_FOUND`
