@@ -89,11 +89,19 @@ func (sc *StepContext) Executor() common.Executor {
 			Dir:   actionDir,
 			Token: github.Token,
 		})
+		var ntErr common.Executor
 		if err := gitClone(context.TODO()); err != nil {
-			err = errors.Cause(err)
-			return common.NewErrorExecutor(fmt.Errorf("Unable to resolve action `%s`, the provided ref `%s` is the shortened version of a commit SHA, which is not supported. Please use the full commit SHA `%s` instead", step.Uses, remoteAction.Ref, err.Error()))
+			if err.Error() == "short SHA references are not supported" {
+				err = errors.Cause(err)
+				return common.NewErrorExecutor(fmt.Errorf("Unable to resolve action `%s`, the provided ref `%s` is the shortened version of a commit SHA, which is not supported. Please use the full commit SHA `%s` instead", step.Uses, remoteAction.Ref, err.Error()))
+			} else if err.Error() != "some refs were not updated" {
+				return common.NewErrorExecutor(err)
+			} else {
+				ntErr = common.NewInfoExecutor("Non-terminating error while running 'git clone': %v", err)
+			}
 		}
 		return common.NewPipelineExecutor(
+			ntErr,
 			sc.setupAction(actionDir, remoteAction.Path),
 			sc.runAction(actionDir, remoteAction.Path),
 		)

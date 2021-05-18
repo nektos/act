@@ -10,11 +10,10 @@ import (
 	"testing"
 
 	"github.com/nektos/act/pkg/model"
-	a "github.com/stretchr/testify/assert"
-	"gotest.tools/v3/assert"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
+	assert "github.com/stretchr/testify/assert"
 )
 
 func TestRunContext_EvalBool(t *testing.T) {
@@ -142,15 +141,15 @@ func TestRunContext_EvalBool(t *testing.T) {
 	for _, table := range tables {
 		table := table
 		t.Run(table.in, func(t *testing.T) {
-			assert := a.New(t)
+			assertObject := assert.New(t)
 			defer hook.Reset()
 			b, err := rc.EvalBool(table.in)
 			if table.wantErr {
-				assert.Error(err)
+				assertObject.Error(err)
 			}
 
-			assert.Equal(table.out, b, fmt.Sprintf("Expected %s to be %v, was %v", table.in, table.out, b))
-			assert.Empty(hook.LastEntry(), table.in)
+			assertObject.Equal(table.out, b, fmt.Sprintf("Expected %s to be %v, was %v", table.in, table.out, b))
+			assertObject.Empty(hook.LastEntry(), table.in)
 		})
 	}
 }
@@ -269,10 +268,10 @@ func TestRunContext_GetBindsAndMounts(t *testing.T) {
 						if runtime.GOOS == "darwin" {
 							fullBind += ":delegated"
 						}
-						a.Contains(t, gotbind, fullBind)
+						assert.Contains(t, gotbind, fullBind)
 					} else {
 						mountkey := testcase.rc.jobContainerName()
-						a.EqualValues(t, testcase.wantmount, gotmount[mountkey])
+						assert.EqualValues(t, testcase.wantmount, gotmount[mountkey])
 					}
 				})
 			}
@@ -284,7 +283,7 @@ func TestGetGitHubContext(t *testing.T) {
 	log.SetLevel(log.DebugLevel)
 
 	cwd, err := os.Getwd()
-	assert.NilError(t, err)
+	assert.Nil(t, err)
 
 	rc := &RunContext{
 		Config: &Config{
