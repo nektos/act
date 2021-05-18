@@ -1,8 +1,9 @@
 package cmd
 
 import (
-	"log"
 	"path/filepath"
+
+	log "github.com/sirupsen/logrus"
 )
 
 // Input contains the input for the root command

@@ -16,7 +16,7 @@ jobs:
         env:
           CGO_ENABLED: 0
         with:
-          version: v1.39.0
+          version: v1.40.0
       - uses: github/super-linter@v3
         env:
           DEFAULT_BRANCH: master

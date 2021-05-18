@@ -138,7 +138,7 @@ It will save that information to `~/.actrc`, please refer to [Configuration](#co
       --detect-event                    Use first event type from workflow as event that triggered the workflow
   -C, --directory string                working directory (default ".")
   -n, --dryrun                          dryrun mode
-      --env stringArray                 env to make available to actions with optional value (e.g. --e myenv=foo or -s myenv)
+      --env stringArray                 env to make available to actions with optional value (e.g. --env myenv=foo or -s myenv)
       --env-file string                 environment file to read and use as env in the containers (default ".env")
   -e, --eventpath string                path to event JSON file
       --github-instance string          GitHub instance to use. Don't use this if you are not using GitHub Enterprise Server. (default "github.com")
@@ -160,6 +160,8 @@ It will save that information to `~/.actrc`, please refer to [Configuration](#co
   -w, --watch                           watch the contents of the local repo and run when files change
   -W, --workflows string                path to workflow file(s) (default "./.github/workflows/")
 ```
+
+In case you want to pass a value for `${{ github.token }}`, you should pass `GITHUB_TOKEN` as secret: `act -s GITHUB_TOKEN=[insert token or leave blank for secure input]`.
 
 # Known Issues
 
