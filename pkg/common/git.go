@@ -291,9 +291,17 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) Executor {
 		}
 
 		// fetch latest changes
-		err = r.Fetch(&git.FetchOptions{
+		fetchOptions := git.FetchOptions{
 			RefSpecs: []config.RefSpec{"refs/*:refs/*", "HEAD:refs/heads/HEAD"},
-		})
+		}
+		if input.Token != "" {
+			fetchOptions.Auth = &http.BasicAuth{
+				Username: "token",
+				Password: input.Token,
+			}
+		}
+
+		err = r.Fetch(&fetchOptions)
 		if err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
 			return err
 		}
