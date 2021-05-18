@@ -13,8 +13,9 @@ jobs:
           echo "$HOME/someOtherFolder" >> $GITHUB_PATH
       - name: "Check PATH"
         run: |
-          if [[ ! "${PATH}" =~ .*"$HOME/"someFolder.*"$HOME/"someOtherFolder ]]; then
-            echo "${PATH} doesn't match .*someFolder.*someOtherFolder"
+          echo "${PATH}"
+          if [[ ! "${PATH}" =~ .*"$HOME/"someOtherFolder.*"$HOME/"someFolder.* ]]; then
+            echo "${PATH} doesn't match .*someOtherFolder.*someFolder.*"
             exit 1
           fi
       - name: "Write single line env to $GITHUB_ENV"
