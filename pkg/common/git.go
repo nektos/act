@@ -361,9 +361,17 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) Executor {
 			}
 		}
 
-		if err = w.Pull(&git.PullOptions{
+		pullOptions := git.PullOptions{
 			Force: true,
-		}); err != nil && err.Error() != "already up-to-date" {
+		}
+		if input.Token != "" {
+			pullOptions.Auth = &http.BasicAuth{
+				Username: "token",
+				Password: input.Token,
+			}
+		}
+
+		if err = w.Pull(&pullOptions); err != nil && err.Error() != "already up-to-date" {
 			logger.Debugf("Unable to pull %s: %v", refName, err)
 		}
 		logger.Debugf("Cloned %s to %s", input.URL, input.Dir)
