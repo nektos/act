@@ -399,7 +399,7 @@ func (cr *containerReference) extractPath(env *map[string]string) common.Executo
 		s := bufio.NewScanner(reader)
 		for s.Scan() {
 			line := s.Text()
-			localEnv["PATH"] = fmt.Sprintf("%s:%s", localEnv["PATH"], line)
+			localEnv["PATH"] = fmt.Sprintf("%s:%s", line, localEnv["PATH"])
 		}
 
 		env = &localEnv
