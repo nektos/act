@@ -16,6 +16,9 @@ builds:
     goarm:
       - 6
       - 7
+    ignore:
+      - goos: windows
+        goarm: 6
 checksum:
   name_template: 'checksums.txt'
 archives:
