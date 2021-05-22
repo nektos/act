@@ -11,10 +11,15 @@ builds:
     goarch:
       - amd64
       - 386
+      - arm64
+      - arm
+    goarm:
+      - 6
+      - 7
 checksum:
   name_template: 'checksums.txt'
 archives:
-  - name_template: '{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}'
+  - name_template: '{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}{{ if .Mips }}_{{ .Mips }}{{ end }}'
     replacements:
       darwin: Darwin
       linux: Linux
