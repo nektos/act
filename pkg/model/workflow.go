@@ -70,9 +70,9 @@ type Job struct {
 
 // Strategy for the job
 type Strategy struct {
-	FailFast    bool                     `yaml:"fail-fast"`
-	MaxParallel int                      `yaml:"max-parallel"`
-	Matrix      map[string][]interface{} `yaml:"matrix"`
+	FailFast    bool        `yaml:"fail-fast"`
+	MaxParallel int         `yaml:"max-parallel"`
+	Matrix      interface{} `yaml:"matrix"`
 }
 
 // Default settings that will apply to all steps in the job or workflow
@@ -196,19 +196,27 @@ func (j *Job) Matrix() map[string][]interface{} {
 func (j *Job) GetMatrixes() []map[string]interface{} {
 	matrixes := make([]map[string]interface{}, 0)
 	if j.Strategy != nil {
+		m := j.Matrix()
 		includes := make([]map[string]interface{}, 0)
-		for _, v := range j.Strategy.Matrix["include"] {
-			includes = append(includes, v.(map[string]interface{}))
+		for _, v := range m["include"] {
+			switch t := v.(type) {
+			case []interface{}:
+				for _, i := range t {
+					includes = append(includes, i.(map[string]interface{}))
+				}
+			case interface{}:
+				includes = append(includes, v.(map[string]interface{}))
+			}
 		}
-		delete(j.Strategy.Matrix, "include")
+		delete(m, "include")
 
 		excludes := make([]map[string]interface{}, 0)
-		for _, v := range j.Strategy.Matrix["exclude"] {
+		for _, v := range m["exclude"] {
 			excludes = append(excludes, v.(map[string]interface{}))
 		}
-		delete(j.Strategy.Matrix, "exclude")
+		delete(m, "exclude")
 
-		matrixProduct := common.CartesianProduct(j.Strategy.Matrix)
+		matrixProduct := common.CartesianProduct(m)
 
 	MATRIX:
 		for _, matrix := range matrixProduct {
