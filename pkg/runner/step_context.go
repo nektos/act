@@ -574,13 +574,15 @@ func (sc *StepContext) execAsComposite(ctx context.Context, step *model.Step, _ 
 			stepClone.Env = make(map[string]string)
 		}
 		actionPath := filepath.Join(containerActionDir, actionName)
-		stepClone.Env["GITHUB_ACTION_PATH"] = actionPath
+
+		env := stepClone.Environment()
+		env["GITHUB_ACTION_PATH"] = actionPath
 		stepClone.Run = strings.ReplaceAll(stepClone.Run, "${{ github.action_path }}", actionPath)
 
 		stepContext := StepContext{
 			RunContext: rcClone,
 			Step:       &stepClone,
-			Env:        mergeMaps(sc.Env, stepClone.Env),
+			Env:        mergeMaps(sc.Env, env),
 		}
 
 		// Interpolate the outer inputs into the composite step with items

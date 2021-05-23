@@ -58,7 +58,7 @@ type Job struct {
 	Name           string                    `yaml:"name"`
 	RawNeeds       yaml.Node                 `yaml:"needs"`
 	RawRunsOn      yaml.Node                 `yaml:"runs-on"`
-	Env            map[string]string         `yaml:"env"`
+	Env            interface{}               `yaml:"env"`
 	If             yaml.Node                 `yaml:"if"`
 	Steps          []*Step                   `yaml:"steps"`
 	TimeoutMinutes int64                     `yaml:"timeout-minutes"`
@@ -148,6 +148,50 @@ func (j *Job) RunsOn() []string {
 	return nil
 }
 
+func environment(e interface{}) map[string]string {
+	env := make(map[string]string)
+	switch t := e.(type) {
+	case map[string]interface{}:
+		for k, v := range t {
+			switch t := v.(type) {
+			case string:
+				env[k] = t
+			case interface{}:
+				env[k] = ""
+			}
+		}
+	case map[string]string:
+		for k, v := range e.(map[string]string) {
+			env[k] = v
+		}
+	}
+	return env
+}
+
+func (j *Job) Environment() map[string]string {
+	return environment(j.Env)
+}
+
+func (j *Job) Matrix() map[string][]interface{} {
+	a := reflect.ValueOf(j.Strategy.Matrix)
+	if a.Type().Kind() == reflect.Map {
+		output := make(map[string][]interface{})
+		for _, e := range a.MapKeys() {
+			v := a.MapIndex(e)
+			switch t := v.Interface().(type) {
+			case []interface{}:
+				output[e.String()] = t
+			case interface{}:
+				var in []interface{}
+				in = append(in, t)
+				output[e.String()] = in
+			}
+		}
+		return output
+	}
+	return nil
+}
+
 // GetMatrixes returns the matrix cross product
 func (j *Job) GetMatrixes() []map[string]interface{} {
 	matrixes := make([]map[string]interface{}, 0)
@@ -217,7 +261,7 @@ type Step struct {
 	Run              string            `yaml:"run"`
 	WorkingDirectory string            `yaml:"working-directory"`
 	Shell            string            `yaml:"shell"`
-	Env              map[string]string `yaml:"env"`
+	Env              interface{}       `yaml:"env"`
 	With             map[string]string `yaml:"with"`
 	ContinueOnError  bool              `yaml:"continue-on-error"`
 	TimeoutMinutes   int64             `yaml:"timeout-minutes"`
@@ -235,18 +279,20 @@ func (s *Step) String() string {
 	return s.ID
 }
 
+func (s *Step) Environment() map[string]string {
+	return environment(s.Env)
+}
+
 // GetEnv gets the env for a step
 func (s *Step) GetEnv() map[string]string {
-	rtnEnv := make(map[string]string)
-	for k, v := range s.Env {
-		rtnEnv[k] = v
-	}
+	env := s.Environment()
+
 	for k, v := range s.With {
 		envKey := regexp.MustCompile("[^A-Z0-9-]").ReplaceAllString(strings.ToUpper(k), "_")
 		envKey = fmt.Sprintf("INPUT_%s", strings.ToUpper(envKey))
-		rtnEnv[envKey] = v
+		env[envKey] = v
 	}
-	return rtnEnv
+	return env
 }
 
 // ShellCommand returns the command for the shell
