@@ -165,7 +165,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 }
 func (rc *RunContext) execJobContainer(cmd []string, env map[string]string) common.Executor {
 	return func(ctx context.Context) error {
-		return rc.JobContainer.Exec(cmd, env)(ctx)
+		return rc.JobContainer.Exec(cmd, env, "")(ctx)
 	}
 }
 
