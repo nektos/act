@@ -19,6 +19,8 @@ import (
 	"github.com/nektos/act/pkg/model"
 )
 
+const ActPath string = "/var/run/act"
+
 // RunContext contains info about current job
 type RunContext struct {
 	Name           string
@@ -73,7 +75,6 @@ func (rc *RunContext) GetBindsAndMounts() ([]string, map[string]string) {
 
 	mounts := map[string]string{
 		"act-toolcache": "/toolcache",
-		"act-actions":   "/actions",
 	}
 
 	if rc.Config.BindWorkdir {
@@ -146,8 +147,9 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			rc.JobContainer.Create(),
 			rc.JobContainer.Start(false),
 			rc.JobContainer.UpdateFromEnv("/etc/environment", &rc.Env),
+			rc.JobContainer.Exec([]string{"mkdir", "-m", "0777", "-p", ActPath}, rc.Env, "root"),
 			rc.JobContainer.CopyDir(copyToPath, rc.Config.Workdir+string(filepath.Separator)+".", rc.Config.UseGitIgnore).IfBool(copyWorkspace),
-			rc.JobContainer.Copy("/tmp/", &container.FileEntry{
+			rc.JobContainer.Copy(ActPath+"/", &container.FileEntry{
 				Name: "workflow/event.json",
 				Mode: 0644,
 				Body: rc.EventJSON,
@@ -484,7 +486,7 @@ type githubContext struct {
 func (rc *RunContext) getGithubContext() *githubContext {
 	ghc := &githubContext{
 		Event:            make(map[string]interface{}),
-		EventPath:        "/tmp/workflow/event.json",
+		EventPath:        ActPath + "/workflow/event.json",
 		Workflow:         rc.Run.Workflow.Name,
 		RunID:            rc.Config.Env["GITHUB_RUN_ID"],
 		RunNumber:        rc.Config.Env["GITHUB_RUN_NUMBER"],
@@ -656,8 +658,8 @@ func withDefaultBranch(b string, event map[string]interface{}) map[string]interf
 func (rc *RunContext) withGithubEnv(env map[string]string) map[string]string {
 	github := rc.getGithubContext()
 	env["CI"] = "true"
-	env["GITHUB_ENV"] = "/tmp/workflow/envs.txt"
-	env["GITHUB_PATH"] = "/tmp/workflow/paths.txt"
+	env["GITHUB_ENV"] = ActPath + "/workflow/envs.txt"
+	env["GITHUB_PATH"] = ActPath + "/workflow/paths.txt"
 	env["GITHUB_WORKFLOW"] = github.Workflow
 	env["GITHUB_RUN_ID"] = github.RunID
 	env["GITHUB_RUN_NUMBER"] = github.RunNumber
