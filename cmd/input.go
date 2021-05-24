@@ -28,6 +28,7 @@ type Input struct {
 	privileged            bool
 	usernsMode            string
 	containerArchitecture string
+	containerDaemonSocket string
 	noWorkflowRecurse     bool
 	useGitIgnore          bool
 	githubInstance        string
