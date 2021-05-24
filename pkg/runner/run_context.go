@@ -69,8 +69,12 @@ func (rc *RunContext) jobContainerName() string {
 func (rc *RunContext) GetBindsAndMounts() ([]string, map[string]string) {
 	name := rc.jobContainerName()
 
+	if rc.Config.ContainerDaemonSocket == "" {
+		rc.Config.ContainerDaemonSocket = "/var/run/docker.sock"
+	}
+
 	binds := []string{
-		fmt.Sprintf("%s:%s", "/var/run/docker.sock", "/var/run/docker.sock"),
+		fmt.Sprintf("%s:%s", rc.Config.ContainerDaemonSocket, "/var/run/docker.sock"),
 	}
 
 	mounts := map[string]string{
