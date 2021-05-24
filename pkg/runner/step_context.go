@@ -383,13 +383,13 @@ func (sc *StepContext) getContainerActionPaths(step *model.Step, actionDir strin
 	containerActionDir := "."
 	if !rc.Config.BindWorkdir && step.Type() != model.StepTypeUsesActionRemote {
 		actionName = getOsSafeRelativePath(actionDir, rc.Config.Workdir)
-		containerActionDir = rc.Config.ContainerWorkdir() + "/_actions/" + actionName
+		containerActionDir = ActPath + "/actions/" + actionName
 	} else if step.Type() == model.StepTypeUsesActionRemote {
 		actionName = getOsSafeRelativePath(actionDir, rc.ActionCacheDir())
-		containerActionDir = rc.Config.ContainerWorkdir() + "/_actions/" + actionName
+		containerActionDir = ActPath + "/actions/" + actionName
 	} else if step.Type() == model.StepTypeUsesActionLocal {
 		actionName = getOsSafeRelativePath(actionDir, rc.Config.Workdir)
-		containerActionDir = rc.Config.ContainerWorkdir() + "/_actions/" + actionName
+		containerActionDir = ActPath + "/actions/" + actionName
 	}
 
 	if actionName == "" {
