@@ -456,13 +456,6 @@ func (cr *containerReference) exec(cmd []string, env map[string]string, user str
 			errWriter = os.Stderr
 		}
 
-		err = cr.cli.ContainerExecStart(ctx, idResp.ID, types.ExecStartCheck{
-			Tty: isTerminal,
-		})
-		if err != nil {
-			return errors.WithStack(err)
-		}
-
 		if !isTerminal || os.Getenv("NORAW") != "" {
 			_, err = stdcopy.StdCopy(outWriter, errWriter, resp.Reader)
 		} else {
