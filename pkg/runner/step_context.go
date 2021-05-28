@@ -397,6 +397,8 @@ func (sc *StepContext) getContainerActionPaths(step *model.Step, actionDir strin
 		if runtime.GOOS == "windows" {
 			actionName = strings.ReplaceAll(actionName, "\\", "/")
 		}
+		// actionName is missing in containerActionDir, append the fixed one
+		containerActionDir += actionName
 	}
 	return actionName, containerActionDir
 }
@@ -573,7 +575,7 @@ func (sc *StepContext) execAsComposite(ctx context.Context, step *model.Step, _ 
 		if stepClone.Env == nil {
 			stepClone.Env = make(map[string]string)
 		}
-		actionPath := filepath.Join(containerActionDir, actionName)
+		actionPath := containerActionDir
 		stepClone.Env["GITHUB_ACTION_PATH"] = actionPath
 		stepClone.Run = strings.ReplaceAll(stepClone.Run, "${{ github.action_path }}", actionPath)
 
