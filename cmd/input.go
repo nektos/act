@@ -34,6 +34,7 @@ type Input struct {
 	githubInstance        string
 	containerCapAdd       []string
 	containerCapDrop      []string
+	autoRemove            bool
 }
 
 func (i *Input) resolve(path string) string {
