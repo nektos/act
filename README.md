@@ -132,6 +132,9 @@ It will save that information to `~/.actrc`, please refer to [Configuration](#co
 
 ```none
   -a, --actor string                     user that triggered the event (default "nektos/act")
+      --artifact-server-path string      Defines the path where the artifact server stores uploads and retrieves downloads from.
+      If not specified the artifact server will not start.
+      --artifact-server-port string      Defines the port where the artifact server listens (will only bind to localhost). (default "34567")
   -b, --bind                             bind working directory to container, rather than copy
       --container-architecture string    Architecture which should be used to run containers, e.g.: linux/amd64. If not specified, will use host default architecture. Requires Docker server API Version 1.41+. Ignored on earlier Docker server platforms.
       --container-daemon-socket string   Path to Docker daemon socket which will be mounted to containers (default "/var/run/docker.sock")
