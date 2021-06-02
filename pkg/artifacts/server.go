@@ -6,13 +6,14 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"log"
 	"net/http"
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 
 	"github.com/julienschmidt/httprouter"
+	log "github.com/sirupsen/logrus"
 )
 
 type FileContainerResourceURL struct {
@@ -46,15 +47,23 @@ type ResponseMessage struct {
 type MkdirFS interface {
 	fs.FS
 	MkdirAll(path string, perm fs.FileMode) error
+	Open(name string) (fs.File, error)
 }
 
 type MkdirFsImpl struct {
+	dir string
 	fs.FS
 }
 
 func (fsys MkdirFsImpl) MkdirAll(path string, perm fs.FileMode) error {
-	return os.MkdirAll(path, perm)
+	return os.MkdirAll(fsys.dir+"/"+path, perm)
 }
+
+func (fsys MkdirFsImpl) Open(name string) (fs.File, error) {
+	return os.OpenFile(fsys.dir+"/"+name, os.O_CREATE|os.O_RDWR, 0644)
+}
+
+var gzipExtension = ".gz__"
 
 func uploads(router *httprouter.Router, fsys MkdirFS) {
 	router.POST("/_apis/pipelines/workflows/:runId/artifacts", func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
@@ -76,6 +85,10 @@ func uploads(router *httprouter.Router, fsys MkdirFS) {
 	router.PUT("/upload/:runId", func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
 		itemPath := req.URL.Query().Get("itemPath")
 		runID := params.ByName("runId")
+
+		if req.Header.Get("Content-Encoding") == "gzip" {
+			itemPath += gzipExtension
+		}
 
 		filePath := fmt.Sprintf("%s/%s", runID, itemPath)
 
@@ -176,6 +189,9 @@ func downloads(router *httprouter.Router, fsys fs.FS) {
 					panic(err)
 				}
 
+				// if it was upload as gzip
+				rel = strings.TrimSuffix(rel, gzipExtension)
+
 				files = append(files, ContainerItem{
 					Path:            fmt.Sprintf("%s/%s", itemPath, rel),
 					ItemType:        "file",
@@ -206,7 +222,12 @@ func downloads(router *httprouter.Router, fsys fs.FS) {
 
 		file, err := fsys.Open(path)
 		if err != nil {
-			panic(err)
+			// try gzip file
+			file, err = fsys.Open(path + gzipExtension)
+			if err != nil {
+				panic(err)
+			}
+			w.Header().Add("Content-Encoding", "gzip")
 		}
 
 		_, err = io.Copy(w, file)
@@ -224,7 +245,7 @@ func Serve(artifactPath string, port string) {
 	router := httprouter.New()
 
 	fs := os.DirFS(artifactPath)
-	uploads(router, MkdirFsImpl{fs})
+	uploads(router, MkdirFsImpl{artifactPath, fs})
 	downloads(router, fs)
 
 	log.Fatal(http.ListenAndServe(fmt.Sprintf("localhost:%s", port), router))
