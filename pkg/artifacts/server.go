@@ -247,6 +247,7 @@ func Serve(ctx context.Context, artifactPath string, port string) context.Cancel
 
 	router := httprouter.New()
 
+	log.Debugf("Artifacts base path '%s'", artifactPath)
 	fs := os.DirFS(artifactPath)
 	uploads(router, MkdirFsImpl{artifactPath, fs})
 	downloads(router, fs)
@@ -255,6 +256,7 @@ func Serve(ctx context.Context, artifactPath string, port string) context.Cancel
 
 	// run server
 	go func() {
+		log.Infof("Start server on http://localhost:%s", port)
 		log.Fatal(server.ListenAndServe())
 	}()
 
