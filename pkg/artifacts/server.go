@@ -1,6 +1,7 @@
 package artifacts
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -237,9 +238,11 @@ func downloads(router *httprouter.Router, fsys fs.FS) {
 	})
 }
 
-func Serve(artifactPath string, port string) {
+func Serve(ctx context.Context, artifactPath string, port string) context.CancelFunc {
+	serverContext, cancel := context.WithCancel(ctx)
+
 	if artifactPath == "" {
-		return
+		return cancel
 	}
 
 	router := httprouter.New()
@@ -248,5 +251,21 @@ func Serve(artifactPath string, port string) {
 	uploads(router, MkdirFsImpl{artifactPath, fs})
 	downloads(router, fs)
 
-	log.Fatal(http.ListenAndServe(fmt.Sprintf("localhost:%s", port), router))
+	server := &http.Server{Addr: fmt.Sprintf("localhost:%s", port), Handler: router}
+
+	// run server
+	go func() {
+		log.Fatal(server.ListenAndServe())
+	}()
+
+	// wait for cancel to gracefully shutdown server
+	go func() {
+		<-serverContext.Done()
+
+		if err := server.Shutdown(serverContext); err != nil {
+			panic(err)
+		}
+	}()
+
+	return cancel
 }

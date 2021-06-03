@@ -270,9 +270,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			return err
 		}
 
-		go func() {
-			artifacts.Serve(input.artifactServerPath, input.artifactServerPort)
-		}()
+		artifacts.Serve(ctx, input.artifactServerPath, input.artifactServerPort)
 
 		ctx = common.WithDryrun(ctx, input.dryrun)
 		if watch, err := cmd.Flags().GetBool("watch"); err != nil {

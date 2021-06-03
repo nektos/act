@@ -11,7 +11,7 @@ ifeq (true,$(fix))
 	FIX = --fix
 endif
 
-ACT ?= go run main.go --artifact-server-path /tmp/artifacts
+ACT ?= go run main.go
 
 HAS_TOKEN = $(if $(test -e ~/.config/github/token),true,false)
 ifeq (true,$(HAS_TOKEN))
