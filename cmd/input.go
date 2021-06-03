@@ -32,6 +32,8 @@ type Input struct {
 	noWorkflowRecurse     bool
 	useGitIgnore          bool
 	githubInstance        string
+	artifactServerPath    string
+	artifactServerPort    string
 }
 
 func (i *Input) resolve(path string) string {
