@@ -299,7 +299,7 @@ func (sc *StepContext) runUsesContainer() common.Executor {
 		return common.NewPipelineExecutor(
 			stepContainer.Pull(rc.Config.ForcePull),
 			stepContainer.Remove().IfBool(!rc.Config.ReuseContainers),
-			stepContainer.Create(),
+			stepContainer.Create(rc.Config.ContainerCapAdd, rc.Config.ContainerCapDrop),
 			stepContainer.Start(true),
 		).Finally(
 			stepContainer.Remove().IfBool(!rc.Config.ReuseContainers),
@@ -517,7 +517,7 @@ func (sc *StepContext) execAsDocker(ctx context.Context, action *model.Action, a
 		prepImage,
 		stepContainer.Pull(rc.Config.ForcePull),
 		stepContainer.Remove().IfBool(!rc.Config.ReuseContainers),
-		stepContainer.Create(),
+		stepContainer.Create(rc.Config.ContainerCapAdd, rc.Config.ContainerCapDrop),
 		stepContainer.Start(true),
 	).Finally(
 		stepContainer.Remove().IfBool(!rc.Config.ReuseContainers),
