@@ -40,6 +40,8 @@ type Config struct {
 	ContainerDaemonSocket string            // Path to Docker daemon socket
 	UseGitIgnore          bool              // controls if paths in .gitignore should not be copied into container, default true
 	GitHubInstance        string            // GitHub instance to use, default "github.com"
+	ContainerCapAdd       []string          // list of kernel capabilities to add to the containers
+	ContainerCapDrop      []string          // list of kernel capabilities to remove from the containers
 }
 
 // Resolves the equivalent host path inside the container
