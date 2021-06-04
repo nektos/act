@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -721,10 +722,24 @@ func (rc *RunContext) withGithubEnv(env map[string]string) map[string]string {
 	return env
 }
 
+// https://stackoverflow.com/a/37382208
+// Get preferred outbound ip of this machine
+func GetOutboundIP() net.IP {
+	conn, err := net.Dial("udp", "8.8.8.8:80")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer conn.Close()
+
+	localAddr := conn.LocalAddr().(*net.UDPAddr)
+
+	return localAddr.IP
+}
+
 func setActionRuntimeVars(rc *RunContext, env map[string]string) {
 	actionsRuntimeURL := os.Getenv("ACTIONS_RUNTIME_URL")
 	if actionsRuntimeURL == "" {
-		actionsRuntimeURL = fmt.Sprintf("http://localhost:%s/", rc.Config.ArtifactServerPort)
+		actionsRuntimeURL = fmt.Sprintf("http://%s:%s/", GetOutboundIP().String(), rc.Config.ArtifactServerPort)
 	}
 	env["ACTIONS_RUNTIME_URL"] = actionsRuntimeURL
 

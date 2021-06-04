@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"net"
 	"net/http"
 	"os"
 	"path"
@@ -238,6 +239,20 @@ func downloads(router *httprouter.Router, fsys fs.FS) {
 	})
 }
 
+// https://stackoverflow.com/a/37382208
+// Get preferred outbound ip of this machine
+func GetOutboundIP() net.IP {
+	conn, err := net.Dial("udp", "8.8.8.8:80")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer conn.Close()
+
+	localAddr := conn.LocalAddr().(*net.UDPAddr)
+
+	return localAddr.IP
+}
+
 func Serve(ctx context.Context, artifactPath string, port string) context.CancelFunc {
 	serverContext, cancel := context.WithCancel(ctx)
 
@@ -251,12 +266,12 @@ func Serve(ctx context.Context, artifactPath string, port string) context.Cancel
 	fs := os.DirFS(artifactPath)
 	uploads(router, MkdirFsImpl{artifactPath, fs})
 	downloads(router, fs)
-
-	server := &http.Server{Addr: fmt.Sprintf("localhost:%s", port), Handler: router}
+	ip := GetOutboundIP().String()
+	server := &http.Server{Addr: fmt.Sprintf("%s:%s", ip, port), Handler: router}
 
 	// run server
 	go func() {
-		log.Infof("Start server on http://localhost:%s", port)
+		log.Infof("Start server on http://%s:%s", ip, port)
 		log.Fatal(server.ListenAndServe())
 	}()
 
