@@ -16,6 +16,14 @@ import (
 	"github.com/nektos/act/pkg/model"
 )
 
+var baseImage string = "node:12-buster-slim"
+
+func init() {
+	if p := os.Getenv("ACT_TEST_IMAGE"); p != "" {
+		baseImage = p
+	}
+}
+
 func TestGraphEvent(t *testing.T) {
 	planner, err := model.NewWorkflowPlanner("testdata/basic", true)
 	assert.Nil(t, err)
@@ -81,7 +89,7 @@ func TestRunEvent(t *testing.T) {
 	}
 
 	platforms := map[string]string{
-		"ubuntu-latest": "node:12.20.1-buster-slim",
+		"ubuntu-latest": baseImage,
 	}
 
 	tables := []TestJobFileInfo{
@@ -131,7 +139,7 @@ func TestRunEventSecrets(t *testing.T) {
 	ctx := context.Background()
 
 	platforms := map[string]string{
-		"ubuntu-latest": "node:12.20.1-buster-slim",
+		"ubuntu-latest": baseImage,
 	}
 
 	workflowPath := "secrets"
@@ -172,7 +180,7 @@ func TestRunEventPullRequest(t *testing.T) {
 	ctx := context.Background()
 
 	platforms := map[string]string{
-		"ubuntu-latest": "node:12.20.1-buster-slim",
+		"ubuntu-latest": baseImage,
 	}
 
 	workflowPath := "pull-request"
