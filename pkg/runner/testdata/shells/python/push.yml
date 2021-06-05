@@ -1,0 +1,9 @@
+on: push
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - shell: python
+        run: |
+          import platform
+          print(platform.python_version())
