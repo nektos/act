@@ -1,0 +1,11 @@
+# Default state for all rules
+default: true
+
+# MD013/line-length - Line length
+MD013: false
+
+# MD033/no-inline-html - Inline HTML
+MD033: false
+
+# MD041/first-line-heading/first-line-h1 - First line in a file should be a top-level heading
+MD041: false

@@ -299,7 +299,7 @@ func (sc *StepContext) runUsesContainer() common.Executor {
 		return common.NewPipelineExecutor(
 			stepContainer.Pull(rc.Config.ForcePull),
 			stepContainer.Remove().IfBool(!rc.Config.ReuseContainers),
-			stepContainer.Create(),
+			stepContainer.Create(rc.Config.ContainerCapAdd, rc.Config.ContainerCapDrop),
 			stepContainer.Start(true),
 		).Finally(
 			stepContainer.Remove().IfBool(!rc.Config.ReuseContainers),
@@ -383,13 +383,13 @@ func (sc *StepContext) getContainerActionPaths(step *model.Step, actionDir strin
 	containerActionDir := "."
 	if !rc.Config.BindWorkdir && step.Type() != model.StepTypeUsesActionRemote {
 		actionName = getOsSafeRelativePath(actionDir, rc.Config.Workdir)
-		containerActionDir = rc.Config.ContainerWorkdir() + "/_actions/" + actionName
+		containerActionDir = ActPath + "/actions/" + actionName
 	} else if step.Type() == model.StepTypeUsesActionRemote {
 		actionName = getOsSafeRelativePath(actionDir, rc.ActionCacheDir())
-		containerActionDir = rc.Config.ContainerWorkdir() + "/_actions/" + actionName
+		containerActionDir = ActPath + "/actions/" + actionName
 	} else if step.Type() == model.StepTypeUsesActionLocal {
 		actionName = getOsSafeRelativePath(actionDir, rc.Config.Workdir)
-		containerActionDir = rc.Config.ContainerWorkdir() + "/_actions/" + actionName
+		containerActionDir = ActPath + "/actions/" + actionName
 	}
 
 	if actionName == "" {
@@ -517,7 +517,7 @@ func (sc *StepContext) execAsDocker(ctx context.Context, action *model.Action, a
 		prepImage,
 		stepContainer.Pull(rc.Config.ForcePull),
 		stepContainer.Remove().IfBool(!rc.Config.ReuseContainers),
-		stepContainer.Create(),
+		stepContainer.Create(rc.Config.ContainerCapAdd, rc.Config.ContainerCapDrop),
 		stepContainer.Start(true),
 	).Finally(
 		stepContainer.Remove().IfBool(!rc.Config.ReuseContainers),
