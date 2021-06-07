@@ -68,7 +68,9 @@ func (f *stepLogFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	// Replace any secrets in the entry if insecure-secrets flag is not used
 	if !f.insecureSecrets {
 		for _, v := range f.secrets {
-			entry.Message = strings.ReplaceAll(entry.Message, v, "***")
+			if v != "" {
+				entry.Message = strings.ReplaceAll(entry.Message, v, "***")
+			}
 		}
 	}
 
