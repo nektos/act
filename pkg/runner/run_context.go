@@ -159,11 +159,11 @@ func (rc *RunContext) startJobContainer() common.Executor {
 				Body: rc.EventJSON,
 			}, &container.FileEntry{
 				Name: "workflow/envs.txt",
-				Mode: 0644,
+				Mode: 0666,
 				Body: "",
 			}, &container.FileEntry{
 				Name: "workflow/paths.txt",
-				Mode: 0644,
+				Mode: 0666,
 				Body: "",
 			}),
 		)(ctx)
