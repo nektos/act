@@ -5,6 +5,7 @@ import (
 	// Go told me to?
 	_ "embed"
 	"fmt"
+	"io/fs"
 	"io/ioutil"
 	"os"
 	"path"
@@ -428,11 +429,14 @@ func (sc *StepContext) runAction(actionDir string, actionPath string) common.Exe
 					return nil
 				}
 			}
-			err := removeGitIgnore(actionDir)
+			s, f, c, err := removeGitIgnore(actionDir)
 			if err != nil {
 				return err
 			}
-			return rc.JobContainer.CopyDir(containerActionDir+"/", actionLocation+"/", rc.Config.UseGitIgnore)(ctx)
+			return common.NewPipelineExecutor(
+				rc.JobContainer.CopyDir(containerActionDir+"/", actionLocation+"/", rc.Config.UseGitIgnore),
+				recreateGitignore(s, actionDir, f, c),
+			)(ctx)
 		}
 
 		switch action.Runs.Using {
@@ -651,15 +655,35 @@ func newRemoteAction(action string) *remoteAction {
 // files in .gitignore are not copied in a Docker container
 // this causes issues with actions that ignore other important resources
 // such as `node_modules` for example
-func removeGitIgnore(directory string) error {
+func removeGitIgnore(directory string) (fs.FileInfo, []byte, bool, error) {
 	gitIgnorePath := path.Join(directory, ".gitignore")
-	if _, err := os.Stat(gitIgnorePath); err == nil {
+	if s, err := os.Stat(gitIgnorePath); err == nil {
 		// .gitignore exists
 		log.Debugf("Removing %s before docker cp", gitIgnorePath)
-		err := os.Remove(gitIgnorePath)
-		if err != nil {
-			return err
+
+		var f []byte
+		if f, err = os.ReadFile(gitIgnorePath); err != nil {
+			return nil, nil, false, err
 		}
+
+		if err = os.Remove(gitIgnorePath); err != nil {
+			return nil, nil, false, err
+		}
+
+		return s, f, true, nil
 	}
-	return nil
+	return nil, nil, false, nil
+}
+
+func recreateGitignore(s fs.FileInfo, p string, f []byte, c bool) common.Executor {
+	return func(ctx context.Context) error {
+		if c {
+			p = path.Join(p, ".gitignore")
+			if err := os.WriteFile(p, f, s.Mode()); err != nil {
+				return err
+			}
+			return nil
+		}
+		return nil
+	}
 }
