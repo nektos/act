@@ -63,7 +63,7 @@ type FileEntry struct {
 
 // Container for managing docker run containers
 type Container interface {
-	Create() common.Executor
+	Create(capAdd []string, capDrop []string) common.Executor
 	Copy(destPath string, files ...*FileEntry) common.Executor
 	CopyDir(destPath string, srcPath string, useGitIgnore bool) common.Executor
 	Pull(forcePull bool) common.Executor
@@ -100,14 +100,14 @@ func supportsContainerImagePlatform(cli *client.Client) bool {
 	return constraint.Check(sv)
 }
 
-func (cr *containerReference) Create() common.Executor {
+func (cr *containerReference) Create(capAdd []string, capDrop []string) common.Executor {
 	return common.
 		NewDebugExecutor("%sdocker create image=%s platform=%s entrypoint=%+q cmd=%+q", logPrefix, cr.input.Image, cr.input.Platform, cr.input.Entrypoint, cr.input.Cmd).
 		Then(
 			common.NewPipelineExecutor(
 				cr.connect(),
 				cr.find(),
-				cr.create(),
+				cr.create(capAdd, capDrop),
 			).IfNot(common.Dryrun),
 		)
 }
@@ -274,7 +274,7 @@ func (cr *containerReference) remove() common.Executor {
 	}
 }
 
-func (cr *containerReference) create() common.Executor {
+func (cr *containerReference) create(capAdd []string, capDrop []string) common.Executor {
 	return func(ctx context.Context) error {
 		if cr.id != "" {
 			return nil
@@ -315,6 +315,8 @@ func (cr *containerReference) create() common.Executor {
 			}
 		}
 		resp, err := cr.cli.ContainerCreate(ctx, config, &container.HostConfig{
+			CapAdd:      capAdd,
+			CapDrop:     capDrop,
 			Binds:       input.Binds,
 			Mounts:      mounts,
 			NetworkMode: container.NetworkMode(input.NetworkMode),
@@ -454,13 +456,6 @@ func (cr *containerReference) exec(cmd []string, env map[string]string, user str
 		errWriter := cr.input.Stderr
 		if errWriter == nil {
 			errWriter = os.Stderr
-		}
-
-		err = cr.cli.ContainerExecStart(ctx, idResp.ID, types.ExecStartCheck{
-			Tty: isTerminal,
-		})
-		if err != nil {
-			return errors.WithStack(err)
 		}
 
 		if !isTerminal || os.Getenv("NORAW") != "" {

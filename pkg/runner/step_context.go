@@ -303,7 +303,7 @@ func (sc *StepContext) runUsesContainer() common.Executor {
 		return common.NewPipelineExecutor(
 			stepContainer.Pull(rc.Config.ForcePull),
 			stepContainer.Remove().IfBool(!rc.Config.ReuseContainers),
-			stepContainer.Create(),
+			stepContainer.Create(rc.Config.ContainerCapAdd, rc.Config.ContainerCapDrop),
 			stepContainer.Start(true),
 		).Finally(
 			stepContainer.Remove().IfBool(!rc.Config.ReuseContainers),
@@ -521,7 +521,7 @@ func (sc *StepContext) execAsDocker(ctx context.Context, action *model.Action, a
 		prepImage,
 		stepContainer.Pull(rc.Config.ForcePull),
 		stepContainer.Remove().IfBool(!rc.Config.ReuseContainers),
-		stepContainer.Create(),
+		stepContainer.Create(rc.Config.ContainerCapAdd, rc.Config.ContainerCapDrop),
 		stepContainer.Start(true),
 	).Finally(
 		stepContainer.Remove().IfBool(!rc.Config.ReuseContainers),
@@ -578,13 +578,15 @@ func (sc *StepContext) execAsComposite(ctx context.Context, step *model.Step, _ 
 			stepClone.Env = make(map[string]string)
 		}
 		actionPath := filepath.Join(containerActionDir, actionName)
-		stepClone.Env["GITHUB_ACTION_PATH"] = actionPath
+
+		env := stepClone.Environment()
+		env["GITHUB_ACTION_PATH"] = actionPath
 		stepClone.Run = strings.ReplaceAll(stepClone.Run, "${{ github.action_path }}", actionPath)
 
 		stepContext := StepContext{
 			RunContext: rcClone,
 			Step:       &stepClone,
-			Env:        mergeMaps(sc.Env, stepClone.Env),
+			Env:        mergeMaps(sc.Env, env),
 		}
 
 		// Interpolate the outer inputs into the composite step with items
