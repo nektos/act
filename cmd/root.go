@@ -52,6 +52,7 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.Flags().BoolVar(&input.useGitIgnore, "use-gitignore", true, "Controls whether paths specified in .gitignore should be copied into container")
 	rootCmd.Flags().StringArrayVarP(&input.containerCapAdd, "container-cap-add", "", []string{}, "kernel capabilities to add to the workflow containers (e.g. --container-cap-add SYS_PTRACE)")
 	rootCmd.Flags().StringArrayVarP(&input.containerCapDrop, "container-cap-drop", "", []string{}, "kernel capabilities to remove from the workflow containers (e.g. --container-cap-drop SYS_PTRACE)")
+	rootCmd.Flags().BoolVar(&input.autoRemove, "rm", false, "automatically remove containers just before exit")
 	rootCmd.PersistentFlags().StringVarP(&input.actor, "actor", "a", "nektos/act", "user that triggered the event")
 	rootCmd.PersistentFlags().StringVarP(&input.workflowsPath, "workflows", "W", "./.github/workflows/", "path to workflow file(s)")
 	rootCmd.PersistentFlags().BoolVarP(&input.noWorkflowRecurse, "no-recurse", "", false, "Flag to disable running workflows from subdirectories of specified path in '--workflows'/'-W' flag")
@@ -263,6 +264,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			GitHubInstance:        input.githubInstance,
 			ContainerCapAdd:       input.containerCapAdd,
 			ContainerCapDrop:      input.containerCapDrop,
+			AutoRemove:            input.autoRemove,
 		}
 		r, err := runner.New(config)
 		if err != nil {
