@@ -309,7 +309,7 @@ func TestGetGitHubContext(t *testing.T) {
 	log.Debugf("%v", ghc)
 
 	assert.Equal(t, ghc.RunID, "1")
-	assert.Equal(t, ghc.Workspace, cwd)
+	assert.Equal(t, ghc.Workspace, rc.Config.containerPath(cwd))
 	assert.Equal(t, ghc.RunNumber, "1")
 	assert.Equal(t, ghc.RetentionDays, "0")
 	assert.Equal(t, ghc.Actor, "nektos/act")
