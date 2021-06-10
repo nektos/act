@@ -42,6 +42,7 @@ type Config struct {
 	GitHubInstance        string            // GitHub instance to use, default "github.com"
 	ContainerCapAdd       []string          // list of kernel capabilities to add to the containers
 	ContainerCapDrop      []string          // list of kernel capabilities to remove from the containers
+	AutoRemove            bool              // controls if the container is automatically removed upon workflow completion
 }
 
 // Resolves the equivalent host path inside the container
@@ -111,9 +112,9 @@ func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 	maxJobNameLen := 0
 
 	pipeline := make([]common.Executor, 0)
-	for _, stage := range plan.Stages {
+	for s, stage := range plan.Stages {
 		stageExecutor := make([]common.Executor, 0)
-		for _, run := range stage.Runs {
+		for r, run := range stage.Runs {
 			job := run.Job()
 			matrixes := job.GetMatrixes()
 
@@ -128,7 +129,20 @@ func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 				}
 				stageExecutor = append(stageExecutor, func(ctx context.Context) error {
 					jobName := fmt.Sprintf("%-*s", maxJobNameLen, rc.String())
-					return rc.Executor()(WithJobLogger(ctx, jobName, rc.Config.Secrets, rc.Config.InsecureSecrets))
+					return rc.Executor().Finally(func(ctx context.Context) error {
+						isLastRunningContainer := func(currentStage int, currentRun int) bool {
+							return currentStage == len(plan.Stages)-1 && currentRun == len(stage.Runs)-1
+						}
+
+						if runner.config.AutoRemove && isLastRunningContainer(s, r) {
+							log.Infof("Cleaning up container for job %s", rc.JobName)
+							if err := rc.stopJobContainer()(ctx); err != nil {
+								log.Errorf("Error while cleaning container: %v", err)
+							}
+						}
+
+						return nil
+					})(WithJobLogger(ctx, jobName, rc.Config.Secrets, rc.Config.InsecureSecrets))
 				})
 			}
 		}
