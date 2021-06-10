@@ -63,12 +63,12 @@ type FileEntry struct {
 
 // Container for managing docker run containers
 type Container interface {
-	Create() common.Executor
+	Create(capAdd []string, capDrop []string) common.Executor
 	Copy(destPath string, files ...*FileEntry) common.Executor
 	CopyDir(destPath string, srcPath string, useGitIgnore bool) common.Executor
 	Pull(forcePull bool) common.Executor
 	Start(attach bool) common.Executor
-	Exec(command []string, env map[string]string) common.Executor
+	Exec(command []string, env map[string]string, user string) common.Executor
 	UpdateFromEnv(srcPath string, env *map[string]string) common.Executor
 	UpdateFromPath(env *map[string]string) common.Executor
 	Remove() common.Executor
@@ -100,14 +100,14 @@ func supportsContainerImagePlatform(cli *client.Client) bool {
 	return constraint.Check(sv)
 }
 
-func (cr *containerReference) Create() common.Executor {
+func (cr *containerReference) Create(capAdd []string, capDrop []string) common.Executor {
 	return common.
 		NewDebugExecutor("%sdocker create image=%s platform=%s entrypoint=%+q cmd=%+q", logPrefix, cr.input.Image, cr.input.Platform, cr.input.Entrypoint, cr.input.Cmd).
 		Then(
 			common.NewPipelineExecutor(
 				cr.connect(),
 				cr.find(),
-				cr.create(),
+				cr.create(capAdd, capDrop),
 			).IfNot(common.Dryrun),
 		)
 }
@@ -145,9 +145,7 @@ func (cr *containerReference) Copy(destPath string, files ...*FileEntry) common.
 func (cr *containerReference) CopyDir(destPath string, srcPath string, useGitIgnore bool) common.Executor {
 	return common.NewPipelineExecutor(
 		common.NewInfoExecutor("%sdocker cp src=%s dst=%s", logPrefix, srcPath, destPath),
-		cr.connect(),
-		cr.find(),
-		cr.exec([]string{"mkdir", "-p", destPath}, nil),
+		cr.Exec([]string{"mkdir", "-p", destPath}, nil, ""),
 		cr.copyDir(destPath, srcPath, useGitIgnore),
 	).IfNot(common.Dryrun)
 }
@@ -160,11 +158,12 @@ func (cr *containerReference) UpdateFromPath(env *map[string]string) common.Exec
 	return cr.extractPath(env).IfNot(common.Dryrun)
 }
 
-func (cr *containerReference) Exec(command []string, env map[string]string) common.Executor {
+func (cr *containerReference) Exec(command []string, env map[string]string, user string) common.Executor {
 	return common.NewPipelineExecutor(
+		common.NewInfoExecutor("%sdocker exec cmd=[%s] user=%s", logPrefix, strings.Join(command, " "), user),
 		cr.connect(),
 		cr.find(),
-		cr.exec(command, env),
+		cr.exec(command, env, user),
 	).IfNot(common.Dryrun)
 }
 
@@ -275,7 +274,7 @@ func (cr *containerReference) remove() common.Executor {
 	}
 }
 
-func (cr *containerReference) create() common.Executor {
+func (cr *containerReference) create(capAdd []string, capDrop []string) common.Executor {
 	return func(ctx context.Context) error {
 		if cr.id != "" {
 			return nil
@@ -316,6 +315,8 @@ func (cr *containerReference) create() common.Executor {
 			}
 		}
 		resp, err := cr.cli.ContainerCreate(ctx, config, &container.HostConfig{
+			CapAdd:      capAdd,
+			CapDrop:     capDrop,
 			Binds:       input.Binds,
 			Mounts:      mounts,
 			NetworkMode: container.NetworkMode(input.NetworkMode),
@@ -399,7 +400,7 @@ func (cr *containerReference) extractPath(env *map[string]string) common.Executo
 		s := bufio.NewScanner(reader)
 		for s.Scan() {
 			line := s.Text()
-			localEnv["PATH"] = fmt.Sprintf("%s:%s", localEnv["PATH"], line)
+			localEnv["PATH"] = fmt.Sprintf("%s:%s", line, localEnv["PATH"])
 		}
 
 		env = &localEnv
@@ -407,7 +408,7 @@ func (cr *containerReference) extractPath(env *map[string]string) common.Executo
 	}
 }
 
-func (cr *containerReference) exec(cmd []string, env map[string]string) common.Executor {
+func (cr *containerReference) exec(cmd []string, env map[string]string, user string) common.Executor {
 	return func(ctx context.Context) error {
 		logger := common.Logger(ctx)
 		// Fix slashes when running on Windows
@@ -427,6 +428,7 @@ func (cr *containerReference) exec(cmd []string, env map[string]string) common.E
 		}
 
 		idResp, err := cr.cli.ContainerExecCreate(ctx, cr.id, types.ExecConfig{
+			User:         user,
 			Cmd:          cmd,
 			WorkingDir:   cr.input.WorkingDir,
 			Env:          envList,
@@ -454,13 +456,6 @@ func (cr *containerReference) exec(cmd []string, env map[string]string) common.E
 		errWriter := cr.input.Stderr
 		if errWriter == nil {
 			errWriter = os.Stderr
-		}
-
-		err = cr.cli.ContainerExecStart(ctx, idResp.ID, types.ExecStartCheck{
-			Tty: isTerminal,
-		})
-		if err != nil {
-			return errors.WithStack(err)
 		}
 
 		if !isTerminal || os.Getenv("NORAW") != "" {

@@ -1,8 +1,9 @@
 package cmd
 
 import (
-	"log"
 	"path/filepath"
+
+	log "github.com/sirupsen/logrus"
 )
 
 // Input contains the input for the root command
@@ -27,9 +28,13 @@ type Input struct {
 	privileged            bool
 	usernsMode            string
 	containerArchitecture string
+	containerDaemonSocket string
 	noWorkflowRecurse     bool
 	useGitIgnore          bool
 	githubInstance        string
+	containerCapAdd       []string
+	containerCapDrop      []string
+	autoRemove            bool
 }
 
 func (i *Input) resolve(path string) string {

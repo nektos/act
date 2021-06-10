@@ -13,9 +13,29 @@ jobs:
           echo "$HOME/someOtherFolder" >> $GITHUB_PATH
       - name: "Check PATH"
         run: |
-          if [[ ! "${PATH}" =~ .*"$HOME/"someFolder.*"$HOME/"someOtherFolder ]]; then
-            echo "${PATH} doesn't match .*someFolder.*someOtherFolder"
+          echo "${PATH}"
+          if [[ ! "${PATH}" =~ .*"$HOME/"someOtherFolder.*"$HOME/"someFolder.* ]]; then
+            echo "${PATH} doesn't match .*someOtherFolder.*someFolder.*"
             exit 1
+          fi
+      - name: "Prepend"
+        run: |
+          if ls | grep -q 'called ls' ; then
+            echo 'ls was overridden already?'
+            exit 2
+          fi
+          path_add=$(mktemp -d)
+          cat > $path_add/ls <<LS
+          #!/bin/sh
+          echo 'called ls'
+          LS
+          chmod +x $path_add/ls
+          echo $path_add >> $GITHUB_PATH
+      - name: "Verify prepend"
+        run: |
+          if ! ls | grep -q 'called ls' ; then
+            echo 'ls was not overridden'
+            exit 2
           fi
       - name: "Write single line env to $GITHUB_ENV"
         run: |

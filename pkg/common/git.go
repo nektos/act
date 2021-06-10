@@ -291,9 +291,17 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) Executor {
 		}
 
 		// fetch latest changes
-		err = r.Fetch(&git.FetchOptions{
+		fetchOptions := git.FetchOptions{
 			RefSpecs: []config.RefSpec{"refs/*:refs/*", "HEAD:refs/heads/HEAD"},
-		})
+		}
+		if input.Token != "" {
+			fetchOptions.Auth = &http.BasicAuth{
+				Username: "token",
+				Password: input.Token,
+			}
+		}
+
+		err = r.Fetch(&fetchOptions)
 		if err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
 			return err
 		}
@@ -353,9 +361,17 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) Executor {
 			}
 		}
 
-		if err = w.Pull(&git.PullOptions{
+		pullOptions := git.PullOptions{
 			Force: true,
-		}); err != nil && err.Error() != "already up-to-date" {
+		}
+		if input.Token != "" {
+			pullOptions.Auth = &http.BasicAuth{
+				Username: "token",
+				Password: input.Token,
+			}
+		}
+
+		if err = w.Pull(&pullOptions); err != nil && err.Error() != "already up-to-date" {
 			logger.Debugf("Unable to pull %s: %v", refName, err)
 		}
 		logger.Debugf("Cloned %s to %s", input.URL, input.Dir)

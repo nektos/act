@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	log "github.com/sirupsen/logrus"
-	"gotest.tools/v3/assert"
+	assert "github.com/stretchr/testify/assert"
 )
 
 func init() {
@@ -33,7 +33,7 @@ func TestGetImagePullOptions(t *testing.T) {
 	ctx := context.Background()
 
 	options, err := getImagePullOptions(ctx, NewDockerPullExecutorInput{})
-	assert.NilError(t, err, "Failed to create ImagePullOptions")
+	assert.Nil(t, err, "Failed to create ImagePullOptions")
 	assert.Equal(t, options.RegistryAuth, "", "RegistryAuth should be empty if no username or password is set")
 
 	options, err = getImagePullOptions(ctx, NewDockerPullExecutorInput{
@@ -41,6 +41,6 @@ func TestGetImagePullOptions(t *testing.T) {
 		Username: "username",
 		Password: "password",
 	})
-	assert.NilError(t, err, "Failed to create ImagePullOptions")
+	assert.Nil(t, err, "Failed to create ImagePullOptions")
 	assert.Equal(t, options.RegistryAuth, "eyJ1c2VybmFtZSI6InVzZXJuYW1lIiwicGFzc3dvcmQiOiJwYXNzd29yZCJ9", "Username and Password should be provided")
 }

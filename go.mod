@@ -39,5 +39,4 @@ require (
 	google.golang.org/grpc v1.33.2 // indirect
 	gopkg.in/sourcemap.v1 v1.0.5 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776
-	gotest.tools/v3 v3.0.2
 )

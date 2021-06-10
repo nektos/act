@@ -12,16 +12,23 @@ assignees: ''
     - Refer to [README](https://github.com/nektos/act/blob/master/README.md).
 -->
 
-## Act version
+## System information
 
 <!--
-    - Paste output of `act --version` inside the code block below
-    - If you've built `act` yourself, please provide commit hash
+    - Operating System: < Windows | Linux | macOS | etc... >
+    - Architecture: < x64 (64-bit) | x86 (32-bit) | arm64 (64-bit) | arm (32-bit) | etc... >
+    - Apple M1: < yes | no >
+    - Docker version: < output of `docker system info -f "{{.ServerVersion}}"` >
+    - Docker image used in `act`: < can be omitted if it's included in log >
+    - `act` version: < output of `act --version`, if you've built `act` yourself, please provide commit hash >
 -->
 
-```none
-
-```
+- Operating System:
+- Architecture:
+- Apple M1:
+- Docker version:
+- Docker image used in `act`:
+- `act` version:
 
 ## Expected behaviour
 

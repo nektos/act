@@ -19,6 +19,8 @@ import (
 	"github.com/nektos/act/pkg/model"
 )
 
+const ActPath string = "/var/run/act"
+
 // RunContext contains info about current job
 type RunContext struct {
 	Name           string
@@ -53,7 +55,7 @@ type stepResult struct {
 // GetEnv returns the env for the context
 func (rc *RunContext) GetEnv() map[string]string {
 	if rc.Env == nil {
-		rc.Env = mergeMaps(rc.Config.Env, rc.Run.Workflow.Env, rc.Run.Job().Env)
+		rc.Env = mergeMaps(rc.Config.Env, rc.Run.Workflow.Env, rc.Run.Job().Environment())
 	}
 	rc.Env["ACT"] = "true"
 	return rc.Env
@@ -67,13 +69,16 @@ func (rc *RunContext) jobContainerName() string {
 func (rc *RunContext) GetBindsAndMounts() ([]string, map[string]string) {
 	name := rc.jobContainerName()
 
+	if rc.Config.ContainerDaemonSocket == "" {
+		rc.Config.ContainerDaemonSocket = "/var/run/docker.sock"
+	}
+
 	binds := []string{
-		fmt.Sprintf("%s:%s", "/var/run/docker.sock", "/var/run/docker.sock"),
+		fmt.Sprintf("%s:%s", rc.Config.ContainerDaemonSocket, "/var/run/docker.sock"),
 	}
 
 	mounts := map[string]string{
 		"act-toolcache": "/toolcache",
-		"act-actions":   "/actions",
 	}
 
 	if rc.Config.BindWorkdir {
@@ -143,21 +148,22 @@ func (rc *RunContext) startJobContainer() common.Executor {
 		return common.NewPipelineExecutor(
 			rc.JobContainer.Pull(rc.Config.ForcePull),
 			rc.stopJobContainer(),
-			rc.JobContainer.Create(),
+			rc.JobContainer.Create(rc.Config.ContainerCapAdd, rc.Config.ContainerCapDrop),
 			rc.JobContainer.Start(false),
 			rc.JobContainer.UpdateFromEnv("/etc/environment", &rc.Env),
+			rc.JobContainer.Exec([]string{"mkdir", "-m", "0777", "-p", ActPath}, rc.Env, "root"),
 			rc.JobContainer.CopyDir(copyToPath, rc.Config.Workdir+string(filepath.Separator)+".", rc.Config.UseGitIgnore).IfBool(copyWorkspace),
-			rc.JobContainer.Copy("/tmp/", &container.FileEntry{
+			rc.JobContainer.Copy(ActPath+"/", &container.FileEntry{
 				Name: "workflow/event.json",
 				Mode: 0644,
 				Body: rc.EventJSON,
 			}, &container.FileEntry{
 				Name: "workflow/envs.txt",
-				Mode: 0644,
+				Mode: 0666,
 				Body: "",
 			}, &container.FileEntry{
 				Name: "workflow/paths.txt",
-				Mode: 0644,
+				Mode: 0666,
 				Body: "",
 			}),
 		)(ctx)
@@ -165,7 +171,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 }
 func (rc *RunContext) execJobContainer(cmd []string, env map[string]string) common.Executor {
 	return func(ctx context.Context) error {
-		return rc.JobContainer.Exec(cmd, env)(ctx)
+		return rc.JobContainer.Exec(cmd, env, "")(ctx)
 	}
 }
 
@@ -484,7 +490,7 @@ type githubContext struct {
 func (rc *RunContext) getGithubContext() *githubContext {
 	ghc := &githubContext{
 		Event:            make(map[string]interface{}),
-		EventPath:        "/tmp/workflow/event.json",
+		EventPath:        ActPath + "/workflow/event.json",
 		Workflow:         rc.Run.Workflow.Name,
 		RunID:            rc.Config.Env["GITHUB_RUN_ID"],
 		RunNumber:        rc.Config.Env["GITHUB_RUN_NUMBER"],
@@ -656,8 +662,8 @@ func withDefaultBranch(b string, event map[string]interface{}) map[string]interf
 func (rc *RunContext) withGithubEnv(env map[string]string) map[string]string {
 	github := rc.getGithubContext()
 	env["CI"] = "true"
-	env["GITHUB_ENV"] = "/tmp/workflow/envs.txt"
-	env["GITHUB_PATH"] = "/tmp/workflow/paths.txt"
+	env["GITHUB_ENV"] = ActPath + "/workflow/envs.txt"
+	env["GITHUB_PATH"] = ActPath + "/workflow/paths.txt"
 	env["GITHUB_WORKFLOW"] = github.Workflow
 	env["GITHUB_RUN_ID"] = github.RunID
 	env["GITHUB_RUN_NUMBER"] = github.RunNumber
