@@ -86,7 +86,7 @@ func FindGitRef(file string) (string, error) {
 				if r == nil || err != nil {
 					break
 				}
-				log.Debugf("Reference: name=%s sha=%s", r.Name().String(), r.Hash().String())
+				// log.Debugf("Reference: name=%s sha=%s", r.Name().String(), r.Hash().String())
 				if r.Hash().String() == ref {
 					if r.Name().IsTag() {
 						refTag = r.Name().String()

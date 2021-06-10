@@ -4,8 +4,8 @@ on: push
 jobs:
   test:
     runs-on: ubuntu-latest
-    container: 
-      image: node:12.20.1-buster
+    container:
+      image: node:12-buster-slim
       env:
         TEST_ENV: test-value
     steps:
@@ -13,7 +13,7 @@ jobs:
 
   test2:
     runs-on: ubuntu-latest
-    container: node:12.20.1-buster
+    container: node:12-buster-slim
     steps:
       - run: echo ${TEST_ENV} | grep test-value
         env:

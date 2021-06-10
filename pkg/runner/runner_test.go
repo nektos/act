@@ -16,6 +16,14 @@ import (
 	"github.com/nektos/act/pkg/model"
 )
 
+var baseImage string = "node:12-buster-slim"
+
+func init() {
+	if p := os.Getenv("ACT_TEST_IMAGE"); p != "" {
+		baseImage = p
+	}
+}
+
 func TestGraphEvent(t *testing.T) {
 	planner, err := model.NewWorkflowPlanner("testdata/basic", true)
 	assert.Nil(t, err)
@@ -81,7 +89,7 @@ func TestRunEvent(t *testing.T) {
 	}
 
 	platforms := map[string]string{
-		"ubuntu-latest": "node:12.20.1-buster-slim",
+		"ubuntu-latest": baseImage,
 	}
 
 	tables := []TestJobFileInfo{
@@ -89,8 +97,10 @@ func TestRunEvent(t *testing.T) {
 		{"testdata", "fail", "push", "exit with `FAILURE`: 1", platforms, ""},
 		{"testdata", "runs-on", "push", "", platforms, ""},
 		{"testdata", "checkout", "push", "", platforms, ""},
-		// Pwsh is not available in default worker (yet) so we use a separate image for testing
-		{"testdata", "powershell", "push", "", map[string]string{"ubuntu-latest": "ghcr.io/justingrote/act-pwsh:latest"}, ""},
+		{"testdata", "shells/pwsh", "push", "", map[string]string{"ubuntu-latest": "ghcr.io/justingrote/act-pwsh:latest"}, ""}, // custom image with pwsh
+		{"testdata", "shells/bash", "push", "", platforms, ""},
+		{"testdata", "shells/python", "push", "", map[string]string{"ubuntu-latest": "node:12-buster"}, ""}, // slim doesn't have python
+		{"testdata", "shells/sh", "push", "", platforms, ""},
 		{"testdata", "job-container", "push", "", platforms, ""},
 		{"testdata", "job-container-non-root", "push", "", platforms, ""},
 		{"testdata", "uses-docker-url", "push", "", platforms, ""},
@@ -131,7 +141,7 @@ func TestRunEventSecrets(t *testing.T) {
 	ctx := context.Background()
 
 	platforms := map[string]string{
-		"ubuntu-latest": "node:12.20.1-buster-slim",
+		"ubuntu-latest": baseImage,
 	}
 
 	workflowPath := "secrets"
@@ -172,7 +182,7 @@ func TestRunEventPullRequest(t *testing.T) {
 	ctx := context.Background()
 
 	platforms := map[string]string{
-		"ubuntu-latest": "node:12.20.1-buster-slim",
+		"ubuntu-latest": baseImage,
 	}
 
 	workflowPath := "pull-request"

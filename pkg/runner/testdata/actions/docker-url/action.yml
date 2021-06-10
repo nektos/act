@@ -8,9 +8,8 @@ inputs:
     default: World
 runs:
   using: docker
-  #image: docker://alpine:3.13
-  image: docker://node:12-alpine
+  image: docker://node:12-buster-slim
   env:
     TEST: enabled
-  args: 
-  - env
+  args:
+    - env

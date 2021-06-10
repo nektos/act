@@ -1,0 +1,10 @@
+on: push
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - shell: bash
+        run: |
+          if [[ -n "$PATH" ]] ; then
+            echo "I'm Bash!"
+          fi

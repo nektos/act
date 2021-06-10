@@ -8,12 +8,12 @@
 
 **Note 2: `node` `-slim` images don't have `python` installed, if you want to use actions or software that is depending on `python`, you need to specify image manually**
 
-| Image                                     | Size                                                          |
-| ----------------------------------------- | ------------------------------------------------------------- |
-| [`node:12.20.1-buster`][hub/_/node]       | ![`buster-size`][hub/_/node/12.20.1-buster/size]              |
-| [`node:12.20.1-buster-slim`][hub/_/node]  | ![`micro-buster-size`][hub/_/node/12.20.1-buster-slim/size]   |
-| [`node:12.20.1-stretch`][hub/_/node]      | ![`stretch-size`][hub/_/node/12.20.1-stretch/size]            |
-| [`node:12.20.1-stretch-slim`][hub/_/node] | ![`micro-stretch-size`][hub/_/node/12.20.1-stretch-slim/size] |
+| Image                                | Size                                                     |
+| ------------------------------------ | -------------------------------------------------------- |
+| [`node:12-buster`][hub/_/node]       | ![`buster-size`][hub/_/node/12-buster/size]              |
+| [`node:12-buster-slim`][hub/_/node]  | ![`micro-buster-size`][hub/_/node/12-buster-slim/size]   |
+| [`node:12-stretch`][hub/_/node]      | ![`stretch-size`][hub/_/node/12-stretch/size]            |
+| [`node:12-stretch-slim`][hub/_/node] | ![`micro-stretch-size`][hub/_/node/12-stretch-slim/size] |
 
 **Note: `catthehacker/ubuntu` images are based on Ubuntu root filesystem**
 
@@ -48,10 +48,10 @@ Feel free to make a pull request with your image added here
 
 [hub/_/buildpack-deps]: https://hub.docker.com/_/buildpack-deps
 [hub/_/node]: https://hub.docker.com/r/_/node
-[hub/_/node/12.20.1-buster/size]: https://img.shields.io/docker/image-size/_/node/12.20.1-buster
-[hub/_/node/12.20.1-buster-slim/size]: https://img.shields.io/docker/image-size/_/node/12.20.1-buster-slim
-[hub/_/node/12.20.1-stretch/size]: https://img.shields.io/docker/image-size/_/node/12.20.1-stretch
-[hub/_/node/12.20.1-stretch-slim/size]: https://img.shields.io/docker/image-size/_/node/12.20.1-stretch-slim
+[hub/_/node/12-buster/size]: https://img.shields.io/docker/image-size/_/node/12-buster
+[hub/_/node/12-buster-slim/size]: https://img.shields.io/docker/image-size/_/node/12-buster-slim
+[hub/_/node/12-stretch/size]: https://img.shields.io/docker/image-size/_/node/12-stretch
+[hub/_/node/12-stretch-slim/size]: https://img.shields.io/docker/image-size/_/node/12-stretch-slim
 [hub/catthehacker/ubuntu]: https://hub.docker.com/r/catthehacker/ubuntu
 [hub/catthehacker/ubuntu/act-latest/size]: https://img.shields.io/docker/image-size/catthehacker/ubuntu/act-latest
 [hub/catthehacker/ubuntu/act-20.04/size]: https://img.shields.io/docker/image-size/catthehacker/ubuntu/act-20.04

@@ -1,12 +1,8 @@
-name: powershell
 on: push
-
-env:
-  TEST: value
 jobs:
   check:
     runs-on: ubuntu-latest
     steps:
       - shell: pwsh
         run: |
-          echo "hello test"
+          $PSVersionTable

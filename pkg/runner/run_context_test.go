@@ -308,13 +308,28 @@ func TestGetGitHubContext(t *testing.T) {
 
 	log.Debugf("%v", ghc)
 
+	actor := "nektos/act"
+	if a := os.Getenv("ACT_ACTOR"); a != "" {
+		actor = a
+	}
+
+	repo := "nektos/act"
+	if r := os.Getenv("ACT_REPOSITORY"); r != "" {
+		repo = r
+	}
+
+	owner := "nektos"
+	if o := os.Getenv("ACT_OWNER"); o != "" {
+		owner = o
+	}
+
 	assert.Equal(t, ghc.RunID, "1")
 	assert.Equal(t, ghc.Workspace, rc.Config.containerPath(cwd))
 	assert.Equal(t, ghc.RunNumber, "1")
 	assert.Equal(t, ghc.RetentionDays, "0")
-	assert.Equal(t, ghc.Actor, "nektos/act")
-	assert.Equal(t, ghc.Repository, "nektos/act")
-	assert.Equal(t, ghc.RepositoryOwner, "nektos")
+	assert.Equal(t, ghc.Actor, actor)
+	assert.Equal(t, ghc.Repository, repo)
+	assert.Equal(t, ghc.RepositoryOwner, owner)
 	assert.Equal(t, ghc.RunnerPerflog, "/dev/null")
 	assert.Equal(t, ghc.EventPath, ActPath+"/workflow/event.json")
 	assert.Equal(t, ghc.Token, rc.Config.Secrets["GITHUB_TOKEN"])
