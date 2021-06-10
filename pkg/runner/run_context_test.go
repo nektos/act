@@ -313,12 +313,9 @@ func TestGetGitHubContext(t *testing.T) {
 	assert.Equal(t, ghc.Workspace, rc.Config.containerPath(cwd))
 	assert.Equal(t, ghc.RunNumber, "1")
 	assert.Equal(t, ghc.RetentionDays, "0")
-	// Doesn't work for forks
-	if os.Getenv("GITHUB_ACTIONS") == "true" {
-		assert.Equal(t, ghc.Actor, "nektos/act")
-		assert.Equal(t, ghc.Repository, "nektos/act")
-		assert.Equal(t, ghc.RepositoryOwner, "nektos")
-	}
+	assert.Equal(t, ghc.Actor, "nektos/act")
+	assert.Equal(t, ghc.Repository, "nektos/act")
+	assert.Equal(t, ghc.RepositoryOwner, "nektos")
 	assert.Equal(t, ghc.RunnerPerflog, "/dev/null")
 	assert.Equal(t, ghc.EventPath, "/tmp/workflow/event.json")
 	assert.Equal(t, ghc.Token, rc.Config.Secrets["GITHUB_TOKEN"])
