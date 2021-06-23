@@ -4,9 +4,10 @@ import (
 	"context"
 	"testing"
 
-	"github.com/nektos/act/pkg/common"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/nektos/act/pkg/common"
 )
 
 func TestSetEnv(t *testing.T) {
