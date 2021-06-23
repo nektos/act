@@ -6,7 +6,7 @@ import (
 
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
-	
+
 	"github.com/nektos/act/pkg/common"
 )
 

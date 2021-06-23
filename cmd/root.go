@@ -9,8 +9,6 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/nektos/act/pkg/common"
-
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/andreaskoch/go-fswatch"
 	"github.com/joho/godotenv"
@@ -19,6 +17,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
+	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/model"
 	"github.com/nektos/act/pkg/runner"
 )
@@ -156,8 +155,8 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 		if runtime.GOOS == "darwin" && runtime.GOARCH == "arm64" && input.containerArchitecture == "" {
 			l := log.New()
 			l.SetFormatter(&log.TextFormatter{
-				DisableQuote:           true,
-				DisableTimestamp:       true,
+				DisableQuote:     true,
+				DisableTimestamp: true,
 			})
 			l.Warnf(" \U000026A0 You are using Apple M1 chip and you have not specified container architecture, you might encounter issues while running act. If so, try running it with '--container-architecture linux/amd64'. \U000026A0 \n")
 		}
