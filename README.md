@@ -5,7 +5,7 @@
 > "Think globally, `act` locally"  
 
 Translations:
-* [Simplified Chinese](Translations\zh_cn.md)
+* [Simplified Chinese](Translations/zh_cn.md)
 
 Run your [GitHub Actions](https://developer.github.com/actions/) locally! Why would you want to do this? Two reasons:
 
