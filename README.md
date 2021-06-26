@@ -30,8 +30,8 @@ If you are using Windows, please follow steps for [installing Docker Desktop on 
 If you are using Linux, you will need to [install Docker Engine](https://docs.docker.com/engine/install/).
 
 `act` is currently not supported with `podman` or other container backends (it might work, but it's not guaranteed). Please see [#303](https://github.com/nektos/act/issues/303) for updates.
-
-## Homebrew
+## macOS
+### Homebrew
 
 To install with [Homebrew](https://brew.sh/), run:
 
@@ -44,8 +44,8 @@ Alternatively, you can use the following:
 ```shell
 curl https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash
 ```
-
-If you are running Windows, download the [latest release](https://github.com/nektos/act/releases/latest) and add the binary into your PATH.
+## Windows
+If you are running **Windows**, download the [latest release](https://github.com/nektos/act/releases/latest) and add the binary into your PATH.
 If you are using [Chocolatey](https://chocolatey.org/) then run:
 
 [![choco-shield](https://img.shields.io/chocolatey/v/act-cli)](https://community.chocolatey.org/packages/act-cli)
@@ -61,8 +61,8 @@ If you are using [Scoop](https://scoop.sh/) then run:
 ```shell
 scoop install act
 ```
-
-If you are running Arch Linux, you can install the [act](https://aur.archlinux.org/packages/act/) package with your favorite package manager:
+## Linux
+If you are running **Arch Linux**, you can install the [act](https://aur.archlinux.org/packages/act/) package with your favorite package manager:
 
 [![aur-shield](https://img.shields.io/aur/version/act)](https://aur.archlinux.org/packages/act/)
 
@@ -70,7 +70,7 @@ If you are running Arch Linux, you can install the [act](https://aur.archlinux.o
 yay -S act
 ```
 
-If you are using NixOS or the Nix package manager on another platform you can install act globally by running
+If you are using **NixOS or the Nix package manager** on another platform you can install act globally by running
 
 ```sh
 nix-env -iA nixpkgs.act
@@ -82,7 +82,7 @@ or in a shell by running
 nix-shell -p act
 ```
 
-If you have Go 1.16+, you can install latest released version of `act` directly from source by running:
+If you have **Go** `1.16+`, you can install latest released version of `act` directly from source by running:
 
 ```sh
 go install github.com/nektos/act@latest
