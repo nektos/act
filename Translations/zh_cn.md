@@ -1,5 +1,5 @@
 ![act-logo](https://github.com/nektos/act/wiki/img/logo-150.png)
-
+You are viewing in Simplified Chinese
 # 这是什么？ [![push](https://github.com/nektos/act/workflows/push/badge.svg?branch=master&event=push)](https://github.com/nektos/act/actions) [![Join the chat at https://gitter.im/nektos/act](https://badges.gitter.im/nektos/act.svg)](https://gitter.im/nektos/act?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) [![Go Report Card](https://goreportcard.com/badge/github.com/nektos/act)](https://goreportcard.com/report/github.com/nektos/act) [![awesome-runners](https://img.shields.io/badge/listed%20on-awesome--runners-blue.svg)](https://github.com/jonico/awesome-runners)
 
 > “千里之行，始于足下。” ***"Think globally, `act` locally"***
@@ -13,13 +13,13 @@
 
 当`act`运行时，她从`.GitHub/workflows/`读取GitHub操作，并确定需要运行的操作集。`act`使用Docker API来拉取或构建工作流文件中定义的必要映像，并最终根据定义的依赖关系确定执行路径。一旦有了执行路径，就使用DockerAPI根据前面准备的映像为每个操作运行容器。 The [environment variables](https://help.github.com/en/actions/configuring-and-managing-workflows/using-environment-variables#default-environment-variables) and [filesystem](https://help.github.com/en/actions/reference/virtual-environments-for-github-hosted-runners#filesystems-on-github-hosted-runners) are all configured to match what GitHub provides.
 
-Let's see it in action with a [sample repo](https://github.com/cplee/github-actions-demo)!
+举个栗子[🌰](https://github.com/cplee/github-actions-demo)
 
 ![Demo](https://github.com/nektos/act/wiki/quickstart/act-quickstart-2.gif)
 
-# Installation
+# 如何安装|Installation
 
-## Necessary prerequisites for running `act`
+## 运行依赖|Necessary prerequisites for running `act`
 
 `act` depends on `docker` to run workflows.
 
@@ -173,7 +173,7 @@ It will save that information to `~/.actrc`, please refer to [Configuration](#co
 
 In case you want to pass a value for `${{ github.token }}`, you should pass `GITHUB_TOKEN` as secret: `act -s GITHUB_TOKEN=[insert token or leave blank for secure input]`.
 
-# Known Issues
+# 已知问题|Known Issues
 
 ## `MODULE_NOT_FOUND`
 

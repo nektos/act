@@ -5,7 +5,7 @@
 > "Think globally, `act` locally"  
 
 Translations:
-* [Simplified Chinese](Translations/zh_cn.md)
+* [Simplified Chinese](Translations/zh_cn.md) `WIP`
 
 Run your [GitHub Actions](https://developer.github.com/actions/) locally! Why would you want to do this? Two reasons:
 
@@ -26,11 +26,11 @@ Let's see it in action with a [sample repo](https://github.com/cplee/github-acti
 
 `act` depends on `docker` to run workflows.
 
-If you are using macOS, please be sure to follow the steps outlined in [Docker Docs for how to install Docker Desktop for Mac](https://docs.docker.com/docker-for-mac/install/).
+If you are using [macOS](#macOS), please be sure to follow the steps outlined in [Docker Docs for how to install Docker Desktop for Mac](https://docs.docker.com/docker-for-mac/install/).
 
-If you are using Windows, please follow steps for [installing Docker Desktop on Windows](https://docs.docker.com/docker-for-windows/install/).
+If you are using [Windows](#windows), please follow steps for [installing Docker Desktop on Windows](https://docs.docker.com/docker-for-windows/install/).
 
-If you are using Linux, you will need to [install Docker Engine](https://docs.docker.com/engine/install/).
+If you are using [Linux](#linux), you will need to [install Docker Engine](https://docs.docker.com/engine/install/).
 
 `act` is currently not supported with `podman` or other container backends (it might work, but it's not guaranteed). Please see [#303](https://github.com/nektos/act/issues/303) for updates.
 ## macOS
