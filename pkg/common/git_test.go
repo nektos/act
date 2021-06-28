@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"testing"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -34,7 +35,7 @@ func TestFindGitSlug(t *testing.T) {
 	}
 
 	for _, tt := range slugTests {
-		provider, slug, err := findGitSlug(tt.url)
+		provider, slug, err := findGitSlug(tt.url, "github.com")
 
 		assert.NoError(err)
 		assert.Equal(tt.provider, provider)
@@ -171,44 +172,55 @@ func TestGitFindRef(t *testing.T) {
 
 func TestGitCloneExecutor(t *testing.T) {
 	for name, tt := range map[string]struct {
-		URL string
-		Ref string
-		Err error
+		Err, URL, Ref string
 	}{
 		"tag": {
+			Err: "",
 			URL: "https://github.com/actions/checkout",
 			Ref: "v2",
-			Err: nil,
 		},
 		"branch": {
+			Err: "",
 			URL: "https://github.com/anchore/scan-action",
 			Ref: "act-fails",
-			Err: nil,
 		},
 		"sha": {
+			Err: "",
 			URL: "https://github.com/actions/checkout",
 			Ref: "5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f", // v2
-			Err: nil,
+		},
+		"short-sha": {
+			Err: "short SHA references are not supported: 5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f",
+			URL: "https://github.com/actions/checkout",
+			Ref: "5a4ac90", // v2
 		},
 	} {
-		tt := tt
-		name := name
 		t.Run(name, func(t *testing.T) {
 			clone := NewGitCloneExecutor(NewGitCloneExecutorInput{
 				URL: tt.URL,
 				Ref: tt.Ref,
 				Dir: testDir(t),
 			})
+
 			err := clone(context.Background())
-			assert.ErrorIs(t, err, tt.Err)
+			if tt.Err == "" {
+				assert.Empty(t, err)
+			} else {
+				assert.EqualError(t, err, tt.Err)
+			}
 		})
 	}
 }
 
 func gitConfig() {
 	if os.Getenv("GITHUB_ACTIONS") == "true" {
-		_ = gitCmd("config", "--global", "user.email", "test@test.com")
-		_ = gitCmd("config", "--global", "user.name", "Unit Test")
+		var err error
+		if err = gitCmd("config", "--global", "user.email", "test@test.com"); err != nil {
+			log.Error(err)
+		}
+		if err = gitCmd("config", "--global", "user.name", "Unit Test"); err != nil {
+			log.Error(err)
+		}
 	}
 }
 

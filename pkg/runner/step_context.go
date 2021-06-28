@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/kballard/go-shellquote"
+	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/nektos/act/pkg/common"
@@ -84,20 +85,37 @@ func (sc *StepContext) Executor() common.Executor {
 		if remoteAction == nil {
 			return common.NewErrorExecutor(formatError(step.Uses))
 		}
-		if remoteAction.IsCheckout() && rc.getGithubContext().isLocalCheckout(step) {
+
+		remoteAction.URL = rc.Config.GitHubInstance
+
+		github := rc.getGithubContext()
+		if remoteAction.IsCheckout() && github.isLocalCheckout(step) {
 			return func(ctx context.Context) error {
-				common.Logger(ctx).Debugf("Skipping actions/checkout")
+				common.Logger(ctx).Debugf("Skipping local actions/checkout because workdir was already copied")
 				return nil
 			}
 		}
 
 		actionDir := fmt.Sprintf("%s/%s", rc.ActionCacheDir(), strings.ReplaceAll(step.Uses, "/", "-"))
+		gitClone := common.NewGitCloneExecutor(common.NewGitCloneExecutorInput{
+			URL:   remoteAction.CloneURL(),
+			Ref:   remoteAction.Ref,
+			Dir:   actionDir,
+			Token: github.Token,
+		})
+		var ntErr common.Executor
+		if err := gitClone(context.TODO()); err != nil {
+			if err.Error() == "short SHA references are not supported" {
+				err = errors.Cause(err)
+				return common.NewErrorExecutor(fmt.Errorf("Unable to resolve action `%s`, the provided ref `%s` is the shortened version of a commit SHA, which is not supported. Please use the full commit SHA `%s` instead", step.Uses, remoteAction.Ref, err.Error()))
+			} else if err.Error() != "some refs were not updated" {
+				return common.NewErrorExecutor(err)
+			} else {
+				ntErr = common.NewInfoExecutor("Non-terminating error while running 'git clone': %v", err)
+			}
+		}
 		return common.NewPipelineExecutor(
-			common.NewGitCloneExecutor(common.NewGitCloneExecutorInput{
-				URL: remoteAction.CloneURL(),
-				Ref: remoteAction.Ref,
-				Dir: actionDir,
-			}),
+			ntErr,
 			sc.setupAction(actionDir, remoteAction.Path),
 			sc.runAction(actionDir, remoteAction.Path),
 		)
@@ -121,9 +139,13 @@ func (sc *StepContext) mergeEnv() map[string]string {
 		env = mergeMaps(rc.GetEnv(), step.GetEnv())
 	}
 
-	if (rc.ExtraPath != nil) && (len(rc.ExtraPath) > 0) {
-		s := append(rc.ExtraPath, `/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin`)
-		env["PATH"] = strings.Join(s, `:`)
+	if env["PATH"] == "" {
+		env["PATH"] = `/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin`
+	}
+	if rc.ExtraPath != nil && len(rc.ExtraPath) > 0 {
+		p := env["PATH"]
+		env["PATH"] = strings.Join(rc.ExtraPath, `:`)
+		env["PATH"] += `:` + p
 	}
 
 	sc.Env = rc.withGithubEnv(env)
@@ -140,7 +162,11 @@ func (sc *StepContext) setupEnv(ctx context.Context) (ExpressionEvaluator, error
 	rc := sc.RunContext
 	sc.Env = sc.mergeEnv()
 	if sc.Env != nil {
-		err := rc.JobContainer.UpdateFromGithubEnv(&sc.Env)(ctx)
+		err := rc.JobContainer.UpdateFromEnv(sc.Env["GITHUB_ENV"], &sc.Env)(ctx)
+		if err != nil {
+			return nil, err
+		}
+		err = rc.JobContainer.UpdateFromPath(&sc.Env)(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -165,6 +191,7 @@ func (sc *StepContext) setupShellCommand() common.Executor {
 		if step.WorkingDirectory == "" {
 			step.WorkingDirectory = rc.Run.Workflow.Defaults.Run.WorkingDirectory
 		}
+		step.WorkingDirectory = rc.ExprEval.Interpolate(step.WorkingDirectory)
 		if step.WorkingDirectory != "" {
 			_, err = script.WriteString(fmt.Sprintf("cd %s\n", step.WorkingDirectory))
 			if err != nil {
@@ -173,6 +200,7 @@ func (sc *StepContext) setupShellCommand() common.Executor {
 		}
 
 		run := rc.ExprEval.Interpolate(step.Run)
+		step.Shell = rc.ExprEval.Interpolate(step.Shell)
 
 		if _, err = script.WriteString(run); err != nil {
 			return err
@@ -261,6 +289,8 @@ func (sc *StepContext) newStepContainer(ctx context.Context, image string, cmd [
 		Entrypoint:  entrypoint,
 		WorkingDir:  rc.Config.ContainerWorkdir(),
 		Image:       image,
+		Username:    rc.Config.Secrets["DOCKER_USERNAME"],
+		Password:    rc.Config.Secrets["DOCKER_PASSWORD"],
 		Name:        createContainerName(rc.jobContainerName(), step.ID),
 		Env:         envList,
 		Mounts:      mounts,
@@ -289,7 +319,7 @@ func (sc *StepContext) runUsesContainer() common.Executor {
 		return common.NewPipelineExecutor(
 			stepContainer.Pull(rc.Config.ForcePull),
 			stepContainer.Remove().IfBool(!rc.Config.ReuseContainers),
-			stepContainer.Create(),
+			stepContainer.Create(rc.Config.ContainerCapAdd, rc.Config.ContainerCapDrop),
 			stepContainer.Start(true),
 		).Finally(
 			stepContainer.Remove().IfBool(!rc.Config.ReuseContainers),
@@ -371,15 +401,13 @@ func getOsSafeRelativePath(s, prefix string) string {
 func (sc *StepContext) getContainerActionPaths(step *model.Step, actionDir string, rc *RunContext) (string, string) {
 	actionName := ""
 	containerActionDir := "."
-	if !rc.Config.BindWorkdir && step.Type() != model.StepTypeUsesActionRemote {
+	if step.Type() != model.StepTypeUsesActionRemote {
 		actionName = getOsSafeRelativePath(actionDir, rc.Config.Workdir)
-		containerActionDir = rc.Config.ContainerWorkdir() + "/_actions/" + actionName
+		containerActionDir = rc.Config.ContainerWorkdir() + "/" + actionName
+		actionName = "./" + actionName
 	} else if step.Type() == model.StepTypeUsesActionRemote {
 		actionName = getOsSafeRelativePath(actionDir, rc.ActionCacheDir())
-		containerActionDir = rc.Config.ContainerWorkdir() + "/_actions/" + actionName
-	} else if step.Type() == model.StepTypeUsesActionLocal {
-		actionName = getOsSafeRelativePath(actionDir, rc.Config.Workdir)
-		containerActionDir = rc.Config.ContainerWorkdir() + "/_actions/" + actionName
+		containerActionDir = ActPath + "/actions/" + actionName
 	}
 
 	if actionName == "" {
@@ -398,14 +426,7 @@ func (sc *StepContext) runAction(actionDir string, actionPath string) common.Exe
 	return func(ctx context.Context) error {
 		action := sc.Action
 		log.Debugf("About to run action %v", action)
-		for inputID, input := range action.Inputs {
-			envKey := regexp.MustCompile("[^A-Z0-9-]").ReplaceAllString(strings.ToUpper(inputID), "_")
-			envKey = fmt.Sprintf("INPUT_%s", envKey)
-			if _, ok := sc.Env[envKey]; !ok {
-				sc.Env[envKey] = rc.ExprEval.Interpolate(input.Default)
-			}
-		}
-
+		sc.populateEnvsFromInput(action, rc)
 		actionLocation := ""
 		if actionPath != "" {
 			actionLocation = path.Join(actionDir, actionPath)
@@ -419,11 +440,9 @@ func (sc *StepContext) runAction(actionDir string, actionPath string) common.Exe
 		log.Debugf("type=%v actionDir=%s actionPath=%s Workdir=%s ActionCacheDir=%s actionName=%s containerActionDir=%s", step.Type(), actionDir, actionPath, rc.Config.Workdir, rc.ActionCacheDir(), actionName, containerActionDir)
 
 		maybeCopyToActionDir := func() error {
+			sc.Env["GITHUB_ACTION_PATH"] = containerActionDir
 			if step.Type() != model.StepTypeUsesActionRemote {
-				// If the workdir is bound to our repository then we don't need to copy the file
-				if rc.Config.BindWorkdir {
-					return nil
-				}
+				return nil
 			}
 			err := removeGitIgnore(actionDir)
 			if err != nil {
@@ -442,133 +461,9 @@ func (sc *StepContext) runAction(actionDir string, actionPath string) common.Exe
 			log.Debugf("executing remote job container: %s", containerArgs)
 			return rc.execJobContainer(containerArgs, sc.Env)(ctx)
 		case model.ActionRunsUsingDocker:
-			var prepImage common.Executor
-			var image string
-			if strings.HasPrefix(action.Runs.Image, "docker://") {
-				image = strings.TrimPrefix(action.Runs.Image, "docker://")
-			} else {
-				image = fmt.Sprintf("%s:%s", regexp.MustCompile("[^a-zA-Z0-9]").ReplaceAllString(actionName, "-"), "latest")
-				image = fmt.Sprintf("act-%s", strings.TrimLeft(image, "-"))
-				image = strings.ToLower(image)
-				contextDir := filepath.Join(actionDir, actionPath, action.Runs.Main)
-
-				anyArchExists, err := container.ImageExistsLocally(ctx, image, "any")
-				if err != nil {
-					return err
-				}
-
-				correctArchExists, err := container.ImageExistsLocally(ctx, image, rc.Config.ContainerArchitecture)
-				if err != nil {
-					return err
-				}
-
-				if anyArchExists && !correctArchExists {
-					wasRemoved, err := container.RemoveImage(ctx, image, true, true)
-					if err != nil {
-						return err
-					}
-					if !wasRemoved {
-						return fmt.Errorf("failed to remove image '%s'", image)
-					}
-				}
-
-				if !correctArchExists {
-					log.Debugf("image '%s' for architecture '%s' will be built from context '%s", image, rc.Config.ContainerArchitecture, contextDir)
-					prepImage = container.NewDockerBuildExecutor(container.NewDockerBuildExecutorInput{
-						ContextDir: contextDir,
-						ImageTag:   image,
-						Platform:   rc.Config.ContainerArchitecture,
-					})
-				} else {
-					log.Debugf("image '%s' for architecture '%s' already exists", image, rc.Config.ContainerArchitecture)
-				}
-			}
-
-			cmd, err := shellquote.Split(step.With["args"])
-			if err != nil {
-				return err
-			}
-			if len(cmd) == 0 {
-				cmd = action.Runs.Args
-			}
-			entrypoint := strings.Fields(step.With["entrypoint"])
-			if len(entrypoint) == 0 {
-				entrypoint = action.Runs.Entrypoint
-			}
-			stepContainer := sc.newStepContainer(ctx, image, cmd, entrypoint)
-			return common.NewPipelineExecutor(
-				prepImage,
-				stepContainer.Pull(rc.Config.ForcePull),
-				stepContainer.Remove().IfBool(!rc.Config.ReuseContainers),
-				stepContainer.Create(),
-				stepContainer.Start(true),
-			).Finally(
-				stepContainer.Remove().IfBool(!rc.Config.ReuseContainers),
-			)(ctx)
+			return sc.execAsDocker(ctx, action, actionName, actionDir, actionPath, rc, step)
 		case model.ActionRunsUsingComposite:
-			err := maybeCopyToActionDir()
-			if err != nil {
-				return err
-			}
-			for outputName, output := range action.Outputs {
-				re := regexp.MustCompile(`\${{ steps\.([a-zA-Z_][a-zA-Z0-9_-]+)\.outputs\.([a-zA-Z_][a-zA-Z0-9_-]+) }}`)
-				matches := re.FindStringSubmatch(output.Value)
-				if len(matches) > 2 {
-					if sc.RunContext.OutputMappings == nil {
-						sc.RunContext.OutputMappings = make(map[MappableOutput]MappableOutput)
-					}
-
-					k := MappableOutput{StepID: matches[1], OutputName: matches[2]}
-					v := MappableOutput{StepID: step.ID, OutputName: outputName}
-					sc.RunContext.OutputMappings[k] = v
-				}
-			}
-
-			var executors []common.Executor
-			stepID := 0
-			for _, compositeStep := range action.Runs.Steps {
-				stepClone := compositeStep
-				// Take a copy of the run context structure (rc is a pointer)
-				// Then take the address of the new structure
-				rcCloneStr := *rc
-				rcClone := &rcCloneStr
-				if stepClone.ID == "" {
-					stepClone.ID = fmt.Sprintf("composite-%d", stepID)
-					stepID++
-				}
-				rcClone.CurrentStep = stepClone.ID
-
-				if err := compositeStep.Validate(); err != nil {
-					return err
-				}
-
-				// Setup the outputs for the composite steps
-				if _, ok := rcClone.StepResults[stepClone.ID]; !ok {
-					rcClone.StepResults[stepClone.ID] = &stepResult{
-						Success: true,
-						Outputs: make(map[string]string),
-					}
-				}
-
-				stepClone.Run = strings.ReplaceAll(stepClone.Run, "${{ github.action_path }}", filepath.Join(containerActionDir, actionName))
-
-				stepContext := StepContext{
-					RunContext: rcClone,
-					Step:       &stepClone,
-					Env:        mergeMaps(sc.Env, stepClone.Env),
-				}
-
-				// Interpolate the outer inputs into the composite step with items
-				exprEval := sc.NewExpressionEvaluator()
-				for k, v := range stepContext.Step.With {
-					if strings.Contains(v, "inputs") {
-						stepContext.Step.With[k] = exprEval.Interpolate(v)
-					}
-				}
-
-				executors = append(executors, stepContext.Executor())
-			}
-			return common.NewPipelineExecutor(executors...)(ctx)
+			return sc.execAsComposite(ctx, step, actionDir, rc, containerActionDir, actionName, actionPath, action, maybeCopyToActionDir)
 		default:
 			return fmt.Errorf(fmt.Sprintf("The runs.using key must be one of: %v, got %s", []string{
 				model.ActionRunsUsingDocker,
@@ -579,7 +474,159 @@ func (sc *StepContext) runAction(actionDir string, actionPath string) common.Exe
 	}
 }
 
+func (sc *StepContext) execAsDocker(ctx context.Context, action *model.Action, actionName string, actionDir string, actionPath string, rc *RunContext, step *model.Step) error {
+	var prepImage common.Executor
+	var image string
+	if strings.HasPrefix(action.Runs.Image, "docker://") {
+		image = strings.TrimPrefix(action.Runs.Image, "docker://")
+	} else {
+		image = fmt.Sprintf("%s:%s", regexp.MustCompile("[^a-zA-Z0-9]").ReplaceAllString(actionName, "-"), "latest")
+		image = fmt.Sprintf("act-%s", strings.TrimLeft(image, "-"))
+		image = strings.ToLower(image)
+		contextDir := filepath.Join(actionDir, actionPath, action.Runs.Main)
+
+		anyArchExists, err := container.ImageExistsLocally(ctx, image, "any")
+		if err != nil {
+			return err
+		}
+
+		correctArchExists, err := container.ImageExistsLocally(ctx, image, rc.Config.ContainerArchitecture)
+		if err != nil {
+			return err
+		}
+
+		if anyArchExists && !correctArchExists {
+			wasRemoved, err := container.RemoveImage(ctx, image, true, true)
+			if err != nil {
+				return err
+			}
+			if !wasRemoved {
+				return fmt.Errorf("failed to remove image '%s'", image)
+			}
+		}
+
+		if !correctArchExists {
+			log.Debugf("image '%s' for architecture '%s' will be built from context '%s", image, rc.Config.ContainerArchitecture, contextDir)
+			prepImage = container.NewDockerBuildExecutor(container.NewDockerBuildExecutorInput{
+				ContextDir: contextDir,
+				ImageTag:   image,
+				Platform:   rc.Config.ContainerArchitecture,
+			})
+		} else {
+			log.Debugf("image '%s' for architecture '%s' already exists", image, rc.Config.ContainerArchitecture)
+		}
+	}
+
+	cmd, err := shellquote.Split(step.With["args"])
+	if err != nil {
+		return err
+	}
+	if len(cmd) == 0 {
+		cmd = action.Runs.Args
+	}
+	entrypoint := strings.Fields(step.With["entrypoint"])
+	if len(entrypoint) == 0 {
+		entrypoint = action.Runs.Entrypoint
+	}
+	stepContainer := sc.newStepContainer(ctx, image, cmd, entrypoint)
+	return common.NewPipelineExecutor(
+		prepImage,
+		stepContainer.Pull(rc.Config.ForcePull),
+		stepContainer.Remove().IfBool(!rc.Config.ReuseContainers),
+		stepContainer.Create(rc.Config.ContainerCapAdd, rc.Config.ContainerCapDrop),
+		stepContainer.Start(true),
+	).Finally(
+		stepContainer.Remove().IfBool(!rc.Config.ReuseContainers),
+	)(ctx)
+}
+
+func (sc *StepContext) execAsComposite(ctx context.Context, step *model.Step, _ string, rc *RunContext, containerActionDir string, actionName string, _ string, action *model.Action, maybeCopyToActionDir func() error) error {
+	err := maybeCopyToActionDir()
+
+	if err != nil {
+		return err
+	}
+	for outputName, output := range action.Outputs {
+		re := regexp.MustCompile(`\${{ steps\.([a-zA-Z_][a-zA-Z0-9_-]+)\.outputs\.([a-zA-Z_][a-zA-Z0-9_-]+) }}`)
+		matches := re.FindStringSubmatch(output.Value)
+		if len(matches) > 2 {
+			if sc.RunContext.OutputMappings == nil {
+				sc.RunContext.OutputMappings = make(map[MappableOutput]MappableOutput)
+			}
+
+			k := MappableOutput{StepID: matches[1], OutputName: matches[2]}
+			v := MappableOutput{StepID: step.ID, OutputName: outputName}
+			sc.RunContext.OutputMappings[k] = v
+		}
+	}
+
+	executors := make([]common.Executor, 0, len(action.Runs.Steps))
+	stepID := 0
+	for _, compositeStep := range action.Runs.Steps {
+		stepClone := compositeStep
+		// Take a copy of the run context structure (rc is a pointer)
+		// Then take the address of the new structure
+		rcCloneStr := *rc
+		rcClone := &rcCloneStr
+		if stepClone.ID == "" {
+			stepClone.ID = fmt.Sprintf("composite-%d", stepID)
+			stepID++
+		}
+		rcClone.CurrentStep = stepClone.ID
+
+		if err := compositeStep.Validate(); err != nil {
+			return err
+		}
+
+		// Setup the outputs for the composite steps
+		if _, ok := rcClone.StepResults[stepClone.ID]; !ok {
+			rcClone.StepResults[stepClone.ID] = &stepResult{
+				Success: true,
+				Outputs: make(map[string]string),
+			}
+		}
+
+		env := stepClone.Environment()
+		stepContext := StepContext{
+			RunContext: rcClone,
+			Step:       step,
+			Env:        mergeMaps(sc.Env, env),
+		}
+
+		// Required to set github.action_path
+		if rcClone.Config.Env == nil {
+			// Workaround to get test working
+			rcClone.Config.Env = make(map[string]string)
+		}
+		rcClone.Config.Env["GITHUB_ACTION_PATH"] = sc.Env["GITHUB_ACTION_PATH"]
+		ev := stepContext.NewExpressionEvaluator()
+		// Required to interpolate inputs and github.action_path into the env map
+		stepContext.interpolateEnv(ev)
+		// Required to interpolate inputs, env and github.action_path into run steps
+		ev = stepContext.NewExpressionEvaluator()
+		stepClone.Run = ev.Interpolate(stepClone.Run)
+		stepClone.Shell = ev.Interpolate(stepClone.Shell)
+		stepClone.WorkingDirectory = ev.Interpolate(stepClone.WorkingDirectory)
+
+		stepContext.Step = &stepClone
+
+		executors = append(executors, stepContext.Executor())
+	}
+	return common.NewPipelineExecutor(executors...)(ctx)
+}
+
+func (sc *StepContext) populateEnvsFromInput(action *model.Action, rc *RunContext) {
+	for inputID, input := range action.Inputs {
+		envKey := regexp.MustCompile("[^A-Z0-9-]").ReplaceAllString(strings.ToUpper(inputID), "_")
+		envKey = fmt.Sprintf("INPUT_%s", envKey)
+		if _, ok := sc.Env[envKey]; !ok {
+			sc.Env[envKey] = rc.ExprEval.Interpolate(input.Default)
+		}
+	}
+}
+
 type remoteAction struct {
+	URL  string
 	Org  string
 	Repo string
 	Path string
@@ -587,7 +634,7 @@ type remoteAction struct {
 }
 
 func (ra *remoteAction) CloneURL() string {
-	return fmt.Sprintf("https://github.com/%s/%s", ra.Org, ra.Repo)
+	return fmt.Sprintf("https://%s/%s/%s", ra.URL, ra.Org, ra.Repo)
 }
 
 func (ra *remoteAction) IsCheckout() bool {
@@ -613,6 +660,7 @@ func newRemoteAction(action string) *remoteAction {
 		Repo: matches[2],
 		Path: matches[4],
 		Ref:  matches[6],
+		URL:  "github.com",
 	}
 }
 

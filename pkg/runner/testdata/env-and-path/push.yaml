@@ -1,0 +1,61 @@
+name: env-and-path
+on: push
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Append to $GITHUB_PATH"
+        run: |
+          echo "$HOME/someFolder" >> $GITHUB_PATH
+      - name: "Append some more to $GITHUB_PATH"
+        run: |
+          echo "$HOME/someOtherFolder" >> $GITHUB_PATH
+      - name: "Check PATH"
+        run: |
+          echo "${PATH}"
+          if [[ ! "${PATH}" =~ .*"$HOME/"someOtherFolder.*"$HOME/"someFolder.* ]]; then
+            echo "${PATH} doesn't match .*someOtherFolder.*someFolder.*"
+            exit 1
+          fi
+      - name: "Prepend"
+        run: |
+          if ls | grep -q 'called ls' ; then
+            echo 'ls was overridden already?'
+            exit 2
+          fi
+          path_add=$(mktemp -d)
+          cat > $path_add/ls <<LS
+          #!/bin/sh
+          echo 'called ls'
+          LS
+          chmod +x $path_add/ls
+          echo $path_add >> $GITHUB_PATH
+      - name: "Verify prepend"
+        run: |
+          if ! ls | grep -q 'called ls' ; then
+            echo 'ls was not overridden'
+            exit 2
+          fi
+      - name: "Write single line env to $GITHUB_ENV"
+        run: |
+          echo "KEY=value" >> $GITHUB_ENV
+      - name: "Check single line env"
+        run: |
+          if [[ "${KEY}" != "value" ]]; then
+            echo "${KEY} dosen't == 'value'"
+            exit 1
+          fi
+      - name: "Write multiline env to $GITHUB_ENV"
+        run: |
+          echo 'KEY2<<EOF' >> $GITHUB_ENV
+                echo value2 >> $GITHUB_ENV
+                echo 'EOF' >> $GITHUB_ENV
+      - name: "Check multiline line env"
+        run: |
+          if [[ "${KEY2}" != "value2" ]]; then
+            echo "${KEY2} dosen't == 'value'"
+            exit 1
+          fi
+
+

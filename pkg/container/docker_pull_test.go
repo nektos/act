@@ -1,10 +1,11 @@
 package container
 
 import (
+	"context"
 	"testing"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/stretchr/testify/assert"
+	assert "github.com/stretchr/testify/assert"
 )
 
 func init() {
@@ -26,4 +27,20 @@ func TestCleanImage(t *testing.T) {
 		imageOut := cleanImage(table.imageIn)
 		assert.Equal(t, table.imageOut, imageOut)
 	}
+}
+
+func TestGetImagePullOptions(t *testing.T) {
+	ctx := context.Background()
+
+	options, err := getImagePullOptions(ctx, NewDockerPullExecutorInput{})
+	assert.Nil(t, err, "Failed to create ImagePullOptions")
+	assert.Equal(t, options.RegistryAuth, "", "RegistryAuth should be empty if no username or password is set")
+
+	options, err = getImagePullOptions(ctx, NewDockerPullExecutorInput{
+		Image:    "",
+		Username: "username",
+		Password: "password",
+	})
+	assert.Nil(t, err, "Failed to create ImagePullOptions")
+	assert.Equal(t, options.RegistryAuth, "eyJ1c2VybmFtZSI6InVzZXJuYW1lIiwicGFzc3dvcmQiOiJwYXNzd29yZCJ9", "Username and Password should be provided")
 }

@@ -82,6 +82,18 @@ or in a shell by running
 nix-shell -p act
 ```
 
+If you have Go 1.16+, you can install latest released version of `act` directly from source by running:
+
+```sh
+go install github.com/nektos/act@latest
+```
+
+or if you want to install latest unreleased version:
+
+```sh
+go install github.com/nektos/act@master
+```
+
 # Commands
 
 ```sh
@@ -119,34 +131,39 @@ It will save that information to `~/.actrc`, please refer to [Configuration](#co
 # Flags
 
 ```none
-  -a, --actor string                    user that triggered the event (default "nektos/act")
-  -b, --bind                            bind working directory to container, rather than copy
-      --container-architecture string   Architecture which should be used to run containers, e.g.: linux/amd64. If not specified, will use host default architecture. Requires Docker server API Version 1.41+. Ignored on earlier Docker server platforms.
-      --defaultbranch string            the name of the main branch
-      --detect-event                    Use first event type from workflow as event that triggered the workflow
-  -C, --directory string                working directory (default ".")
-  -n, --dryrun                          dryrun mode
-      --env stringArray                 env to make available to actions with optional value (e.g. --e myenv=foo or -s myenv)
-      --env-file string                 environment file to read and use as env in the containers (default ".env")
-  -e, --eventpath string                path to event JSON file
-  -g, --graph                           draw workflows
-  -h, --help                            help for act
-      --insecure-secrets                NOT RECOMMENDED! Doesn't hide secrets while printing logs.
-  -j, --job string                      run job
-  -l, --list                            list workflows
-  -P, --platform stringArray            custom image to use per platform (e.g. -P ubuntu-18.04=nektos/act-environments-ubuntu:18.04)
-      --privileged                      use privileged mode
-  -p, --pull                            pull docker image(s) even if already present
-  -q, --quiet                           disable logging of output from steps
-  -r, --reuse                           reuse action containers to maintain state
-  -s, --secret stringArray              secret to make available to actions with optional value (e.g. -s mysecret=foo or -s mysecret)
-      --secret-file string              file with list of secrets to read from (e.g. --secret-file .secrets) (default ".secrets")
-      --use-gitignore                   Controls whether paths specified in .gitignore should be copied into container (default true)
-      --userns string                   user namespace to use
-  -v, --verbose                         verbose output
-  -w, --watch                           watch the contents of the local repo and run when files change
-  -W, --workflows string                path to workflow file(s) (default "./.github/workflows/")
+  -a, --actor string                     user that triggered the event (default "nektos/act")
+  -b, --bind                             bind working directory to container, rather than copy
+      --container-architecture string    Architecture which should be used to run containers, e.g.: linux/amd64. If not specified, will use host default architecture. Requires Docker server API Version 1.41+. Ignored on earlier Docker server platforms.
+      --container-daemon-socket string   Path to Docker daemon socket which will be mounted to containers (default "/var/run/docker.sock")
+      --defaultbranch string             the name of the main branch
+      --detect-event                     Use first event type from workflow as event that triggered the workflow
+  -C, --directory string                 working directory (default ".")
+  -n, --dryrun                           dryrun mode
+      --env stringArray                  env to make available to actions with optional value (e.g. --env myenv=foo or --env myenv)
+      --env-file string                  environment file to read and use as env in the containers (default ".env")
+  -e, --eventpath string                 path to event JSON file
+      --github-instance string           GitHub instance to use. Don't use this if you are not using GitHub Enterprise Server. (default "github.com")
+  -g, --graph                            draw workflows
+  -h, --help                             help for act
+      --insecure-secrets                 NOT RECOMMENDED! Doesn't hide secrets while printing logs.
+  -j, --job string                       run job
+  -l, --list                             list workflows
+      --no-recurse                       Flag to disable running workflows from subdirectories of specified path in '--workflows'/'-W' flag
+  -P, --platform stringArray             custom image to use per platform (e.g. -P ubuntu-18.04=nektos/act-environments-ubuntu:18.04)
+      --privileged                       use privileged mode
+  -p, --pull                             pull docker image(s) even if already present
+  -q, --quiet                            disable logging of output from steps
+  -r, --reuse                            reuse action containers to maintain state
+  -s, --secret stringArray               secret to make available to actions with optional value (e.g. -s mysecret=foo or -s mysecret)
+      --secret-file string               file with list of secrets to read from (e.g. --secret-file .secrets) (default ".secrets")
+      --use-gitignore                    Controls whether paths specified in .gitignore should be copied into container (default true)
+      --userns string                    user namespace to use
+  -v, --verbose                          verbose output
+  -w, --watch                            watch the contents of the local repo and run when files change
+  -W, --workflows string                 path to workflow file(s) (default "./.github/workflows/")
 ```
+
+In case you want to pass a value for `${{ github.token }}`, you should pass `GITHUB_TOKEN` as secret: `act -s GITHUB_TOKEN=[insert token or leave blank for secure input]`.
 
 # Known Issues
 
@@ -155,9 +172,8 @@ It will save that information to `~/.actrc`, please refer to [Configuration](#co
 A `MODULE_NOT_FOUND` during `docker cp` command [#228](https://github.com/nektos/act/issues/228) can happen if you are relying on local changes that have not been pushed. This can get triggered if the action is using a path, like:
 
 ```yaml
-
-    - name: test action locally
-      uses: ./
+- name: test action locally
+  uses: ./
 ```
 
 In this case, you _must_ use `actions/checkout@v2` with a path that _has the same name as your repository_. If your repository is called _my-action_, then your checkout step would look like:
@@ -172,20 +188,16 @@ steps:
 
 If the `path:` value doesn't match the name of the repository, a `MODULE_NOT_FOUND` will be thrown.
 
-## `act` on Windows
-
-Running `act` on Windows host is currently broken - see [#587](https://github.com/nektos/act/issues/587)
-
 # Runners
 
 GitHub Actions offers managed [virtual environments](https://help.github.com/en/actions/reference/virtual-environments-for-github-hosted-runners) for running workflows. In order for `act` to run your workflows locally, it must run a container for the runner defined in your workflow file. Here are the images that `act` uses for each runner type and size:
 
-| GitHub Runner   | Micro Docker Image                   | Medium Docker Image                        | Large Docker Image                                     |
-| --------------- | ------------------------------------ | ------------------------------------------ | ------------------------------------------------------ |
-| `ubuntu-latest` | [`node:12.20.1-buster-slim`][micro]  | [`catthehacker/ubuntu:act-latest`][medium] | [`catthehacker/ubuntu:full-20.04`][large-cat]          |
-| `ubuntu-20.04`  | [`node:12.20.1-buster-slim`][micro]  | [`catthehacker/ubuntu:act-20.04`][medium]  | [`catthehacker/ubuntu:full-20.04`][large-cat]          |
-| `ubuntu-18.04`  | [`node:12.20.1-buster-slim`][micro]  | [`catthehacker/ubuntu:act-18.04`][medium]  | [`nektos/act-environments-ubuntu:18.04`][large-act]    |
-| `ubuntu-16.04`  | [`node:12.20.1-stretch-slim`][micro] | [`catthehacker/ubuntu:act-16.04`][medium]  | `unavailable`                                          |
+| GitHub Runner   | Micro Docker Image              | Medium Docker Image                        | Large Docker Image                                  |
+| --------------- | ------------------------------- | ------------------------------------------ | --------------------------------------------------- |
+| `ubuntu-latest` | [`node:12-buster-slim`][micro]  | [`catthehacker/ubuntu:act-latest`][medium] | [`catthehacker/ubuntu:full-20.04`][large-cat]       |
+| `ubuntu-20.04`  | [`node:12-buster-slim`][micro]  | [`catthehacker/ubuntu:act-20.04`][medium]  | [`catthehacker/ubuntu:full-20.04`][large-cat]       |
+| `ubuntu-18.04`  | [`node:12-buster-slim`][micro]  | [`catthehacker/ubuntu:act-18.04`][medium]  | [`nektos/act-environments-ubuntu:18.04`][large-act] |
+| `ubuntu-16.04`  | [`node:12-stretch-slim`][micro] | [`catthehacker/ubuntu:act-16.04`][medium]  | `unavailable`                                       |
 
 [micro]: https://hub.docker.com/_/buildpack-deps
 [medium]: https://github.com/catthehacker/docker_images
@@ -217,7 +229,7 @@ If you need an environment that works just like the corresponding GitHub runner 
 :warning: :elephant: `*** WARNING - this image is >18GB 😱***`
 
 - [`catthehacker/ubuntu:full-20.04`](https://hub.docker.com/r/catthehacker/ubuntu/tags) - built from Dockerfile based on the Packer template from [actions/virtual-environments](https://github.com/actions/runner).
-This image size is about `61GB` unpacked (`23GB` compressed) but contains more recent software versions (as of date of build).
+  This image size is about `61GB` unpacked (`23GB` compressed) but contains more recent software versions (as of date of build).
 
 ## Use an alternative runner image
 
@@ -237,7 +249,7 @@ If you use multiple platforms in your workflow, you have to specify them to chan
 For example, if your workflow uses `ubuntu-18.04`, `ubuntu-16.04` and `ubuntu-latest`, specify all platforms like below
 
 ```sh
-act -P ubuntu-18.04=nektos/act-environments-ubuntu:18.04 -P ubuntu-latest=ubuntu:latest -P ubuntu-16.04=node:12.20.1-buster-slim
+act -P ubuntu-18.04=nektos/act-environments-ubuntu:18.04 -P ubuntu-latest=ubuntu:latest -P ubuntu-16.04=node:12-buster-slim
 ```
 
 # Secrets
@@ -306,6 +318,15 @@ act -e pull-request.json
 
 Act will properly provide `github.head_ref` and `github.base_ref` to the action as expected.
 
+# GitHub Enterprise
+
+Act supports using and authenticating against private GitHub Enterprise servers.
+To use your custom GHE server, set the CLI flag `--github-instance` to your hostname (e.g. `github.company.com`).
+
+Please note that if your GHE server requires authentication, we will use the secret provided via `GITHUB_TOKEN`.
+
+Please also see the [official documentation for GitHub actions on GHE](https://docs.github.com/en/enterprise-server@3.0/admin/github-actions/about-using-actions-in-your-enterprise) for more information on how to use actions.
+
 # Support
 
 Need help? Ask on [Gitter](https://gitter.im/nektos/act)!
@@ -314,7 +335,7 @@ Need help? Ask on [Gitter](https://gitter.im/nektos/act)!
 
 Want to contribute to act? Awesome! Check out the [contributing guidelines](CONTRIBUTING.md) to get involved.
 
-## Building from source
+## Manually building from source
 
 - Install Go tools 1.16+ - (<https://golang.org/doc/install>)
 - Clone this repo `git clone git@github.com:nektos/act.git`

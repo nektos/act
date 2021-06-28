@@ -2,6 +2,8 @@ package container
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -17,6 +19,8 @@ type NewDockerPullExecutorInput struct {
 	Image     string
 	ForcePull bool
 	Platform  string
+	Username  string
+	Password  string
 }
 
 // NewDockerPullExecutor function to create a run executor for the container
@@ -54,15 +58,43 @@ func NewDockerPullExecutor(input NewDockerPullExecutorInput) common.Executor {
 			return err
 		}
 
-		reader, err := cli.ImagePull(ctx, imageRef, types.ImagePullOptions{
-			Platform: input.Platform,
-		})
+		imagePullOptions, err := getImagePullOptions(ctx, input)
+		if err != nil {
+			return err
+		}
+
+		reader, err := cli.ImagePull(ctx, imageRef, imagePullOptions)
+
 		_ = logDockerResponse(logger, reader, err != nil)
 		if err != nil {
 			return err
 		}
 		return nil
 	}
+}
+
+func getImagePullOptions(ctx context.Context, input NewDockerPullExecutorInput) (types.ImagePullOptions, error) {
+	imagePullOptions := types.ImagePullOptions{
+		Platform: input.Platform,
+	}
+	if input.Username != "" && input.Password != "" {
+		logger := common.Logger(ctx)
+		logger.Debugf("using authentication for docker pull")
+
+		authConfig := types.AuthConfig{
+			Username: input.Username,
+			Password: input.Password,
+		}
+
+		encodedJSON, err := json.Marshal(authConfig)
+		if err != nil {
+			return imagePullOptions, err
+		}
+
+		imagePullOptions.RegistryAuth = base64.URLEncoding.EncodeToString(encodedJSON)
+	}
+
+	return imagePullOptions, nil
 }
 
 func cleanImage(image string) string {

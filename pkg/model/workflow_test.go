@@ -172,3 +172,19 @@ jobs:
 	assert.Equal(t, "${{ steps.test1_1.outputs.a_key }}", workflow.Jobs["test1"].Outputs["some_a_key"])
 	assert.Equal(t, "${{ steps.test1_1.outputs.b-key }}", workflow.Jobs["test1"].Outputs["some-b-key"])
 }
+
+func TestStep_ShellCommand(t *testing.T) {
+	tests := []struct {
+		shell string
+		want  string
+	}{
+		{"pwsh", "pwsh -command . '{0}'"},
+		{"powershell", "powershell -command . '{0}'"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.shell, func(t *testing.T) {
+			got := (&Step{Shell: tt.shell}).ShellCommand()
+			assert.Equal(t, got, tt.want)
+		})
+	}
+}

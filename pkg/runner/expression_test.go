@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/nektos/act/pkg/model"
-	a "github.com/stretchr/testify/assert"
+	assert "github.com/stretchr/testify/assert"
 )
 
 func TestEvaluate(t *testing.T) {
@@ -115,14 +115,14 @@ func TestEvaluate(t *testing.T) {
 	for _, table := range tables {
 		table := table
 		t.Run(table.in, func(t *testing.T) {
-			assert := a.New(t)
+			assertObject := assert.New(t)
 			out, _, err := ee.Evaluate(table.in)
 			if table.errMesg == "" {
-				assert.NoError(err, table.in)
-				assert.Equal(table.out, out, table.in)
+				assertObject.NoError(err, table.in)
+				assertObject.Equal(table.out, out, table.in)
 			} else {
-				assert.Error(err, table.in)
-				assert.Equal(table.errMesg, err.Error(), table.in)
+				assertObject.Error(err, table.in)
+				assertObject.Equal(table.errMesg, err.Error(), table.in)
 			}
 		})
 	}
@@ -188,9 +188,9 @@ func TestInterpolate(t *testing.T) {
 	for _, table := range tables {
 		table := table
 		t.Run(table.in, func(t *testing.T) {
-			assert := a.New(t)
+			assertObject := assert.New(t)
 			out := ee.Interpolate(table.in)
-			assert.Equal(table.out, out, table.in)
+			assertObject.Equal(table.out, out, table.in)
 		})
 	}
 }
@@ -277,9 +277,9 @@ func TestRewrite(t *testing.T) {
 	for _, table := range tables {
 		table := table
 		t.Run(table.in, func(t *testing.T) {
-			assert := a.New(t)
+			assertObject := assert.New(t)
 			re := ee.Rewrite(table.in)
-			assert.Equal(table.re, re, table.in)
+			assertObject.Equal(table.re, re, table.in)
 		})
 	}
 }

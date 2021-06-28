@@ -11,17 +11,25 @@ import (
 
 	"github.com/joho/godotenv"
 	log "github.com/sirupsen/logrus"
-	"gotest.tools/v3/assert"
+	assert "github.com/stretchr/testify/assert"
 
 	"github.com/nektos/act/pkg/model"
 )
 
+var baseImage string = "node:12-buster-slim"
+
+func init() {
+	if p := os.Getenv("ACT_TEST_IMAGE"); p != "" {
+		baseImage = p
+	}
+}
+
 func TestGraphEvent(t *testing.T) {
 	planner, err := model.NewWorkflowPlanner("testdata/basic", true)
-	assert.NilError(t, err)
+	assert.Nil(t, err)
 
 	plan := planner.PlanEvent("push")
-	assert.NilError(t, err)
+	assert.Nil(t, err)
 	assert.Equal(t, len(plan.Stages), 3, "stages")
 	assert.Equal(t, len(plan.Stages[0].Runs), 1, "stage0.runs")
 	assert.Equal(t, len(plan.Stages[1].Runs), 1, "stage1.runs")
@@ -43,10 +51,10 @@ type TestJobFileInfo struct {
 	containerArchitecture string
 }
 
-func runTestJobFile(ctx context.Context, t *testing.T, tjfi TestJobFileInfo, secrets map[string]string) {
+func runTestJobFile(ctx context.Context, t *testing.T, tjfi TestJobFileInfo) {
 	t.Run(tjfi.workflowPath, func(t *testing.T) {
 		workdir, err := filepath.Abs(tjfi.workdir)
-		assert.NilError(t, err, workdir)
+		assert.Nil(t, err, workdir)
 		fullWorkflowPath := filepath.Join(workdir, tjfi.workflowPath)
 		runnerConfig := &Config{
 			Workdir:               workdir,
@@ -55,22 +63,22 @@ func runTestJobFile(ctx context.Context, t *testing.T, tjfi TestJobFileInfo, sec
 			Platforms:             tjfi.platforms,
 			ReuseContainers:       false,
 			ContainerArchitecture: tjfi.containerArchitecture,
-			Secrets:               secrets,
+			GitHubInstance:        "github.com",
 		}
 
 		runner, err := New(runnerConfig)
-		assert.NilError(t, err, tjfi.workflowPath)
+		assert.Nil(t, err, tjfi.workflowPath)
 
 		planner, err := model.NewWorkflowPlanner(fullWorkflowPath, true)
-		assert.NilError(t, err, fullWorkflowPath)
+		assert.Nil(t, err, fullWorkflowPath)
 
 		plan := planner.PlanEvent(tjfi.eventName)
 
 		err = runner.NewPlanExecutor(plan)(ctx)
 		if tjfi.errorMessage == "" {
-			assert.NilError(t, err, fullWorkflowPath)
+			assert.Nil(t, err, fullWorkflowPath)
 		} else {
-			assert.ErrorContains(t, err, tjfi.errorMessage)
+			assert.Error(t, err, tjfi.errorMessage)
 		}
 	})
 }
@@ -81,12 +89,18 @@ func TestRunEvent(t *testing.T) {
 	}
 
 	platforms := map[string]string{
-		"ubuntu-latest": "node:12.20.1-buster-slim",
+		"ubuntu-latest": baseImage,
 	}
+
 	tables := []TestJobFileInfo{
 		{"testdata", "basic", "push", "", platforms, ""},
 		{"testdata", "fail", "push", "exit with `FAILURE`: 1", platforms, ""},
 		{"testdata", "runs-on", "push", "", platforms, ""},
+		{"testdata", "checkout", "push", "", platforms, ""},
+		{"testdata", "shells/pwsh", "push", "", map[string]string{"ubuntu-latest": "ghcr.io/justingrote/act-pwsh:latest"}, ""}, // custom image with pwsh
+		{"testdata", "shells/bash", "push", "", platforms, ""},
+		{"testdata", "shells/python", "push", "", map[string]string{"ubuntu-latest": "node:12-buster"}, ""}, // slim doesn't have python
+		{"testdata", "shells/sh", "push", "", platforms, ""},
 		{"testdata", "job-container", "push", "", platforms, ""},
 		{"testdata", "job-container-non-root", "push", "", platforms, ""},
 		{"testdata", "uses-docker-url", "push", "", platforms, ""},
@@ -102,7 +116,8 @@ func TestRunEvent(t *testing.T) {
 		{"testdata", "defaults-run", "push", "", platforms, ""},
 		{"testdata", "uses-composite", "push", "", platforms, ""},
 		{"testdata", "issue-597", "push", "", platforms, ""},
-		// {"testdata", "powershell", "push", "", platforms, ""}, // Powershell is not available on default act test runner (yet) but preserving here for posterity
+		{"testdata", "issue-598", "push", "", platforms, ""},
+		{"testdata", "env-and-path", "push", "", platforms, ""},
 		// {"testdata", "issue-228", "push", "", platforms, ""}, // TODO [igni]: Remove this once everything passes
 
 		// single test for different architecture: linux/arm64
@@ -111,11 +126,9 @@ func TestRunEvent(t *testing.T) {
 	log.SetLevel(log.DebugLevel)
 
 	ctx := context.Background()
-	secretspath, _ := filepath.Abs("../../.secrets")
-	secrets, _ := godotenv.Read(secretspath)
 
 	for _, table := range tables {
-		runTestJobFile(ctx, t, table, secrets)
+		runTestJobFile(ctx, t, table)
 	}
 }
 
@@ -128,14 +141,14 @@ func TestRunEventSecrets(t *testing.T) {
 	ctx := context.Background()
 
 	platforms := map[string]string{
-		"ubuntu-latest": "node:12.20.1-buster-slim",
+		"ubuntu-latest": baseImage,
 	}
 
 	workflowPath := "secrets"
 	eventName := "push"
 
 	workdir, err := filepath.Abs("testdata")
-	assert.NilError(t, err, workflowPath)
+	assert.Nil(t, err, workflowPath)
 
 	env, _ := godotenv.Read(filepath.Join(workdir, workflowPath, ".env"))
 	secrets, _ := godotenv.Read(filepath.Join(workdir, workflowPath, ".secrets"))
@@ -149,15 +162,15 @@ func TestRunEventSecrets(t *testing.T) {
 		Env:             env,
 	}
 	runner, err := New(runnerConfig)
-	assert.NilError(t, err, workflowPath)
+	assert.Nil(t, err, workflowPath)
 
 	planner, err := model.NewWorkflowPlanner(fmt.Sprintf("testdata/%s", workflowPath), true)
-	assert.NilError(t, err, workflowPath)
+	assert.Nil(t, err, workflowPath)
 
 	plan := planner.PlanEvent(eventName)
 
 	err = runner.NewPlanExecutor(plan)(ctx)
-	assert.NilError(t, err, workflowPath)
+	assert.Nil(t, err, workflowPath)
 }
 
 func TestRunEventPullRequest(t *testing.T) {
@@ -169,14 +182,14 @@ func TestRunEventPullRequest(t *testing.T) {
 	ctx := context.Background()
 
 	platforms := map[string]string{
-		"ubuntu-latest": "node:12.20.1-buster-slim",
+		"ubuntu-latest": baseImage,
 	}
 
 	workflowPath := "pull-request"
 	eventName := "pull_request"
 
 	workdir, err := filepath.Abs("testdata")
-	assert.NilError(t, err, workflowPath)
+	assert.Nil(t, err, workflowPath)
 
 	runnerConfig := &Config{
 		Workdir:         workdir,
@@ -186,15 +199,15 @@ func TestRunEventPullRequest(t *testing.T) {
 		ReuseContainers: false,
 	}
 	runner, err := New(runnerConfig)
-	assert.NilError(t, err, workflowPath)
+	assert.Nil(t, err, workflowPath)
 
 	planner, err := model.NewWorkflowPlanner(fmt.Sprintf("testdata/%s", workflowPath), true)
-	assert.NilError(t, err, workflowPath)
+	assert.Nil(t, err, workflowPath)
 
 	plan := planner.PlanEvent(eventName)
 
 	err = runner.NewPlanExecutor(plan)(ctx)
-	assert.NilError(t, err, workflowPath)
+	assert.Nil(t, err, workflowPath)
 }
 
 func TestContainerPath(t *testing.T) {
@@ -215,7 +228,7 @@ func TestContainerPath(t *testing.T) {
 		for _, v := range []containerPathJob{
 			{"/mnt/c/Users/act/go/src/github.com/nektos/act", "C:\\Users\\act\\go\\src\\github.com\\nektos\\act\\", ""},
 			{"/mnt/f/work/dir", `F:\work\dir`, ""},
-			{"/mnt/c/windows/to/unix", "windows/to/unix", fmt.Sprintf("%s\\", rootDrive)},
+			{"/mnt/c/windows/to/unix", "windows\\to\\unix", fmt.Sprintf("%s\\", rootDrive)},
 			{fmt.Sprintf("/mnt/%v/act", rootDriveLetter), "act", fmt.Sprintf("%s\\", rootDrive)},
 		} {
 			if v.workDir != "" {

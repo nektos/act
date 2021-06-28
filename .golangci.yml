@@ -1,13 +1,32 @@
+# yaml-language-server: $schema=https://schemastore.pages.dev/schemas/json/golangci-lint.json
+# Your editor might complain about invalid types, but this is correct config
+# above schema should prevent editor from "shouting" about this
+# Minimum golangci-lint version required: v1.40.0
 run:
   timeout: 3m
 
 linters-settings:
   gocyclo:
     # minimal code complexity to report, 30 by default (but we recommend 10-20)
-    mi-complexity: 15
+    min-complexity: 15
   gocritic:
     disabled-checks:
       - ifElseChain
+  importas:
+    aliases:
+      - pkg: 'github.com/sirupsen/logrus'
+        alias: log
+      - pkg: 'github.com/stretchr/testify/assert'
+        alias: assert
+  depguard:
+    list-type: blacklist
+    include-go-root: true
+    packages:
+      - gotest.tools/v3/assert
+      - log
+    packages-with-error-message:
+      - gotest.tools/v3: 'Please keep tests unified using only github.com/stretchr/testify'
+      - log: 'Please keep logging unified using only github.com/sirupsen/logrus'
 
 linters:
   enable:
@@ -25,3 +44,5 @@ linters:
     - goimports
     - whitespace
     - misspell
+    - depguard
+    - importas

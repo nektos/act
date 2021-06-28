@@ -40,7 +40,7 @@ func TestImageExistsLocally(t *testing.T) {
 
 	// Chose alpine latest because it's so small
 	// maybe we should build an image instead so that tests aren't reliable on dockerhub
-	readerDefault, err := cli.ImagePull(ctx, "alpine:latest", types.ImagePullOptions{
+	readerDefault, err := cli.ImagePull(ctx, "node:12-buster-slim", types.ImagePullOptions{
 		Platform: "linux/amd64",
 	})
 	assert.Nil(t, err)
@@ -48,12 +48,12 @@ func TestImageExistsLocally(t *testing.T) {
 	_, err = ioutil.ReadAll(readerDefault)
 	assert.Nil(t, err)
 
-	imageDefaultArchExists, err := ImageExistsLocally(ctx, "alpine:latest", "linux/amd64")
+	imageDefaultArchExists, err := ImageExistsLocally(ctx, "node:12-buster-slim", "linux/amd64")
 	assert.Nil(t, err)
 	assert.Equal(t, true, imageDefaultArchExists)
 
 	// Validate if another architecture platform can be pulled
-	readerArm64, err := cli.ImagePull(ctx, "alpine:latest", types.ImagePullOptions{
+	readerArm64, err := cli.ImagePull(ctx, "node:12-buster-slim", types.ImagePullOptions{
 		Platform: "linux/arm64",
 	})
 	assert.Nil(t, err)
@@ -61,7 +61,7 @@ func TestImageExistsLocally(t *testing.T) {
 	_, err = ioutil.ReadAll(readerArm64)
 	assert.Nil(t, err)
 
-	imageArm64Exists, err := ImageExistsLocally(ctx, "alpine:latest", "linux/arm64")
+	imageArm64Exists, err := ImageExistsLocally(ctx, "node:12-buster-slim", "linux/arm64")
 	assert.Nil(t, err)
 	assert.Equal(t, true, imageArm64Exists)
 }

@@ -10,9 +10,10 @@ import (
 	"testing"
 
 	"github.com/nektos/act/pkg/model"
-	a "github.com/stretchr/testify/assert"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
+	assert "github.com/stretchr/testify/assert"
 )
 
 func TestRunContext_EvalBool(t *testing.T) {
@@ -140,15 +141,15 @@ func TestRunContext_EvalBool(t *testing.T) {
 	for _, table := range tables {
 		table := table
 		t.Run(table.in, func(t *testing.T) {
-			assert := a.New(t)
+			assertObject := assert.New(t)
 			defer hook.Reset()
 			b, err := rc.EvalBool(table.in)
 			if table.wantErr {
-				assert.Error(err)
+				assertObject.Error(err)
 			}
 
-			assert.Equal(table.out, b, fmt.Sprintf("Expected %s to be %v, was %v", table.in, table.out, b))
-			assert.Empty(hook.LastEntry(), table.in)
+			assertObject.Equal(table.out, b, fmt.Sprintf("Expected %s to be %v, was %v", table.in, table.out, b))
+			assertObject.Empty(hook.LastEntry(), table.in)
 		})
 	}
 }
@@ -267,13 +268,69 @@ func TestRunContext_GetBindsAndMounts(t *testing.T) {
 						if runtime.GOOS == "darwin" {
 							fullBind += ":delegated"
 						}
-						a.Contains(t, gotbind, fullBind)
+						assert.Contains(t, gotbind, fullBind)
 					} else {
 						mountkey := testcase.rc.jobContainerName()
-						a.EqualValues(t, testcase.wantmount, gotmount[mountkey])
+						assert.EqualValues(t, testcase.wantmount, gotmount[mountkey])
 					}
 				})
 			}
 		}
 	}
+}
+
+func TestGetGitHubContext(t *testing.T) {
+	log.SetLevel(log.DebugLevel)
+
+	cwd, err := os.Getwd()
+	assert.Nil(t, err)
+
+	rc := &RunContext{
+		Config: &Config{
+			EventName: "push",
+			Workdir:   cwd,
+		},
+		Run: &model.Run{
+			Workflow: &model.Workflow{
+				Name: "GitHubContextTest",
+			},
+		},
+		Name:           "GitHubContextTest",
+		CurrentStep:    "step",
+		Matrix:         map[string]interface{}{},
+		Env:            map[string]string{},
+		ExtraPath:      []string{},
+		StepResults:    map[string]*stepResult{},
+		OutputMappings: map[MappableOutput]MappableOutput{},
+	}
+
+	ghc := rc.getGithubContext()
+
+	log.Debugf("%v", ghc)
+
+	actor := "nektos/act"
+	if a := os.Getenv("ACT_ACTOR"); a != "" {
+		actor = a
+	}
+
+	repo := "nektos/act"
+	if r := os.Getenv("ACT_REPOSITORY"); r != "" {
+		repo = r
+	}
+
+	owner := "nektos"
+	if o := os.Getenv("ACT_OWNER"); o != "" {
+		owner = o
+	}
+
+	assert.Equal(t, ghc.RunID, "1")
+	assert.Equal(t, ghc.Workspace, rc.Config.containerPath(cwd))
+	assert.Equal(t, ghc.RunNumber, "1")
+	assert.Equal(t, ghc.RetentionDays, "0")
+	assert.Equal(t, ghc.Actor, actor)
+	assert.Equal(t, ghc.Repository, repo)
+	assert.Equal(t, ghc.RepositoryOwner, owner)
+	assert.Equal(t, ghc.RunnerPerflog, "/dev/null")
+	assert.Equal(t, ghc.EventPath, ActPath+"/workflow/event.json")
+	assert.Equal(t, ghc.Token, rc.Config.Secrets["GITHUB_TOKEN"])
 }
