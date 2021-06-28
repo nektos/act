@@ -171,5 +171,4 @@ jobs:
 	assert.Contains(t, workflow.Jobs["test1"].Outputs, "some-b-key")
 	assert.Equal(t, "${{ steps.test1_1.outputs.a_key }}", workflow.Jobs["test1"].Outputs["some_a_key"])
 	assert.Equal(t, "${{ steps.test1_1.outputs.b-key }}", workflow.Jobs["test1"].Outputs["some-b-key"])
-
 }
