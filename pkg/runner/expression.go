@@ -229,6 +229,7 @@ func (rc *RunContext) newVM() *otto.Otto {
 		rc.vmStrategy(),
 		rc.vmMatrix(),
 		rc.vmEnv(),
+		rc.vmNeeds(),
 	}
 	vm := otto.New()
 	for _, configer := range configers {
@@ -412,6 +413,23 @@ func (sc *StepContext) vmInputs() func(*otto.Otto) {
 
 	return func(vm *otto.Otto) {
 		_ = vm.Set("inputs", inputs)
+	}
+}
+
+func (rc *RunContext) vmNeeds() func(*otto.Otto) {
+	jobs := rc.Run.Workflow.Jobs
+	jobNeeds := rc.Run.Job().Needs()
+
+	using := make(map[string]map[string]map[string]string)
+	for _, needs := range jobNeeds {
+		using[needs] = map[string]map[string]string{
+			"outputs": jobs[needs].Outputs,
+		}
+	}
+
+	return func(vm *otto.Otto) {
+		log.Debugf("context needs => %v", using)
+		_ = vm.Set("needs", using)
 	}
 }
 
