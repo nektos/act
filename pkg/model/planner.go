@@ -50,8 +50,8 @@ func (r *Run) Job() *Job {
 	return r.Workflow.GetJob(r.JobID)
 }
 
-// Helper function for FixIfstatement
-func FixIfStatement1(val string, lines [][][]byte, l int) (string, error) {
+// fixIfStatement1 prepends and appends "if" statements so they can be interpolated later
+func fixIfStatement1(val string, lines [][][]byte, l int) (string, error) {
 	if val != "" {
 		line := lines[l-1][0]
 		outcome := regexp.MustCompile(`\s+if:\s+".*".*`).FindSubmatch(line)
@@ -68,13 +68,13 @@ func FixIfStatement(content []byte, wr *Workflow) error {
 	jobs := wr.Jobs
 	lines := regexp.MustCompile(".*\n|.+$").FindAllSubmatch(content, -1)
 	for j := range jobs {
-		val, err := FixIfStatement1(jobs[j].If.Value, lines, jobs[j].If.Line)
+		val, err := fixIfStatement1(jobs[j].If.Value, lines, jobs[j].If.Line)
 		if err != nil {
 			return err
 		}
 		jobs[j].If.Value = val
 		for i := range jobs[j].Steps {
-			val, err = FixIfStatement1(jobs[j].Steps[i].If.Value, lines, jobs[j].Steps[i].If.Line)
+			val, err = fixIfStatement1(jobs[j].Steps[i].If.Value, lines, jobs[j].Steps[i].If.Line)
 			if err != nil {
 				return err
 			}

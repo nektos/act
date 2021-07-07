@@ -1,0 +1,16 @@
+on: push
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: test1
+        uses: actions/checkout@v2
+        run: echo
+      - name: test2
+        run: echo
+      - name: test3
+        uses: actions/checkout@v2
+      - name: test4
+        uses: docker://nginx:latest
+      - name: test5
+        uses: ./local-action
