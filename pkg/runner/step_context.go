@@ -32,11 +32,25 @@ type StepContext struct {
 	Env        map[string]string
 	Cmd        []string
 	Action     *model.Action
+	Needs      *model.Job
 }
 
 func (sc *StepContext) execJobContainer() common.Executor {
 	return func(ctx context.Context) error {
 		return sc.RunContext.execJobContainer(sc.Cmd, sc.Env)(ctx)
+	}
+}
+
+func (sc *StepContext) interpolateOutputs() common.Executor {
+	return func(ctx context.Context) error {
+		ee := sc.NewExpressionEvaluator()
+		for k, v := range sc.RunContext.Run.Job().Outputs {
+			interpolated := ee.Interpolate(v)
+			if v != interpolated {
+				sc.RunContext.Run.Job().Outputs[k] = interpolated
+			}
+		}
+		return nil
 	}
 }
 
@@ -128,9 +142,13 @@ func (sc *StepContext) mergeEnv() map[string]string {
 		env = mergeMaps(rc.GetEnv(), step.GetEnv())
 	}
 
-	env["PATH"] = `/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin`
-	if (rc.ExtraPath != nil) && (len(rc.ExtraPath) > 0) {
+	if env["PATH"] == "" {
+		env["PATH"] = `/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin`
+	}
+	if rc.ExtraPath != nil && len(rc.ExtraPath) > 0 {
+		p := env["PATH"]
 		env["PATH"] = strings.Join(rc.ExtraPath, `:`)
+		env["PATH"] += `:` + p
 	}
 
 	sc.Env = rc.withGithubEnv(env)

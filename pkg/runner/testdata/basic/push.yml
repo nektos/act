@@ -10,12 +10,12 @@ jobs:
     steps:
       - run: echo ${{ env.TEST }} | grep value
       - run: env
-      - uses: docker://alpine:3.13
+      - uses: docker://node:12-buster-slim
         with:
           somekey: ${{ env.TEST }}
           args: echo ${INPUT_SOMEKEY} | grep somevalue
       - run: ls
-      - run: echo 'hello world' 
+      - run: echo 'hello world'
       - run: echo ${GITHUB_SHA} >> $(dirname "${GITHUB_WORKSPACE}")/sha.txt
       - run: cat $(dirname "${GITHUB_WORKSPACE}")/sha.txt | grep ${GITHUB_SHA}
   build:
@@ -30,10 +30,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build]
     steps:
-      - uses: docker://ubuntu:18.04
+      - uses: docker://node:12-buster-slim
         with:
           args: env
-      - uses: docker://ubuntu:18.04
+      - uses: docker://node:12-buster-slim
         with:
           entrypoint: /bin/echo
           args: ${{github.event_name}}

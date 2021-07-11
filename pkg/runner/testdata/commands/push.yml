@@ -14,8 +14,8 @@ jobs:
         id: set_output
         run: echo "::set-output name=zoo::zar"
 
-      #- run: echo "::add-path::/zip"
-      #- run: echo $PATH | grep /zip
+      - run: echo "::add-path::/zip"
+      - run: echo $PATH | grep /zip
 
       - name: TEST conditional
         if: steps.set_output.outputs.zoo

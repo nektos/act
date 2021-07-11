@@ -6,9 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
-
-	"github.com/nektos/act/pkg/common"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/andreaskoch/go-fswatch"
@@ -18,6 +17,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
+	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/model"
 	"github.com/nektos/act/pkg/runner"
 )
@@ -39,7 +39,7 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.Flags().BoolP("graph", "g", false, "draw workflows")
 	rootCmd.Flags().StringP("job", "j", "", "run job")
 	rootCmd.Flags().StringArrayVarP(&input.secrets, "secret", "s", []string{}, "secret to make available to actions with optional value (e.g. -s mysecret=foo or -s mysecret)")
-	rootCmd.Flags().StringArrayVarP(&input.envs, "env", "", []string{}, "env to make available to actions with optional value (e.g. --e myenv=foo or -s myenv)")
+	rootCmd.Flags().StringArrayVarP(&input.envs, "env", "", []string{}, "env to make available to actions with optional value (e.g. --env myenv=foo or --env myenv)")
 	rootCmd.Flags().StringArrayVarP(&input.platforms, "platform", "P", []string{}, "custom image to use per platform (e.g. -P ubuntu-18.04=nektos/act-environments-ubuntu:18.04)")
 	rootCmd.Flags().BoolVarP(&input.reuseContainers, "reuse", "r", false, "reuse action containers to maintain state")
 	rootCmd.Flags().BoolVarP(&input.bindWorkdir, "bind", "b", false, "bind working directory to container, rather than copy")
@@ -152,6 +152,15 @@ func readEnvs(path string, envs map[string]string) bool {
 //nolint:gocyclo
 func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, args []string) error {
+		if runtime.GOOS == "darwin" && runtime.GOARCH == "arm64" && input.containerArchitecture == "" {
+			l := log.New()
+			l.SetFormatter(&log.TextFormatter{
+				DisableQuote:     true,
+				DisableTimestamp: true,
+			})
+			l.Warnf(" \U000026A0 You are using Apple M1 chip and you have not specified container architecture, you might encounter issues while running act. If so, try running it with '--container-architecture linux/amd64'. \U000026A0 \n")
+		}
+
 		log.Debugf("Loading environment from %s", input.Envfile())
 		envs := make(map[string]string)
 		if input.envs != nil {
@@ -303,7 +312,7 @@ func defaultImageSurvey(actrc string) error {
 	case "Medium":
 		option = "-P ubuntu-latest=catthehacker/ubuntu:act-latest\n-P ubuntu-20.04=catthehacker/ubuntu:act-20.04\n-P ubuntu-18.04=catthehacker/ubuntu:act-18.04\nubuntu-16.04=catthehacker/ubuntu:act-16.04"
 	case "Micro":
-		option = "-P ubuntu-latest=node:12.20.1-buster-slim\n-P ubuntu-20.04=node:12.20.1-buster-slim\n-P ubuntu-18.04=node:12.20.1-buster-slim\n-P ubuntu-16.04=node:12.20.1-stretch-slim"
+		option = "-P ubuntu-latest=node:12-buster-slim\n-P ubuntu-20.04=node:12-buster-slim\n-P ubuntu-18.04=node:12-buster-slim\n-P ubuntu-16.04=node:12-stretch-slim"
 	}
 
 	f, err := os.Create(actrc)

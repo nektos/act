@@ -4,8 +4,8 @@ on: push
 jobs:
   build:
     runs-on: ubuntu-latest
-    container: 
-      image: node:12.20.1-buster
+    container:
+      image: node:12-buster-slim
       env:
         TEST_ENV: test-value
     steps:
