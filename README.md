@@ -211,7 +211,7 @@ GitHub Actions offers managed [virtual environments](https://help.github.com/en/
 
 [micro]: https://hub.docker.com/_/buildpack-deps
 [medium]: https://github.com/catthehacker/docker_images
-[large-cat]: https://github.com/catthehacker/act-environments
+[large-cat]: https://github.com/catthehacker/docker_images
 [large-act]: https://github.com/nektos/act-environments
 
 Below platforms are currently **unsupported and won't work** (see issue [#97](https://github.com/nektos/act/issues/97))
