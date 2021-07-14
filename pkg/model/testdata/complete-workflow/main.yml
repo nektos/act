@@ -1,0 +1,75 @@
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+jobs:
+  container-job:
+    container: nginx:latest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: ./actions/docker-url
+
+  service-job:
+    runs-on: ubuntu-latest
+    services:
+      nginx:
+        image: nginx:latest
+        ports:
+          - 8080:80
+      redis:
+        image: redis
+        ports:
+          - 6379/tcp
+
+  container-execution-context:
+    container:
+      image: nginx:latest
+      env:
+        foo: bar
+    runs-on: ubuntu-latest
+    steps:
+      - uses: ./actions/docker-url
+
+  local-action-docker-url:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: ./actions/docker-url
+
+  invalid-step-definition:
+    runs-on: ubuntu-latest
+    steps:
+      - name: StepTypeInvalid
+        uses: actions/checkout@v2
+        run: echo
+
+      - name: StepTypeRun
+        run: echo
+
+      - name: StepTypeUsesActionRemote
+        uses: actions/checkout@v2
+
+      - name: StepTypeUsesDockerURL
+        uses: docker://nginx:latest
+
+      - name: StepTypeUsesActionLocal
+        uses: ./local-action
+
+  env-test-job:
+    env:
+      INT: 5
+      STRING: string
+      BOOLEAN: true
+    steps:
+      - name: key=val env
+        env:
+          INT: 5
+          STRING: string
+          BOOLEAN: true
+      - name: with input
+        with:
+          int: 5
+          string: string
+          Boolean: true

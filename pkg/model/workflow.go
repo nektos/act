@@ -152,23 +152,25 @@ func (j *Job) RunsOn() []string {
 func environment(e interface{}) map[string]string {
 	env := make(map[string]string)
 	switch t := e.(type) {
+	case map[string]string:
+		return t
 	case map[string]interface{}:
 		for k, v := range t {
 			switch t := v.(type) {
+			case int, bool:
+				env[k] = fmt.Sprint(t)
 			case string:
 				env[k] = t
-			case interface{}:
-				env[k] = ""
 			}
 		}
-	case map[string]string:
-		for k, v := range e.(map[string]string) {
-			env[k] = v
-		}
+	default:
+		log.Debugf("Interface '%s' cannot be unmarshalled to a 'map[string]string'", e)
+		return env
 	}
 	return env
 }
 
+// Environment returns proper string based key=value map from supplied interface for a given job
 func (j *Job) Environment() map[string]string {
 	return environment(j.Env)
 }
@@ -288,6 +290,7 @@ func (s *Step) String() string {
 	return s.ID
 }
 
+// Environment returns proper string based key=value map from supplied interface for a given step
 func (s *Step) Environment() map[string]string {
 	return environment(s.Env)
 }

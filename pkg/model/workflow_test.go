@@ -1,6 +1,7 @@
 package model
 
 import (
+	"os"
 	"strings"
 	"testing"
 
@@ -8,16 +9,7 @@ import (
 )
 
 func TestReadWorkflow_StringEvent(t *testing.T) {
-	yaml := `
-name: local-action-docker-url
-on: push
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: ./actions/docker-url
-`
+	yaml := `on: push`
 
 	workflow, err := ReadWorkflow(strings.NewReader(yaml))
 	assert.NoError(t, err, "read workflow should succeed")
@@ -27,16 +19,7 @@ jobs:
 }
 
 func TestReadWorkflow_ListEvent(t *testing.T) {
-	yaml := `
-name: local-action-docker-url
-on: [push, pull_request]
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: ./actions/docker-url
-`
+	yaml := `on: [push, pull_request]`
 
 	workflow, err := ReadWorkflow(strings.NewReader(yaml))
 	assert.NoError(t, err, "read workflow should succeed")
@@ -48,7 +31,6 @@ jobs:
 
 func TestReadWorkflow_MapEvent(t *testing.T) {
 	yaml := `
-name: local-action-docker-url
 on:
   push:
     branches:
@@ -56,12 +38,6 @@ on:
   pull_request:
     branches:
     - master
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: ./actions/docker-url
 `
 
 	workflow, err := ReadWorkflow(strings.NewReader(yaml))
@@ -72,63 +48,31 @@ jobs:
 }
 
 func TestReadWorkflow_StringContainer(t *testing.T) {
-	yaml := `
-name: local-action-docker-url
+	f, err := os.Open("testdata/complete-workflow/main.yml")
+	assert.Nil(t, err)
 
-jobs:
-  test:
-    container: nginx:latest
-    runs-on: ubuntu-latest
-    steps:
-    - uses: ./actions/docker-url
-  test2:
-    container:
-      image: nginx:latest
-      env:
-        foo: bar
-    runs-on: ubuntu-latest
-    steps:
-    - uses: ./actions/docker-url
-`
-
-	workflow, err := ReadWorkflow(strings.NewReader(yaml))
+	workflow, err := ReadWorkflow(f)
 	assert.NoError(t, err, "read workflow should succeed")
-	assert.Len(t, workflow.Jobs, 2)
-	assert.Contains(t, workflow.Jobs["test"].Container().Image, "nginx:latest")
-	assert.Contains(t, workflow.Jobs["test2"].Container().Image, "nginx:latest")
-	assert.Contains(t, workflow.Jobs["test2"].Container().Env["foo"], "bar")
+	assert.Len(t, workflow.Jobs, 6)
+	assert.Contains(t, workflow.Jobs["container-job"].Container().Image, "nginx:latest")
+	assert.Contains(t, workflow.Jobs["container-execution-context"].Container().Image, "nginx:latest")
+	assert.Contains(t, workflow.Jobs["container-execution-context"].Container().Env["foo"], "bar")
 }
 
 func TestReadWorkflow_StepsTypes(t *testing.T) {
-	yaml := `
-name: invalid step definition
+	f, err := os.Open("testdata/complete-workflow/main.yml")
+	assert.Nil(t, err)
 
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - name: test1
-        uses: actions/checkout@v2
-        run: echo
-      - name: test2
-        run: echo
-      - name: test3
-        uses: actions/checkout@v2
-      - name: test4
-        uses: docker://nginx:latest
-      - name: test5
-        uses: ./local-action
-`
-
-	workflow, err := ReadWorkflow(strings.NewReader(yaml))
+	workflow, err := ReadWorkflow(f)
 	assert.NoError(t, err, "read workflow should succeed")
-	assert.Len(t, workflow.Jobs, 1)
-	assert.Len(t, workflow.Jobs["test"].Steps, 5)
-	assert.Equal(t, workflow.Jobs["test"].Steps[0].Type(), StepTypeInvalid)
-	assert.Equal(t, workflow.Jobs["test"].Steps[1].Type(), StepTypeRun)
-	assert.Equal(t, workflow.Jobs["test"].Steps[2].Type(), StepTypeUsesActionRemote)
-	assert.Equal(t, workflow.Jobs["test"].Steps[3].Type(), StepTypeUsesDockerURL)
-	assert.Equal(t, workflow.Jobs["test"].Steps[4].Type(), StepTypeUsesActionLocal)
+	assert.Len(t, workflow.Jobs, 6)
+	stepTest := workflow.Jobs["invalid-step-definition"]
+	assert.Len(t, stepTest.Steps, 5)
+	assert.Equal(t, stepTest.Steps[0].Type(), StepTypeInvalid)
+	assert.Equal(t, stepTest.Steps[1].Type(), StepTypeRun)
+	assert.Equal(t, stepTest.Steps[2].Type(), StepTypeUsesActionRemote)
+	assert.Equal(t, stepTest.Steps[3].Type(), StepTypeUsesDockerURL)
+	assert.Equal(t, stepTest.Steps[4].Type(), StepTypeUsesActionLocal)
 }
 
 // See: https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#jobsjob_idoutputs
@@ -178,8 +122,14 @@ func TestStep_ShellCommand(t *testing.T) {
 		shell string
 		want  string
 	}{
+		{"bash", "bash --noprofile --norc -e -o pipefail {0}"},
+		{"", "bash --noprofile --norc -e -o pipefail {0}"},
 		{"pwsh", "pwsh -command . '{0}'"},
+		{"python", "python {0}"},
+		{"sh", "sh -e -c {0}"},
+		{"cmd", "%ComSpec% /D /E:ON /V:OFF /S /C \"CALL \"{0}\"\""},
 		{"powershell", "powershell -command . '{0}'"},
+		{"custom", "custom"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.shell, func(t *testing.T) {
@@ -187,4 +137,76 @@ func TestStep_ShellCommand(t *testing.T) {
 			assert.Equal(t, got, tt.want)
 		})
 	}
+}
+
+type TestEnvTable struct {
+	give interface{}
+	want map[string]string
+}
+
+func TestEnvironment(t *testing.T) {
+	for _, v := range []TestEnvTable{
+		{
+			give: map[string]interface{}{
+				"var1": "stringValue",
+				"var2": map[string]string{
+					"var1": "stringInInterface",
+				},
+				"var3": 5,
+				"var4": true,
+			},
+			want: map[string]string{
+				"var1": "stringValue",
+				"var3": "5",
+				"var4": "true",
+			},
+		},
+		{
+			give: map[string]string{
+				"var1": "stringValue",
+				"var2": "secondString",
+			},
+			want: map[string]string{
+				"var1": "stringValue",
+				"var2": "secondString",
+			},
+		},
+		{
+			give: "var1",
+			want: map[string]string{},
+		},
+		{
+			give: []string{
+				"var1", "var2", "var3",
+			},
+			want: map[string]string{},
+		},
+		{
+			give: 5,
+			want: map[string]string{},
+		},
+		{
+			give: []byte("byte"),
+			want: map[string]string{},
+		},
+	} {
+		j := Job{Env: v.give}
+		s := Step{Env: v.give}
+
+		assert.Equal(t, j.Environment(), v.want)
+		assert.Equal(t, s.Environment(), v.want)
+		assert.Equal(t, environment(v.give), v.want)
+	}
+
+	f, err := os.Open("testdata/complete-workflow/main.yml")
+	assert.Nil(t, err)
+
+	workflow, err := ReadWorkflow(f)
+	assert.NoError(t, err, "read workflow should succeed")
+	assert.Len(t, workflow.Jobs, 6)
+	stepTest := workflow.Jobs["env-test-job"]
+	assert.Equal(t, environment(stepTest.Env), map[string]string{"BOOLEAN": "true", "INT": "5", "STRING": "string"})
+	assert.Len(t, stepTest.Steps, 2)
+	assert.Equal(t, environment(stepTest.Steps[0].Env), map[string]string{"BOOLEAN": "true", "INT": "5", "STRING": "string"})
+	assert.Equal(t, stepTest.Steps[1].GetEnv(), map[string]string{"INPUT_BOOLEAN": "true", "INPUT_INT": "5", "INPUT_STRING": "string"})
 }
