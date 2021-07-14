@@ -22,6 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [check]
     steps:
+      - uses: actions/checkout@v2
       - uses: ./actions/action1
         with:
           args: echo 'build'
