@@ -10,6 +10,18 @@ inputs:
     description: "optional defaulted input"
     required: false
     default: "test_input_optional_value"
+  test_input_optional_with_default_overriden:
+    description: "optional defaulted input"
+    required: false
+    default: "test_input_optional_value"
+  test_input_required_with_default:
+    description: "Required with default, due to an old bug of github actions this is allowed"
+    required: true
+    default: "test_input_optional_value"
+  test_input_required_with_default_overriden:
+    description: "Required with default, due to an old bug of github actions this is allowed"
+    required: true
+    default: "test_input_optional_value"
 
 outputs:
   test_output:
@@ -25,6 +37,9 @@ runs:
         echo "---"
         echo "test_input_required=${{ inputs.test_input_required }}"
         echo "test_input_optional=${{ inputs.test_input_optional }}"
+        echo "test_input_optional_with_default_overriden=${{ inputs.test_input_optional_with_default_overriden }}"
+        echo "test_input_required_with_default=${{ inputs.test_input_required_with_default }}"
+        echo "test_input_required_with_default_overriden=${{ inputs.test_input_required_with_default_overriden }}"
         echo "---"
       shell: bash
 
@@ -37,6 +52,24 @@ runs:
 
     - run: |
         if [ "${{ inputs.test_input_optional }}" != "test_input_optional_value" ]; then
+          exit 1
+        fi
+      shell: bash
+
+    - run: |
+        if [ "${{ inputs.test_input_optional_with_default_overriden }}" != "test_input_optional_with_default_overriden" ]; then
+          exit 1
+        fi
+      shell: bash
+
+    - run: |
+        if [ "${{ inputs.test_input_required_with_default }}" != "test_input_optional_value" ]; then
+          exit 1
+        fi
+      shell: bash
+
+    - run: |
+        if [ "${{ inputs.test_input_required_with_default_overriden }}" != "test_input_required_with_default_overriden" ]; then
           exit 1
         fi
       shell: bash
