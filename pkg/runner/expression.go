@@ -403,7 +403,7 @@ func (sc *StepContext) vmInputs() func(*otto.Otto) {
 	// Set Defaults
 	if sc.Action != nil {
 		for k, input := range sc.Action.Inputs {
-			inputs[k] = input.Default
+			inputs[k] = sc.RunContext.NewExpressionEvaluator().Interpolate(input.Default)
 		}
 	}
 

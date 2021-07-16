@@ -10,9 +10,24 @@ jobs:
       with:
         test_input_required: 'test_input_required_value'
         test_input_optional: 'test_input_optional_value'
+        test_input_optional_with_default_overriden: 'test_input_optional_with_default_overriden'
+        test_input_required_with_default: 'test_input_optional_value'
+        test_input_required_with_default_overriden: 'test_input_required_with_default_overriden'
 
     - if: steps.composite.outputs.test_output != "test_output_value"
       run: |
         echo "steps.composite.outputs.test_output=${{ steps.composite.outputs.test_output }}"
         exit 1
 
+    # Now test again with default values
+    - uses: ./uses-composite/composite_action
+      id: composite2
+      with:
+        test_input_required: 'test_input_required_value'
+        test_input_optional_with_default_overriden: 'test_input_optional_with_default_overriden'
+        test_input_required_with_default_overriden: 'test_input_required_with_default_overriden'
+
+    - if: steps.composite2.outputs.test_output != "test_output_value"
+      run: |
+        echo "steps.composite.outputs.test_output=${{ steps.composite.outputs.test_output }}"
+        exit 1
