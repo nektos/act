@@ -1,28 +1,25 @@
 ![act-logo](https://github.com/nektos/act/wiki/img/logo-150.png)
+You are viewing in Simplified Chinese
+# 这是什么？ [![push](https://github.com/nektos/act/workflows/push/badge.svg?branch=master&event=push)](https://github.com/nektos/act/actions) [![Join the chat at https://gitter.im/nektos/act](https://badges.gitter.im/nektos/act.svg)](https://gitter.im/nektos/act?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) [![Go Report Card](https://goreportcard.com/badge/github.com/nektos/act)](https://goreportcard.com/report/github.com/nektos/act) [![awesome-runners](https://img.shields.io/badge/listed%20on-awesome--runners-blue.svg)](https://github.com/jonico/awesome-runners)
 
-# Overview [![push](https://github.com/nektos/act/workflows/push/badge.svg?branch=master&event=push)](https://github.com/nektos/act/actions) [![Join the chat at https://gitter.im/nektos/act](https://badges.gitter.im/nektos/act.svg)](https://gitter.im/nektos/act?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) [![Go Report Card](https://goreportcard.com/badge/github.com/nektos/act)](https://goreportcard.com/report/github.com/nektos/act) [![awesome-runners](https://img.shields.io/badge/listed%20on-awesome--runners-blue.svg)](https://github.com/jonico/awesome-runners)
+> “千里之行，始于足下。” ***"Think globally, `act` locally"***
 
-> "Think globally, `act` locally"  
+使用`act`本地运行你的 [GitHub Actions](https://developer.github.com/actions/) 。 优点如下:
 
-Translations:
-* [Simplified Chinese](Translations/zh_cn.md) `WIP`
+- **即时反馈** - 本地测试你的WorkFlow而无须反复commit/push。[环境变量](https://help.github.com/en/actions/configuring-and-managing-workflows/using-environment-variables#default-environment-variables)和[文件系统](https://help.github.com/en/actions/reference/virtual-environments-for-github-hosted-runners#filesystems-on-github-hosted-runners)都力求和Github-actions一致。
+- **本地任务** - 我不厌烦[编译](<https://en.wikipedia.org/wiki/Make_(software)>). 但我讨厌重复做相同的事。 用 `act`, 不再反复`Makefile`!
 
-Run your [GitHub Actions](https://developer.github.com/actions/) locally! Why would you want to do this? Two reasons:
+# 她如何运行?
 
-- **Fast Feedback** - Rather than having to commit/push every time you want to test out the changes you are making to your `.github/workflows/` files (or for any changes to embedded GitHub actions), you can use `act` to run the actions locally. The [environment variables](https://help.github.com/en/actions/configuring-and-managing-workflows/using-environment-variables#default-environment-variables) and [filesystem](https://help.github.com/en/actions/reference/virtual-environments-for-github-hosted-runners#filesystems-on-github-hosted-runners) are all configured to match what GitHub provides.
-- **Local Task Runner** - I love [make](<https://en.wikipedia.org/wiki/Make_(software)>). However, I also hate repeating myself. With `act`, you can use the GitHub Actions defined in your `.github/workflows/` to replace your `Makefile`!
+当`act`运行时，她从`.GitHub/workflows/`读取GitHub操作，并确定需要运行的操作集。`act`使用Docker API来拉取或构建工作流文件中定义的必要映像，并最终根据定义的依赖关系确定执行路径。一旦有了执行路径，就使用DockerAPI根据前面准备的映像为每个操作运行容器。 The [environment variables](https://help.github.com/en/actions/configuring-and-managing-workflows/using-environment-variables#default-environment-variables) and [filesystem](https://help.github.com/en/actions/reference/virtual-environments-for-github-hosted-runners#filesystems-on-github-hosted-runners) are all configured to match what GitHub provides.
 
-# How Does It Work?
-
-When you run `act` it reads in your GitHub Actions from `.github/workflows/` and determines the set of actions that need to be run. It uses the Docker API to either pull or build the necessary images, as defined in your workflow files and finally determines the execution path based on the dependencies that were defined. Once it has the execution path, it then uses the Docker API to run containers for each action based on the images prepared earlier. The [environment variables](https://help.github.com/en/actions/configuring-and-managing-workflows/using-environment-variables#default-environment-variables) and [filesystem](https://help.github.com/en/actions/reference/virtual-environments-for-github-hosted-runners#filesystems-on-github-hosted-runners) are all configured to match what GitHub provides.
-
-Let's see it in action with a [sample repo](https://github.com/cplee/github-actions-demo)!
+举个栗子[🌰](https://github.com/cplee/github-actions-demo)
 
 ![Demo](https://github.com/nektos/act/wiki/quickstart/act-quickstart-2.gif)
 
-# Installation
+# 如何安装|Installation
 
-## Necessary prerequisites for running `act`
+## 运行依赖|Necessary prerequisites for running `act`
 
 `act` depends on `docker` to run workflows.
 
@@ -176,7 +173,7 @@ It will save that information to `~/.actrc`, please refer to [Configuration](#co
 
 In case you want to pass a value for `${{ github.token }}`, you should pass `GITHUB_TOKEN` as secret: `act -s GITHUB_TOKEN=[insert token or leave blank for secure input]`.
 
-# Known Issues
+# 已知问题|Known Issues
 
 ## `MODULE_NOT_FOUND`
 
@@ -199,16 +196,6 @@ steps:
 
 If the `path:` value doesn't match the name of the repository, a `MODULE_NOT_FOUND` will be thrown.
 
-## `docker context` support
-
-The current `docker context` isn't respected ([#583](https://github.com/nektos/act/issues/583)).
-
-You can work around this by setting `DOCKER_HOST` before running `act`, with e.g:
-
-```bash
-export DOCKER_HOST=$(docker context inspect --format '{{.Endpoints.docker.Host}}')
-```
-
 # Runners
 
 GitHub Actions offers managed [virtual environments](https://help.github.com/en/actions/reference/virtual-environments-for-github-hosted-runners) for running workflows. In order for `act` to run your workflows locally, it must run a container for the runner defined in your workflow file. Here are the images that `act` uses for each runner type and size:
@@ -222,7 +209,7 @@ GitHub Actions offers managed [virtual environments](https://help.github.com/en/
 
 [micro]: https://hub.docker.com/_/buildpack-deps
 [medium]: https://github.com/catthehacker/docker_images
-[large-cat]: https://github.com/catthehacker/docker_images
+[large-cat]: https://github.com/catthehacker/act-environments
 [large-act]: https://github.com/nektos/act-environments
 
 Below platforms are currently **unsupported and won't work** (see issue [#97](https://github.com/nektos/act/issues/97))
