@@ -66,6 +66,7 @@ type Job struct {
 	Strategy       *Strategy                 `yaml:"strategy"`
 	RawContainer   yaml.Node                 `yaml:"container"`
 	Defaults       Defaults                  `yaml:"defaults"`
+	Outputs        map[string]string         `yaml:"outputs"`
 }
 
 // Strategy for the job
