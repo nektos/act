@@ -14,9 +14,17 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	assert "github.com/stretchr/testify/assert"
+	yaml "gopkg.in/yaml.v3"
 )
 
 func TestRunContext_EvalBool(t *testing.T) {
+	var yml yaml.Node
+	err := yml.Encode(map[string][]interface{}{
+		"os":  {"Linux", "Windows"},
+		"foo": {"bar", "baz"},
+	})
+	assert.NoError(t, err)
+
 	hook := test.NewGlobal()
 	rc := &RunContext{
 		Config: &Config{
@@ -34,10 +42,7 @@ func TestRunContext_EvalBool(t *testing.T) {
 				Jobs: map[string]*model.Job{
 					"job1": {
 						Strategy: &model.Strategy{
-							Matrix: map[string][]interface{}{
-								"os":  {"Linux", "Windows"},
-								"foo": {"bar", "baz"},
-							},
+							RawMatrix: yml,
 						},
 					},
 				},
