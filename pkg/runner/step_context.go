@@ -591,6 +591,7 @@ func (sc *StepContext) execAsComposite(ctx context.Context, step *model.Step, _ 
 			RunContext: rcClone,
 			Step:       step,
 			Env:        mergeMaps(sc.Env, env),
+			Action:     action,
 		}
 
 		// Required to set github.action_path
