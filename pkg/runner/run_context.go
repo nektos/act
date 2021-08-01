@@ -707,7 +707,7 @@ func (rc *RunContext) withGithubEnv(env map[string]string) map[string]string {
 					// hardcode current ubuntu-latest since we have no way to check that 'on the fly'
 					env["ImageOS"] = "ubuntu20"
 				} else {
-					platformName = strings.SplitN(strings.Replace(platformName, `-`, ``, 1), `.`, 1)[0]
+					platformName = strings.SplitN(strings.Replace(platformName, `-`, ``, 1), `.`, 2)[0]
 					env["ImageOS"] = platformName
 				}
 			}
