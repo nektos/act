@@ -59,7 +59,7 @@ type Job struct {
 	Name           string                    `yaml:"name"`
 	RawNeeds       yaml.Node                 `yaml:"needs"`
 	RawRunsOn      yaml.Node                 `yaml:"runs-on"`
-	Env            interface{}               `yaml:"env"`
+	Env            yaml.Node                 `yaml:"env"`
 	If             yaml.Node                 `yaml:"if"`
 	Steps          []*Step                   `yaml:"steps"`
 	TimeoutMinutes int64                     `yaml:"timeout-minutes"`
@@ -183,26 +183,17 @@ func (j *Job) RunsOn() []string {
 	return nil
 }
 
-func environment(e interface{}) map[string]string {
+func environment(yml yaml.Node) map[string]string {
 	env := make(map[string]string)
-	switch t := e.(type) {
-	case map[string]interface{}:
-		for k, v := range t {
-			switch t := v.(type) {
-			case string:
-				env[k] = t
-			case interface{}:
-				env[k] = ""
-			}
-		}
-	case map[string]string:
-		for k, v := range e.(map[string]string) {
-			env[k] = v
+	if yml.Kind == yaml.MappingNode {
+		if err := yml.Decode(&env); err != nil {
+			log.Fatal(err)
 		}
 	}
 	return env
 }
 
+// Environments returns string-based key=value map for a job
 func (j *Job) Environment() map[string]string {
 	return environment(j.Env)
 }
@@ -323,7 +314,7 @@ type Step struct {
 	Run              string            `yaml:"run"`
 	WorkingDirectory string            `yaml:"working-directory"`
 	Shell            string            `yaml:"shell"`
-	Env              interface{}       `yaml:"env"`
+	Env              yaml.Node         `yaml:"env"`
 	With             map[string]string `yaml:"with"`
 	ContinueOnError  bool              `yaml:"continue-on-error"`
 	TimeoutMinutes   int64             `yaml:"timeout-minutes"`
@@ -341,6 +332,7 @@ func (s *Step) String() string {
 	return s.ID
 }
 
+// Environments returns string-based key=value map for a step
 func (s *Step) Environment() map[string]string {
 	return environment(s.Env)
 }
