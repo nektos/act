@@ -62,6 +62,6 @@ Also, consider the original design principles:
 
 ### License
 
-By contributing your code, you agree to license your contribution under the terms of the [MIT License](LICENSE.md).
+By contributing your code, you agree to license your contribution under the terms of the [MIT License](LICENSE).
 
 All files are released with the MIT license.
