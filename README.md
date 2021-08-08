@@ -227,12 +227,12 @@ export DOCKER_HOST=$(docker context inspect --format '{{.Endpoints.docker.Host}}
 
 GitHub Actions offers managed [virtual environments](https://help.github.com/en/actions/reference/virtual-environments-for-github-hosted-runners) for running workflows. In order for `act` to run your workflows locally, it must run a container for the runner defined in your workflow file. Here are the images that `act` uses for each runner type and size:
 
-| GitHub Runner   | Micro Docker Image              | Medium Docker Image                        | Large Docker Image                                  |
-| --------------- | ------------------------------- | ------------------------------------------ | --------------------------------------------------- |
-| `ubuntu-latest` | [`node:12-buster-slim`][micro]  | [`catthehacker/ubuntu:act-latest`][medium] | [`catthehacker/ubuntu:full-20.04`][large-cat]       |
-| `ubuntu-20.04`  | [`node:12-buster-slim`][micro]  | [`catthehacker/ubuntu:act-20.04`][medium]  | [`catthehacker/ubuntu:full-20.04`][large-cat]       |
-| `ubuntu-18.04`  | [`node:12-buster-slim`][micro]  | [`catthehacker/ubuntu:act-18.04`][medium]  | [`nektos/act-environments-ubuntu:18.04`][large-act] |
-| `ubuntu-16.04`  | [`node:12-stretch-slim`][micro] | [`catthehacker/ubuntu:act-16.04`][medium]  | `unavailable`                                       |
+| GitHub Runner   | Micro Docker Image              | Medium Docker Image                                | Large Docker Image                                     |
+| --------------- | ------------------------------- | -------------------------------------------------- | ------------------------------------------------------ |
+| `ubuntu-latest` | [`node:12-buster-slim`][micro]  | [`ghcr.io/catthehacker/ubuntu:act-latest`][medium] | [`ghcr.io/catthehacker/ubuntu:full-latest`][large-cat] |
+| `ubuntu-20.04`  | [`node:12-buster-slim`][micro]  | [`ghcr.io/catthehacker/ubuntu:act-20.04`][medium]  | [`ghcr.io/catthehacker/ubuntu:full-20.04`][large-cat]  |
+| `ubuntu-18.04`  | [`node:12-buster-slim`][micro]  | [`ghcr.io/catthehacker/ubuntu:act-18.04`][medium]  | [`nektos/act-environments-ubuntu:18.04`][large-act]    |
+| `ubuntu-16.04`  | [`node:12-stretch-slim`][micro] | [`ghcr.io/catthehacker/ubuntu:act-16.04`][medium]  | `unavailable`                                          |
 
 [micro]: https://hub.docker.com/_/buildpack-deps
 [medium]: https://github.com/catthehacker/docker_images
@@ -263,8 +263,7 @@ If you need an environment that works just like the corresponding GitHub runner 
 
 :warning: :elephant: `*** WARNING - this image is >18GB 😱***`
 
-- [`catthehacker/ubuntu:full-20.04`](https://hub.docker.com/r/catthehacker/ubuntu/tags) - built from Dockerfile based on the Packer template from [actions/virtual-environments](https://github.com/actions/runner).
-  This image size is about `61GB` unpacked (`23GB` compressed) but contains more recent software versions (as of date of build).
+- [`ghcr.io/catthehacker/ubuntu:full-*`](https://github.com/catthehacker/docker_images/pkgs/container/ubuntu) - built from Packer template provided by GitHub, see [catthehacker/virtual-environments-fork](https://github.com/catthehacker/virtual-environments-fork) or [catthehacker/docker_images](https://github.com/catthehacker/docker_images) for more information
 
 ## Use an alternative runner image
 
