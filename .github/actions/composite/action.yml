@@ -10,7 +10,7 @@ outputs:
     description: 'Output string'
     value: ${{ steps.set-output.outputs.string }}
 runs:
-  using: "composite"
+  using: 'composite'
   steps:
     - run: echo Hello ${{ inputs.input }}.
       shell: bash

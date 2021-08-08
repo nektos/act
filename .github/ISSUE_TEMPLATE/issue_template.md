@@ -3,7 +3,7 @@ name: Issue
 about: Use this template for reporting a bug/issue.
 title: "Issue: <shortly describe issue>"
 labels: kind/bug
-assignees: ''
+assignees: ""
 ---
 
 <!--

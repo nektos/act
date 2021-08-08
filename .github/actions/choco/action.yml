@@ -1,7 +1,7 @@
 name: 'Chocolatey Packager'
 description: 'Create the choco package and push it'
 inputs:
-  version:  
+  version:
     description: 'Version of package'
     required: true
   apiKey:
