@@ -227,17 +227,15 @@ export DOCKER_HOST=$(docker context inspect --format '{{.Endpoints.docker.Host}}
 
 GitHub Actions offers managed [virtual environments](https://help.github.com/en/actions/reference/virtual-environments-for-github-hosted-runners) for running workflows. In order for `act` to run your workflows locally, it must run a container for the runner defined in your workflow file. Here are the images that `act` uses for each runner type and size:
 
-| GitHub Runner   | Micro Docker Image              | Medium Docker Image                                | Large Docker Image                                     |
-| --------------- | ------------------------------- | -------------------------------------------------- | ------------------------------------------------------ |
-| `ubuntu-latest` | [`node:12-buster-slim`][micro]  | [`ghcr.io/catthehacker/ubuntu:act-latest`][medium] | [`ghcr.io/catthehacker/ubuntu:full-latest`][large-cat] |
-| `ubuntu-20.04`  | [`node:12-buster-slim`][micro]  | [`ghcr.io/catthehacker/ubuntu:act-20.04`][medium]  | [`ghcr.io/catthehacker/ubuntu:full-20.04`][large-cat]  |
-| `ubuntu-18.04`  | [`node:12-buster-slim`][micro]  | [`ghcr.io/catthehacker/ubuntu:act-18.04`][medium]  | [`nektos/act-environments-ubuntu:18.04`][large-act]    |
-| `ubuntu-16.04`  | [`node:12-stretch-slim`][micro] | [`ghcr.io/catthehacker/ubuntu:act-16.04`][medium]  | `unavailable`                                          |
+| GitHub Runner   | Micro Docker Image              | Medium Docker Image                                       | Large Docker Image                                         |
+| --------------- | ------------------------------- | --------------------------------------------------------- | ---------------------------------------------------------- |
+| `ubuntu-latest` | [`node:12-buster-slim`][micro]  | [`ghcr.io/catthehacker/ubuntu:act-latest`][docker_images] | [`ghcr.io/catthehacker/ubuntu:full-latest`][docker_images] |
+| `ubuntu-20.04`  | [`node:12-buster-slim`][micro]  | [`ghcr.io/catthehacker/ubuntu:act-20.04`][docker_images]  | [`ghcr.io/catthehacker/ubuntu:full-20.04`][docker_images]  |
+| `ubuntu-18.04`  | [`node:12-buster-slim`][micro]  | [`ghcr.io/catthehacker/ubuntu:act-18.04`][docker_images]  | [`ghcr.io/catthehacker/ubuntu:full-18.04`][docker_images]  |
+| `ubuntu-16.04`  | [`node:12-stretch-slim`][micro] | [`ghcr.io/catthehacker/ubuntu:act-16.04`][docker_images]  | `unavailable`                                              |
 
 [micro]: https://hub.docker.com/_/buildpack-deps
-[medium]: https://github.com/catthehacker/docker_images
-[large-cat]: https://github.com/catthehacker/docker_images
-[large-act]: https://github.com/nektos/act-environments
+[docker_images]: https://github.com/catthehacker/docker_images
 
 Below platforms are currently **unsupported and won't work** (see issue [#97](https://github.com/nektos/act/issues/97))
 
