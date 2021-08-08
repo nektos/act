@@ -267,28 +267,34 @@ func vmEndsWith(vm *otto.Otto) {
 
 func vmFormat(vm *otto.Otto) {
 	_ = vm.Set("format", func(s string, vals ...otto.Value) string {
-		ex := regexp.MustCompile(`(\{\{|\}\}|\{\s*[0-9]+\s*\})`)
-		off := 0
-		for _, match := range ex.FindAllStringIndex(s, -1) {
-			if s[match[0]-off:match[1]-off] == "{{" {
-				s = s[:match[0]-off+1] + s[match[1]-off:]
-				off++
-			} else if s[match[0]-off:match[1]-off] == "}}" {
-				s = s[:match[0]-off+1] + s[match[1]-off:]
-				off++
-			} else {
-				_i := s[match[0]-off+1 : match[1]-off-1]
-				i, _ := strconv.ParseUint(_i, 10, 64)
-				if vals[i].IsNull() || vals[i].IsUndefined() {
-					s = s[:match[0]-off] + s[match[1]-off:]
-					off += match[1] - match[0]
-				} else {
-					s = s[:match[0]-off] + vals[i].String() + s[match[1]-off:]
-					off += match[1] - match[0] - len(vals[i].String())
+		ex := regexp.MustCompile(`(\{[0-9]+\}|\{.?|\}.?)`)
+		return ex.ReplaceAllStringFunc(s, func(seg string) string {
+			switch seg {
+			case "{{":
+				return "{"
+			case "}}":
+				return "}"
+			default:
+				if len(seg) < 3 || !strings.HasPrefix(seg, "{") {
+					log.Errorf("The following format string is invalid: '%v'", s)
+					return ""
 				}
+				_i := seg[1 : len(seg)-1]
+				i, err := strconv.ParseInt(_i, 10, 32)
+				if err != nil {
+					log.Errorf("The following format string is invalid: '%v'. Error: %v", s, err)
+					return ""
+				}
+				if i >= int64(len(vals)) {
+					log.Errorf("The following format string references more arguments than were supplied: '%v'", s)
+					return ""
+				}
+				if vals[i].IsNull() || vals[i].IsUndefined() {
+					return ""
+				}
+				return vals[i].String()
 			}
-		}
-		return s
+		})
 	})
 }
 
