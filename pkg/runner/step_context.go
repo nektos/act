@@ -307,6 +307,7 @@ func (sc *StepContext) newStepContainer(ctx context.Context, image string, cmd [
 	})
 	return stepContainer
 }
+
 func (sc *StepContext) runUsesContainer() common.Executor {
 	rc := sc.RunContext
 	step := sc.Step
