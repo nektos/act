@@ -173,6 +173,64 @@ jobs:
 	assert.Equal(t, "${{ steps.test1_1.outputs.b-key }}", workflow.Jobs["test1"].Outputs["some-b-key"])
 }
 
+func TestReadWorkflow_Strategy(t *testing.T) {
+	w, err := NewWorkflowPlanner("testdata/strategy/push.yml", true)
+	assert.NoError(t, err)
+
+	p := w.PlanJob("strategy-only-max-parallel")
+
+	assert.Equal(t, len(p.Stages), 1)
+	assert.Equal(t, len(p.Stages[0].Runs), 1)
+
+	wf := p.Stages[0].Runs[0].Workflow
+
+	job := wf.Jobs["strategy-only-max-parallel"]
+	assert.Equal(t, job.GetMatrixes(), []map[string]interface{}{{}})
+	assert.Equal(t, job.Matrix(), map[string][]interface{}(nil))
+	assert.Equal(t, job.Strategy.MaxParallel, 2)
+	assert.Equal(t, job.Strategy.FailFast, true)
+
+	job = wf.Jobs["strategy-only-fail-fast"]
+	assert.Equal(t, job.GetMatrixes(), []map[string]interface{}{{}})
+	assert.Equal(t, job.Matrix(), map[string][]interface{}(nil))
+	assert.Equal(t, job.Strategy.MaxParallel, 4)
+	assert.Equal(t, job.Strategy.FailFast, false)
+
+	job = wf.Jobs["strategy-no-matrix"]
+	assert.Equal(t, job.GetMatrixes(), []map[string]interface{}{{}})
+	assert.Equal(t, job.Matrix(), map[string][]interface{}(nil))
+	assert.Equal(t, job.Strategy.MaxParallel, 2)
+	assert.Equal(t, job.Strategy.FailFast, false)
+
+	job = wf.Jobs["strategy-all"]
+	assert.Equal(t, job.GetMatrixes(),
+		[]map[string]interface{}{
+			{"datacenter": "site-c", "node-version": "14.x", "site": "staging"},
+			{"datacenter": "site-c", "node-version": "16.x", "site": "staging"},
+			{"datacenter": "site-d", "node-version": "16.x", "site": "staging"},
+			{"datacenter": "site-a", "node-version": "10.x", "site": "prod"},
+			{"datacenter": "site-b", "node-version": "12.x", "site": "dev"},
+		},
+	)
+	assert.Equal(t, job.Matrix(),
+		map[string][]interface{}{
+			"datacenter": {"site-c", "site-d"},
+			"exclude": {
+				map[string]interface{}{"datacenter": "site-d", "node-version": "14.x", "site": "staging"},
+			},
+			"include": {
+				map[string]interface{}{"php-version": 5.4},
+				map[string]interface{}{"datacenter": "site-a", "node-version": "10.x", "site": "prod"},
+				map[string]interface{}{"datacenter": "site-b", "node-version": "12.x", "site": "dev"},
+			},
+			"node-version": {"14.x", "16.x"},
+			"site":         {"staging"},
+		},
+	)
+	assert.Equal(t, job.Strategy.MaxParallel, 2)
+	assert.Equal(t, job.Strategy.FailFast, false)
+}
+
 func TestStep_ShellCommand(t *testing.T) {
 	tests := []struct {
 		shell string
