@@ -1,23 +1,23 @@
-name: "Close stale issues"
+name: 'Close stale issues'
 on:
   schedule:
-  - cron: "0 0 * * *"
+    - cron: '0 0 * * *'
 
 jobs:
   stale:
     name: Stale
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/stale@v3
-      with:
-        repo-token: ${{ secrets.GITHUB_TOKEN }}
-        stale-issue-message: 'Issue is stale and will be closed in 14 days unless there is new activity'
-        stale-pr-message: 'PR is stale and will be closed in 14 days unless there is new activity'
-        stale-issue-label: 'stale'
-        exempt-issue-labels: 'stale-exempt'
-        stale-pr-label: 'stale'
-        exempt-pr-labels: 'stale-exempt'
-        remove-stale-when-updated: 'True'
-        operations-per-run: 500
-        days-before-stale: 30
-        days-before-close: 14
+      - uses: actions/stale@v3
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          stale-issue-message: 'Issue is stale and will be closed in 14 days unless there is new activity'
+          stale-pr-message: 'PR is stale and will be closed in 14 days unless there is new activity'
+          stale-issue-label: 'stale'
+          exempt-issue-labels: 'stale-exempt'
+          stale-pr-label: 'stale'
+          exempt-pr-labels: 'stale-exempt'
+          remove-stale-when-updated: 'True'
+          operations-per-run: 500
+          days-before-stale: 30
+          days-before-close: 14
