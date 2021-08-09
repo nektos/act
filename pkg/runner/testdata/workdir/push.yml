@@ -4,10 +4,14 @@ on: push
 jobs:
   workdir:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: /root
     steps:
-    - run: mkdir -p "${GITHUB_WORKSPACE}/workdir"
-    - run: '[[ "$(pwd)" == "${GITHUB_WORKSPACE}/workdir" ]]'
-      working-directory: workdir
+      - run: '[[ "$(pwd)" == "/root" ]]'
+      - run: mkdir -p "${GITHUB_WORKSPACE}/workdir"
+      - run: '[[ "$(pwd)" == "${GITHUB_WORKSPACE}/workdir" ]]'
+        working-directory: workdir
 
   noworkdir:
     runs-on: ubuntu-latest

@@ -37,7 +37,7 @@ type StepContext struct {
 
 func (sc *StepContext) execJobContainer() common.Executor {
 	return func(ctx context.Context) error {
-		return sc.RunContext.execJobContainer(sc.Cmd, sc.Env)(ctx)
+		return sc.RunContext.execJobContainer(sc.Cmd, sc.Env, "", sc.Step.WorkingDirectory)(ctx)
 	}
 }
 
@@ -195,12 +195,6 @@ func (sc *StepContext) setupShellCommand() common.Executor {
 			step.WorkingDirectory = rc.Run.Workflow.Defaults.Run.WorkingDirectory
 		}
 		step.WorkingDirectory = rc.ExprEval.Interpolate(step.WorkingDirectory)
-		if step.WorkingDirectory != "" {
-			_, err = script.WriteString(fmt.Sprintf("cd %s\n", step.WorkingDirectory))
-			if err != nil {
-				return err
-			}
-		}
 
 		run := rc.ExprEval.Interpolate(step.Run)
 		step.Shell = rc.ExprEval.Interpolate(step.Shell)
@@ -486,7 +480,7 @@ func (sc *StepContext) runAction(actionDir string, actionPath string, localActio
 			}
 			containerArgs := []string{"node", path.Join(containerActionDir, action.Runs.Main)}
 			log.Debugf("executing remote job container: %s", containerArgs)
-			return rc.execJobContainer(containerArgs, sc.Env)(ctx)
+			return rc.execJobContainer(containerArgs, sc.Env, "", "")(ctx)
 		case model.ActionRunsUsingDocker:
 			return sc.execAsDocker(ctx, action, actionName, containerActionDir, actionLocation, rc, step, localAction)
 		case model.ActionRunsUsingComposite:
