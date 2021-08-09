@@ -236,12 +236,21 @@ func (sc *StepContext) setupShellCommand() common.Executor {
 			step.Shell = rc.Run.Workflow.Defaults.Run.Shell
 		}
 		scCmd := step.ShellCommand()
-		scResolvedCmd := strings.Replace(scCmd, "{0}", containerPath, 1)
+
+		var finalCMD []string
 		if step.Shell == "pwsh" || step.Shell == "powershell" {
-			sc.Cmd = strings.SplitN(scResolvedCmd, " ", 3)
+			finalCMD = strings.SplitN(scCmd, " ", 3)
 		} else {
-			sc.Cmd = strings.Fields(scResolvedCmd)
+			finalCMD = strings.Fields(scCmd)
 		}
+
+		for k, v := range finalCMD {
+			if v == "{0}" {
+				finalCMD[k] = strings.Replace(v, "{0}", containerPath, 1)
+			}
+		}
+
+		sc.Cmd = finalCMD
 
 		return rc.JobContainer.Copy(rc.Config.ContainerWorkdir(), &container.FileEntry{
 			Name: scriptName,

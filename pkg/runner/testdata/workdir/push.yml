@@ -1,5 +1,8 @@
-name: workdir
 on: push
+
+defaults:
+  run:
+    working-directory: /tmp
 
 jobs:
   workdir:
@@ -9,11 +12,13 @@ jobs:
         working-directory: /root
     steps:
       - run: '[[ "$(pwd)" == "/root" ]]'
+
       - run: mkdir -p "${GITHUB_WORKSPACE}/workdir"
+
       - run: '[[ "$(pwd)" == "${GITHUB_WORKSPACE}/workdir" ]]'
         working-directory: workdir
 
-  noworkdir:
+  top-level-workdir:
     runs-on: ubuntu-latest
     steps:
-      - run: '[[ "$(pwd)" == "${GITHUB_WORKSPACE}" ]]'
+      - run: '[[ "$(pwd)" == "/tmp" ]]'
