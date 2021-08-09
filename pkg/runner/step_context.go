@@ -1,7 +1,10 @@
 package runner
 
 import (
+	"archive/tar"
 	"context"
+	"io"
+
 	// Go told me to?
 	_ "embed"
 	"fmt"
@@ -77,8 +80,8 @@ func (sc *StepContext) Executor() common.Executor {
 	case model.StepTypeUsesActionLocal:
 		actionDir := filepath.Join(rc.Config.Workdir, step.Uses)
 		return common.NewPipelineExecutor(
-			sc.setupAction(actionDir, ""),
-			sc.runAction(actionDir, ""),
+			sc.setupAction(actionDir, "", true),
+			sc.runAction(actionDir, "", true),
 		)
 	case model.StepTypeUsesActionRemote:
 		remoteAction := newRemoteAction(step.Uses)
@@ -116,8 +119,8 @@ func (sc *StepContext) Executor() common.Executor {
 		}
 		return common.NewPipelineExecutor(
 			ntErr,
-			sc.setupAction(actionDir, remoteAction.Path),
-			sc.runAction(actionDir, remoteAction.Path),
+			sc.setupAction(actionDir, remoteAction.Path, false),
+			sc.runAction(actionDir, remoteAction.Path, false),
 		)
 	case model.StepTypeInvalid:
 		return common.NewErrorExecutor(fmt.Errorf("Invalid run/uses syntax for job:%s step:%+v", rc.Run, step))
@@ -330,13 +333,35 @@ func (sc *StepContext) runUsesContainer() common.Executor {
 //go:embed res/trampoline.js
 var trampoline []byte
 
-func (sc *StepContext) setupAction(actionDir string, actionPath string) common.Executor {
+func (sc *StepContext) setupAction(actionDir string, actionPath string, localAction bool) common.Executor {
 	return func(ctx context.Context) error {
-		f, err := os.Open(filepath.Join(actionDir, actionPath, "action.yml"))
+		var readFile func(filename string) (io.Reader, io.Closer, error)
+		if localAction {
+			_, cpath := sc.getContainerActionPaths(sc.Step, path.Join(actionDir, actionPath), sc.RunContext)
+			readFile = func(filename string) (io.Reader, io.Closer, error) {
+				tars, err := sc.RunContext.JobContainer.GetContainerArchive(ctx, path.Join(cpath, filename))
+				if err != nil {
+					return nil, nil, os.ErrNotExist
+				}
+				treader := tar.NewReader(tars)
+				if _, err := treader.Next(); err != nil {
+					return nil, nil, os.ErrNotExist
+				}
+				return treader, tars, nil
+			}
+		} else {
+			readFile = func(filename string) (io.Reader, io.Closer, error) {
+				f, err := os.Open(filepath.Join(actionDir, actionPath, filename))
+				return f, f, err
+			}
+		}
+
+		reader, closer, err := readFile("action.yml")
 		if os.IsNotExist(err) {
-			f, err = os.Open(filepath.Join(actionDir, actionPath, "action.yaml"))
+			reader, closer, err = readFile("action.yaml")
 			if err != nil {
-				if _, err2 := os.Stat(filepath.Join(actionDir, actionPath, "Dockerfile")); err2 == nil {
+				if _, closer, err2 := readFile("Dockerfile"); err2 == nil {
+					closer.Close()
 					sc.Action = &model.Action{
 						Name: "(Synthetic)",
 						Runs: model.ActionRuns{
@@ -381,9 +406,10 @@ func (sc *StepContext) setupAction(actionDir string, actionPath string) common.E
 		} else if err != nil {
 			return err
 		}
+		defer closer.Close()
 
-		sc.Action, err = model.ReadAction(f)
-		log.Debugf("Read action %v from '%s'", sc.Action, f.Name())
+		sc.Action, err = model.ReadAction(reader)
+		log.Debugf("Read action %v from '%s'", sc.Action, "Unknown")
 		return err
 	}
 }
@@ -420,7 +446,7 @@ func (sc *StepContext) getContainerActionPaths(step *model.Step, actionDir strin
 }
 
 // nolint: gocyclo
-func (sc *StepContext) runAction(actionDir string, actionPath string) common.Executor {
+func (sc *StepContext) runAction(actionDir string, actionPath string, localAction bool) common.Executor {
 	rc := sc.RunContext
 	step := sc.Step
 	return func(ctx context.Context) error {
@@ -461,7 +487,7 @@ func (sc *StepContext) runAction(actionDir string, actionPath string) common.Exe
 			log.Debugf("executing remote job container: %s", containerArgs)
 			return rc.execJobContainer(containerArgs, sc.Env)(ctx)
 		case model.ActionRunsUsingDocker:
-			return sc.execAsDocker(ctx, action, actionName, actionDir, actionPath, rc, step)
+			return sc.execAsDocker(ctx, action, actionName, containerActionDir, actionLocation, rc, step, localAction)
 		case model.ActionRunsUsingComposite:
 			return sc.execAsComposite(ctx, step, actionDir, rc, containerActionDir, actionName, actionPath, action, maybeCopyToActionDir)
 		default:
@@ -474,7 +500,7 @@ func (sc *StepContext) runAction(actionDir string, actionPath string) common.Exe
 	}
 }
 
-func (sc *StepContext) execAsDocker(ctx context.Context, action *model.Action, actionName string, actionDir string, actionPath string, rc *RunContext, step *model.Step) error {
+func (sc *StepContext) execAsDocker(ctx context.Context, action *model.Action, actionName string, containerLocation string, actionLocation string, rc *RunContext, step *model.Step, localAction bool) error {
 	var prepImage common.Executor
 	var image string
 	if strings.HasPrefix(action.Runs.Image, "docker://") {
@@ -483,7 +509,11 @@ func (sc *StepContext) execAsDocker(ctx context.Context, action *model.Action, a
 		image = fmt.Sprintf("%s:%s", regexp.MustCompile("[^a-zA-Z0-9]").ReplaceAllString(actionName, "-"), "latest")
 		image = fmt.Sprintf("act-%s", strings.TrimLeft(image, "-"))
 		image = strings.ToLower(image)
-		contextDir := filepath.Join(actionDir, actionPath, action.Runs.Main)
+		basedir := actionLocation
+		if localAction {
+			basedir = containerLocation
+		}
+		contextDir := filepath.Join(basedir, action.Runs.Main)
 
 		anyArchExists, err := container.ImageExistsLocally(ctx, image, "any")
 		if err != nil {
@@ -507,9 +537,14 @@ func (sc *StepContext) execAsDocker(ctx context.Context, action *model.Action, a
 
 		if !correctArchExists {
 			log.Debugf("image '%s' for architecture '%s' will be built from context '%s", image, rc.Config.ContainerArchitecture, contextDir)
+			var actionContainer container.Container = nil
+			if localAction {
+				actionContainer = sc.RunContext.JobContainer
+			}
 			prepImage = container.NewDockerBuildExecutor(container.NewDockerBuildExecutorInput{
 				ContextDir: contextDir,
 				ImageTag:   image,
+				Container:  actionContainer,
 				Platform:   rc.Config.ContainerArchitecture,
 			})
 		} else {

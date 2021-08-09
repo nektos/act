@@ -39,6 +39,12 @@ To install with [Homebrew](https://brew.sh/), run:
 brew install act
 ```
 
+To install with [MacPorts](https://www.macports.org), run:
+
+```shell
+sudo port install act
+```
+
 Alternatively, you can use the following:
 
 ```shell

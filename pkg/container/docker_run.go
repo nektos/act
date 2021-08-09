@@ -66,6 +66,7 @@ type Container interface {
 	Create(capAdd []string, capDrop []string) common.Executor
 	Copy(destPath string, files ...*FileEntry) common.Executor
 	CopyDir(destPath string, srcPath string, useGitIgnore bool) common.Executor
+	GetContainerArchive(ctx context.Context, srcPath string) (io.ReadCloser, error)
 	Pull(forcePull bool) common.Executor
 	Start(attach bool) common.Executor
 	Exec(command []string, env map[string]string, user string) common.Executor
@@ -148,6 +149,11 @@ func (cr *containerReference) CopyDir(destPath string, srcPath string, useGitIgn
 		cr.Exec([]string{"mkdir", "-p", destPath}, nil, ""),
 		cr.copyDir(destPath, srcPath, useGitIgnore),
 	).IfNot(common.Dryrun)
+}
+
+func (cr *containerReference) GetContainerArchive(ctx context.Context, srcPath string) (io.ReadCloser, error) {
+	a, _, err := cr.cli.CopyFromContainer(ctx, cr.id, srcPath)
+	return a, err
 }
 
 func (cr *containerReference) UpdateFromEnv(srcPath string, env *map[string]string) common.Executor {
