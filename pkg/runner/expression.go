@@ -129,19 +129,49 @@ func (ee *expressionEvaluator) Rewrite(in string) string {
 			break
 		}
 		//nolint
-		switch {
-		default:
-			buf.WriteRune(c)
-		case c == '\'':
+		switch c {
+		case '"', '-', '+', '*', '/':
+			return "" //Syntax error
+		case '\'':
 			buf.WriteRune(c)
 			ee.advString(&buf, r)
-		case c == '.':
-			buf.WriteString("['")
-			ee.advPropertyName(&buf, r)
-			buf.WriteString("']")
+		case '.':
+			ee.rewriteProperties(&buf, r)
+		default:
+			buf.WriteRune(c)
 		}
 	}
 	return buf.String()
+}
+
+func (ee *expressionEvaluator) rewriteProperties(buf *strings.Builder, r *strings.Reader) {
+	c, _, err := r.ReadRune()
+	if err == io.EOF {
+		return
+	}
+	if c == '*' {
+		c, _, err := r.ReadRune()
+		if err == io.EOF {
+			return
+		} if c != '.' {
+			if c == '-' {
+				return // Syntax error
+			}
+			if err := r.UnreadRune(); err != nil {
+				return
+			}
+			return
+		}
+		buf.WriteString(".map(e => e")
+		ee.rewriteProperties(buf, r)
+		buf.WriteString(")")
+	} else if err := r.UnreadRune(); err != nil {
+		return
+	} else {
+		buf.WriteString("['")
+		ee.advPropertyName(buf, r)
+		buf.WriteString("']")
+	}
 }
 
 func (*expressionEvaluator) advString(w *strings.Builder, r *strings.Reader) error {
@@ -151,7 +181,7 @@ func (*expressionEvaluator) advString(w *strings.Builder, r *strings.Reader) err
 			return err
 		}
 		switch c {
-		case: '\''
+		case: '\'':
 			// Handles a escaped string: ex. 'It''s ok'
 			c, _, err = r.ReadRune()
 			if err != nil {
@@ -166,8 +196,22 @@ func (*expressionEvaluator) advString(w *strings.Builder, r *strings.Reader) err
 				break
 			}
 			w.WriteString(`\'`) //nolint
-		case: '\\'
+		case: '\\':
 			w.WriteString(`\\`) //nolint
+		case: '\0':
+			w.WriteString(`\0`) //nolint
+		case: '\f':
+			w.WriteString(`\f`) //nolint
+		case: '\r':
+			w.WriteString(`\r`) //nolint
+		case: '\n':
+			w.WriteString(`\n`) //nolint
+		case: '\t':
+			w.WriteString(`\t`) //nolint
+		case: '\v':
+			w.WriteString(`\v`) //nolint
+		case: '\b':
+			w.WriteString(`\b`) //nolint
 		default:
 			w.WriteRune(c) //nolint
 			continue
