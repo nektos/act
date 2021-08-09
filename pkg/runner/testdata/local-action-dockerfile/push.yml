@@ -9,3 +9,4 @@ jobs:
     - uses: ./actions/docker-local
       with:
         who-to-greet: 'Mona the Octocat'
+    - uses: ./localdockerimagetest_
