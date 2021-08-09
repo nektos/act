@@ -227,7 +227,7 @@ func (sc *StepContext) setupShellCommand() common.Executor {
 		run = runPrepend + "\n" + run + "\n" + runAppend
 
 		log.Debugf("Wrote command '%s' to '%s'", run, scriptName)
-		containerPath := fmt.Sprintf("%s/%s", rc.Config.ContainerWorkdir(), scriptName)
+		scriptPath := fmt.Sprintf("%s/%s", rc.Config.ContainerWorkdir(), scriptName)
 
 		if step.Shell == "" {
 			step.Shell = rc.Run.Job().Defaults.Run.Shell
@@ -245,8 +245,8 @@ func (sc *StepContext) setupShellCommand() common.Executor {
 		}
 
 		for k, v := range finalCMD {
-			if v == "{0}" {
-				finalCMD[k] = strings.Replace(v, "{0}", containerPath, 1)
+			if strings.Contains(v, `{0}`) {
+				finalCMD[k] = strings.Replace(v, `{0}`, scriptPath, 1)
 			}
 		}
 
