@@ -293,8 +293,15 @@ func (cr *containerReference) create(capAdd []string, capDrop []string) common.E
 		}
 		logger := common.Logger(ctx)
 		isTerminal := term.IsTerminal(int(os.Stdout.Fd()))
-
 		input := cr.input
+
+		insp, _, err := cr.cli.ImageInspectWithRaw(ctx, input.Image)
+		if err != nil {
+			logger.Error(err)
+		}
+
+		input.Env = mergeEnvFromImage(input.Env, insp.Config.Env)
+
 		config := &container.Config{
 			Image:      input.Image,
 			Cmd:        input.Cmd,
@@ -344,6 +351,39 @@ func (cr *containerReference) create(capAdd []string, capDrop []string) common.E
 		cr.id = resp.ID
 		return nil
 	}
+}
+
+func mergeEnvFromImage(inputEnv, imageEnv []string) []string {
+	envMap := make(map[string]string)
+	for _, v := range inputEnv {
+		e := strings.Split(v, `=`)
+		if e[1] == "" {
+			envMap[e[0]] = ""
+		} else {
+			envMap[e[0]] = e[1]
+		}
+	}
+
+	for _, v := range imageEnv {
+		e := strings.SplitN(v, `=`, 2)
+		if env, ok := envMap[e[0]]; !ok {
+			if e[1] != "" {
+				envMap[e[0]] = e[1]
+			}
+		} else {
+			if e[0] == "PATH" {
+				if e[1] != "" {
+					envMap[e[0]] = strings.Join([]string{env, e[1]}, `:`)
+				}
+			}
+		}
+	}
+
+	out := make([]string, 0)
+	for k, v := range envMap {
+		out = append(out, strings.Join([]string{k, v}, `=`))
+	}
+	return out
 }
 
 var singleLineEnvPattern, mulitiLineEnvPattern *regexp.Regexp
