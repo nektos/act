@@ -97,9 +97,14 @@ jobs:
           echo "DOCKER_HOST=$DOCKER_HOST" | tee -a $GITHUB_ENV
           echo "DOCKER_CERT_PATH=$DOCKER_CERT_PATH" | tee -a $GITHUB_ENV
           echo "DOCKER_MACHINE_NAME=$DOCKER_MACHINE_NAME" | tee -a $GITHUB_ENV
-          printf " 🛠️ Install Qemu for running containers with different architecture 🛠️ \n\n"
-          docker run --rm --privileged tonistiigi/binfmt --install all
           printf " 🛠️ Finished installing Docker 🛠️ \n\n"
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_PASS }}
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
       - run: go test -v -timeout 30m -cover ./...
         env:
           CGO_ENABLED: 0
