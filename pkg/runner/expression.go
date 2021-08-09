@@ -130,7 +130,7 @@ func (ee *expressionEvaluator) Rewrite(in string) string {
 		}
 		//nolint
 		switch c {
-		case '"', '-', '+', '*', '/':
+		case '"', '-', '+', '*', '/', '?', ':':
 			return "" //Syntax error
 		case '\'':
 			buf.WriteRune(c)
