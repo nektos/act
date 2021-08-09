@@ -1,0 +1,50 @@
+---
+jobs:
+  strategy-all:
+    name: ${{ matrix.node-version }} | ${{ matrix.site }} | ${{ matrix.datacenter }}
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo 'Hello!'
+    strategy:
+      fail-fast: false
+      matrix:
+        datacenter:
+          - site-c
+          - site-d
+        exclude:
+          - datacenter: site-d
+            node-version: 14.x
+            site: staging
+        include:
+          - php-version: 5.4
+          - datacenter: site-a
+            node-version: 10.x
+            site: prod
+          - datacenter: site-b
+            node-version: 12.x
+            site: dev
+        node-version: [14.x, 16.x]
+        site:
+          - staging
+      max-parallel: 2
+  strategy-no-matrix:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo 'Hello!'
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+  strategy-only-fail-fast:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo 'Hello!'
+    strategy:
+      fail-fast: false
+  strategy-only-max-parallel:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo 'Hello!'
+    strategy:
+      max-parallel: 2
+'on':
+  push: null

@@ -18,6 +18,9 @@ ifeq (true,$(HAS_TOKEN))
 	export GITHUB_TOKEN := $(shell cat ~/.config/github/token)
 endif
 
+.PHONY: pr
+pr: tidy format-all lint test
+
 .PHONY: build
 build:
 	go build -ldflags "-X main.version=$(VERSION)" -o dist/local/act main.go
@@ -25,6 +28,11 @@ build:
 .PHONY: format
 format:
 	go fmt ./...
+
+.PHONY: format-all
+format-all:
+	go fmt ./...
+	npx prettier --write .
 
 .PHONY: test
 test:
@@ -37,11 +45,11 @@ lint-go:
 
 .PHONY: lint-js
 lint-js:
-	standard $(FIX)
+	npx standard $(FIX)
 
 .PHONY: lint-md
 lint-md:
-	markdownlint . $(FIX)
+	npx markdownlint . $(FIX)
 
 .PHONY: lint-rest
 lint-rest:
@@ -66,6 +74,10 @@ lint-fix: lint-md lint-go
 .PHONY: fix
 fix:
 	make lint-fix fix=true
+
+.PHONY: tidy
+tidy:
+	go mod tidy
 
 .PHONY: install
 install: build

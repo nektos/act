@@ -17,12 +17,12 @@
 
 **Note: `catthehacker/ubuntu` images are based on Ubuntu root filesystem**
 
-| Image                                                       | Size                                                     | GitHub Repository                                             |
-| ----------------------------------------------------------- | -------------------------------------------------------- | ------------------------------------------------------------- |
-| [`catthehacker/ubuntu:act-latest`][hub/catthehacker/ubuntu] | ![`act-latest`][hub/catthehacker/ubuntu/act-latest/size] | [`catthehacker/docker-images`][gh/catthehacker/docker_images] |
-| [`catthehacker/ubuntu:act-20.04`][hub/catthehacker/ubuntu]  | ![`act-20.04`][hub/catthehacker/ubuntu/act-20.04/size]   | [`catthehacker/docker-images`][gh/catthehacker/docker_images] |
-| [`catthehacker/ubuntu:act-18.04`][hub/catthehacker/ubuntu]  | ![`act-18.04`][hub/catthehacker/ubuntu/act-18.04/size]   | [`catthehacker/docker-images`][gh/catthehacker/docker_images] |
-| [`catthehacker/ubuntu:act-16.04`][hub/catthehacker/ubuntu]  | ![`act-16.04`][hub/catthehacker/ubuntu/act-16.04/size]   | [`catthehacker/docker-images`][gh/catthehacker/docker_images] |
+| Image                                                                | GitHub Repository                                             |
+| -------------------------------------------------------------------- | ------------------------------------------------------------- |
+| [`ghcr.io/catthehacker/ubuntu:act-latest`][ghcr/catthehacker/ubuntu] | [`catthehacker/docker-images`][gh/catthehacker/docker_images] |
+| [`ghcr.io/catthehacker/ubuntu:act-20.04`][ghcr/catthehacker/ubuntu]  | [`catthehacker/docker-images`][gh/catthehacker/docker_images] |
+| [`ghcr.io/catthehacker/ubuntu:act-18.04`][ghcr/catthehacker/ubuntu]  | [`catthehacker/docker-images`][gh/catthehacker/docker_images] |
+| [`ghcr.io/catthehacker/ubuntu:act-16.04`][ghcr/catthehacker/ubuntu]  | [`catthehacker/docker-images`][gh/catthehacker/docker_images] |
 
 ## Images based on [`actions/virtual-environments`][gh/actions/virtual-environments]
 
@@ -34,15 +34,11 @@
 | [`nektos/act-environments-ubuntu:18.04-lite`][hub/nektos/act-environments-ubuntu] | ![`nektos:18.04-lite`][hub/nektos/act-environments-ubuntu/18.04-lite/size] | [`nektos/act-environments`][gh/nektos/act-environments] |
 | [`nektos/act-environments-ubuntu:18.04-full`][hub/nektos/act-environments-ubuntu] | ![`nektos:18.04-full`][hub/nektos/act-environments-ubuntu/18.04-full/size] | [`nektos/act-environments`][gh/nektos/act-environments] |
 
-| Image                                                       | Size                                                     | GitHub Repository                                             |
-| ----------------------------------------------------------- | -------------------------------------------------------- | ------------------------------------------------------------- |
-| [`catthehacker/ubuntu:full-20.04`][hub/catthehacker/ubuntu] | ![`full-20.04`][hub/catthehacker/ubuntu/full-20.04/size] | [`catthehacker/docker-images`][gh/catthehacker/docker_images] |
-
-## Other images
-
-| Image                                                | Size                                              | GitHub Repository                                             |
-| ---------------------------------------------------- | ------------------------------------------------- | ------------------------------------------------------------- |
-| [`catthehacker/alpine:act`][hub/catthehacker/alpine] | ![`alpine:act`][hub/catthehacker/alpine/act/size] | [`catthehacker/docker-images`][gh/catthehacker/docker_images] |
+| Image                                                                 | GitHub Repository                                                                     |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| [`ghcr.io/catthehacker/ubuntu:full-latest`][ghcr/catthehacker/ubuntu] | [`catthehacker/virtual-environments-fork`][gh/catthehacker/virtual-environments-fork] |
+| [`ghcr.io/catthehacker/ubuntu:full-20.04`][ghcr/catthehacker/ubuntu]  | [`catthehacker/virtual-environments-fork`][gh/catthehacker/virtual-environments-fork] |
+| [`ghcr.io/catthehacker/ubuntu:full-18.04`][ghcr/catthehacker/ubuntu]  | [`catthehacker/virtual-environments-fork`][gh/catthehacker/virtual-environments-fork] |
 
 Feel free to make a pull request with your image added here
 
@@ -52,21 +48,11 @@ Feel free to make a pull request with your image added here
 [hub/_/node/12-buster-slim/size]: https://img.shields.io/docker/image-size/_/node/12-buster-slim
 [hub/_/node/12-stretch/size]: https://img.shields.io/docker/image-size/_/node/12-stretch
 [hub/_/node/12-stretch-slim/size]: https://img.shields.io/docker/image-size/_/node/12-stretch-slim
-[hub/catthehacker/ubuntu]: https://hub.docker.com/r/catthehacker/ubuntu
-[hub/catthehacker/ubuntu/act-latest/size]: https://img.shields.io/docker/image-size/catthehacker/ubuntu/act-latest
-[hub/catthehacker/ubuntu/act-20.04/size]: https://img.shields.io/docker/image-size/catthehacker/ubuntu/act-20.04
-[hub/catthehacker/ubuntu/act-18.04/size]: https://img.shields.io/docker/image-size/catthehacker/ubuntu/act-18.04
-[hub/catthehacker/ubuntu/act-16.04/size]: https://img.shields.io/docker/image-size/catthehacker/ubuntu/act-16.04
-[hub/catthehacker/ubuntu/full-20.04/size]: https://img.shields.io/docker/image-size/catthehacker/ubuntu/full-20.04
+[ghcr/catthehacker/ubuntu]: https://github.com/catthehacker/docker_images/pkgs/container/ubuntu
 [hub/nektos/act-environments-ubuntu]: https://hub.docker.com/r/nektos/act-environments-ubuntu
 [hub/nektos/act-environments-ubuntu/18.04/size]: https://img.shields.io/docker/image-size/nektos/act-environments-ubuntu/18.04
 [hub/nektos/act-environments-ubuntu/18.04-lite/size]: https://img.shields.io/docker/image-size/nektos/act-environments-ubuntu/18.04-lite
 [hub/nektos/act-environments-ubuntu/18.04-full/size]: https://img.shields.io/docker/image-size/nektos/act-environments-ubuntu/18.04-full
-
-<!-- Other images links -->
-
-[hub/catthehacker/alpine]: https://hub.docker.com/r/catthehacker/alpine
-[hub/catthehacker/alpine/act/size]: https://img.shields.io/docker/image-size/catthehacker/alpine/act
 
 <!--
 [hub/<username>/<image>]: https://hub.docker.com/r/[username]/[image]
@@ -78,4 +64,4 @@ Feel free to make a pull request with your image added here
 [gh/nektos/act-environments]: https://github.com/nektos/act-environments
 [gh/actions/virtual-environments]: https://github.com/actions/virtual-environments
 [gh/catthehacker/docker_images]: https://github.com/catthehacker/docker_images
-[gh/catthehacker/virtual-environments]: https://github.com/catthehacker/virtual-environments
+[gh/catthehacker/virtual-environments-fork]: https://github.com/catthehacker/virtual-environments-fork

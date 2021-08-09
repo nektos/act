@@ -9,9 +9,17 @@ import (
 
 	"github.com/nektos/act/pkg/model"
 	assert "github.com/stretchr/testify/assert"
+	yaml "gopkg.in/yaml.v3"
 )
 
 func TestEvaluate(t *testing.T) {
+	var yml yaml.Node
+	err := yml.Encode(map[string][]interface{}{
+		"os":  {"Linux", "Windows"},
+		"foo": {"bar", "baz"},
+	})
+	assert.NoError(t, err)
+
 	rc := &RunContext{
 		Config: &Config{
 			Workdir: ".",
@@ -29,10 +37,7 @@ func TestEvaluate(t *testing.T) {
 				Jobs: map[string]*model.Job{
 					"job1": {
 						Strategy: &model.Strategy{
-							Matrix: map[string][]interface{}{
-								"os":  {"Linux", "Windows"},
-								"foo": {"bar", "baz"},
-							},
+							RawMatrix: yml,
 						},
 					},
 				},
@@ -110,6 +115,14 @@ func TestEvaluate(t *testing.T) {
 		{"env.key", "value", ""},
 		{"secrets.CASE_INSENSITIVE_SECRET", "value", ""},
 		{"secrets.case_insensitive_secret", "value", ""},
+		{"format('{{0}}', 'test')", "{0}", ""},
+		{"format('{{{0}}}', 'test')", "{test}", ""},
+		{"format('}}')", "}", ""},
+		{"format('echo Hello {0} ${{Test}}', 'World')", "echo Hello World ${Test}", ""},
+		{"format('echo Hello {0} ${{Test}}', github.undefined_property)", "echo Hello  ${Test}", ""},
+		{"format('echo Hello {0}{1} ${{Te{0}st}}', github.undefined_property, 'World')", "echo Hello World ${Test}", ""},
+		{"format('{0}', '{1}', 'World')", "{1}", ""},
+		{"format('{{{0}', '{1}', 'World')", "{{1}", ""},
 	}
 
 	for _, table := range tables {
