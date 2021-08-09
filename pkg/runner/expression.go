@@ -150,25 +150,28 @@ func (*expressionEvaluator) advString(w *strings.Builder, r *strings.Reader) err
 		if err != nil {
 			return err
 		}
-		if c != '\'' {
+		switch c {
+		case: '\''
+			// Handles a escaped string: ex. 'It''s ok'
+			c, _, err = r.ReadRune()
+			if err != nil {
+				w.WriteString("'") //nolint
+				return err
+			}
+			if c != '\'' {
+				w.WriteString("'") //nolint
+				if err := r.UnreadRune(); err != nil {
+					return err
+				}
+				break
+			}
+			w.WriteString(`\'`) //nolint
+		case: '\\'
+			w.WriteString(`\\`) //nolint
+		default:
 			w.WriteRune(c) //nolint
 			continue
 		}
-
-		// Handles a escaped string: ex. 'It''s ok'
-		c, _, err = r.ReadRune()
-		if err != nil {
-			w.WriteString("'") //nolint
-			return err
-		}
-		if c != '\'' {
-			w.WriteString("'") //nolint
-			if err := r.UnreadRune(); err != nil {
-				return err
-			}
-			break
-		}
-		w.WriteString(`\'`) //nolint
 	}
 	return nil
 }
