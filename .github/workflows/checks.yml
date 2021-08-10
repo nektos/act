@@ -1,5 +1,5 @@
 name: checks
-on: [pull_request, workflow_dispatch]
+on: pull_request_target
 
 jobs:
   lint:
