@@ -1,15 +1,24 @@
-name: workdir
 on: push
+
+defaults:
+  run:
+    working-directory: /tmp
 
 jobs:
   workdir:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: /root
     steps:
-    - run: mkdir -p "${GITHUB_WORKSPACE}/workdir"
-    - run: '[[ "$(pwd)" == "${GITHUB_WORKSPACE}/workdir" ]]'
-      working-directory: workdir
+      - run: '[[ "$(pwd)" == "/root" ]]'
 
-  noworkdir:
+      - run: mkdir -p "${GITHUB_WORKSPACE}/workdir"
+
+      - run: '[[ "$(pwd)" == "${GITHUB_WORKSPACE}/workdir" ]]'
+        working-directory: workdir
+
+  top-level-workdir:
     runs-on: ubuntu-latest
     steps:
-      - run: '[[ "$(pwd)" == "${GITHUB_WORKSPACE}" ]]'
+      - run: '[[ "$(pwd)" == "/tmp" ]]'
