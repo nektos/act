@@ -1,5 +1,7 @@
 name: checks
-on: pull_request_target
+on:
+  pull_request_target:
+    types: [edited, opened, synchronize, reopened, ready_for_review]
 
 jobs:
   lint:
