@@ -79,6 +79,7 @@ func (rc *RunContext) GetBindsAndMounts() ([]string, map[string]string) {
 
 	mounts := map[string]string{
 		"act-toolcache": "/toolcache",
+		name + "-env":   ActPath,
 	}
 
 	if rc.Config.BindWorkdir {
