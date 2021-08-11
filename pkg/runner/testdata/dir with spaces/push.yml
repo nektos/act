@@ -1,0 +1,7 @@
+---
+jobs:
+  dir-with-spaces:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "$PWD"
+'on': push

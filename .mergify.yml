@@ -4,7 +4,7 @@ pull_request_rules:
       - conflict
     actions:
       comment:
-        message: "@{{author}} this pull request is now in conflict 😩"
+        message: '@{{author}} this pull request is now in conflict 😩'
       label:
         add:
           - conflict
@@ -17,10 +17,10 @@ pull_request_rules:
           - conflict
   - name: warn on needs-work
     conditions:
-      - "#check-failure>=1"
+      - '#check-failure>=1'
     actions:
       comment:
-        message: "@{{author}} this pull request has failed checks 🛠"
+        message: '@{{author}} this pull request has failed checks 🛠'
       label:
         add:
           - needs-work
@@ -38,7 +38,7 @@ pull_request_rules:
           - needs-work
   - name: Automatic maintainer assignment
     conditions:
-      - "-approved-reviews-by=@nektos/act-maintainers"
+      - '-approved-reviews-by=@nektos/act-maintainers'
       - -draft
       - -merged
       - -closed
@@ -51,12 +51,12 @@ pull_request_rules:
       - check-success=snapshot
     actions:
       request_reviews:
-        teams: 
-        - "@nektos/act-maintainers"
+        teams:
+          - '@nektos/act-maintainers'
   - name: Automatic committer assignment
     conditions:
-      - "approved-reviews-by=@nektos/act-maintainers"
-      - "-approved-reviews-by=@nektos/act-committers"
+      - 'approved-reviews-by=@nektos/act-maintainers'
+      - '-approved-reviews-by=@nektos/act-committers'
       - -draft
       - -merged
       - -closed
@@ -69,12 +69,12 @@ pull_request_rules:
       - check-success=snapshot
     actions:
       request_reviews:
-        teams: 
-        - "@nektos/act-committers"
+        teams:
+          - '@nektos/act-committers'
   - name: Automatic merge on approval
     conditions:
-      - "#changes-requested-reviews-by=0"
-      - "approved-reviews-by=@nektos/act-committers"
+      - '#changes-requested-reviews-by=0'
+      - 'approved-reviews-by=@nektos/act-committers'
       - -draft
       - -merged
       - -closed

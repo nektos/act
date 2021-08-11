@@ -27,5 +27,4 @@ dist/local/act
 coverage.txt
 
 .env
-#Store your GITHUB_TOKEN secret here for purposes of local testing of actions/checkout and others
 .secrets

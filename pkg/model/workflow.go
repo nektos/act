@@ -5,6 +5,7 @@ import (
 	"io"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/nektos/act/pkg/common"
@@ -58,7 +59,7 @@ type Job struct {
 	Name           string                    `yaml:"name"`
 	RawNeeds       yaml.Node                 `yaml:"needs"`
 	RawRunsOn      yaml.Node                 `yaml:"runs-on"`
-	Env            interface{}               `yaml:"env"`
+	Env            yaml.Node                 `yaml:"env"`
 	If             yaml.Node                 `yaml:"if"`
 	Steps          []*Step                   `yaml:"steps"`
 	TimeoutMinutes int64                     `yaml:"timeout-minutes"`
@@ -71,9 +72,11 @@ type Job struct {
 
 // Strategy for the job
 type Strategy struct {
-	FailFast    bool        `yaml:"fail-fast"`
-	MaxParallel int         `yaml:"max-parallel"`
-	Matrix      interface{} `yaml:"matrix"`
+	FailFast          bool
+	MaxParallel       int
+	FailFastString    string    `yaml:"fail-fast"`
+	MaxParallelString string    `yaml:"max-parallel"`
+	RawMatrix         yaml.Node `yaml:"matrix"`
 }
 
 // Default settings that will apply to all steps in the job or workflow
@@ -85,6 +88,37 @@ type Defaults struct {
 type RunDefaults struct {
 	Shell            string `yaml:"shell"`
 	WorkingDirectory string `yaml:"working-directory"`
+}
+
+// GetMaxParallel sets default and returns value for `max-parallel`
+func (s Strategy) GetMaxParallel() int {
+	// MaxParallel default value is `GitHub will maximize the number of jobs run in parallel depending on the available runners on GitHub-hosted virtual machines`
+	// So I take the liberty to hardcode default limit to 4 and this is because:
+	// 1: tl;dr: self-hosted does only 1 parallel job - https://github.com/actions/runner/issues/639#issuecomment-825212735
+	// 2: GH has 20 parallel job limit (for free tier) - https://github.com/github/docs/blob/3ae84420bd10997bb5f35f629ebb7160fe776eae/content/actions/reference/usage-limits-billing-and-administration.md?plain=1#L45
+	// 3: I want to add support for MaxParallel to act and 20! parallel jobs is a bit overkill IMHO
+	maxParallel := 4
+	if s.MaxParallelString != "" {
+		var err error
+		if maxParallel, err = strconv.Atoi(s.MaxParallelString); err != nil {
+			log.Errorf("Failed to parse 'max-parallel' option: %v", err)
+		}
+	}
+	return maxParallel
+}
+
+// GetFailFast sets default and returns value for `fail-fast`
+func (s Strategy) GetFailFast() bool {
+	// FailFast option is true by default: https://github.com/github/docs/blob/3ae84420bd10997bb5f35f629ebb7160fe776eae/content/actions/reference/workflow-syntax-for-github-actions.md?plain=1#L1107
+	failFast := true
+	log.Debug(s.FailFastString)
+	if s.FailFastString != "" {
+		var err error
+		if failFast, err = strconv.ParseBool(s.FailFastString); err != nil {
+			log.Errorf("Failed to parse 'fail-fast' option: %v", err)
+		}
+	}
+	return failFast
 }
 
 // Container details for the job
@@ -149,89 +183,99 @@ func (j *Job) RunsOn() []string {
 	return nil
 }
 
-func environment(e interface{}) map[string]string {
+func environment(yml yaml.Node) map[string]string {
 	env := make(map[string]string)
-	switch t := e.(type) {
-	case map[string]interface{}:
-		for k, v := range t {
-			switch t := v.(type) {
-			case string:
-				env[k] = t
-			case interface{}:
-				env[k] = ""
-			}
-		}
-	case map[string]string:
-		for k, v := range e.(map[string]string) {
-			env[k] = v
+	if yml.Kind == yaml.MappingNode {
+		if err := yml.Decode(&env); err != nil {
+			log.Fatal(err)
 		}
 	}
 	return env
 }
 
+// Environments returns string-based key=value map for a job
 func (j *Job) Environment() map[string]string {
 	return environment(j.Env)
 }
 
+// Matrix decodes RawMatrix YAML node
 func (j *Job) Matrix() map[string][]interface{} {
-	a := reflect.ValueOf(j.Strategy.Matrix)
-	if a.Type().Kind() == reflect.Map {
-		output := make(map[string][]interface{})
-		for _, e := range a.MapKeys() {
-			v := a.MapIndex(e)
-			switch t := v.Interface().(type) {
-			case []interface{}:
-				output[e.String()] = t
-			case interface{}:
-				var in []interface{}
-				in = append(in, t)
-				output[e.String()] = in
-			}
+	if j.Strategy.RawMatrix.Kind == yaml.MappingNode {
+		var val map[string][]interface{}
+		if err := j.Strategy.RawMatrix.Decode(&val); err != nil {
+			log.Fatal(err)
 		}
-		return output
+		return val
 	}
 	return nil
 }
 
 // GetMatrixes returns the matrix cross product
+// It skips includes and hard fails excludes for non-existing keys
+// nolint:gocyclo
 func (j *Job) GetMatrixes() []map[string]interface{} {
 	matrixes := make([]map[string]interface{}, 0)
 	if j.Strategy != nil {
-		m := j.Matrix()
-		includes := make([]map[string]interface{}, 0)
-		for _, v := range m["include"] {
-			switch t := v.(type) {
-			case []interface{}:
-				for _, i := range t {
-					includes = append(includes, i.(map[string]interface{}))
-				}
-			case interface{}:
-				includes = append(includes, v.(map[string]interface{}))
-			}
-		}
-		delete(m, "include")
+		j.Strategy.FailFast = j.Strategy.GetFailFast()
+		j.Strategy.MaxParallel = j.Strategy.GetMaxParallel()
 
-		excludes := make([]map[string]interface{}, 0)
-		for _, v := range m["exclude"] {
-			excludes = append(excludes, v.(map[string]interface{}))
-		}
-		delete(m, "exclude")
-
-		matrixProduct := common.CartesianProduct(m)
-
-	MATRIX:
-		for _, matrix := range matrixProduct {
-			for _, exclude := range excludes {
-				if commonKeysMatch(matrix, exclude) {
-					log.Debugf("Skipping matrix '%v' due to exclude '%v'", matrix, exclude)
-					continue MATRIX
+		if m := j.Matrix(); m != nil {
+			includes := make([]map[string]interface{}, 0)
+			for _, v := range m["include"] {
+				switch t := v.(type) {
+				case []interface{}:
+					for _, i := range t {
+						i := i.(map[string]interface{})
+						for k := range i {
+							if _, ok := m[k]; ok {
+								includes = append(includes, i)
+								break
+							}
+						}
+					}
+				case interface{}:
+					v := v.(map[string]interface{})
+					for k := range v {
+						if _, ok := m[k]; ok {
+							includes = append(includes, v)
+							break
+						}
+					}
 				}
 			}
-			matrixes = append(matrixes, matrix)
-		}
-		for _, include := range includes {
-			log.Debugf("Adding include '%v'", include)
-			matrixes = append(matrixes, include)
+			delete(m, "include")
+
+			excludes := make([]map[string]interface{}, 0)
+			for _, e := range m["exclude"] {
+				e := e.(map[string]interface{})
+				for k := range e {
+					if _, ok := m[k]; ok {
+						excludes = append(excludes, e)
+					} else {
+						// We fail completely here because that's what GitHub does for non-existing matrix keys, fail on exclude, silent skip on include
+						log.Fatalf("The workflow is not valid. Matrix exclude key '%s' does not match any key within the matrix", k)
+					}
+				}
+			}
+			delete(m, "exclude")
+
+			matrixProduct := common.CartesianProduct(m)
+		MATRIX:
+			for _, matrix := range matrixProduct {
+				for _, exclude := range excludes {
+					if commonKeysMatch(matrix, exclude) {
+						log.Debugf("Skipping matrix '%v' due to exclude '%v'", matrix, exclude)
+						continue MATRIX
+					}
+				}
+				matrixes = append(matrixes, matrix)
+			}
+			for _, include := range includes {
+				log.Debugf("Adding include '%v'", include)
+				matrixes = append(matrixes, include)
+			}
+		} else {
+			matrixes = append(matrixes, make(map[string]interface{}))
 		}
 	} else {
 		matrixes = append(matrixes, make(map[string]interface{}))
@@ -270,7 +314,7 @@ type Step struct {
 	Run              string            `yaml:"run"`
 	WorkingDirectory string            `yaml:"working-directory"`
 	Shell            string            `yaml:"shell"`
-	Env              interface{}       `yaml:"env"`
+	Env              yaml.Node         `yaml:"env"`
 	With             map[string]string `yaml:"with"`
 	ContinueOnError  bool              `yaml:"continue-on-error"`
 	TimeoutMinutes   int64             `yaml:"timeout-minutes"`
@@ -288,6 +332,7 @@ func (s *Step) String() string {
 	return s.ID
 }
 
+// Environments returns string-based key=value map for a step
 func (s *Step) Environment() map[string]string {
 	return environment(s.Env)
 }

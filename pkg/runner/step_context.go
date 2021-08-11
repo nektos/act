@@ -37,7 +37,7 @@ type StepContext struct {
 
 func (sc *StepContext) execJobContainer() common.Executor {
 	return func(ctx context.Context) error {
-		return sc.RunContext.execJobContainer(sc.Cmd, sc.Env)(ctx)
+		return sc.RunContext.execJobContainer(sc.Cmd, sc.Env, "", sc.Step.WorkingDirectory)(ctx)
 	}
 }
 
@@ -195,12 +195,6 @@ func (sc *StepContext) setupShellCommand() common.Executor {
 			step.WorkingDirectory = rc.Run.Workflow.Defaults.Run.WorkingDirectory
 		}
 		step.WorkingDirectory = rc.ExprEval.Interpolate(step.WorkingDirectory)
-		if step.WorkingDirectory != "" {
-			_, err = script.WriteString(fmt.Sprintf("cd %s\n", step.WorkingDirectory))
-			if err != nil {
-				return err
-			}
-		}
 
 		run := rc.ExprEval.Interpolate(step.Run)
 		step.Shell = rc.ExprEval.Interpolate(step.Shell)
@@ -233,7 +227,7 @@ func (sc *StepContext) setupShellCommand() common.Executor {
 		run = runPrepend + "\n" + run + "\n" + runAppend
 
 		log.Debugf("Wrote command '%s' to '%s'", run, scriptName)
-		containerPath := fmt.Sprintf("%s/%s", rc.Config.ContainerWorkdir(), scriptName)
+		scriptPath := fmt.Sprintf("%s/%s", rc.Config.ContainerWorkdir(), scriptName)
 
 		if step.Shell == "" {
 			step.Shell = rc.Run.Job().Defaults.Run.Shell
@@ -242,12 +236,21 @@ func (sc *StepContext) setupShellCommand() common.Executor {
 			step.Shell = rc.Run.Workflow.Defaults.Run.Shell
 		}
 		scCmd := step.ShellCommand()
-		scResolvedCmd := strings.Replace(scCmd, "{0}", containerPath, 1)
+
+		var finalCMD []string
 		if step.Shell == "pwsh" || step.Shell == "powershell" {
-			sc.Cmd = strings.SplitN(scResolvedCmd, " ", 3)
+			finalCMD = strings.SplitN(scCmd, " ", 3)
 		} else {
-			sc.Cmd = strings.Fields(scResolvedCmd)
+			finalCMD = strings.Fields(scCmd)
 		}
+
+		for k, v := range finalCMD {
+			if strings.Contains(v, `{0}`) {
+				finalCMD[k] = strings.Replace(v, `{0}`, scriptPath, 1)
+			}
+		}
+
+		sc.Cmd = finalCMD
 
 		return rc.JobContainer.Copy(rc.Config.ContainerWorkdir(), &container.FileEntry{
 			Name: scriptName,
@@ -307,6 +310,7 @@ func (sc *StepContext) newStepContainer(ctx context.Context, image string, cmd [
 	})
 	return stepContainer
 }
+
 func (sc *StepContext) runUsesContainer() common.Executor {
 	rc := sc.RunContext
 	step := sc.Step
@@ -463,29 +467,35 @@ func (sc *StepContext) runAction(actionDir string, actionPath string, localActio
 
 		sc.Env = mergeMaps(sc.Env, action.Runs.Env)
 
-		log.Debugf("type=%v actionDir=%s actionPath=%s Workdir=%s ActionCacheDir=%s actionName=%s containerActionDir=%s", step.Type(), actionDir, actionPath, rc.Config.Workdir, rc.ActionCacheDir(), actionName, containerActionDir)
+		log.Debugf("type=%v actionDir=%s actionPath=%s workdir=%s actionCacheDir=%s actionName=%s containerActionDir=%s", step.Type(), actionDir, actionPath, rc.Config.Workdir, rc.ActionCacheDir(), actionName, containerActionDir)
 
 		maybeCopyToActionDir := func() error {
 			sc.Env["GITHUB_ACTION_PATH"] = containerActionDir
 			if step.Type() != model.StepTypeUsesActionRemote {
 				return nil
 			}
-			err := removeGitIgnore(actionDir)
-			if err != nil {
+			if err := removeGitIgnore(actionDir); err != nil {
 				return err
 			}
-			return rc.JobContainer.CopyDir(containerActionDir+"/", actionLocation+"/", rc.Config.UseGitIgnore)(ctx)
+
+			var containerActionDirCopy string
+			containerActionDirCopy = strings.TrimSuffix(containerActionDir, actionPath)
+			log.Debug(containerActionDirCopy)
+
+			if !strings.HasSuffix(containerActionDirCopy, `/`) {
+				containerActionDirCopy += `/`
+			}
+			return rc.JobContainer.CopyDir(containerActionDirCopy, actionDir+"/", rc.Config.UseGitIgnore)(ctx)
 		}
 
 		switch action.Runs.Using {
 		case model.ActionRunsUsingNode12:
-			err := maybeCopyToActionDir()
-			if err != nil {
+			if err := maybeCopyToActionDir(); err != nil {
 				return err
 			}
 			containerArgs := []string{"node", path.Join(containerActionDir, action.Runs.Main)}
 			log.Debugf("executing remote job container: %s", containerArgs)
-			return rc.execJobContainer(containerArgs, sc.Env)(ctx)
+			return rc.execJobContainer(containerArgs, sc.Env, "", "")(ctx)
 		case model.ActionRunsUsingDocker:
 			return sc.execAsDocker(ctx, action, actionName, containerActionDir, actionLocation, rc, step, localAction)
 		case model.ActionRunsUsingComposite:
@@ -506,7 +516,8 @@ func (sc *StepContext) execAsDocker(ctx context.Context, action *model.Action, a
 	if strings.HasPrefix(action.Runs.Image, "docker://") {
 		image = strings.TrimPrefix(action.Runs.Image, "docker://")
 	} else {
-		image = fmt.Sprintf("%s:%s", regexp.MustCompile("[^a-zA-Z0-9]").ReplaceAllString(actionName, "-"), "latest")
+		// "-dockeraction" enshures that "./", "./test " won't get converted to "act-:latest", "act-test-:latest" which are invalid docker image names
+		image = fmt.Sprintf("%s-dockeraction:%s", regexp.MustCompile("[^a-zA-Z0-9]").ReplaceAllString(actionName, "-"), "latest")
 		image = fmt.Sprintf("act-%s", strings.TrimLeft(image, "-"))
 		image = strings.ToLower(image)
 		basedir := actionLocation

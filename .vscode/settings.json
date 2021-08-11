@@ -1,6 +1,13 @@
 {
-    "go.lintTool": "golangci-lint",
-    "go.lintFlags": [
-        "--fix"
-    ]
+  "go.lintTool": "golangci-lint",
+  "go.lintFlags": ["--fix"],
+  "[json]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[markdown]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[yaml]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  }
 }
