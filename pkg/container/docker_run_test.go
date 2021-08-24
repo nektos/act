@@ -1,6 +1,7 @@
 package container
 
 import (
+	"sort"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -19,11 +20,15 @@ func TestMergeEnvFromImage(t *testing.T) {
 	}
 
 	merged := mergeEnvFromImage(inputEnv, imageEnv)
+	sort.Strings(merged)
 
-	assert.Equal(t, []string{
+	expected := []string{
 		"PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/sbin:/root/go/bin",
 		"GOPATH=/root/go",
 		"GOOS=linux",
 		"GOARCH=amd64",
-	}, merged)
+	}
+	sort.Strings(expected)
+
+	assert.Equal(t, expected, merged)
 }
