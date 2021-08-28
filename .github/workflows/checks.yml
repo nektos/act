@@ -169,6 +169,12 @@ jobs:
         with:
           name: act-windows-i386
           path: dist/act_windows_386/act.exe
+      - name: Capture arm64 (64-bit) Windows binary
+        if: ${{ !env.ACT }}
+        uses: actions/upload-artifact@v2
+        with:
+          name: act-windows-arm64
+          path: dist/act_windows_arm64/act.exe
       - name: Capture armv7 (32-bit) Windows binary
         if: ${{ !env.ACT }}
         uses: actions/upload-artifact@v2
