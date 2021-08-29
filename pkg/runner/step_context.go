@@ -197,12 +197,21 @@ func (sc *StepContext) setupShellCommand() common.Executor {
 		step.WorkingDirectory = rc.ExprEval.Interpolate(step.WorkingDirectory)
 
 		run := rc.ExprEval.Interpolate(step.Run)
-		step.Shell = rc.ExprEval.Interpolate(step.Shell)
 
 		if _, err = script.WriteString(run); err != nil {
 			return err
 		}
-		scriptName := fmt.Sprintf("workflow/%s", step.ID)
+		var scriptName string
+
+		if rc.Parent != nil {
+			scriptName = step.ID
+			for rcs := rc; rcs.Parent != nil; rcs = rcs.Parent {
+				scriptName = fmt.Sprintf("%s-composite-%s", rcs.Parent.CurrentStep, scriptName)
+			}
+			scriptName = fmt.Sprintf("workflow/%s", scriptName)
+		} else {
+			scriptName = fmt.Sprintf("workflow/%s", step.ID)
+		}
 
 		// Reference: https://github.com/actions/runner/blob/8109c962f09d9acc473d92c595ff43afceddb347/src/Runner.Worker/Handlers/ScriptHandlerHelpers.cs#L47-L64
 		// Reference: https://github.com/actions/runner/blob/8109c962f09d9acc473d92c595ff43afceddb347/src/Runner.Worker/Handlers/ScriptHandlerHelpers.cs#L19-L27
@@ -592,74 +601,47 @@ func (sc *StepContext) execAsComposite(ctx context.Context, step *model.Step, _ 
 	if err != nil {
 		return err
 	}
-	for outputName, output := range action.Outputs {
-		re := regexp.MustCompile(`\${{ steps\.([a-zA-Z_][a-zA-Z0-9_-]+)\.outputs\.([a-zA-Z_][a-zA-Z0-9_-]+) }}`)
-		matches := re.FindStringSubmatch(output.Value)
-		if len(matches) > 2 {
-			if sc.RunContext.OutputMappings == nil {
-				sc.RunContext.OutputMappings = make(map[MappableOutput]MappableOutput)
-			}
-
-			k := MappableOutput{StepID: matches[1], OutputName: matches[2]}
-			v := MappableOutput{StepID: step.ID, OutputName: outputName}
-			sc.RunContext.OutputMappings[k] = v
-		}
-	}
-
-	executors := make([]common.Executor, 0, len(action.Runs.Steps))
-	stepID := 0
+	// Disable some features of composite actions, only for feature parity with github
 	for _, compositeStep := range action.Runs.Steps {
-		stepClone := compositeStep
-		// Take a copy of the run context structure (rc is a pointer)
-		// Then take the address of the new structure
-		rcCloneStr := *rc
-		rcClone := &rcCloneStr
-		if stepClone.ID == "" {
-			stepClone.ID = fmt.Sprintf("composite-%d", stepID)
-			stepID++
-		}
-		rcClone.CurrentStep = stepClone.ID
-
-		if err := compositeStep.Validate(); err != nil {
+		if err := compositeStep.Validate(rc.Config.CompositeRestrictions); err != nil {
 			return err
 		}
-
-		// Setup the outputs for the composite steps
-		if _, ok := rcClone.StepResults[stepClone.ID]; !ok {
-			rcClone.StepResults[stepClone.ID] = &stepResult{
-				Success: true,
-				Outputs: make(map[string]string),
-			}
-		}
-
-		env := stepClone.Environment()
-		stepContext := StepContext{
-			RunContext: rcClone,
-			Step:       step,
-			Env:        mergeMaps(sc.Env, env),
-			Action:     action,
-		}
-
-		// Required to set github.action_path
-		if rcClone.Config.Env == nil {
-			// Workaround to get test working
-			rcClone.Config.Env = make(map[string]string)
-		}
-		rcClone.Config.Env["GITHUB_ACTION_PATH"] = sc.Env["GITHUB_ACTION_PATH"]
-		ev := stepContext.NewExpressionEvaluator()
-		// Required to interpolate inputs and github.action_path into the env map
-		stepContext.interpolateEnv(ev)
-		// Required to interpolate inputs, env and github.action_path into run steps
-		ev = stepContext.NewExpressionEvaluator()
-		stepClone.Run = ev.Interpolate(stepClone.Run)
-		stepClone.Shell = ev.Interpolate(stepClone.Shell)
-		stepClone.WorkingDirectory = ev.Interpolate(stepClone.WorkingDirectory)
-
-		stepContext.Step = &stepClone
-
-		executors = append(executors, stepContext.Executor())
 	}
-	return common.NewPipelineExecutor(executors...)(ctx)
+	backup := *rc
+	defer func() { *rc = backup }()
+	compositerc := rc
+	compositerc.ActionPath = containerActionDir
+	compositerc.ActionRef = ""
+	compositerc.ActionRepository = ""
+	compositerc.Composite = action
+	compositerc.Env = mergeMaps(compositerc.Env, step.Environment())
+	inputs := make(map[string]string)
+	eval := sc.RunContext.NewExpressionEvaluator()
+	// Set Defaults
+	for k, input := range action.Inputs {
+		inputs[k] = eval.Interpolate(input.Default)
+	}
+	if step.With != nil {
+		for k, v := range step.With {
+			inputs[k] = eval.Interpolate(v)
+		}
+	}
+	compositerc.Inputs = inputs
+	compositerc.ExprEval = compositerc.NewExpressionEvaluator()
+	err = compositerc.CompositeExecutor()(ctx)
+	if err != nil {
+		return err
+	}
+
+	eval = (&StepContext{
+		RunContext: compositerc,
+	}).NewExpressionEvaluator()
+	for outputName, output := range action.Outputs {
+		backup.setOutput(ctx, map[string]string{
+			"name": outputName,
+		}, eval.Interpolate(output.Value))
+	}
+	return nil
 }
 
 func (sc *StepContext) populateEnvsFromInput(action *model.Action, rc *RunContext) {

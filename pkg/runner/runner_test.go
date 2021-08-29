@@ -115,6 +115,7 @@ func TestRunEvent(t *testing.T) {
 		{"testdata", "workdir", "push", "", platforms, ""},
 		{"testdata", "defaults-run", "push", "", platforms, ""},
 		{"testdata", "uses-composite", "push", "", platforms, ""},
+		{"testdata", "uses-nested-composite", "push", "", platforms, ""},
 		{"testdata", "issue-597", "push", "", platforms, ""},
 		{"testdata", "issue-598", "push", "", platforms, ""},
 		{"testdata", "env-and-path", "push", "", platforms, ""},

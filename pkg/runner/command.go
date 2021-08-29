@@ -84,7 +84,7 @@ func (rc *RunContext) setOutput(ctx context.Context, kvPairs map[string]string, 
 		outputName = outputMapping.OutputName
 	}
 
-	result, ok := rc.StepResults[stepID]
+	result, ok := (*rc.getStepsContext())[stepID]
 	if !ok {
 		common.Logger(ctx).Infof("  \U00002757  no outputs used step '%s'", stepID)
 		return

@@ -1,0 +1,11 @@
+name: uses-docker-url
+on: push
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: ./uses-nested-composite/composite_action2
+      with:
+        test_input_optional: Test
