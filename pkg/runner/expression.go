@@ -4,12 +4,14 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/robertkrimen/otto"
 	log "github.com/sirupsen/logrus"
@@ -51,7 +53,7 @@ type ExpressionEvaluator interface {
 	Evaluate(string) (string, bool, error)
 	Interpolate(string) string
 	InterpolateWithStringCheck(string) (string, bool)
-	Rewrite(string) string
+	Rewrite(string) (string, error)
 }
 
 type expressionEvaluator struct {
@@ -59,10 +61,10 @@ type expressionEvaluator struct {
 }
 
 func (ee *expressionEvaluator) Evaluate(in string) (string, bool, error) {
-	if strings.HasPrefix(in, `secrets.`) {
-		in = `secrets.` + strings.ToUpper(strings.SplitN(in, `.`, 2)[1])
+	re, err := ee.Rewrite(in)
+	if err != nil {
+		return "", false, err
 	}
-	re := ee.Rewrite(in)
 	if re != in {
 		log.Debugf("Evaluating '%s' instead of '%s'", re, in)
 	}
@@ -120,58 +122,110 @@ func (ee *expressionEvaluator) InterpolateWithStringCheck(in string) (string, bo
 
 // Rewrite tries to transform any javascript property accessor into its bracket notation.
 // For instance, "object.property" would become "object['property']".
-func (ee *expressionEvaluator) Rewrite(in string) string {
+func (ee *expressionEvaluator) Rewrite(in string) (string, error) {
 	var buf strings.Builder
 	r := strings.NewReader(in)
+	secrets := "secrets."
+	i := 0
 	for {
 		c, _, err := r.ReadRune()
 		if err == io.EOF {
 			break
 		}
-		//nolint
+		if c == rune(secrets[i]) {
+			i++
+		} else {
+			i = 0
+		}
 		switch c {
-		case '"', '-', '+', '*', '/', '?', ':':
-			return "" //Syntax error
+		case '"', '*', '+', '/', '?', ':':
+			return "", errors.New("Syntax Error")
 		case '\'':
-			buf.WriteRune(c)
-			ee.advString(&buf, r)
+			if _, err := buf.WriteRune(c); err != nil {
+				return "", err
+			}
+			if err := ee.advString(&buf, r); err != nil {
+				return "", err
+			}
 		case '.':
-			ee.rewriteProperties(&buf, r)
+			if err := ee.rewriteProperties(&buf, r, i == len(secrets)); err != nil {
+				return "", err
+			}
 		default:
-			buf.WriteRune(c)
+			if c == '-' || (c >= '0' && c <= '9') {
+				if err := ee.validateNumber(&buf, r); err != nil {
+					return "", err
+				}
+			} else if _, err := buf.WriteRune(c); err != nil {
+				return "", err
+			}
 		}
 	}
-	return buf.String()
+	return buf.String(), nil
 }
 
-func (ee *expressionEvaluator) rewriteProperties(buf *strings.Builder, r *strings.Reader) {
+func (ee *expressionEvaluator) validateNumber(buf *strings.Builder, r *strings.Reader) error {
+	if err := r.UnreadRune(); err != nil {
+		return err
+	}
+	cur, _ := r.Seek(0, io.SeekCurrent)
+	expr := regexp.MustCompile(`^(0x[0-9a-fA-F]+|-?[0-9]+.?[0-9]*([eE][-\+]?[0-9]+)?)`)
+	match := expr.FindReaderIndex(r)
+	if match == nil {
+		return errors.New("Syntax Error")
+	}
+	// Rewind to copy content into the Buffer
+	if _, err := r.Seek(cur, io.SeekStart); err != nil {
+		return err
+	}
+	if _, err := io.CopyN(buf, r, int64(match[1])); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (ee *expressionEvaluator) rewriteProperties(buf *strings.Builder, r *strings.Reader, toUpper bool) error {
 	c, _, err := r.ReadRune()
 	if err == io.EOF {
-		return
+		return nil
 	}
 	if c == '*' {
 		c, _, err := r.ReadRune()
 		if err == io.EOF {
-			return
-		} if c != '.' {
+			return nil
+		}
+		if c != '.' {
 			if c == '-' {
-				return // Syntax error
+				return errors.New("Syntax Error")
 			}
 			if err := r.UnreadRune(); err != nil {
-				return
+				return err
 			}
-			return
+			return nil
 		}
-		buf.WriteString(".map(e => e")
-		ee.rewriteProperties(buf, r)
-		buf.WriteString(")")
+		if _, err := buf.WriteString(".map(e => e"); err != nil {
+			return err
+		}
+		if err := ee.rewriteProperties(buf, r, toUpper); err != nil {
+			return err
+		}
+		if _, err := buf.WriteString(")"); err != nil {
+			return err
+		}
 	} else if err := r.UnreadRune(); err != nil {
-		return
+		return err
 	} else {
-		buf.WriteString("['")
-		ee.advPropertyName(buf, r)
-		buf.WriteString("']")
+		if _, err := buf.WriteString("['"); err != nil {
+			return err
+		}
+		if err := ee.advPropertyName(buf, r, toUpper); err != nil {
+			return err
+		}
+		if _, err := buf.WriteString("']"); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 func (*expressionEvaluator) advString(w *strings.Builder, r *strings.Reader) error {
@@ -181,48 +235,48 @@ func (*expressionEvaluator) advString(w *strings.Builder, r *strings.Reader) err
 			return err
 		}
 		switch c {
-		case: '\'':
+		case '\'':
 			// Handles a escaped string: ex. 'It''s ok'
 			c, _, err = r.ReadRune()
-			if err != nil {
-				w.WriteString("'") //nolint
+			if errors.Is(err, io.EOF) {
+				_, err := w.WriteString("'")
+				return err
+			} else if err != nil {
 				return err
 			}
 			if c != '\'' {
 				w.WriteString("'") //nolint
-				if err := r.UnreadRune(); err != nil {
-					return err
-				}
-				break
+				return r.UnreadRune()
 			}
 			w.WriteString(`\'`) //nolint
-		case: '\\':
+		case '\\':
 			w.WriteString(`\\`) //nolint
-		case: '\0':
+		case '\000':
 			w.WriteString(`\0`) //nolint
-		case: '\f':
+		case '\f':
 			w.WriteString(`\f`) //nolint
-		case: '\r':
+		case '\r':
 			w.WriteString(`\r`) //nolint
-		case: '\n':
+		case '\n':
 			w.WriteString(`\n`) //nolint
-		case: '\t':
+		case '\t':
 			w.WriteString(`\t`) //nolint
-		case: '\v':
+		case '\v':
 			w.WriteString(`\v`) //nolint
-		case: '\b':
+		case '\b':
 			w.WriteString(`\b`) //nolint
 		default:
 			w.WriteRune(c) //nolint
-			continue
 		}
 	}
-	return nil
 }
 
-func (*expressionEvaluator) advPropertyName(w *strings.Builder, r *strings.Reader) error {
+func (*expressionEvaluator) advPropertyName(w *strings.Builder, r *strings.Reader, toUpper bool) error {
 	for {
 		c, _, err := r.ReadRune()
+		if errors.Is(err, io.EOF) {
+			return nil
+		}
 		if err != nil {
 			return err
 		}
@@ -232,7 +286,12 @@ func (*expressionEvaluator) advPropertyName(w *strings.Builder, r *strings.Reade
 			}
 			break
 		}
-		w.WriteRune(c) //nolint
+		if toUpper {
+			c = unicode.ToUpper(c)
+		}
+		if _, err := w.WriteRune(c); err != nil {
+			return err
+		}
 	}
 	return nil
 }

@@ -76,8 +76,19 @@ func TestEvaluate(t *testing.T) {
 		errMesg string
 	}{
 		{" 1 ", "1", ""},
-		{"1 + 3", "4", ""},
-		{"(1 + 3) * -2", "-8", ""},
+		{"1 + 3", "", "Syntax Error"},
+		{"(1 + 3) * -2", "", "Syntax Error"},
+		{"null", "", ""},
+		{"false ", "false", ""},
+		{"true ", "true", ""},
+		{"711 ", "711", ""},
+		{"-9.2", "-9.2", ""},
+		{"0xff", "255", ""},
+		{"-2.99e-2 ", "-0.0299", ""},
+		{"-2.99e+2 ", "-299", ""},
+		{"'Mona the Octocat'", "Mona the Octocat", ""},
+		{"\"Mona the Octocat\"", "", "Syntax Error"},
+		{"'It''s open source!' ", "It's open source!", ""},
 		{"'my text'", "my text", ""},
 		{"contains('my text', 'te')", "true", ""},
 		{"contains('my TEXT', 'te')", "true", ""},
@@ -89,8 +100,8 @@ func TestEvaluate(t *testing.T) {
 		{"join(['hello'],'octocat')", "hello octocat", ""},
 		{"join(['hello','mona','the'],'octocat')", "hello mona the octocat", ""},
 		{"join('hello','mona')", "hello mona", ""},
-		{"toJSON({'foo':'bar'})", "{\n  \"foo\": \"bar\"\n}", ""},
-		{"toJson({'foo':'bar'})", "{\n  \"foo\": \"bar\"\n}", ""},
+		{"toJSON({'foo':'bar'})", "", "Syntax Error"},
+		{"toJson({'foo':'bar'})", "", "Syntax Error"},
 		{"(fromJSON('{\"foo\":\"bar\"}')).foo", "bar", ""},
 		{"(fromJson('{\"foo\":\"bar\"}')).foo", "bar", ""},
 		{"hashFiles('**/non-extant-files')", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", ""},
@@ -291,7 +302,7 @@ func TestRewrite(t *testing.T) {
 		table := table
 		t.Run(table.in, func(t *testing.T) {
 			assertObject := assert.New(t)
-			re := ee.Rewrite(table.in)
+			re, _ := ee.Rewrite(table.in)
 			assertObject.Equal(table.re, re, table.in)
 		})
 	}
