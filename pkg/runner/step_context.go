@@ -608,9 +608,14 @@ func (sc *StepContext) execAsComposite(ctx context.Context, step *model.Step, _ 
 			return err
 		}
 	}
+	// Doesn't work with the command processor has a pointer to the original rc
+	// compositerc := rc.Clone()
+	// Workaround start
 	backup := *rc
 	defer func() { *rc = backup }()
+	*rc = *rc.Clone()
 	compositerc := rc
+	// Workaround end
 	compositerc.ActionPath = containerActionDir
 	compositerc.ActionRef = ""
 	compositerc.ActionRepository = ""
@@ -634,6 +639,7 @@ func (sc *StepContext) execAsComposite(ctx context.Context, step *model.Step, _ 
 		return err
 	}
 
+	// Map outputs to parent rc
 	eval = (&StepContext{
 		RunContext: compositerc,
 	}).NewExpressionEvaluator()
