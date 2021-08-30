@@ -224,7 +224,7 @@ func (rc *RunContext) Executor() common.Executor {
 	}
 	steps = append(steps, rc.stopJobContainer())
 
-	return common.NewPipelineExecutor(steps...).If(rc.isEnabled)
+	return common.NewPipelineExecutor(steps...).Finally(rc.JobContainer.Close()).If(rc.isEnabled)
 }
 
 func (rc *RunContext) newStepExecutor(step *model.Step) common.Executor {
