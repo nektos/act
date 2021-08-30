@@ -181,6 +181,18 @@ func (sc *StepContext) setupEnv(ctx context.Context) (ExpressionEvaluator, error
 	return evaluator, nil
 }
 
+func getScriptName(rc *RunContext, step *model.Step)
+	var scriptName string
+	if rc.Parent != nil {
+		scriptName := step.ID
+		for rcs := rc; rcs.Parent != nil; rcs = rcs.Parent {
+			scriptName = fmt.Sprintf("%s-composite-%s", rcs.Parent.CurrentStep, scriptName)
+		}
+		return fmt.Sprintf("workflow/%s", scriptName)
+	}
+	return fmt.Sprintf("workflow/%s", step.ID)
+}
+
 func (sc *StepContext) setupShellCommand() common.Executor {
 	rc := sc.RunContext
 	step := sc.Step
@@ -201,17 +213,7 @@ func (sc *StepContext) setupShellCommand() common.Executor {
 		if _, err = script.WriteString(run); err != nil {
 			return err
 		}
-		var scriptName string
-
-		if rc.Parent != nil {
-			scriptName = step.ID
-			for rcs := rc; rcs.Parent != nil; rcs = rcs.Parent {
-				scriptName = fmt.Sprintf("%s-composite-%s", rcs.Parent.CurrentStep, scriptName)
-			}
-			scriptName = fmt.Sprintf("workflow/%s", scriptName)
-		} else {
-			scriptName = fmt.Sprintf("workflow/%s", step.ID)
-		}
+		scriptName := getScriptName(rc, step)
 
 		// Reference: https://github.com/actions/runner/blob/8109c962f09d9acc473d92c595ff43afceddb347/src/Runner.Worker/Handlers/ScriptHandlerHelpers.cs#L47-L64
 		// Reference: https://github.com/actions/runner/blob/8109c962f09d9acc473d92c595ff43afceddb347/src/Runner.Worker/Handlers/ScriptHandlerHelpers.cs#L19-L27
