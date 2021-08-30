@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -125,43 +126,60 @@ func (ee *expressionEvaluator) InterpolateWithStringCheck(in string) (string, bo
 func (ee *expressionEvaluator) Rewrite(in string) (string, error) {
 	var buf strings.Builder
 	r := strings.NewReader(in)
-	secrets := "secrets."
+	if err := ee.rewrite(r, &buf, nil); err != nil {
+		return "", err
+	}
+	return buf.String(), nil
+}
+
+func isRewriteEnd(c rune, eof *rune, err error) bool {
+	return eof == nil && err == io.EOF || eof != nil && *eof == c && err == nil
+}
+
+func (ee *expressionEvaluator) rewrite(r *strings.Reader, buf *strings.Builder, eof *rune) error {
+	secrets := "secrets"
 	i := 0
 	for {
 		c, _, err := r.ReadRune()
-		if err == io.EOF {
+		if isRewriteEnd(c, eof, err) {
 			break
+		} else if err != nil {
+			return err
 		}
-		if c == rune(secrets[i]) {
+		switch c {
+		case '"', '*', '+', '/', '?', ':':
+			return errors.New("Syntax Error")
+		case '\'':
+			if _, err := buf.WriteRune(c); err != nil {
+				return err
+			}
+			if err := ee.advString(buf, r, false); err != nil {
+				return err
+			}
+		case '.', '[':
+			if err := ee.rewriteProperties(buf, r, i == len(secrets), c == '['); err != nil {
+				return err
+			}
+		default:
+			if isNumberStart(c) {
+				if err := ee.validateNumber(buf, r); err != nil {
+					return err
+				}
+			} else if _, err := buf.WriteRune(c); err != nil {
+				return err
+			}
+		}
+		if i < len(secrets) && c == rune(secrets[i]) {
 			i++
 		} else {
 			i = 0
 		}
-		switch c {
-		case '"', '*', '+', '/', '?', ':':
-			return "", errors.New("Syntax Error")
-		case '\'':
-			if _, err := buf.WriteRune(c); err != nil {
-				return "", err
-			}
-			if err := ee.advString(&buf, r); err != nil {
-				return "", err
-			}
-		case '.':
-			if err := ee.rewriteProperties(&buf, r, i == len(secrets)); err != nil {
-				return "", err
-			}
-		default:
-			if c == '-' || (c >= '0' && c <= '9') {
-				if err := ee.validateNumber(&buf, r); err != nil {
-					return "", err
-				}
-			} else if _, err := buf.WriteRune(c); err != nil {
-				return "", err
-			}
-		}
 	}
-	return buf.String(), nil
+	return nil
+}
+
+func isNumberStart(c rune) bool {
+	return c == '-' || (c >= '0' && c <= '9')
 }
 
 func (ee *expressionEvaluator) validateNumber(buf *strings.Builder, r *strings.Reader) error {
@@ -184,7 +202,66 @@ func (ee *expressionEvaluator) validateNumber(buf *strings.Builder, r *strings.R
 	return nil
 }
 
-func (ee *expressionEvaluator) rewriteProperties(buf *strings.Builder, r *strings.Reader, toUpper bool) error {
+func (ee *expressionEvaluator) rewriteBracketProperties(buf *strings.Builder, r *strings.Reader, toUpper bool) error {
+	// var c rune
+	// for {
+	// 	var err error
+	// 	c, _, err = r.ReadRune()
+	// 	if err == io.EOF {
+	// 		return nil
+	// 	} else if err != nil {
+	// 		return err
+	// 	}
+	// 	if !unicode.IsSpace(c) {
+	// 		break
+	// 	}
+	// }
+	if _, err := buf.WriteString("[("); err != nil {
+		return err
+	}
+	run := ']'
+	if err := ee.rewrite(r, buf, &run); err != nil {
+		return err
+	}
+
+	// if c != '\'' {
+	// 	if err := r.UnreadRune(); err != nil {
+	// 		return err
+	// 	}
+	// 	return nil
+	// }
+	// if _, err := buf.WriteString("'"); err != nil {
+	// 	return err
+	// }
+	// if err := ee.advString(buf, r, toUpper); err != nil {
+	// 	return err
+	// }
+	// for {
+	// 	var err error
+	// 	c, _, err = r.ReadRune()
+	// 	if err == io.EOF {
+	// 		return nil
+	// 	} else if err != nil {
+	// 		return err
+	// 	}
+	// 	if !unicode.IsSpace(c) {
+	// 		break
+	// 	}
+	// }
+	// if c != ']' {
+	// 	return errors.New("Syntax Error")
+	// }
+	suffix := ")]"
+	if toUpper {
+		suffix = ").toUpperCase()]"
+	}
+	if _, err := buf.WriteString(suffix); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (ee *expressionEvaluator) rewritePlainProperties(buf *strings.Builder, r *strings.Reader, toUpper bool) error {
 	c, _, err := r.ReadRune()
 	if err == io.EOF {
 		return nil
@@ -194,7 +271,7 @@ func (ee *expressionEvaluator) rewriteProperties(buf *strings.Builder, r *string
 		if err == io.EOF {
 			return nil
 		}
-		if c != '.' {
+		if c != '.' && c != '[' {
 			if c == '-' {
 				return errors.New("Syntax Error")
 			}
@@ -206,7 +283,7 @@ func (ee *expressionEvaluator) rewriteProperties(buf *strings.Builder, r *string
 		if _, err := buf.WriteString(".map(e => e"); err != nil {
 			return err
 		}
-		if err := ee.rewriteProperties(buf, r, toUpper); err != nil {
+		if err := ee.rewriteProperties(buf, r, toUpper, c == '['); err != nil {
 			return err
 		}
 		if _, err := buf.WriteString(")"); err != nil {
@@ -228,7 +305,21 @@ func (ee *expressionEvaluator) rewriteProperties(buf *strings.Builder, r *string
 	return nil
 }
 
-func (*expressionEvaluator) advString(w *strings.Builder, r *strings.Reader) error {
+func (ee *expressionEvaluator) rewriteProperties(buf *strings.Builder, r *strings.Reader, toUpper bool, brackets bool) error {
+	if brackets {
+		return ee.rewriteBracketProperties(buf, r, toUpper)
+	}
+	return ee.rewritePlainProperties(buf, r, toUpper)
+}
+
+func conditionalToUpper(c rune, toUpper bool) rune {
+	if toUpper {
+		return unicode.ToUpper(c)
+	}
+	return c
+}
+
+func (*expressionEvaluator) advString(w *strings.Builder, r *strings.Reader, toUpper bool) error {
 	for {
 		c, _, err := r.ReadRune()
 		if err != nil {
@@ -266,7 +357,7 @@ func (*expressionEvaluator) advString(w *strings.Builder, r *strings.Reader) err
 		case '\b':
 			w.WriteString(`\b`) //nolint
 		default:
-			w.WriteRune(c) //nolint
+			w.WriteRune(conditionalToUpper(c, toUpper)) //nolint
 		}
 	}
 }
@@ -286,10 +377,7 @@ func (*expressionEvaluator) advPropertyName(w *strings.Builder, r *strings.Reade
 			}
 			break
 		}
-		if toUpper {
-			c = unicode.ToUpper(c)
-		}
-		if _, err := w.WriteRune(c); err != nil {
+		if _, err := w.WriteRune(conditionalToUpper(c, toUpper)); err != nil {
 			return err
 		}
 	}
@@ -354,6 +442,13 @@ func vmContains(vm *otto.Otto) {
 					return true
 				}
 			}
+		} else if searchStringArray, ok := searchString.([]interface{}); ok {
+			for _, i := range searchStringArray {
+				s, ok := i.(string)
+				if ok && strings.EqualFold(s, searchValue) {
+					return true
+				}
+			}
 		}
 		return false
 	})
@@ -382,18 +477,15 @@ func vmFormat(vm *otto.Otto) {
 				return "}"
 			default:
 				if len(seg) < 3 || !strings.HasPrefix(seg, "{") {
-					log.Errorf("The following format string is invalid: '%v'", s)
-					return ""
+					panic(vm.MakeSyntaxError(fmt.Sprintf("The following format string is invalid: '%v'", s)))
 				}
 				_i := seg[1 : len(seg)-1]
 				i, err := strconv.ParseInt(_i, 10, 32)
 				if err != nil {
-					log.Errorf("The following format string is invalid: '%v'. Error: %v", s, err)
-					return ""
+					panic(vm.MakeSyntaxError(fmt.Sprintf("The following format string is invalid: '%v'. Error: %v", s, err)))
 				}
 				if i >= int64(len(vals)) {
-					log.Errorf("The following format string references more arguments than were supplied: '%v'", s)
-					return ""
+					panic(vm.MakeSyntaxError(fmt.Sprintf("The following format string references more arguments than were supplied: '%v'", s)))
 				}
 				if vals[i].IsNull() || vals[i].IsUndefined() {
 					return ""
@@ -411,6 +503,16 @@ func vmJoin(vm *otto.Otto) {
 			slist = append(slist, elementString)
 		} else if elementArray, ok := element.([]string); ok {
 			slist = append(slist, elementArray...)
+		} else if elementArray, ok := element.([]interface{}); ok {
+			stringArray := make([]string, len(elementArray))
+			for i, v := range elementArray {
+				s, ok := v.(string)
+				if !ok {
+					panic(vm.MakeTypeError(fmt.Sprintf("Array Element %v is not a string value '%v'", i, v)))
+				}
+				stringArray[i] = s
+			}
+			slist = append(slist, stringArray...)
 		}
 		if optionalElem != "" {
 			slist = append(slist, optionalElem)
@@ -433,12 +535,11 @@ func vmToJSON(vm *otto.Otto) {
 }
 
 func vmFromJSON(vm *otto.Otto) {
-	fromJSON := func(str string) map[string]interface{} {
-		var dat map[string]interface{}
+	fromJSON := func(str string) interface{} {
+		var dat interface{}
 		err := json.Unmarshal([]byte(str), &dat)
 		if err != nil {
-			log.Errorf("Unable to unmarshal: %v", err)
-			return dat
+			panic(vm.MakeCustomError("fromJSON", fmt.Sprintf("Unable to unmarshal json '%v', %v", str, err.Error())))
 		}
 		return dat
 	}
