@@ -161,9 +161,9 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			rc.JobContainer.Create(rc.Config.ContainerCapAdd, rc.Config.ContainerCapDrop),
 			rc.JobContainer.Start(false),
 			rc.JobContainer.UpdateFromEnv("/etc/environment", &rc.Env),
-			rc.JobContainer.Exec([]string{"mkdir", "-m", "0777", "-p", ActPath}, rc.Env, "root", ""),
+			rc.JobContainer.Exec([]string{"mkdir", "-m", "0777", "-p", rc.GetActPath()}, rc.Env, "root", ""),
 			rc.JobContainer.CopyDir(copyToPath, rc.Config.Workdir+string(filepath.Separator)+".", rc.Config.UseGitIgnore).IfBool(copyWorkspace),
-			rc.JobContainer.Copy(ActPath+"/", &container.FileEntry{
+			rc.JobContainer.Copy(rc.GetActPath()+"/", &container.FileEntry{
 				Name: "workflow/event.json",
 				Mode: 0644,
 				Body: rc.EventJSON,
