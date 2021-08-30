@@ -203,55 +203,18 @@ func (ee *expressionEvaluator) validateNumber(buf *strings.Builder, r *strings.R
 }
 
 func (ee *expressionEvaluator) rewriteBracketProperties(buf *strings.Builder, r *strings.Reader, toUpper bool) error {
-	// var c rune
-	// for {
-	// 	var err error
-	// 	c, _, err = r.ReadRune()
-	// 	if err == io.EOF {
-	// 		return nil
-	// 	} else if err != nil {
-	// 		return err
-	// 	}
-	// 	if !unicode.IsSpace(c) {
-	// 		break
-	// 	}
-	// }
-	if _, err := buf.WriteString("[("); err != nil {
+	prefix := "["
+	if toUpper {
+		prefix = "[("
+	}
+	if _, err := buf.WriteString(prefix); err != nil {
 		return err
 	}
 	run := ']'
 	if err := ee.rewrite(r, buf, &run); err != nil {
 		return err
 	}
-
-	// if c != '\'' {
-	// 	if err := r.UnreadRune(); err != nil {
-	// 		return err
-	// 	}
-	// 	return nil
-	// }
-	// if _, err := buf.WriteString("'"); err != nil {
-	// 	return err
-	// }
-	// if err := ee.advString(buf, r, toUpper); err != nil {
-	// 	return err
-	// }
-	// for {
-	// 	var err error
-	// 	c, _, err = r.ReadRune()
-	// 	if err == io.EOF {
-	// 		return nil
-	// 	} else if err != nil {
-	// 		return err
-	// 	}
-	// 	if !unicode.IsSpace(c) {
-	// 		break
-	// 	}
-	// }
-	// if c != ']' {
-	// 	return errors.New("Syntax Error")
-	// }
-	suffix := ")]"
+	suffix := "]"
 	if toUpper {
 		suffix = ").toUpperCase()]"
 	}
