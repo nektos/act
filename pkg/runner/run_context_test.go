@@ -336,6 +336,6 @@ func TestGetGitHubContext(t *testing.T) {
 	assert.Equal(t, ghc.Repository, repo)
 	assert.Equal(t, ghc.RepositoryOwner, owner)
 	assert.Equal(t, ghc.RunnerPerflog, "/dev/null")
-	assert.Equal(t, ghc.EventPath, ActPath+"/workflow/event.json")
+	assert.Equal(t, ghc.EventPath, rc.GetActPath()+"/workflow/event.json")
 	assert.Equal(t, ghc.Token, rc.Config.Secrets["GITHUB_TOKEN"])
 }

@@ -19,8 +19,6 @@ import (
 	"github.com/nektos/act/pkg/model"
 )
 
-const ActPath string = "/var/run/act"
-
 // RunContext contains info about current job
 type RunContext struct {
 	Name           string
@@ -36,6 +34,18 @@ type RunContext struct {
 	JobContainer   container.Container
 	OutputMappings map[MappableOutput]MappableOutput
 	JobName        string
+	actPath        string
+}
+
+func (rc *RunContext) SetActPath(actPath string) {
+	rc.actPath = actPath
+}
+
+func (rc *RunContext) GetActPath() string {
+	if len(rc.actPath) > 0 {
+		return rc.actPath
+	}
+	return "/var/run/act"
 }
 
 type MappableOutput struct {
@@ -491,7 +501,7 @@ type githubContext struct {
 func (rc *RunContext) getGithubContext() *githubContext {
 	ghc := &githubContext{
 		Event:            make(map[string]interface{}),
-		EventPath:        ActPath + "/workflow/event.json",
+		EventPath:        rc.GetActPath() + "/workflow/event.json",
 		Workflow:         rc.Run.Workflow.Name,
 		RunID:            rc.Config.Env["GITHUB_RUN_ID"],
 		RunNumber:        rc.Config.Env["GITHUB_RUN_NUMBER"],
@@ -663,8 +673,8 @@ func withDefaultBranch(b string, event map[string]interface{}) map[string]interf
 func (rc *RunContext) withGithubEnv(env map[string]string) map[string]string {
 	github := rc.getGithubContext()
 	env["CI"] = "true"
-	env["GITHUB_ENV"] = ActPath + "/workflow/envs.txt"
-	env["GITHUB_PATH"] = ActPath + "/workflow/paths.txt"
+	env["GITHUB_ENV"] = rc.GetActPath() + "/workflow/envs.txt"
+	env["GITHUB_PATH"] = rc.GetActPath() + "/workflow/paths.txt"
 	env["GITHUB_WORKFLOW"] = github.Workflow
 	env["GITHUB_RUN_ID"] = github.RunID
 	env["GITHUB_RUN_NUMBER"] = github.RunNumber
