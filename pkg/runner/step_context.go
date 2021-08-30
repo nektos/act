@@ -182,7 +182,6 @@ func (sc *StepContext) setupEnv(ctx context.Context) (ExpressionEvaluator, error
 }
 
 func getScriptName(rc *RunContext, step *model.Step) string {
-	var scriptName string
 	if rc.Parent != nil {
 		scriptName := step.ID
 		for rcs := rc; rcs.Parent != nil; rcs = rcs.Parent {
