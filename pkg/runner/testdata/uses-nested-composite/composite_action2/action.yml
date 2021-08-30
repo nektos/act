@@ -46,7 +46,7 @@ runs:
       test_input_optional_with_default_overriden: 'test_input_optional_with_default_overriden'
       test_input_required_with_default_overriden: 'test_input_required_with_default_overriden'
 
-    run: |
+  - run: |
       echo "steps.composite2.outputs.test_output=${{ steps.composite2.outputs.test_output }}"
       [[ "${{steps.composite2.outputs.test_output == 'test_output_value'}}" = "true" ]] || exit 1
     shell: bash
