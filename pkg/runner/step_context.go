@@ -182,14 +182,11 @@ func (sc *StepContext) setupEnv(ctx context.Context) (ExpressionEvaluator, error
 }
 
 func getScriptName(rc *RunContext, step *model.Step) string {
-	if rc.Parent != nil {
-		scriptName := step.ID
-		for rcs := rc; rcs.Parent != nil; rcs = rcs.Parent {
-			scriptName = fmt.Sprintf("%s-composite-%s", rcs.Parent.CurrentStep, scriptName)
-		}
-		return fmt.Sprintf("workflow/%s", scriptName)
+	scriptName := step.ID
+	for rcs := rc; rcs.Parent != nil; rcs = rcs.Parent {
+		scriptName = fmt.Sprintf("%s-composite-%s", rcs.Parent.CurrentStep, scriptName)
 	}
-	return fmt.Sprintf("workflow/%s", step.ID)
+	return fmt.Sprintf("workflow/%s", scriptName)
 }
 
 func (sc *StepContext) setupShellCommand() common.Executor {
@@ -614,7 +611,14 @@ func (sc *StepContext) execAsComposite(ctx context.Context, step *model.Step, _ 
 	backup := *rc
 	defer func() { *rc = backup }()
 	*rc = *rc.Clone()
+	scriptName := backup.CurrentStep
+	for rcs := &backup; rcs.Parent != nil; rcs = rcs.Parent {
+		scriptName = fmt.Sprintf("%s-composite-%s", rcs.Parent.CurrentStep, scriptName)
+	}
 	compositerc := rc
+	compositerc.Parent = &RunContext{
+		CurrentStep: scriptName,
+	}
 	// Workaround end
 	compositerc.ActionPath = containerActionDir
 	compositerc.ActionRef = ""
