@@ -36,7 +36,7 @@ runs:
 
   - run: |
       echo "steps.composite.outputs.test_output=${{ steps.composite.outputs.test_output }}"
-      [[ "${{steps.composite.outputs.test_output != 'test_output_value'}}" = "true" ]] || exit 1
+      [[ "${{steps.composite.outputs.test_output == 'test_output_value'}}" = "true" ]] || exit 1
     shell: bash
   # Now test again with default values
   - uses: ./uses-composite/composite_action
@@ -48,5 +48,5 @@ runs:
 
     run: |
       echo "steps.composite2.outputs.test_output=${{ steps.composite2.outputs.test_output }}"
-      [[ "${{steps.composite2.outputs.test_output != 'test_output_value'}}" = "true" ]] || exit 1
+      [[ "${{steps.composite2.outputs.test_output == 'test_output_value'}}" = "true" ]] || exit 1
     shell: bash
