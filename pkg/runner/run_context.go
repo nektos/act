@@ -224,7 +224,7 @@ func (rc *RunContext) Executor() common.Executor {
 	}
 	steps = append(steps, rc.stopJobContainer())
 
-	return common.NewPipelineExecutor(steps...).Finally(func(ctx) {
+	return common.NewPipelineExecutor(steps...).Finally(func(ctx context.Context) error {
 		if rc.JobContainer != nil {
 			return rc.JobContainer.Close()(ctx)
 		}
