@@ -476,7 +476,10 @@ func (rc *RunContext) vmRunner() func(*otto.Otto) {
 
 func (rc *RunContext) vmSecrets() func(*otto.Otto) {
 	return func(vm *otto.Otto) {
-		_ = vm.Set("secrets", rc.Config.Secrets)
+		// Hide secrets from composite actions
+		if rc.Composite == nil {
+			_ = vm.Set("secrets", rc.Config.Secrets)
+		}
 	}
 }
 
