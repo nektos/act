@@ -60,7 +60,7 @@ jobs:
         env:
           CGO_ENABLED: 0
       - name: Upload Codecov report
-        uses: codecov/codecov-action@v1.5.2
+        uses: codecov/codecov-action@v2.0.3
         with:
           files: coverage.txt
           fail_ci_if_error: true # optional (default = false)
