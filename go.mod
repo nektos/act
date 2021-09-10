@@ -10,7 +10,7 @@ require (
 	github.com/containerd/continuity v0.0.0-20200928162600-f2cc35102c2a // indirect
 	github.com/docker/cli v20.10.3+incompatible
 	github.com/docker/docker v20.10.3+incompatible
-	github.com/go-git/go-billy/v5 v5.0.0
+	github.com/go-git/go-billy/v5 v5.3.1
 	github.com/go-git/go-git/v5 v5.2.0
 	github.com/go-ini/ini v1.62.0
 	github.com/golang/protobuf v1.4.3 // indirect
