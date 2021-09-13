@@ -45,8 +45,8 @@ dmitri.shuralyov.com/gpu/mtl v0.0.0-20190408044501-666a987793e9/go.mod h1:H6x//7
 git.apache.org/thrift.git v0.0.0-20180902110319-2566ecd5d999/go.mod h1:fPE2ZNJGynbRyZ4dJvy6G277gSllfV2HJqblrnkyeyg=
 git.apache.org/thrift.git v0.12.0/go.mod h1:fPE2ZNJGynbRyZ4dJvy6G277gSllfV2HJqblrnkyeyg=
 github.com/AkihiroSuda/containerd-fuse-overlayfs v1.0.0/go.mod h1:0mMDvQFeLbbn1Wy8P2j3hwFhqBq+FKn8OZPno8WLmp8=
-github.com/AlecAivazis/survey/v2 v2.3.1 h1:lzkuHA60pER7L4eYL8qQJor4bUWlJe4V0gqAT19tdOA=
-github.com/AlecAivazis/survey/v2 v2.3.1/go.mod h1:TH2kPCDU3Kqq7pLbnCWwZXDBjnhZtmsCle5EiYDJ2fg=
+github.com/AlecAivazis/survey/v2 v2.3.2 h1:TqTB+aDDCLYhf9/bD2TwSO8u8jDSmMUd2SUVO4gCnU8=
+github.com/AlecAivazis/survey/v2 v2.3.2/go.mod h1:TH2kPCDU3Kqq7pLbnCWwZXDBjnhZtmsCle5EiYDJ2fg=
 github.com/Azure/azure-amqp-common-go/v2 v2.1.0/go.mod h1:R8rea+gJRuJR6QxTir/XuEd+YuKoUiazDC/N96FiDEU=
 github.com/Azure/azure-pipeline-go v0.2.1/go.mod h1:UGSo8XybXnIGZ3epmeBw7Jdz+HiUVpqIlpz/HKHylF4=
 github.com/Azure/azure-pipeline-go v0.2.2/go.mod h1:4rQ/NZncSvGqNkkOsNpOU1tgoNuIlp9AfUH5G1tvCHc=

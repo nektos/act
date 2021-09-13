@@ -3,7 +3,7 @@ module github.com/nektos/act
 go 1.16
 
 require (
-	github.com/AlecAivazis/survey/v2 v2.3.1
+	github.com/AlecAivazis/survey/v2 v2.3.2
 	github.com/Masterminds/semver v1.5.0
 	github.com/andreaskoch/go-fswatch v1.0.0
 	github.com/containerd/containerd v1.4.1 // indirect
