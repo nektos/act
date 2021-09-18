@@ -605,6 +605,17 @@ func (sc *StepContext) execAsComposite(ctx context.Context, step *model.Step, _ 
 			return err
 		}
 	}
+	inputs := make(map[string]string)
+	eval := sc.RunContext.NewExpressionEvaluator()
+	// Set Defaults
+	for k, input := range action.Inputs {
+		inputs[k] = eval.Interpolate(input.Default)
+	}
+	if step.With != nil {
+		for k, v := range step.With {
+			inputs[k] = eval.Interpolate(v)
+		}
+	}
 	// Doesn't work with the command processor has a pointer to the original rc
 	// compositerc := rc.Clone()
 	// Workaround start
@@ -625,17 +636,6 @@ func (sc *StepContext) execAsComposite(ctx context.Context, step *model.Step, _ 
 	compositerc.ActionRepository = ""
 	compositerc.Composite = action
 	compositerc.Env = mergeMaps(compositerc.Env, step.Environment())
-	inputs := make(map[string]string)
-	eval := sc.RunContext.NewExpressionEvaluator()
-	// Set Defaults
-	for k, input := range action.Inputs {
-		inputs[k] = eval.Interpolate(input.Default)
-	}
-	if step.With != nil {
-		for k, v := range step.With {
-			inputs[k] = eval.Interpolate(v)
-		}
-	}
 	compositerc.Inputs = inputs
 	compositerc.ExprEval = compositerc.NewExpressionEvaluator()
 	err = compositerc.CompositeExecutor()(ctx)
