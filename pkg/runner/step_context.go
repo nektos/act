@@ -635,7 +635,11 @@ func (sc *StepContext) execAsComposite(ctx context.Context, step *model.Step, _ 
 	compositerc.ActionRef = ""
 	compositerc.ActionRepository = ""
 	compositerc.Composite = action
-	compositerc.Env = mergeMaps(compositerc.Env, step.Environment())
+	envToEvaluate := mergeMaps(compositerc.Env, step.Environment())
+	compositerc.Env = make(map[string]string)
+	for k, v := range envToEvaluate {
+		compositerc.Env[k] = eval.Interpolate(v)
+	}
 	compositerc.Inputs = inputs
 	compositerc.ExprEval = compositerc.NewExpressionEvaluator()
 	err = compositerc.CompositeExecutor()(ctx)
