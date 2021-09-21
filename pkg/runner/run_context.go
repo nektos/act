@@ -352,7 +352,7 @@ func (rc *RunContext) isEnabled(ctx context.Context) bool {
 
 		for _, runnerLabel := range job.RunsOn() {
 			platformName := rc.ExprEval.Interpolate(runnerLabel)
-			l.Infof("\U0001F6A7  Skipping unsupported platform -- Try running with `-P %+v=...`", platformName)
+			l.Infof("\U0001F6A7  Skipping unsupported platform '%+v'", platformName)
 		}
 		return false
 	}
