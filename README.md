@@ -71,7 +71,9 @@ scoop install act
 yay -S act
 ```
 
-### Nix (Linux/macOS)
+### [Nix](https://nixos.org) (Linux/macOS)
+
+[Nix recipe](https://github.com/NixOS/nixpkgs/blob/master/pkgs/development/tools/misc/act/default.nix)
 
 Global install:
 
@@ -85,7 +87,7 @@ or through `nix-shell`:
 nix-shell -p act
 ```
 
-### Go (Linux/Windows/macOS/any other platform supported by Go)
+### [Go](https://golang.org) (Linux/Windows/macOS/any other platform supported by Go)
 
 If you have Go 1.16+, you can install latest released version of `act` directly from source by running:
 
