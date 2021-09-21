@@ -238,12 +238,7 @@ GitHub Actions offers managed [virtual environments](https://help.github.com/en/
 [micro]: https://hub.docker.com/_/buildpack-deps
 [docker_images]: https://github.com/catthehacker/docker_images
 
-Below platforms are currently **unsupported and won't work** (see issue [#97](https://github.com/nektos/act/issues/97))
-
-- `windows-latest`
-- `windows-2019`
-- `macos-latest`
-- `macos-10.15`
+Windows and macOS based platforms are currently **unsupported and won't work** (see issue [#97](https://github.com/nektos/act/issues/97))
 
 ## Please see [IMAGES.md](./IMAGES.md) for more information about the Docker images that can be used with `act`
 
