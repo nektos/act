@@ -8,7 +8,7 @@ require (
 	github.com/andreaskoch/go-fswatch v1.0.0
 	github.com/containerd/containerd v1.4.1 // indirect
 	github.com/containerd/continuity v0.0.0-20200928162600-f2cc35102c2a // indirect
-	github.com/docker/cli v20.10.3+incompatible
+	github.com/docker/cli v20.10.8+incompatible
 	github.com/docker/docker v20.10.3+incompatible
 	github.com/go-git/go-billy/v5 v5.3.1
 	github.com/go-git/go-git/v5 v5.2.0
