@@ -9,4 +9,5 @@ jobs:
     - uses: ./actions/docker-local
       with:
         who-to-greet: 'Mona the Octocat'
+    - run: '[[ "${{ env.SOMEVAR }}" == "Mona the Octocat" ]]'
     - uses: ./localdockerimagetest_
