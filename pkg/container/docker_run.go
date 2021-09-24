@@ -52,6 +52,7 @@ type NewContainerInput struct {
 	Privileged  bool
 	UsernsMode  string
 	Platform    string
+	Hostname    string
 }
 
 // FileEntry is a file to copy to a container
@@ -302,6 +303,7 @@ func (cr *containerReference) create(capAdd []string, capDrop []string) common.E
 			WorkingDir: input.WorkingDir,
 			Env:        input.Env,
 			Tty:        isTerminal,
+			Hostname:   input.Hostname,
 		}
 
 		mounts := make([]mount.Mount, 0)

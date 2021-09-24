@@ -11,6 +11,9 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/google/shlex"
+	"github.com/spf13/pflag"
+
 	"github.com/mitchellh/go-homedir"
 	log "github.com/sirupsen/logrus"
 
@@ -97,6 +100,7 @@ func (rc *RunContext) GetBindsAndMounts() ([]string, map[string]string) {
 
 func (rc *RunContext) startJobContainer() common.Executor {
 	image := rc.platformImage()
+	hostname := rc.hostname()
 
 	return func(ctx context.Context) error {
 		rawLogger := common.Logger(ctx).WithField("raw_output", true)
@@ -137,6 +141,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			Privileged:  rc.Config.Privileged,
 			UsernsMode:  rc.Config.UsernsMode,
 			Platform:    rc.Config.ContainerArchitecture,
+			Hostname:    hostname,
 		})
 
 		var copyWorkspace bool
@@ -305,6 +310,28 @@ func (rc *RunContext) platformImage() string {
 	return ""
 }
 
+func (rc *RunContext) hostname() string {
+	job := rc.Run.Job()
+	c := job.Container()
+	if c == nil {
+		return ""
+	}
+
+	optionsFlags := pflag.NewFlagSet("container_options", pflag.ContinueOnError)
+	hostname := optionsFlags.StringP("hostname", "h", "", "")
+	optionsArgs, err := shlex.Split(c.Options)
+	if err != nil {
+		log.Warnf("Cannot parse container options: %s", c.Options)
+		return ""
+	}
+	err = optionsFlags.Parse(optionsArgs)
+	if err != nil {
+		log.Warnf("Cannot parse container options: %s", c.Options)
+		return ""
+	}
+	return *hostname
+}
+
 func (rc *RunContext) isEnabled(ctx context.Context) bool {
 	job := rc.Run.Job()
 	l := common.Logger(ctx)
@@ -326,7 +353,7 @@ func (rc *RunContext) isEnabled(ctx context.Context) bool {
 
 		for _, runnerLabel := range job.RunsOn() {
 			platformName := rc.ExprEval.Interpolate(runnerLabel)
-			l.Infof("\U0001F6A7  Skipping unsupported platform '%+v'", platformName)
+			l.Infof("\U0001F6A7  Skipping unsupported platform -- Try running with `-P %+v=...`", platformName)
 		}
 		return false
 	}
