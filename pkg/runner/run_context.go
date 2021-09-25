@@ -82,6 +82,7 @@ func (rc *RunContext) GetBindsAndMounts() ([]string, map[string]string) {
 
 	mounts := map[string]string{
 		"act-toolcache": "/toolcache",
+		name + "-env":   ActPath,
 	}
 
 	if rc.Config.BindWorkdir {
@@ -352,7 +353,7 @@ func (rc *RunContext) isEnabled(ctx context.Context) bool {
 
 		for _, runnerLabel := range job.RunsOn() {
 			platformName := rc.ExprEval.Interpolate(runnerLabel)
-			l.Infof("\U0001F6A7  Skipping unsupported platform '%+v'", platformName)
+			l.Infof("\U0001F6A7  Skipping unsupported platform -- Try running with `-P %+v=...`", platformName)
 		}
 		return false
 	}

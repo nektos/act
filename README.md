@@ -71,7 +71,9 @@ scoop install act
 yay -S act
 ```
 
-### Nix (Linux/macOS)
+### [Nix](https://nixos.org) (Linux/macOS)
+
+[Nix recipe](https://github.com/NixOS/nixpkgs/blob/master/pkgs/development/tools/misc/act/default.nix)
 
 Global install:
 
@@ -85,7 +87,7 @@ or through `nix-shell`:
 nix-shell -p act
 ```
 
-### Go (Linux/Windows/macOS/any other platform supported by Go)
+### [Go](https://golang.org) (Linux/Windows/macOS/any other platform supported by Go)
 
 If you have Go 1.16+, you can install latest released version of `act` directly from source by running:
 
@@ -227,22 +229,16 @@ export DOCKER_HOST=$(docker context inspect --format '{{.Endpoints.docker.Host}}
 
 GitHub Actions offers managed [virtual environments](https://help.github.com/en/actions/reference/virtual-environments-for-github-hosted-runners) for running workflows. In order for `act` to run your workflows locally, it must run a container for the runner defined in your workflow file. Here are the images that `act` uses for each runner type and size:
 
-| GitHub Runner   | Micro Docker Image              | Medium Docker Image                                       | Large Docker Image                                         |
-| --------------- | ------------------------------- | --------------------------------------------------------- | ---------------------------------------------------------- |
-| `ubuntu-latest` | [`node:12-buster-slim`][micro]  | [`ghcr.io/catthehacker/ubuntu:act-latest`][docker_images] | [`ghcr.io/catthehacker/ubuntu:full-latest`][docker_images] |
-| `ubuntu-20.04`  | [`node:12-buster-slim`][micro]  | [`ghcr.io/catthehacker/ubuntu:act-20.04`][docker_images]  | [`ghcr.io/catthehacker/ubuntu:full-20.04`][docker_images]  |
-| `ubuntu-18.04`  | [`node:12-buster-slim`][micro]  | [`ghcr.io/catthehacker/ubuntu:act-18.04`][docker_images]  | [`ghcr.io/catthehacker/ubuntu:full-18.04`][docker_images]  |
-| `ubuntu-16.04`  | [`node:12-stretch-slim`][micro] | [`ghcr.io/catthehacker/ubuntu:act-16.04`][docker_images]  | `unavailable`                                              |
+| GitHub Runner   | Micro Docker Image             | Medium Docker Image                                       | Large Docker Image                                         |
+| --------------- | ------------------------------ | --------------------------------------------------------- | ---------------------------------------------------------- |
+| `ubuntu-latest` | [`node:12-buster-slim`][micro] | [`ghcr.io/catthehacker/ubuntu:act-latest`][docker_images] | [`ghcr.io/catthehacker/ubuntu:full-latest`][docker_images] |
+| `ubuntu-20.04`  | [`node:12-buster-slim`][micro] | [`ghcr.io/catthehacker/ubuntu:act-20.04`][docker_images]  | [`ghcr.io/catthehacker/ubuntu:full-20.04`][docker_images]  |
+| `ubuntu-18.04`  | [`node:12-buster-slim`][micro] | [`ghcr.io/catthehacker/ubuntu:act-18.04`][docker_images]  | [`ghcr.io/catthehacker/ubuntu:full-18.04`][docker_images]  |
 
 [micro]: https://hub.docker.com/_/buildpack-deps
 [docker_images]: https://github.com/catthehacker/docker_images
 
-Below platforms are currently **unsupported and won't work** (see issue [#97](https://github.com/nektos/act/issues/97))
-
-- `windows-latest`
-- `windows-2019`
-- `macos-latest`
-- `macos-10.15`
+Windows and macOS based platforms are currently **unsupported and won't work** (see issue [#97](https://github.com/nektos/act/issues/97))
 
 ## Please see [IMAGES.md](./IMAGES.md) for more information about the Docker images that can be used with `act`
 

@@ -16,7 +16,7 @@ jobs:
       - uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      - uses: actions/setup-go@v1
+      - uses: actions/setup-go@v2
         with:
           go-version: ${{ env.GO_VERSION }}
       - uses: golangci/golangci-lint-action@v2
@@ -46,7 +46,7 @@ jobs:
           fetch-depth: 2
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v1
-      - uses: actions/setup-go@v1
+      - uses: actions/setup-go@v2
         with:
           go-version: ${{ env.GO_VERSION }}
       - uses: actions/cache@v2
@@ -60,7 +60,7 @@ jobs:
         env:
           CGO_ENABLED: 0
       - name: Upload Codecov report
-        uses: codecov/codecov-action@v1.5.2
+        uses: codecov/codecov-action@v2.1.0
         with:
           files: coverage.txt
           fail_ci_if_error: true # optional (default = false)
@@ -108,7 +108,7 @@ jobs:
           path: |
             registry
             docker-registry
-      - uses: actions/setup-go@v1
+      - uses: actions/setup-go@v2
         with:
           go-version: ${{ env.GO_VERSION }}
       - uses: actions/cache@v2
@@ -165,7 +165,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: actions/setup-go@v1
+      - uses: actions/setup-go@v2
         with:
           go-version: ${{ env.GO_VERSION }}
       - uses: actions/cache@v2
