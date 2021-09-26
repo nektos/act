@@ -106,7 +106,7 @@ func (ee *expressionEvaluator) InterpolateWithStringCheck(in string) (string, bo
 			return evaluated
 		})
 		if len(errList) > 0 {
-			log.Errorf("Unable to interpolate string '%s' - %v", in, errList)
+			log.Errorf("Unable to interpolate string '%s' - %v\nPlease make sure to use custom event file if you need 'github.event' context.", in, errList)
 			break
 		}
 		if out == in {
