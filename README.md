@@ -344,7 +344,7 @@ Every [GitHub event](https://developer.github.com/v3/activity/events/types) is a
 act -e pull-request.json
 ```
 
-Act will properly provide `github.head_ref` and `github.base_ref` to the action as expected.
+Act will properly provide `github.head_ref` and `github.base_ref` to the action as expected. For more examples please look into [`pkg/runner/testdata/events/`](./pkg/runner/testdata/events/).
 
 # GitHub Enterprise
 
