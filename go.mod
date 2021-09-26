@@ -7,7 +7,6 @@ require (
 	github.com/Masterminds/semver v1.5.0
 	github.com/Microsoft/hcsshim v0.8.22 // indirect
 	github.com/ProtonMail/go-crypto v0.0.0-20210920160938-87db9fbc61c7 // indirect
-	github.com/alcortesm/tgz v0.0.0-20161220082320-9c5fe88206d7 // indirect
 	github.com/andreaskoch/go-fswatch v1.0.0
 	github.com/containerd/containerd v1.5.5 // indirect
 	github.com/containerd/continuity v0.2.0 // indirect
@@ -18,8 +17,7 @@ require (
 	github.com/go-ini/ini v1.63.2
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
-	github.com/gopherjs/gopherjs v0.0.0-20181103185306-d547d1d9531e // indirect
-	github.com/joho/godotenv v1.3.0
+	github.com/joho/godotenv v1.4.0
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/kevinburke/ssh_config v1.1.0 // indirect
 	github.com/mattn/go-colorable v0.1.9 // indirect
@@ -27,7 +25,6 @@ require (
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d // indirect
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/moby/buildkit v0.9.0
-	github.com/moby/sys/mount v0.2.0 // indirect
 	github.com/opencontainers/image-spec v1.0.1
 	github.com/opencontainers/runc v1.0.2 // indirect
 	github.com/pkg/errors v0.9.1
