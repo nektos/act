@@ -178,7 +178,7 @@ jobs:
       - name: GoReleaser
         uses: goreleaser/goreleaser-action@v2
         with:
-          version: latest
+          version: v0.179.0
           args: release --snapshot --rm-dist
       - name: Capture x86_64 (64-bit) Linux binary
         if: ${{ !env.ACT }}
