@@ -221,14 +221,14 @@ func findGitDirectory(fromFile string) (string, error) {
 	} else if err == nil && fi.Mode().IsRegular() {
 		file, err := os.Open(gitPath)
 		if err != nil {
-			log.Fatal(err)
+			return "", err
 		}
 		defer file.Close()
 
 		scanner := bufio.NewScanner(file)
 		r, err := regexp.Compile(`gitdir:\s*(\S*)`)
 		if err != nil {
-			log.Fatal(err)
+			return "", err
 		}
 
 		for scanner.Scan() {
