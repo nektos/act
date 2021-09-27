@@ -130,14 +130,13 @@ func (sc *StepContext) Executor() common.Executor {
 func (sc *StepContext) mergeEnv() map[string]string {
 	rc := sc.RunContext
 	job := rc.Run.Job()
-	step := sc.Step
 
 	var env map[string]string
 	c := job.Container()
 	if c != nil {
-		env = mergeMaps(rc.GetEnv(), c.Env, step.GetEnv())
+		env = mergeMaps(rc.GetEnv(), c.Env)
 	} else {
-		env = mergeMaps(rc.GetEnv(), step.GetEnv())
+		env = rc.GetEnv()
 	}
 
 	if env["PATH"] == "" {
@@ -176,6 +175,7 @@ func (sc *StepContext) setupEnv(ctx context.Context) (ExpressionEvaluator, error
 			return nil, err
 		}
 	}
+	sc.Env = mergeMaps(sc.Env, sc.Step.GetEnv()) // step env should not be overwritten
 	evaluator := sc.NewExpressionEvaluator()
 	sc.interpolateEnv(evaluator)
 
