@@ -226,10 +226,7 @@ func findGitDirectory(fromFile string) (string, error) {
 		defer file.Close()
 
 		scanner := bufio.NewScanner(file)
-		r, err := regexp.Compile(`gitdir:\s*(\S*)`)
-		if err != nil {
-			return "", err
-		}
+		r := regexp.MustCompile(`gitdir:\s*(\S*)`)
 
 		for scanner.Scan() {
 			match := r.FindStringSubmatch(scanner.Text())
@@ -243,13 +240,11 @@ func findGitDirectory(fromFile string) (string, error) {
 					return "", err
 				}
 				return gitPath, nil
-
 			}
 		}
 	} else if dir == "/" || dir == "C:\\" || dir == "c:\\" {
 		return "", errors.New("unable to find git repo")
 	}
-
 	return findGitDirectory(filepath.Dir(dir))
 }
 
