@@ -1,6 +1,7 @@
 package common
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"io"
@@ -217,6 +218,34 @@ func findGitDirectory(fromFile string) (string, error) {
 	fi, err = os.Stat(gitPath)
 	if err == nil && fi.Mode().IsDir() {
 		return gitPath, nil
+	} else if err == nil && fi.Mode().IsRegular() {
+		file, err := os.Open(gitPath)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer file.Close()
+
+		scanner := bufio.NewScanner(file)
+		r, err := regexp.Compile(`gitdir:\s*(\S*)`)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		for scanner.Scan() {
+			match := r.FindStringSubmatch(scanner.Text())
+			if match[0] != "" {
+				dat, err := os.ReadFile(filepath.Join(match[1], "commondir"))
+				if err != nil {
+					return "", err
+				}
+				gitPath, err = filepath.Abs(filepath.Join(match[1], strings.ReplaceAll(string(dat), "\n", "")))
+				if err != nil {
+					return "", err
+				}
+				return gitPath, nil
+
+			}
+		}
 	} else if dir == "/" || dir == "C:\\" || dir == "c:\\" {
 		return "", errors.New("unable to find git repo")
 	}
