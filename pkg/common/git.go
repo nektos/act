@@ -196,6 +196,7 @@ func findGitSlug(url string, githubInstance string) (string, string, error) {
 	return "", url, nil
 }
 
+// nolint:gocyclo
 func findGitDirectory(fromFile string) (string, error) {
 	absPath, err := filepath.Abs(fromFile)
 	if err != nil {
