@@ -1,34 +1,47 @@
 package container
 
 import (
-	"sort"
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
-func TestMergeEnvFromImage(t *testing.T) {
-	inputEnv := []string{
-		"PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/sbin",
-		"GOPATH=/root/go",
-		"GOOS=linux",
+func TestDocker(t *testing.T) {
+	ctx := context.Background()
+	client, err := GetDockerClient(ctx)
+	assert.NoError(t, err)
+
+	dockerBuild := NewDockerBuildExecutor(NewDockerBuildExecutorInput{
+		ContextDir: "testdata",
+		ImageTag:   "envmergetest",
+	})
+
+	err = dockerBuild(ctx)
+	assert.NoError(t, err)
+
+	cr := &containerReference{
+		cli: client,
+		input: &NewContainerInput{
+			Image: "envmergetest",
+		},
 	}
-	imageEnv := []string{
-		"PATH=/root/go/bin",
-		"GOPATH=/tmp",
-		"GOARCH=amd64",
+	env := map[string]string{
+		"PATH":         "/usr/local/bin:/usr/bin:/usr/sbin:/bin:/sbin",
+		"RANDOM_VAR":   "WITH_VALUE",
+		"ANOTHER_VAR":  "",
+		"CONFLICT_VAR": "I_EXIST_IN_MULTIPLE_PLACES",
 	}
 
-	merged := mergeEnvFromImage(inputEnv, imageEnv)
-	sort.Strings(merged)
-
-	expected := []string{
-		"PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/sbin:/root/go/bin",
-		"GOPATH=/root/go",
-		"GOOS=linux",
-		"GOARCH=amd64",
-	}
-	sort.Strings(expected)
-
-	assert.Equal(t, expected, merged)
+	envExecutor := cr.extractFromImageEnv(&env)
+	err = envExecutor(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, map[string]string{
+		"PATH":            "/usr/local/bin:/usr/bin:/usr/sbin:/bin:/sbin:/this/path/does/not/exists/anywhere:/this/either",
+		"RANDOM_VAR":      "WITH_VALUE",
+		"ANOTHER_VAR":     "",
+		"SOME_RANDOM_VAR": "",
+		"ANOTHER_ONE":     "BUT_I_HAVE_VALUE",
+		"CONFLICT_VAR":    "I_EXIST_IN_MULTIPLE_PLACES",
+	}, env)
 }

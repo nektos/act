@@ -17,6 +17,7 @@ import (
 	"github.com/go-git/go-billy/v5/helper/polyfill"
 	"github.com/go-git/go-billy/v5/osfs"
 	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
+	"github.com/joho/godotenv"
 
 	"github.com/docker/cli/cli/connhelper"
 	"github.com/docker/docker/api/types"
@@ -72,6 +73,7 @@ type Container interface {
 	Start(attach bool) common.Executor
 	Exec(command []string, env map[string]string, user, workdir string) common.Executor
 	UpdateFromEnv(srcPath string, env *map[string]string) common.Executor
+	UpdateFromImageEnv(env *map[string]string) common.Executor
 	UpdateFromPath(env *map[string]string) common.Executor
 	Remove() common.Executor
 }
@@ -165,6 +167,10 @@ func (cr *containerReference) GetContainerArchive(ctx context.Context, srcPath s
 
 func (cr *containerReference) UpdateFromEnv(srcPath string, env *map[string]string) common.Executor {
 	return cr.extractEnv(srcPath, env).IfNot(common.Dryrun)
+}
+
+func (cr *containerReference) UpdateFromImageEnv(env *map[string]string) common.Executor {
+	return cr.extractFromImageEnv(env).IfNot(common.Dryrun)
 }
 
 func (cr *containerReference) UpdateFromPath(env *map[string]string) common.Executor {
@@ -296,13 +302,6 @@ func (cr *containerReference) create(capAdd []string, capDrop []string) common.E
 		isTerminal := term.IsTerminal(int(os.Stdout.Fd()))
 		input := cr.input
 
-		insp, _, err := cr.cli.ImageInspectWithRaw(ctx, input.Image)
-		if err != nil {
-			logger.Error(err)
-		}
-
-		input.Env = mergeEnvFromImage(input.Env, insp.Config.Env)
-
 		config := &container.Config{
 			Image:      input.Image,
 			Cmd:        input.Cmd,
@@ -355,39 +354,6 @@ func (cr *containerReference) create(capAdd []string, capDrop []string) common.E
 	}
 }
 
-func mergeEnvFromImage(inputEnv, imageEnv []string) []string {
-	envMap := make(map[string]string)
-	for _, v := range inputEnv {
-		e := strings.Split(v, `=`)
-		if e[1] == "" {
-			envMap[e[0]] = ""
-		} else {
-			envMap[e[0]] = e[1]
-		}
-	}
-
-	for _, v := range imageEnv {
-		e := strings.SplitN(v, `=`, 2)
-		if env, ok := envMap[e[0]]; !ok {
-			if e[1] != "" {
-				envMap[e[0]] = e[1]
-			}
-		} else {
-			if e[0] == "PATH" {
-				if e[1] != "" {
-					envMap[e[0]] = strings.Join([]string{env, e[1]}, `:`)
-				}
-			}
-		}
-	}
-
-	out := make([]string, 0)
-	for k, v := range envMap {
-		out = append(out, strings.Join([]string{k, v}, `=`))
-	}
-	return out
-}
-
 var singleLineEnvPattern, mulitiLineEnvPattern *regexp.Regexp
 
 func (cr *containerReference) extractEnv(srcPath string, env *map[string]string) common.Executor {
@@ -433,6 +399,38 @@ func (cr *containerReference) extractEnv(srcPath string, env *map[string]string)
 			}
 		}
 		env = &localEnv
+		return nil
+	}
+}
+
+func (cr *containerReference) extractFromImageEnv(env *map[string]string) common.Executor {
+	envMap := *env
+	return func(ctx context.Context) error {
+		logger := common.Logger(ctx)
+
+		inspect, _, err := cr.cli.ImageInspectWithRaw(ctx, cr.input.Image)
+		if err != nil {
+			logger.Error(err)
+		}
+
+		imageEnv, err := godotenv.Unmarshal(strings.Join(inspect.Config.Env, "\n"))
+		if err != nil {
+			logger.Error(err)
+		}
+
+		for k, v := range imageEnv {
+			if k == "PATH" {
+				if envMap[k] == "" {
+					envMap[k] = v
+				} else {
+					envMap[k] += `:` + v
+				}
+			} else if envMap[k] == "" {
+				envMap[k] = v
+			}
+		}
+
+		env = &envMap
 		return nil
 	}
 }
