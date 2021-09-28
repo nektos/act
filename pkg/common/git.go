@@ -376,6 +376,13 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) Executor {
 		}
 		logger.Debugf("Cloned %s to %s", input.URL, input.Dir)
 
+		if hash.String() != input.Ref && refType == "branch" {
+			logger.Debugf("Provided ref is not a sha. Updating branch ref after pull")
+			if hash, err = r.ResolveRevision(rev); err != nil {
+				logger.Errorf("Unable to resolve %s: %v", input.Ref, err)
+				return err
+			}
+		}
 		if err = w.Checkout(&git.CheckoutOptions{
 			Hash:  *hash,
 			Force: true,

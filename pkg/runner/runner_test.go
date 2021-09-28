@@ -103,6 +103,7 @@ func TestRunEvent(t *testing.T) {
 		{"testdata", "shells/sh", "push", "", platforms, ""},
 		{"testdata", "job-container", "push", "", platforms, ""},
 		{"testdata", "job-container-non-root", "push", "", platforms, ""},
+		{"testdata", "container-hostname", "push", "", platforms, ""},
 		{"testdata", "uses-docker-url", "push", "", platforms, ""},
 		{"testdata", "remote-action-docker", "push", "", platforms, ""},
 		{"testdata", "remote-action-js", "push", "", platforms, ""},
