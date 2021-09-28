@@ -285,13 +285,6 @@ func (sc *StepContext) newStepContainer(ctx context.Context, image string, cmd [
 	for k, v := range sc.Env {
 		envList = append(envList, fmt.Sprintf("%s=%s", k, v))
 	}
-	stepEE := sc.NewExpressionEvaluator()
-	for i, v := range cmd {
-		cmd[i] = stepEE.Interpolate(v)
-	}
-	for i, v := range entrypoint {
-		entrypoint[i] = stepEE.Interpolate(v)
-	}
 
 	envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_TOOL_CACHE", "/opt/hostedtoolcache"))
 	envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_OS", "Linux"))
@@ -325,11 +318,12 @@ func (sc *StepContext) runUsesContainer() common.Executor {
 	step := sc.Step
 	return func(ctx context.Context) error {
 		image := strings.TrimPrefix(step.Uses, "docker://")
-		cmd, err := shellquote.Split(sc.RunContext.NewExpressionEvaluator().Interpolate(step.With["args"]))
+		eval := sc.RunContext.NewExpressionEvaluator()
+		cmd, err := shellquote.Split(eval.Interpolate(step.With["args"]))
 		if err != nil {
 			return err
 		}
-		entrypoint := strings.Fields(step.With["entrypoint"])
+		entrypoint := strings.Fields(eval.Interpolate(step.With["entrypoint"]))
 		stepContainer := sc.newStepContainer(ctx, image, cmd, entrypoint)
 
 		return common.NewPipelineExecutor(
@@ -575,16 +569,16 @@ func (sc *StepContext) execAsDocker(ctx context.Context, action *model.Action, a
 			log.Debugf("image '%s' for architecture '%s' already exists", image, rc.Config.ContainerArchitecture)
 		}
 	}
-
-	cmd, err := shellquote.Split(step.With["args"])
+	eval := sc.NewExpressionEvaluator()
+	cmd, err := shellquote.Split(eval.Interpolate(step.With["args"]))
 	if err != nil {
 		return err
 	}
-	oldInputs := rc.Inputs
-	defer func() {
-		rc.Inputs = oldInputs
-	}()
 	if len(cmd) == 0 {
+		oldInputs := rc.Inputs
+		defer func() {
+			rc.Inputs = oldInputs
+		}()
 		cmd = action.Runs.Args
 		inputs := make(map[string]string)
 		eval := sc.RunContext.NewExpressionEvaluator()
@@ -598,8 +592,12 @@ func (sc *StepContext) execAsDocker(ctx context.Context, action *model.Action, a
 			}
 		}
 		rc.Inputs = inputs
+		stepEE := sc.NewExpressionEvaluator()
+		for i, v := range cmd {
+			cmd[i] = stepEE.Interpolate(v)
+		}
 	}
-	entrypoint := strings.Fields(step.With["entrypoint"])
+	entrypoint := strings.Fields(eval.Interpolate(step.With["entrypoint"]))
 	if len(entrypoint) == 0 {
 		entrypoint = action.Runs.Entrypoint
 	}

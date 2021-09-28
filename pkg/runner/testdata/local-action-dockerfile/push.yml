@@ -6,6 +6,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+    - run: chmod +x ./actions/docker-local/entrypoint.sh
     - uses: ./actions/docker-local
       with:
         who-to-greet: 'Mona the Octocat'
@@ -13,4 +14,10 @@ jobs:
     - run: '[ "${SOMEVAR}" = "Not Mona" ] || exit 1'
       env:
         SOMEVAR: 'Not Mona'
+    # Test if overriding args doesn't leak inputs
+    - uses: ./actions/docker-local
+      with:
+        args: ${{format('"{0}"', 'Mona is not the Octocat') }}
+        who-to-greet: 'Mona the Octocat'
+    - run: '[[ "${{ env.SOMEVAR }}" == "Mona is not the Octocat" ]]'
     - uses: ./localdockerimagetest_
