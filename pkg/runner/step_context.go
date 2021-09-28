@@ -649,6 +649,7 @@ func (sc *StepContext) execAsComposite(ctx context.Context, step *model.Step, _ 
 
 	// Map outputs to parent rc
 	eval = (&StepContext{
+		Env: sc.Env
 		RunContext: compositerc,
 	}).NewExpressionEvaluator()
 	for outputName, output := range action.Outputs {
