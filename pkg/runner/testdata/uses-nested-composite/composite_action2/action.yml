@@ -34,10 +34,16 @@ runs:
       test_input_optional_with_default_overriden: 'test_input_optional_with_default_overriden'
       test_input_required_with_default: 'test_input_optional_value'
       test_input_required_with_default_overriden: 'test_input_required_with_default_overriden'
-
+      secret_input: ${{inputs.test_input_optional}}
+    env:
+      secret_input: ${{inputs.test_input_optional}}
   - run: |
       echo "steps.composite.outputs.test_output=${{ steps.composite.outputs.test_output }}"
       [[ "${{steps.composite.outputs.test_output == 'test_output_value'}}" = "true" ]] || exit 1
+    shell: bash
+  - run: |
+      echo "steps.composite.outputs.secret_output=${{ steps.composite.outputs.secret_output }}"
+      [[ "${{steps.composite.outputs.secret_output == format('{0}/{0}', inputs.test_input_optional)}}" = "true" ]] || exit 1
     shell: bash
   # Now test again with default values
   - uses: ./uses-composite/composite_action
