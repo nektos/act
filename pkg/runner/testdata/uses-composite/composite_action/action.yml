@@ -30,7 +30,7 @@ outputs:
     value: ${{ steps.output.outputs.test_output }}
   secret_output:
     description: test pass a secret as output
-    value: ${{ format('{0}/{1}', inputs.secret_input, env.secret_input }}
+    value: ${{ format('{0}/{1}', inputs.secret_input, env.secret_input) }}
 
 runs:
   using: "composite"
