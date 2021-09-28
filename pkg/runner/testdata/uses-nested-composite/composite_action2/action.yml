@@ -57,3 +57,7 @@ runs:
       echo "steps.composite2.outputs.test_output=${{ steps.composite2.outputs.test_output }}"
       [[ "${{steps.composite2.outputs.test_output == 'test_output_value'}}" = "true" ]] || exit 1
     shell: bash
+  - run: |
+      echo "steps.composite.outputs.secret_output=$COMPOSITE_ACTION_ENV_OUTPUT"
+      [[ "${{env.COMPOSITE_ACTION_ENV_OUTPUT == 'my test value' }}" = "true" ]] || exit 1
+    shell: bash

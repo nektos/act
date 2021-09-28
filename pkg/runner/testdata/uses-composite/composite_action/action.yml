@@ -91,5 +91,6 @@ runs:
     - run: echo "::set-output name=test_output::test_output_value"
       id: output
       shell: bash
-
+    - run: echo "COMPOSITE_ACTION_ENV_OUTPUT=my test value" >> $GITHUB_ENV
+      shell: bash
 

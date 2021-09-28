@@ -9,3 +9,7 @@ jobs:
     - uses: ./uses-nested-composite/composite_action2
       with:
         test_input_optional: Test
+    - run: |
+        echo "steps.composite.outputs.secret_output=$COMPOSITE_ACTION_ENV_OUTPUT"
+        [[ "${{env.COMPOSITE_ACTION_ENV_OUTPUT == 'my test value' }}" = "true" ]] || exit 1
+      shell: bash

@@ -25,6 +25,10 @@ jobs:
         echo "steps.composite.outputs.secret_output=${{ steps.composite.outputs.secret_output }}"
         [[ "${{steps.composite.outputs.secret_output == format('{0}/{0}', secrets.test_input_optional || 'NO SUCH SECRET')}}" = "true" ]] || exit 1
       shell: bash
+    - run: |
+        echo "steps.composite.outputs.secret_output=$COMPOSITE_ACTION_ENV_OUTPUT"
+        [[ "${{env.COMPOSITE_ACTION_ENV_OUTPUT == 'my test value' }}" = "true" ]] || exit 1
+      shell: bash
 
     # Now test again with default values
     - uses: ./uses-composite/composite_action
