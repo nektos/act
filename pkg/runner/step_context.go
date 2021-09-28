@@ -517,6 +517,31 @@ func (sc *StepContext) runAction(actionDir string, actionPath string, localActio
 	}
 }
 
+func (sc *StepContext) evalDockerArgs(action *model.Action, cmd *[]string) {
+	rc := sc.RunContext
+	step := sc.Step
+	oldInputs := rc.Inputs
+	defer func() {
+		rc.Inputs = oldInputs
+	}()
+	inputs := make(map[string]string)
+	eval := sc.RunContext.NewExpressionEvaluator()
+	// Set Defaults
+	for k, input := range action.Inputs {
+		inputs[k] = eval.Interpolate(input.Default)
+	}
+	if step.With != nil {
+		for k, v := range step.With {
+			inputs[k] = eval.Interpolate(v)
+		}
+	}
+	rc.Inputs = inputs
+	stepEE := sc.NewExpressionEvaluator()
+	for i, v := range *cmd {
+		(*cmd)[i] = stepEE.Interpolate(v)
+	}
+}
+
 func (sc *StepContext) execAsDocker(ctx context.Context, action *model.Action, actionName string, containerLocation string, actionLocation string, rc *RunContext, step *model.Step, localAction bool) error {
 	var prepImage common.Executor
 	var image string
@@ -575,27 +600,8 @@ func (sc *StepContext) execAsDocker(ctx context.Context, action *model.Action, a
 		return err
 	}
 	if len(cmd) == 0 {
-		oldInputs := rc.Inputs
-		defer func() {
-			rc.Inputs = oldInputs
-		}()
 		cmd = action.Runs.Args
-		inputs := make(map[string]string)
-		eval := sc.RunContext.NewExpressionEvaluator()
-		// Set Defaults
-		for k, input := range action.Inputs {
-			inputs[k] = eval.Interpolate(input.Default)
-		}
-		if step.With != nil {
-			for k, v := range step.With {
-				inputs[k] = eval.Interpolate(v)
-			}
-		}
-		rc.Inputs = inputs
-		stepEE := sc.NewExpressionEvaluator()
-		for i, v := range cmd {
-			cmd[i] = stepEE.Interpolate(v)
-		}
+		sc.evalDockerArgs(action, &cmd)
 	}
 	entrypoint := strings.Fields(eval.Interpolate(step.With["entrypoint"]))
 	if len(entrypoint) == 0 {
