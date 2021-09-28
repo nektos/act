@@ -637,8 +637,12 @@ func (sc *StepContext) execAsComposite(ctx context.Context, step *model.Step, _ 
 	compositerc.Composite = action
 	envToEvaluate := mergeMaps(compositerc.Env, step.Environment())
 	compositerc.Env = make(map[string]string)
+	// origEnvMap: is used to pass env changes back to parent runcontext
+	origEnvMap := make(map[string]string)
 	for k, v := range envToEvaluate {
-		compositerc.Env[k] = eval.Interpolate(v)
+		ev := eval.Interpolate(v)
+		origEnvMap[k] = ev
+		compositerc.Env[k] = ev
 	}
 	compositerc.Inputs = inputs
 	compositerc.ExprEval = compositerc.NewExpressionEvaluator()
@@ -649,13 +653,21 @@ func (sc *StepContext) execAsComposite(ctx context.Context, step *model.Step, _ 
 
 	// Map outputs to parent rc
 	eval = (&StepContext{
-		Env:        sc.Env,
+		Env:        compositerc.Env,
 		RunContext: compositerc,
 	}).NewExpressionEvaluator()
 	for outputName, output := range action.Outputs {
 		backup.setOutput(ctx, map[string]string{
 			"name": outputName,
 		}, eval.Interpolate(output.Value))
+	}
+	// Test if evaluated parent env was altered by this composite step
+	// Known Issues:
+	// - you try to set an env variable to the same value as a scoped step env, will be discared
+	for k, v := range compositerc.Env {
+		if ov, ok := origEnvMap[k]; !ok || ov != v {
+			backup.Env[k] = v
+		}
 	}
 	return nil
 }
