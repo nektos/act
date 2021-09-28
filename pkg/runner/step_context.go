@@ -580,8 +580,24 @@ func (sc *StepContext) execAsDocker(ctx context.Context, action *model.Action, a
 	if err != nil {
 		return err
 	}
+	oldInputs := rc.Inputs
+	defer func() {
+		rc.Inputs = oldInputs
+	}()
 	if len(cmd) == 0 {
 		cmd = action.Runs.Args
+		inputs := make(map[string]string)
+		eval := sc.RunContext.NewExpressionEvaluator()
+		// Set Defaults
+		for k, input := range action.Inputs {
+			inputs[k] = eval.Interpolate(input.Default)
+		}
+		if step.With != nil {
+			for k, v := range step.With {
+				inputs[k] = eval.Interpolate(v)
+			}
+		}
+		rc.Inputs = inputs
 	}
 	entrypoint := strings.Fields(step.With["entrypoint"])
 	if len(entrypoint) == 0 {
