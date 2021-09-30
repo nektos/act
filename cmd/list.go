@@ -3,38 +3,51 @@ package cmd
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/nektos/act/pkg/model"
 )
 
 func printList(plan *model.Plan) error {
 	type lineInfoDef struct {
-		id    string
-		stage string
-		name  string
+		jobID   string
+		jobName string
+		stage   string
+		wfName  string
+		wfFile  string
+		events  string
 	}
 	lineInfos := []lineInfoDef{}
 
 	header := lineInfoDef{
-		id:    "ID",
-		stage: "Stage",
-		name:  "Name",
+		jobID:   "Job ID",
+		jobName: "Job name",
+		stage:   "Stage",
+		wfName:  "Workflow name",
+		wfFile:  "Workflow file",
+		events:  "Events",
 	}
 
 	jobs := map[string]bool{}
 	duplicateJobIDs := false
 
-	idMaxWidth := len(header.id)
+	jobIDMaxWidth := len(header.jobID)
+	jobNameMaxWidth := len(header.jobName)
 	stageMaxWidth := len(header.stage)
-	nameMaxWidth := len(header.name)
+	wfNameMaxWidth := len(header.wfName)
+	wfFileMaxWidth := len(header.wfFile)
+	eventsMaxWidth := len(header.events)
 
 	for i, stage := range plan.Stages {
 		for _, r := range stage.Runs {
 			jobID := r.JobID
 			line := lineInfoDef{
-				id:    jobID,
-				stage: strconv.Itoa(i),
-				name:  r.String(),
+				jobID:   jobID,
+				jobName: r.String(),
+				stage:   strconv.Itoa(i),
+				wfName:  r.Workflow.Name,
+				wfFile:  r.Workflow.File,
+				events:  strings.Join(r.Workflow.On(), `,`),
 			}
 			if _, ok := jobs[jobID]; ok {
 				duplicateJobIDs = true
@@ -42,25 +55,50 @@ func printList(plan *model.Plan) error {
 				jobs[jobID] = true
 			}
 			lineInfos = append(lineInfos, line)
-			if idMaxWidth < len(line.id) {
-				idMaxWidth = len(line.id)
+			if jobIDMaxWidth < len(line.jobID) {
+				jobIDMaxWidth = len(line.jobID)
+			}
+			if jobNameMaxWidth < len(line.jobName) {
+				jobNameMaxWidth = len(line.jobName)
 			}
 			if stageMaxWidth < len(line.stage) {
 				stageMaxWidth = len(line.stage)
 			}
-			if nameMaxWidth < len(line.name) {
-				nameMaxWidth = len(line.name)
+			if wfNameMaxWidth < len(line.wfName) {
+				wfNameMaxWidth = len(line.wfName)
+			}
+			if wfFileMaxWidth < len(line.wfFile) {
+				wfFileMaxWidth = len(line.wfFile)
+			}
+			if eventsMaxWidth < len(line.events) {
+				eventsMaxWidth = len(line.events)
 			}
 		}
 	}
 
-	idMaxWidth += 2
+	jobIDMaxWidth += 2
+	jobNameMaxWidth += 2
 	stageMaxWidth += 2
-	nameMaxWidth += 2
+	wfNameMaxWidth += 2
+	wfFileMaxWidth += 2
 
-	fmt.Printf("%*s%*s%*s\n", -idMaxWidth, header.id, -stageMaxWidth, header.stage, -nameMaxWidth, header.name)
+	fmt.Printf("%*s%*s%*s%*s%*s%*s\n",
+		-stageMaxWidth, header.stage,
+		-jobIDMaxWidth, header.jobID,
+		-jobNameMaxWidth, header.jobName,
+		-wfNameMaxWidth, header.wfName,
+		-wfFileMaxWidth, header.wfFile,
+		-eventsMaxWidth, header.events,
+	)
 	for _, line := range lineInfos {
-		fmt.Printf("%*s%*s%*s\n", -idMaxWidth, line.id, -stageMaxWidth, line.stage, -nameMaxWidth, line.name)
+		fmt.Printf("%*s%*s%*s%*s%*s%*s\n",
+			-stageMaxWidth, line.stage,
+			-jobIDMaxWidth, line.jobID,
+			-jobNameMaxWidth, line.jobName,
+			-wfNameMaxWidth, line.wfName,
+			-wfFileMaxWidth, line.wfFile,
+			-eventsMaxWidth, line.events,
+		)
 	}
 	if duplicateJobIDs {
 		fmt.Print("\nDetected multiple jobs with the same job name, use `-W` to specify the path to the specific workflow.\n")
