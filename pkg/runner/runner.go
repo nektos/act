@@ -117,7 +117,16 @@ func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 		for r, run := range stage.Runs {
 			job := run.Job()
 			matrixes := job.GetMatrixes()
+			maxParallel := 4
+			if job.Strategy != nil {
+				maxParallel = job.Strategy.MaxParallel
+			}
 
+			if len(matrixes) < maxParallel {
+				maxParallel = len(matrixes)
+			}
+
+			b := 0
 			for i, matrix := range matrixes {
 				rc := runner.newRunContext(run, matrix)
 				rc.JobName = rc.Name
@@ -144,9 +153,14 @@ func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 						return nil
 					})(WithJobLogger(ctx, jobName, rc.Config.Secrets, rc.Config.InsecureSecrets))
 				})
+				b++
+				if b == maxParallel {
+					pipeline = append(pipeline, common.NewParallelExecutor(stageExecutor...))
+					stageExecutor = make([]common.Executor, 0)
+					b = 0
+				}
 			}
 		}
-		pipeline = append(pipeline, common.NewParallelExecutor(stageExecutor...))
 	}
 
 	return common.NewPipelineExecutor(pipeline...)
