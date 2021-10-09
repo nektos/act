@@ -448,9 +448,7 @@ func (sc *StepContext) vmEnv() func(*otto.Otto) {
 
 func (rc *RunContext) vmInputs() func(*otto.Otto) {
 	return func(vm *otto.Otto) {
-		if rc.Inputs != nil {
-			_ = vm.Set("inputs", rc.Inputs)
-		}
+		_ = vm.Set("inputs", rc.Inputs)
 	}
 }
 

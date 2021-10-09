@@ -530,7 +530,7 @@ func (sc *StepContext) evalDockerArgs(action *model.Action, cmd *[]string) {
 	defer func() {
 		rc.Inputs = oldInputs
 	}()
-	inputs := make(map[string]string)
+	inputs := make(map[string]interface{})
 	eval := sc.RunContext.NewExpressionEvaluator()
 	// Set Defaults
 	for k, input := range action.Inputs {
@@ -652,7 +652,7 @@ func (sc *StepContext) execAsComposite(ctx context.Context, step *model.Step, _ 
 			return err
 		}
 	}
-	inputs := make(map[string]string)
+	inputs := make(map[string]interface{})
 	eval := sc.RunContext.NewExpressionEvaluator()
 	// Set Defaults
 	for k, input := range action.Inputs {
