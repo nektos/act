@@ -153,7 +153,7 @@ func TestRunContext_EvalBool(t *testing.T) {
 		t.Run(table.in, func(t *testing.T) {
 			assertObject := assert.New(t)
 			defer hook.Reset()
-			b, err := rc.EvalBool(table.in)
+			b, err := EvalBool(rc.ExprEval, table.in)
 			if table.wantErr {
 				assertObject.Error(err)
 			}

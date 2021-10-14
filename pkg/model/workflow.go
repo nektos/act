@@ -69,6 +69,7 @@ type Job struct {
 	RawContainer   yaml.Node                 `yaml:"container"`
 	Defaults       Defaults                  `yaml:"defaults"`
 	Outputs        map[string]string         `yaml:"outputs"`
+	Result         string
 }
 
 // Strategy for the job

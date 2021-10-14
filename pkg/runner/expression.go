@@ -4,6 +4,8 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -25,6 +27,7 @@ func init() {
 // NewExpressionEvaluator creates a new evaluator
 func (rc *RunContext) NewExpressionEvaluator() ExpressionEvaluator {
 	vm := rc.newVM()
+
 	return &expressionEvaluator{
 		vm,
 	}
@@ -36,6 +39,10 @@ func (sc *StepContext) NewExpressionEvaluator() ExpressionEvaluator {
 	configers := []func(*otto.Otto){
 		sc.vmEnv(),
 		sc.vmInputs(),
+
+		sc.vmNeeds(),
+		sc.vmSuccess(),
+		sc.vmFailure(),
 	}
 	for _, configer := range configers {
 		configer(vm)
@@ -373,14 +380,33 @@ func (rc *RunContext) vmHashFiles() func(*otto.Otto) {
 func (rc *RunContext) vmSuccess() func(*otto.Otto) {
 	return func(vm *otto.Otto) {
 		_ = vm.Set("success", func() bool {
-			return rc.getJobContext().Status == "success"
+			jobs := rc.Run.Workflow.Jobs
+			jobNeeds := rc.Run.Job().Needs()
+
+			for _, needs := range jobNeeds {
+				if jobs[needs].Result != "success" {
+					return false
+				}
+			}
+
+			return true
 		})
 	}
 }
+
 func (rc *RunContext) vmFailure() func(*otto.Otto) {
 	return func(vm *otto.Otto) {
 		_ = vm.Set("failure", func() bool {
-			return rc.getJobContext().Status == "failure"
+			jobs := rc.Run.Workflow.Jobs
+			jobNeeds := rc.Run.Job().Needs()
+
+			for _, needs := range jobNeeds {
+				if jobs[needs].Result == "failure" {
+					return true
+				}
+			}
+
+			return false
 		})
 	}
 }
@@ -440,9 +466,9 @@ func (sc *StepContext) vmInputs() func(*otto.Otto) {
 	}
 }
 
-func (rc *RunContext) vmNeeds() func(*otto.Otto) {
-	jobs := rc.Run.Workflow.Jobs
-	jobNeeds := rc.Run.Job().Needs()
+func (sc *StepContext) vmNeeds() func(*otto.Otto) {
+	jobs := sc.RunContext.Run.Workflow.Jobs
+	jobNeeds := sc.RunContext.Run.Job().Needs()
 
 	using := make(map[string]map[string]map[string]string)
 	for _, needs := range jobNeeds {
@@ -454,6 +480,70 @@ func (rc *RunContext) vmNeeds() func(*otto.Otto) {
 	return func(vm *otto.Otto) {
 		log.Debugf("context needs => %v", using)
 		_ = vm.Set("needs", using)
+	}
+}
+
+func (sc *StepContext) vmSuccess() func(*otto.Otto) {
+	return func(vm *otto.Otto) {
+		_ = vm.Set("success", func() bool {
+			return sc.RunContext.getJobContext().Status == "success"
+		})
+	}
+}
+
+func (sc *StepContext) vmFailure() func(*otto.Otto) {
+	return func(vm *otto.Otto) {
+		_ = vm.Set("failure", func() bool {
+			return sc.RunContext.getJobContext().Status == "failure"
+		})
+	}
+}
+
+type vmNeedsStruct struct {
+	Outputs map[string]string `json:"outputs"`
+	Result  string            `json:"result"`
+}
+
+func (rc *RunContext) vmNeeds() func(*otto.Otto) {
+	return func(vm *otto.Otto) {
+		needsFunc := func() otto.Value {
+			jobs := rc.Run.Workflow.Jobs
+			jobNeeds := rc.Run.Job().Needs()
+
+			using := make(map[string]vmNeedsStruct)
+			for _, needs := range jobNeeds {
+				using[needs] = vmNeedsStruct{
+					Outputs: jobs[needs].Outputs,
+					Result:  jobs[needs].Result,
+				}
+			}
+
+			log.Debugf("context needs => %+v", using)
+
+			value, err := vm.ToValue(using)
+			if err != nil {
+				return vm.MakeTypeError(err.Error())
+			}
+
+			return value
+		}
+
+		// Results might change after the Otto VM was created
+		// and initialized. To access the current state
+		// we can't just pass a copy to Otto - instead we
+		// created a 'live-binding'.
+		// Technical Note: We don't want to pollute the global
+		// js namespace (and add things github actions hasn't)
+		// we delete the helper function after installing it
+		// as a getter.
+		global, _ := vm.Run("this")
+		_ = global.Object().Set("__needs__", needsFunc)
+		_, _ = vm.Run(`
+			(function (global) {
+				Object.defineProperty(global, 'needs', { get: global.__needs__ });
+				delete global.__needs__;
+			})(this)
+		`)
 	}
 }
 
@@ -517,4 +607,49 @@ func (rc *RunContext) vmMatrix() func(*otto.Otto) {
 	return func(vm *otto.Otto) {
 		_ = vm.Set("matrix", rc.Matrix)
 	}
+}
+
+// EvalBool evaluates an expression against given evaluator
+func EvalBool(evaluator ExpressionEvaluator, expr string) (bool, error) {
+	if splitPattern == nil {
+		splitPattern = regexp.MustCompile(fmt.Sprintf(`%s|%s|\S+`, expressionPattern.String(), operatorPattern.String()))
+	}
+	if strings.HasPrefix(strings.TrimSpace(expr), "!") {
+		return false, errors.New("expressions starting with ! must be wrapped in ${{ }}")
+	}
+	if expr != "" {
+		parts := splitPattern.FindAllString(expr, -1)
+		var evaluatedParts []string
+		for i, part := range parts {
+			if operatorPattern.MatchString(part) {
+				evaluatedParts = append(evaluatedParts, part)
+				continue
+			}
+
+			interpolatedPart, isString := evaluator.InterpolateWithStringCheck(part)
+
+			// This peculiar transformation has to be done because the GitHub parser
+			// treats false returned from contexts as a string, not a boolean.
+			// Hence env.SOMETHING will be evaluated to true in an if: expression
+			// regardless if SOMETHING is set to false, true or any other string.
+			// It also handles some other weirdness that I found by trial and error.
+			if (expressionPattern.MatchString(part) && // it is an expression
+				!strings.Contains(part, "!")) && // but it's not negated
+				interpolatedPart == "false" && // and the interpolated string is false
+				(isString || previousOrNextPartIsAnOperator(i, parts)) { // and it's of type string or has an logical operator before or after
+				interpolatedPart = fmt.Sprintf("'%s'", interpolatedPart) // then we have to quote the false expression
+			}
+
+			evaluatedParts = append(evaluatedParts, interpolatedPart)
+		}
+
+		joined := strings.Join(evaluatedParts, " ")
+		v, _, err := evaluator.Evaluate(fmt.Sprintf("Boolean(%s)", joined))
+		if err != nil {
+			return false, err
+		}
+		log.Debugf("expression '%s' evaluated to '%s'", expr, v)
+		return v == "true", nil
+	}
+	return true, nil
 }

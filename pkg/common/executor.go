@@ -7,6 +7,10 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+type errorContextKey string
+
+const ErrorContextKeyVal = errorContextKey("error")
+
 // Warning that implements `error` but safe to ignore
 type Warning struct {
 	Message string
@@ -136,13 +140,12 @@ func (e Executor) Then(then Executor) Executor {
 			case Warning:
 				log.Warning(err.Error())
 			default:
-				log.Debugf("%+v", err)
-				return err
+				ctx = context.WithValue(ctx, ErrorContextKeyVal, err)
 			}
+		} else if ctx.Err() != nil {
+			ctx = context.WithValue(ctx, ErrorContextKeyVal, ctx.Err())
 		}
-		if ctx.Err() != nil {
-			return ctx.Err()
-		}
+
 		return then(ctx)
 	}
 }

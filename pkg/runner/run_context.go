@@ -3,7 +3,6 @@ package runner
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -288,7 +287,20 @@ func (rc *RunContext) Executor() common.Executor {
 		}
 		steps = append(steps, rc.newStepExecutor(step))
 	}
-	steps = append(steps, rc.stopJobContainer())
+	steps = append(steps, func(ctx context.Context) error {
+		err := rc.stopJobContainer()(ctx)
+		if err != nil {
+			return err
+		}
+
+		rc.Run.Job().Result = "success"
+		_, ok := ctx.Value(common.ErrorContextKeyVal).(error)
+		if ok {
+			rc.Run.Job().Result = "failure"
+		}
+
+		return nil
+	})
 
 	return common.NewPipelineExecutor(steps...).Finally(rc.interpolateOutputs()).Finally(func(ctx context.Context) error {
 		if rc.JobContainer != nil {
@@ -310,7 +322,7 @@ func (rc *RunContext) newStepExecutor(step *model.Step) common.Executor {
 			Conclusion: stepStatusSuccess,
 			Outputs:    make(map[string]string),
 		}
-		runStep, err := rc.EvalBool(sc.Step.If.Value)
+		runStep, err := EvalBool(sc.NewExpressionEvaluator(), sc.Step.If.Value)
 
 		if err != nil {
 			common.Logger(ctx).Errorf("  \u274C  Error in if: expression - %s", sc.Step)
@@ -403,7 +415,7 @@ func (rc *RunContext) hostname() string {
 func (rc *RunContext) isEnabled(ctx context.Context) bool {
 	job := rc.Run.Job()
 	l := common.Logger(ctx)
-	runJob, err := rc.EvalBool(job.If.Value)
+	runJob, err := EvalBool(rc.ExprEval, job.If.Value)
 	if err != nil {
 		common.Logger(ctx).Errorf("  \u274C  Error in if: expression - %s", job.Name)
 		return false
@@ -429,51 +441,6 @@ func (rc *RunContext) isEnabled(ctx context.Context) bool {
 }
 
 var splitPattern *regexp.Regexp
-
-// EvalBool evaluates an expression against current run context
-func (rc *RunContext) EvalBool(expr string) (bool, error) {
-	if splitPattern == nil {
-		splitPattern = regexp.MustCompile(fmt.Sprintf(`%s|%s|\S+`, expressionPattern.String(), operatorPattern.String()))
-	}
-	if strings.HasPrefix(strings.TrimSpace(expr), "!") {
-		return false, errors.New("expressions starting with ! must be wrapped in ${{ }}")
-	}
-	if expr != "" {
-		parts := splitPattern.FindAllString(expr, -1)
-		var evaluatedParts []string
-		for i, part := range parts {
-			if operatorPattern.MatchString(part) {
-				evaluatedParts = append(evaluatedParts, part)
-				continue
-			}
-
-			interpolatedPart, isString := rc.ExprEval.InterpolateWithStringCheck(part)
-
-			// This peculiar transformation has to be done because the GitHub parser
-			// treats false returned from contexts as a string, not a boolean.
-			// Hence env.SOMETHING will be evaluated to true in an if: expression
-			// regardless if SOMETHING is set to false, true or any other string.
-			// It also handles some other weirdness that I found by trial and error.
-			if (expressionPattern.MatchString(part) && // it is an expression
-				!strings.Contains(part, "!")) && // but it's not negated
-				interpolatedPart == "false" && // and the interpolated string is false
-				(isString || previousOrNextPartIsAnOperator(i, parts)) { // and it's of type string or has an logical operator before or after
-				interpolatedPart = fmt.Sprintf("'%s'", interpolatedPart) // then we have to quote the false expression
-			}
-
-			evaluatedParts = append(evaluatedParts, interpolatedPart)
-		}
-
-		joined := strings.Join(evaluatedParts, " ")
-		v, _, err := rc.ExprEval.Evaluate(fmt.Sprintf("Boolean(%s)", joined))
-		if err != nil {
-			return false, err
-		}
-		log.Debugf("expression '%s' evaluated to '%s'", expr, v)
-		return v == "true", nil
-	}
-	return true, nil
-}
 
 func previousOrNextPartIsAnOperator(i int, parts []string) bool {
 	operator := false
