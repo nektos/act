@@ -2,7 +2,6 @@ package runner
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
@@ -167,16 +166,20 @@ func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 		}
 	}
 
-	return common.NewPipelineExecutor(pipeline...).Then(func(ctx context.Context) error {
+	return common.NewPipelineExecutor(pipeline...).Then(handleFailure(plan))
+}
+
+func handleFailure(plan *model.Plan) common.Executor {
+	return func(ctx context.Context) error {
 		for _, stage := range plan.Stages {
 			for _, run := range stage.Runs {
 				if run.Job().Result == "failure" {
-					return errors.New(fmt.Sprintf("Job '%s' failed", run.String()))
+					return fmt.Errorf("Job '%s' failed", run.String())
 				}
 			}
 		}
 		return nil
-	})
+	}
 }
 
 func (runner *runnerImpl) newRunContext(run *model.Run, matrix map[string]interface{}) *RunContext {
