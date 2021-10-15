@@ -434,6 +434,9 @@ func (w *Workflow) GetJob(jobID string) *Job {
 			if j.Name == "" {
 				j.Name = id
 			}
+			if j.If.Value == "" {
+				j.If.Value = "success()"
+			}
 			return j
 		}
 	}
