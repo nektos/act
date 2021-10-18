@@ -38,7 +38,7 @@ If you are using Linux, you will need to [install Docker Engine](https://docs.do
 [![homebrew version](https://img.shields.io/homebrew/v/act)](https://github.com/nektos/homebrew-tap/blob/master/Formula/act.rb)
 
 ```shell
-brew install act
+brew install act --HEAD
 ```
 
 ### [MacPorts](https://www.macports.org) (macOS)
