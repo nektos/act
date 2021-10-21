@@ -32,12 +32,3 @@ archives:
     format_overrides:
       - goos: windows
         format: zip
-brews:
-  - tap:
-      owner: nektos
-      name: homebrew-tap
-    folder: Formula
-    homepage: https://github.com/nektos/act
-    description: Run GitHub Actions locally
-    test: |
-      system "#{bin}/act --version"
