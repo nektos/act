@@ -93,7 +93,7 @@ jobs:
   test-macos:
     needs: dump_images
     name: test-macos
-    runs-on: macos-latest
+    runs-on: macos-10.15
     continue-on-error: true # Don't let macos test fail whole workflow
     env:
       ISO_PATH: ~/.docker/machine/cache/boot2docker.iso
