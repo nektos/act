@@ -38,6 +38,7 @@ func NewDockerBuildExecutor(input NewDockerBuildExecutorInput) common.Executor {
 		if err != nil {
 			return err
 		}
+		defer cli.Close()
 
 		logger.Debugf("Building image from '%v'", input.ContextDir)
 
