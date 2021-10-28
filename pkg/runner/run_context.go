@@ -524,6 +524,17 @@ func (rc *RunContext) getStepsContext() map[string]*stepResult {
 	return rc.StepResults
 }
 
+func (rc *RunContext) getNeedsTransitive(job *model.Job) []string {
+	needs := job.Needs()
+
+	for _, need := range needs {
+		parentNeeds := rc.getNeedsTransitive(rc.Run.Workflow.GetJob(need))
+		needs = append(needs, parentNeeds...)
+	}
+
+	return needs
+}
+
 type githubContext struct {
 	Event            map[string]interface{} `json:"event"`
 	EventPath        string                 `json:"event_path"`

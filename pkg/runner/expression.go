@@ -381,7 +381,7 @@ func (rc *RunContext) vmSuccess() func(*otto.Otto) {
 	return func(vm *otto.Otto) {
 		_ = vm.Set("success", func() bool {
 			jobs := rc.Run.Workflow.Jobs
-			jobNeeds := rc.Run.Job().Needs()
+			jobNeeds := rc.getNeedsTransitive(rc.Run.Job())
 
 			for _, needs := range jobNeeds {
 				if jobs[needs].Result != "success" {
@@ -398,7 +398,7 @@ func (rc *RunContext) vmFailure() func(*otto.Otto) {
 	return func(vm *otto.Otto) {
 		_ = vm.Set("failure", func() bool {
 			jobs := rc.Run.Workflow.Jobs
-			jobNeeds := rc.Run.Job().Needs()
+			jobNeeds := rc.getNeedsTransitive(rc.Run.Job())
 
 			for _, needs := range jobNeeds {
 				if jobs[needs].Result == "failure" {
