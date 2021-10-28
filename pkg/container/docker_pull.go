@@ -57,6 +57,7 @@ func NewDockerPullExecutor(input NewDockerPullExecutorInput) common.Executor {
 		if err != nil {
 			return err
 		}
+		defer cli.Close()
 
 		imagePullOptions, err := getImagePullOptions(ctx, input)
 		if err != nil {
