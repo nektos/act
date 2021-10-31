@@ -383,6 +383,7 @@ github.com/dgrijalva/jwt-go v0.0.0-20170104182250-a601269ab70c/go.mod h1:E3ru+11
 github.com/dgrijalva/jwt-go v3.2.0+incompatible/go.mod h1:E3ru+11k8xSBh+hMPgOLZmtrrCbhqsmaPHjLKYnJCaQ=
 github.com/dgryski/go-sip13 v0.0.0-20181026042036-e10d5fee7954/go.mod h1:vAd38F8PWV+bWy6jNmig1y/TA+kYO4g3RSRF0IAv0no=
 github.com/dimchansky/utfbom v1.1.0/go.mod h1:rO41eb7gLfo8SF1jd9F8HplJm1Fewwi4mQvIirEdv+8=
+github.com/dimchansky/utfbom v1.1.1/go.mod h1:SxdoEBH5qIqFocHMyGOXVAybYJdr71b1Q/j0mACtrfE=
 github.com/dnaeon/go-vcr v1.0.1/go.mod h1:aBB1+wY4s93YsC3HHjMBMrwTj2R9FHDzUr9KyGc8n1E=
 github.com/docker/cli v0.0.0-20190925022749-754388324470/go.mod h1:JLrzqnKDaYBop7H2jaqPtU4hHvMKP+vjCwu2uszcLI8=
 github.com/docker/cli v0.0.0-20191017083524-a8ff7f821017/go.mod h1:JLrzqnKDaYBop7H2jaqPtU4hHvMKP+vjCwu2uszcLI8=
@@ -864,8 +865,8 @@ github.com/mitchellh/mapstructure v1.3.1/go.mod h1:bFUtVrKA4DC2yAKiSyO/QUcy7e+RR
 github.com/mitchellh/mapstructure v1.4.1/go.mod h1:bFUtVrKA4DC2yAKiSyO/QUcy7e+RRV2QTWOzhPopBRo=
 github.com/mitchellh/osext v0.0.0-20151018003038-5e2d6d41470f/go.mod h1:OkQIRizQZAeMln+1tSwduZz7+Af5oFlKirV/MSYes2A=
 github.com/moby/buildkit v0.8.1/go.mod h1:/kyU1hKy/aYCuP39GZA9MaKioovHku57N6cqlKZIaiQ=
-github.com/moby/buildkit v0.9.0 h1:PcdyqIOidDySJnMNaWh96ZMKtrRWuu4QEpFGjIXhC+E=
-github.com/moby/buildkit v0.9.0/go.mod h1:S9ceObCS/yMHsJD7FQx4fUCe3E7HHYjYVvk0CtynxOw=
+github.com/moby/buildkit v0.9.1 h1:6noq8jvkaRs3OQGTIDf5U5Etkgq6zsPmQHGWi5yhh88=
+github.com/moby/buildkit v0.9.1/go.mod h1:oVZKk3TMm0MlDx7XxnlF0wKmcpyrzOs9GEp0VXKWFPk=
 github.com/moby/locker v1.0.1/go.mod h1:S7SDdo5zpBK84bzzVlKr2V0hz+7x9hWbYC/kq7oQppc=
 github.com/moby/sys/mount v0.1.0/go.mod h1:FVQFLDRWwyBjDTBNQXDlWnSFREqOo3OKX9aqhmeoo74=
 github.com/moby/sys/mount v0.1.1/go.mod h1:FVQFLDRWwyBjDTBNQXDlWnSFREqOo3OKX9aqhmeoo74=
@@ -1136,7 +1137,7 @@ github.com/tommy-muehle/go-mnd v1.1.1/go.mod h1:dSUh0FtTP8VhvkL1S+gUR1OKd9ZnSaoz
 github.com/tommy-muehle/go-mnd v1.3.1-0.20200224220436-e6f9a994e8fa/go.mod h1:dSUh0FtTP8VhvkL1S+gUR1OKd9ZnSaozuI6r3m6wOig=
 github.com/tonistiigi/fsutil v0.0.0-20201103201449-0834f99b7b85/go.mod h1:a7cilN64dG941IOXfhJhlH0qB92hxJ9A1ewrdUmJ6xo=
 github.com/tonistiigi/fsutil v0.0.0-20210609172227-d72af97c0eaf/go.mod h1:lJAxK//iyZ3yGbQswdrPTxugZIDM7sd4bEsD0x3XMHk=
-github.com/tonistiigi/go-actions-cache v0.0.0-20210714033416-b93d7f1b2e70/go.mod h1:dNS+PPTqGnSl80x3wEyWWCHeON5xiBGtcM0uD6CgHNU=
+github.com/tonistiigi/go-actions-cache v0.0.0-20211002214948-4d48f2ff622a/go.mod h1:YiIBjH5gP7mao3t0dBrNNBGuKYdeJmcAJjYLXr43k6A=
 github.com/tonistiigi/units v0.0.0-20180711220420-6950e57a87ea/go.mod h1:WPnis/6cRcDZSUvVmezrxJPkiO87ThFYsoUiMwWNDJk=
 github.com/tonistiigi/vt100 v0.0.0-20210615222946-8066bb97264f/go.mod h1:ulncasL3N9uLrVann0m+CDlJKWsIAP34MPcOJF6VRvc=
 github.com/tv42/httpunix v0.0.0-20191220191345-2ba4b9c3382c/go.mod h1:hzIxponao9Kjc7aWznkXaL4U4TWaDSs8zcsY4Ka08nM=

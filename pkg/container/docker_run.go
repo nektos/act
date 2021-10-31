@@ -76,6 +76,7 @@ type Container interface {
 	UpdateFromImageEnv(env *map[string]string) common.Executor
 	UpdateFromPath(env *map[string]string) common.Executor
 	Remove() common.Executor
+	Close() common.Executor
 }
 
 // NewContainer creates a reference to a container
@@ -242,6 +243,16 @@ func (cr *containerReference) connect() common.Executor {
 			return err
 		}
 		cr.cli = cli
+		return nil
+	}
+}
+
+func (cr *containerReference) Close() common.Executor {
+	return func(ctx context.Context) error {
+		if cr.cli != nil {
+			cr.cli.Close()
+			cr.cli = nil
+		}
 		return nil
 	}
 }
