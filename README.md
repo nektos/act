@@ -35,7 +35,7 @@ If you are using Linux, you will need to [install Docker Engine](https://docs.do
 
 ### [Homebrew](https://brew.sh/) (Linux/macOS)
 
-[![homebrew version](https://img.shields.io/homebrew/v/act)](https://github.com/nektos/homebrew-tap/blob/master/Formula/act.rb)
+[![homebrew version](https://img.shields.io/homebrew/v/act)](https://github.com/Homebrew/homebrew-core/blob/master/Formula/act.rb)
 
 ```shell
 brew install act
