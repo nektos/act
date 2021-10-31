@@ -332,7 +332,7 @@ func (sc *StepContext) runUsesContainer() common.Executor {
 			stepContainer.Start(true),
 		).Finally(
 			stepContainer.Remove().IfBool(!rc.Config.ReuseContainers),
-		)(ctx)
+		).Finally(stepContainer.Close())(ctx)
 	}
 }
 
@@ -589,7 +589,7 @@ func (sc *StepContext) execAsDocker(ctx context.Context, action *model.Action, a
 		stepContainer.Start(true),
 	).Finally(
 		stepContainer.Remove().IfBool(!rc.Config.ReuseContainers),
-	)(ctx)
+	).Finally(stepContainer.Close())(ctx)
 }
 
 func (sc *StepContext) execAsComposite(ctx context.Context, step *model.Step, _ string, rc *RunContext, containerActionDir string, actionName string, _ string, action *model.Action, maybeCopyToActionDir func() error) error {
