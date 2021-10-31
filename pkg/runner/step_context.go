@@ -183,6 +183,7 @@ func (sc *StepContext) setupEnv(ctx context.Context) (ExpressionEvaluator, error
 	return evaluator, nil
 }
 
+// nolint:gocyclo
 func (sc *StepContext) setupShellCommand() common.Executor {
 	rc := sc.RunContext
 	step := sc.Step
@@ -236,6 +237,11 @@ func (sc *StepContext) setupShellCommand() common.Executor {
 		}
 		if step.Shell == "" {
 			step.Shell = rc.Run.Workflow.Defaults.Run.Shell
+		}
+		if rc.Run.Job().Container() != nil {
+			if rc.Run.Job().Container().Image != "" && step.Shell == "" {
+				step.Shell = "sh"
+			}
 		}
 		scCmd := step.ShellCommand()
 
