@@ -93,7 +93,7 @@ jobs:
   test-macos:
     needs: dump_images
     name: test-macos
-    runs-on: macos-latest
+    runs-on: macos-10.15
     continue-on-error: true # Don't let macos test fail whole workflow
     env:
       ISO_PATH: ~/.docker/machine/cache/boot2docker.iso
@@ -178,7 +178,7 @@ jobs:
       - name: GoReleaser
         uses: goreleaser/goreleaser-action@v2
         with:
-          version: v0.179.0
+          version: latest
           args: release --snapshot --rm-dist
       - name: Capture x86_64 (64-bit) Linux binary
         if: ${{ !env.ACT }}
