@@ -5,6 +5,19 @@ jobs:
     steps:
       - shell: bash
         run: |
-          if [[ -n "$PATH" ]] ; then
-            echo "I'm Bash!"
+          if [[ -n "$BASH" ]]; then
+            echo "I'm $BASH!"
+          else
+            exit 1
+          fi
+  check-container:
+    runs-on: ubuntu-latest
+    container: node:12-buster-slim
+    steps:
+      - shell: bash
+        run: |
+          if [[ -n "$BASH" ]]; then
+            echo "I'm $BASH!"
+          else
+            exit 1
           fi

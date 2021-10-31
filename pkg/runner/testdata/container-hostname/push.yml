@@ -1,6 +1,10 @@
 name: container-hostname
 on: push
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   with-hostname:
     runs-on: ubuntu-latest
