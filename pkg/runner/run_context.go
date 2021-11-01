@@ -322,15 +322,9 @@ func (rc *RunContext) newStepExecutor(step *model.Step) common.Executor {
 			Conclusion: stepStatusSuccess,
 			Outputs:    make(map[string]string),
 		}
-		runStep, err := EvalBool(sc.NewExpressionEvaluator(), sc.Step.If.Value)
 
+		runStep, err := sc.isEnabled(ctx)
 		if err != nil {
-			common.Logger(ctx).Errorf("  \u274C  Error in if: expression - %s", sc.Step)
-			exprEval, err := sc.setupEnv(ctx)
-			if err != nil {
-				return err
-			}
-			rc.ExprEval = exprEval
 			rc.StepResults[rc.CurrentStep].Conclusion = stepStatusFailure
 			rc.StepResults[rc.CurrentStep].Outcome = stepStatusFailure
 			return err
