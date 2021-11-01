@@ -266,7 +266,7 @@ func Serve(ctx context.Context, artifactPath string, port string) context.Cancel
 	go func() {
 		<-serverContext.Done()
 
-		if err := server.Shutdown(serverContext); err != nil {
+		if err := server.Shutdown(ctx); err != nil {
 			log.Errorf("Failed shutdown gracefully: %v", err)
 		}
 	}()
