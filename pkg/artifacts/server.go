@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/julienschmidt/httprouter"
+	"github.com/nektos/act/pkg/common"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -251,12 +252,13 @@ func Serve(ctx context.Context, artifactPath string, port string) context.Cancel
 	fs := os.DirFS(artifactPath)
 	uploads(router, MkdirFsImpl{artifactPath, fs})
 	downloads(router, fs)
+	ip := common.GetOutboundIP().String()
 
-	server := &http.Server{Addr: fmt.Sprintf("localhost:%s", port), Handler: router}
+	server := &http.Server{Addr: fmt.Sprintf("%s:%s", ip, port), Handler: router}
 
 	// run server
 	go func() {
-		log.Infof("Start server on http://localhost:%s", port)
+		log.Infof("Start server on http://%s:%s", ip, port)
 		log.Fatal(server.ListenAndServe())
 	}()
 
