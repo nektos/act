@@ -259,7 +259,9 @@ func Serve(ctx context.Context, artifactPath string, port string) context.Cancel
 	// run server
 	go func() {
 		log.Infof("Start server on http://%s:%s", ip, port)
-		log.Fatal(server.ListenAndServe())
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatal(err)
+		}
 	}()
 
 	// wait for cancel to gracefully shutdown server
