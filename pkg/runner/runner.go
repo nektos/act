@@ -154,7 +154,7 @@ func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 						}
 
 						return nil
-					})(WithJobLogger(ctx, jobName, rc.Config.Secrets, rc.Config.InsecureSecrets))
+					})(common.WithJobErrorContainer(WithJobLogger(ctx, jobName, rc.Config.Secrets, rc.Config.InsecureSecrets)))
 				})
 				b++
 				if b == maxParallel {
