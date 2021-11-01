@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"regexp"
@@ -343,4 +344,139 @@ func TestGetGitHubContext(t *testing.T) {
 	assert.Equal(t, ghc.RunnerPerflog, "/dev/null")
 	assert.Equal(t, ghc.EventPath, ActPath+"/workflow/event.json")
 	assert.Equal(t, ghc.Token, rc.Config.Secrets["GITHUB_TOKEN"])
+}
+
+func createIfTestRunContext(jobs map[string]*model.Job) *RunContext {
+	rc := &RunContext{
+		Config: &Config{
+			Workdir: ".",
+			Platforms: map[string]string{
+				"ubuntu-latest": "ubuntu-latest",
+			},
+		},
+		Env: map[string]string{},
+		Run: &model.Run{
+			JobID: "job1",
+			Workflow: &model.Workflow{
+				Name: "test-workflow",
+				Jobs: jobs,
+			},
+		},
+	}
+	rc.ExprEval = rc.NewExpressionEvaluator()
+
+	return rc
+}
+
+func createJob(t *testing.T, input string, result string) *model.Job {
+	var job *model.Job
+	err := yaml.Unmarshal([]byte(input), &job)
+	assert.NoError(t, err)
+	job.Result = result
+
+	return job
+}
+
+func TestRunContextIsEnabled(t *testing.T) {
+	log.SetLevel(log.DebugLevel)
+	assertObject := assert.New(t)
+
+	// success()
+	rc := createIfTestRunContext(map[string]*model.Job{
+		"job1": createJob(t, `runs-on: ubuntu-latest
+if: success()`, ""),
+	})
+	assertObject.True(rc.isEnabled(context.Background()))
+
+	rc = createIfTestRunContext(map[string]*model.Job{
+		"job1": createJob(t, `runs-on: ubuntu-latest`, "failure"),
+		"job2": createJob(t, `runs-on: ubuntu-latest
+needs: [job1]
+if: success()`, ""),
+	})
+	rc.Run.JobID = "job2"
+	assertObject.False(rc.isEnabled(context.Background()))
+
+	rc = createIfTestRunContext(map[string]*model.Job{
+		"job1": createJob(t, `runs-on: ubuntu-latest`, "success"),
+		"job2": createJob(t, `runs-on: ubuntu-latest
+needs: [job1]
+if: success()`, ""),
+	})
+	rc.Run.JobID = "job2"
+	assertObject.True(rc.isEnabled(context.Background()))
+
+	rc = createIfTestRunContext(map[string]*model.Job{
+		"job1": createJob(t, `runs-on: ubuntu-latest`, "failure"),
+		"job2": createJob(t, `runs-on: ubuntu-latest
+if: success()`, ""),
+	})
+	rc.Run.JobID = "job2"
+	assertObject.True(rc.isEnabled(context.Background()))
+
+	// failure()
+	rc = createIfTestRunContext(map[string]*model.Job{
+		"job1": createJob(t, `runs-on: ubuntu-latest
+if: failure()`, ""),
+	})
+	assertObject.False(rc.isEnabled(context.Background()))
+
+	rc = createIfTestRunContext(map[string]*model.Job{
+		"job1": createJob(t, `runs-on: ubuntu-latest`, "failure"),
+		"job2": createJob(t, `runs-on: ubuntu-latest
+needs: [job1]
+if: failure()`, ""),
+	})
+	rc.Run.JobID = "job2"
+	assertObject.True(rc.isEnabled(context.Background()))
+
+	rc = createIfTestRunContext(map[string]*model.Job{
+		"job1": createJob(t, `runs-on: ubuntu-latest`, "success"),
+		"job2": createJob(t, `runs-on: ubuntu-latest
+needs: [job1]
+if: failure()`, ""),
+	})
+	rc.Run.JobID = "job2"
+	assertObject.False(rc.isEnabled(context.Background()))
+
+	rc = createIfTestRunContext(map[string]*model.Job{
+		"job1": createJob(t, `runs-on: ubuntu-latest`, "failure"),
+		"job2": createJob(t, `runs-on: ubuntu-latest
+if: failure()`, ""),
+	})
+	rc.Run.JobID = "job2"
+	assertObject.False(rc.isEnabled(context.Background()))
+
+	// always()
+	rc = createIfTestRunContext(map[string]*model.Job{
+		"job1": createJob(t, `runs-on: ubuntu-latest
+if: always()`, ""),
+	})
+	assertObject.True(rc.isEnabled(context.Background()))
+
+	rc = createIfTestRunContext(map[string]*model.Job{
+		"job1": createJob(t, `runs-on: ubuntu-latest`, "failure"),
+		"job2": createJob(t, `runs-on: ubuntu-latest
+needs: [job1]
+if: always()`, ""),
+	})
+	rc.Run.JobID = "job2"
+	assertObject.True(rc.isEnabled(context.Background()))
+
+	rc = createIfTestRunContext(map[string]*model.Job{
+		"job1": createJob(t, `runs-on: ubuntu-latest`, "success"),
+		"job2": createJob(t, `runs-on: ubuntu-latest
+needs: [job1]
+if: always()`, ""),
+	})
+	rc.Run.JobID = "job2"
+	assertObject.True(rc.isEnabled(context.Background()))
+
+	rc = createIfTestRunContext(map[string]*model.Job{
+		"job1": createJob(t, `runs-on: ubuntu-latest`, "success"),
+		"job2": createJob(t, `runs-on: ubuntu-latest
+if: always()`, ""),
+	})
+	rc.Run.JobID = "job2"
+	assertObject.True(rc.isEnabled(context.Background()))
 }
