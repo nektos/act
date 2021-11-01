@@ -285,7 +285,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			return err
 		}
 
-		artifacts.Serve(ctx, input.artifactServerPath, input.artifactServerPort)
+		cancel := artifacts.Serve(ctx, input.artifactServerPath, input.artifactServerPort)
 
 		ctx = common.WithDryrun(ctx, input.dryrun)
 		if watch, err := cmd.Flags().GetBool("watch"); err != nil {
@@ -294,7 +294,11 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			return watchAndRun(ctx, r.NewPlanExecutor(plan))
 		}
 
-		return r.NewPlanExecutor(plan)(ctx)
+		executor := r.NewPlanExecutor(plan).Finally(func(ctx context.Context) error {
+			cancel()
+			return nil
+		})
+		return executor(ctx)
 	}
 }
 
