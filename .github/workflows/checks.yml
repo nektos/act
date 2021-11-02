@@ -82,7 +82,7 @@ jobs:
           docker pull registry:2
           docker image save -o registry registry:2
           mkdir -p docker-registry
-          docker run -d -p 5000:5000 --name registry -v $PWD/docker-registry:/var/lib/registry registry:2
+          docker run -d -p 5000:5000 --name registry -v "$PWD/docker-registry:/var/lib/registry" registry:2
           npx wait-on tcp:5000
           for image in ${{ env.CACHED_DOCKER_IMAGES }}
           do
@@ -127,7 +127,7 @@ jobs:
         run: |
           printf " 🛠️ Downloading boot2docker.iso 🛠️ \n\n"
           mkdir -p ~/.docker/machine/cache/
-          test -f ${{ env.ISO_PATH }} && printf " 🛠️ ${{ env.ISO_PATH }} successfully restored 🛠️ \n\n" || wget "https://github.com/boot2docker/boot2docker/releases/download/v19.03.12/boot2docker.iso" -O ${{ env.ISO_PATH }}
+          (test -f ${{ env.ISO_PATH }} && printf " 🛠️ ${{ env.ISO_PATH }} successfully restored 🛠️ \n\n") || wget "https://github.com/boot2docker/boot2docker/releases/download/v19.03.12/boot2docker.iso" -O ${{ env.ISO_PATH }}
           printf " 🛠️ Installing Docker from Homebrew 🛠️ \n\n"
           brew install docker docker-machine
           printf " 🛠️ Creating Docker VM 🛠️ \n\n"
@@ -135,10 +135,10 @@ jobs:
           docker-machine env default
           printf " 🛠️ Adding Docker VM info to environment 🛠️ \n\n"
           eval "$(docker-machine env default)"
-          echo "DOCKER_TLS_VERIFY=$DOCKER_TLS_VERIFY" | tee -a $GITHUB_ENV
-          echo "DOCKER_HOST=$DOCKER_HOST" | tee -a $GITHUB_ENV
-          echo "DOCKER_CERT_PATH=$DOCKER_CERT_PATH" | tee -a $GITHUB_ENV
-          echo "DOCKER_MACHINE_NAME=$DOCKER_MACHINE_NAME" | tee -a $GITHUB_ENV
+          echo "DOCKER_TLS_VERIFY=$DOCKER_TLS_VERIFY" | tee -a "$GITHUB_ENV"
+          echo "DOCKER_HOST=$DOCKER_HOST" | tee -a "$GITHUB_ENV"
+          echo "DOCKER_CERT_PATH=$DOCKER_CERT_PATH" | tee -a "$GITHUB_ENV"
+          echo "DOCKER_MACHINE_NAME=$DOCKER_MACHINE_NAME" | tee -a "$GITHUB_ENV"
           printf " 🛠️ Finished installing Docker 🛠️ \n\n"
       - name: Import images
         if: steps.image_cache.outputs.cache-hit == 'true'
@@ -147,7 +147,7 @@ jobs:
           echo load registry
           docker image load -i registry
           echo Setup local registry
-          docker run -d -p 5000:5000 --name registry -v $PWD/docker-registry:/var/lib/registry registry:2
+          docker run -d -p 5000:5000 --name registry -v "$PWD/docker-registry:/var/lib/registry" registry:2
           echo pulling images from cache
           for image in ${{ env.CACHED_DOCKER_IMAGES }}
           do
