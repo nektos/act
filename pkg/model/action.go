@@ -43,13 +43,19 @@ const (
 
 // ActionRuns are a field in Action
 type ActionRuns struct {
-	Using      ActionRunsUsing   `yaml:"using"`
-	Env        map[string]string `yaml:"env"`
-	Main       string            `yaml:"main"`
-	Image      string            `yaml:"image"`
-	Entrypoint string            `yaml:"entrypoint"`
-	Args       []string          `yaml:"args"`
-	Steps      []Step            `yaml:"steps"`
+	Using          ActionRunsUsing   `yaml:"using"`
+	Env            map[string]string `yaml:"env"`
+	Main           string            `yaml:"main"`
+	Image          string            `yaml:"image"`
+	Entrypoint     string            `yaml:"entrypoint"`
+	Args           []string          `yaml:"args"`
+	Steps          []Step            `yaml:"steps"`
+	PreEntrypoint  string            `yaml:"pre-entrypoint"`
+	Pre            string            `yaml:"pre"`
+	PreIf          string            `yaml:"pre-if"`
+	Post           string            `yaml:"post"`
+	PostEntrypoint string            `yaml:"post-entrypoint"`
+	PostIf         string            `yaml:"post-if"`
 }
 
 // Action describes a metadata file for GitHub actions. The metadata filename must be either action.yml or action.yaml. The data in the metadata file defines the inputs, outputs and main entrypoint for your action.

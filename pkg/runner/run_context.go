@@ -271,7 +271,9 @@ func (rc *RunContext) interpolateOutputs() common.Executor {
 
 // Executor returns a pipeline executor for all the steps in the job
 func (rc *RunContext) Executor() common.Executor {
+	preSteps := make([]common.Executor, 0)
 	steps := make([]common.Executor, 0)
+	postSteps := make([]common.Executor, 0)
 
 	steps = append(steps, func(ctx context.Context) error {
 		if len(rc.Matrix) > 0 {
@@ -280,17 +282,24 @@ func (rc *RunContext) Executor() common.Executor {
 		return nil
 	})
 
-	steps = append(steps, rc.startJobContainer())
-
 	for i, step := range rc.Run.Job().Steps {
 		if step.ID == "" {
 			step.ID = fmt.Sprintf("%d", i)
 		}
-		steps = append(steps, rc.newStepExecutor(step))
+		preStep, step, postStep := rc.newStepExecutor(step)
+		preSteps = append(preSteps, preStep)
+		steps = append(steps, step)
+		postSteps = append(postSteps, postStep)
 	}
-	steps = append(steps, rc.stopJobContainer())
 
-	return common.NewPipelineExecutor(steps...).Finally(rc.interpolateOutputs()).Finally(func(ctx context.Context) error {
+	combinedSteps := make([]common.Executor, 0)
+	combinedSteps = append(combinedSteps, rc.startJobContainer())
+	combinedSteps = append(combinedSteps, preSteps...)
+	combinedSteps = append(combinedSteps, steps...)
+	combinedSteps = append(combinedSteps, postSteps...)
+	combinedSteps = append(combinedSteps, rc.stopJobContainer())
+
+	return common.NewPipelineExecutor(combinedSteps...).Finally(rc.interpolateOutputs()).Finally(func(ctx context.Context) error {
 		if rc.JobContainer != nil {
 			return rc.JobContainer.Close()(ctx)
 		}
@@ -298,34 +307,55 @@ func (rc *RunContext) Executor() common.Executor {
 	}).If(rc.isEnabled)
 }
 
-func (rc *RunContext) newStepExecutor(step *model.Step) common.Executor {
+func (rc *RunContext) evaluateStepIf(ctx context.Context, prefix string, sc *StepContext) (bool, error) {
+	runStep, err := rc.EvalBool(sc.Step.If.Value)
+	if err != nil {
+		common.Logger(ctx).Errorf("  \u274C  Error in if: expression - %s", sc.Step)
+		exprEval, err := sc.setupEnv(ctx)
+		if err != nil {
+			return false, err
+		}
+		rc.ExprEval = exprEval
+		rc.StepResults[sc.Step.ID].Conclusion = stepStatusFailure
+		rc.StepResults[sc.Step.ID].Outcome = stepStatusFailure
+		return false, err
+	}
+	if !runStep {
+		log.Debugf("Skipping %s '%s' due to '%s'", prefix, sc.Step.String(), sc.Step.If.Value)
+	}
+	return runStep, nil
+}
+
+func (rc *RunContext) newStepExecutor(step *model.Step) (common.Executor, common.Executor, common.Executor) {
 	sc := &StepContext{
 		RunContext: rc,
 		Step:       step,
 	}
-	return func(ctx context.Context) error {
-		rc.CurrentStep = sc.Step.ID
-		rc.StepResults[rc.CurrentStep] = &stepResult{
+
+	preExecutor := func(ctx context.Context) error {
+		rc.StepResults[sc.Step.ID] = &stepResult{
 			Outcome:    stepStatusSuccess,
 			Conclusion: stepStatusSuccess,
 			Outputs:    make(map[string]string),
 		}
-		runStep, err := rc.EvalBool(sc.Step.If.Value)
 
+		exprEval, err := sc.setupEnv(ctx)
 		if err != nil {
-			common.Logger(ctx).Errorf("  \u274C  Error in if: expression - %s", sc.Step)
-			exprEval, err := sc.setupEnv(ctx)
-			if err != nil {
-				return err
-			}
-			rc.ExprEval = exprEval
-			rc.StepResults[rc.CurrentStep].Conclusion = stepStatusFailure
-			rc.StepResults[rc.CurrentStep].Outcome = stepStatusFailure
 			return err
 		}
+		rc.ExprEval = exprEval
 
+		return sc.PreExecutor()(ctx)
+	}
+
+	stepExecutor := func(ctx context.Context) error {
+		rc.CurrentStep = sc.Step.ID
+
+		runStep, err := rc.evaluateStepIf(ctx, "step", sc)
+		if err != nil {
+			return err
+		}
 		if !runStep {
-			log.Debugf("Skipping step '%s' due to '%s'", sc.Step.String(), sc.Step.If.Value)
 			return nil
 		}
 
@@ -353,6 +383,12 @@ func (rc *RunContext) newStepExecutor(step *model.Step) common.Executor {
 		}
 		return err
 	}
+
+	postExecutor := func(ctx context.Context) error {
+		return sc.PostExecutor()(ctx)
+	}
+
+	return preExecutor, stepExecutor, postExecutor
 }
 
 func (rc *RunContext) platformImage() string {

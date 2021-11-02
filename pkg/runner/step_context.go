@@ -45,6 +45,79 @@ func (e formatError) Error() string {
 	return fmt.Sprintf("Expected format {org}/{repo}[/path]@ref. Actual '%s' Input string was not in a correct format.", string(e))
 }
 
+func (sc *StepContext) PreExecutor() common.Executor {
+	rc := sc.RunContext
+	step := sc.Step
+
+	switch step.Type() {
+	case model.StepTypeUsesActionRemote:
+		remoteAction := newRemoteAction(step.Uses)
+		if remoteAction == nil {
+			return common.NewErrorExecutor(formatError(step.Uses))
+		}
+
+		remoteAction.URL = rc.Config.GitHubInstance
+
+		actionDir := fmt.Sprintf("%s/%s", rc.ActionCacheDir(), strings.ReplaceAll(step.Uses, "/", "-"))
+
+		github := rc.getGithubContext()
+		if remoteAction.IsCheckout() && github.isLocalCheckout(step) {
+			return common.NewDebugExecutor("Skipping local actions/checkout because workdir was already copied")
+		}
+
+		return common.NewPipelineExecutor(
+			func(ctx context.Context) error {
+				gitClone := common.NewGitCloneExecutor(common.NewGitCloneExecutorInput{
+					URL:   remoteAction.CloneURL(),
+					Ref:   remoteAction.Ref,
+					Dir:   actionDir,
+					Token: github.Token,
+				})
+
+				if err := gitClone(ctx); err != nil {
+					if err.Error() == "short SHA references are not supported" {
+						err = errors.Cause(err)
+						return fmt.Errorf("Unable to resolve action `%s`, the provided ref `%s` is the shortened version of a commit SHA, which is not supported. Please use the full commit SHA `%s` instead", step.Uses, remoteAction.Ref, err.Error())
+					} else if err.Error() != "some refs were not updated" {
+						return err
+					} else {
+						return common.NewInfoExecutor("Non-terminating error while running 'git clone': %v", err)(ctx)
+					}
+				}
+				return nil
+			},
+			sc.setupAction(actionDir, remoteAction.Path, false),
+			common.NewConditionalExecutor(
+				func(ctx context.Context) bool {
+					if sc.Action.Runs.Pre == "" {
+						return false
+					}
+
+					runPre, err := sc.RunContext.EvalBool(sc.Action.Runs.PreIf)
+					if err != nil {
+						common.Logger(ctx).Fatalf("  \u274C  Error in pre-if: expression - %s", sc.Step)
+						return false
+					}
+
+					return runPre
+				},
+				common.NewPipelineExecutor(
+					common.NewInfoExecutor("\u2B50  Run Pre %s", sc.Step),
+					sc.preAction(actionDir, remoteAction.Path),
+				),
+				nil,
+			),
+		)
+	case model.StepTypeUsesActionLocal:
+		actionDir := filepath.Join(rc.Config.Workdir, step.Uses)
+		return sc.setupAction(actionDir, "", true)
+	}
+
+	return func(ctx context.Context) error {
+		return nil
+	}
+}
+
 // Executor for a step context
 func (sc *StepContext) Executor() common.Executor {
 	rc := sc.RunContext
@@ -69,49 +142,46 @@ func (sc *StepContext) Executor() common.Executor {
 			sc.runAction(actionDir, "", true),
 		)
 	case model.StepTypeUsesActionRemote:
+		actionDir := fmt.Sprintf("%s/%s", rc.ActionCacheDir(), strings.ReplaceAll(step.Uses, "/", "-"))
 		remoteAction := newRemoteAction(step.Uses)
 		if remoteAction == nil {
 			return common.NewErrorExecutor(formatError(step.Uses))
 		}
 
-		remoteAction.URL = rc.Config.GitHubInstance
-
-		github := rc.getGithubContext()
-		if remoteAction.IsCheckout() && github.isLocalCheckout(step) {
-			return func(ctx context.Context) error {
-				common.Logger(ctx).Debugf("Skipping local actions/checkout because workdir was already copied")
-				return nil
-			}
+		if remoteAction.IsCheckout() && rc.getGithubContext().isLocalCheckout(step) {
+			return common.NewDebugExecutor("Skipping local actions/checkout because workdir was already copied")
 		}
 
-		actionDir := fmt.Sprintf("%s/%s", rc.ActionCacheDir(), strings.ReplaceAll(step.Uses, "/", "-"))
-		gitClone := common.NewGitCloneExecutor(common.NewGitCloneExecutorInput{
-			URL:   remoteAction.CloneURL(),
-			Ref:   remoteAction.Ref,
-			Dir:   actionDir,
-			Token: github.Token,
-		})
-		var ntErr common.Executor
-		if err := gitClone(context.TODO()); err != nil {
-			if err.Error() == "short SHA references are not supported" {
-				err = errors.Cause(err)
-				return common.NewErrorExecutor(fmt.Errorf("Unable to resolve action `%s`, the provided ref `%s` is the shortened version of a commit SHA, which is not supported. Please use the full commit SHA `%s` instead", step.Uses, remoteAction.Ref, err.Error()))
-			} else if err.Error() != "some refs were not updated" {
-				return common.NewErrorExecutor(err)
-			} else {
-				ntErr = common.NewInfoExecutor("Non-terminating error while running 'git clone': %v", err)
-			}
-		}
-		return common.NewPipelineExecutor(
-			ntErr,
-			sc.setupAction(actionDir, remoteAction.Path, false),
-			sc.runAction(actionDir, remoteAction.Path, false),
-		)
+		return sc.runAction(actionDir, remoteAction.Path, false)
 	case model.StepTypeInvalid:
 		return common.NewErrorExecutor(fmt.Errorf("Invalid run/uses syntax for job:%s step:%+v", rc.Run, step))
 	}
 
 	return common.NewErrorExecutor(fmt.Errorf("Unable to determine how to run job:%s step:%+v", rc.Run, step))
+}
+
+func (sc *StepContext) PostExecutor() common.Executor {
+	rc := sc.RunContext
+	step := sc.Step
+
+	switch step.Type() {
+	case model.StepTypeUsesActionRemote:
+		actionDir := fmt.Sprintf("%s/%s", rc.ActionCacheDir(), strings.ReplaceAll(step.Uses, "/", "-"))
+		remoteAction := newRemoteAction(step.Uses)
+
+		github := rc.getGithubContext()
+		if remoteAction.IsCheckout() && github.isLocalCheckout(step) {
+			return common.NewDebugExecutor("Skipping local actions/checkout because workdir was already copied")
+		}
+
+		return sc.runPostAction(actionDir, remoteAction.Path)
+	case model.StepTypeUsesActionLocal:
+		actionDir := filepath.Join(rc.Config.Workdir, step.Uses)
+		return sc.runPostAction(actionDir, "")
+	}
+	return func(ctx context.Context) error {
+		return nil
+	}
 }
 
 func (sc *StepContext) mergeEnv() map[string]string {
@@ -448,6 +518,54 @@ func (sc *StepContext) getContainerActionPaths(step *model.Step, actionDir strin
 	return actionName, containerActionDir
 }
 
+func (sc *StepContext) preAction(actionDir string, actionPath string) common.Executor {
+	rc := sc.RunContext
+	step := sc.Step
+	return func(ctx context.Context) error {
+		action := sc.Action
+		log.Debugf("About to run pre action %v", action)
+		sc.populateEnvsFromInput(action, rc)
+
+		actionLocation := ""
+		if actionPath != "" {
+			actionLocation = path.Join(actionDir, actionPath)
+		} else {
+			actionLocation = actionDir
+		}
+		actionName, containerActionDir := sc.getContainerActionPaths(step, actionLocation, rc)
+
+		sc.Env = mergeMaps(sc.Env, action.Runs.Env)
+
+		log.Debugf("type=%v actionDir=%s actionPath=%s workdir=%s actionCacheDir=%s actionName=%s containerActionDir=%s", step.Type(), actionDir, actionPath, rc.Config.Workdir, rc.ActionCacheDir(), actionName, containerActionDir)
+
+		maybeCopyToActionDir := func() error {
+			sc.Env["GITHUB_ACTION_PATH"] = containerActionDir
+			if step.Type() != model.StepTypeUsesActionRemote {
+				return nil
+			}
+			if err := removeGitIgnore(actionDir); err != nil {
+				return err
+			}
+
+			var containerActionDirCopy string
+			containerActionDirCopy = strings.TrimSuffix(containerActionDir, actionPath)
+			log.Debug(containerActionDirCopy)
+
+			if !strings.HasSuffix(containerActionDirCopy, `/`) {
+				containerActionDirCopy += `/`
+			}
+			return rc.JobContainer.CopyDir(containerActionDirCopy, actionDir+"/", rc.Config.UseGitIgnore)(ctx)
+		}
+
+		if err := maybeCopyToActionDir(); err != nil {
+			return err
+		}
+		containerArgs := []string{"node", path.Join(containerActionDir, action.Runs.Pre)}
+		log.Debugf("executing remote job container: %s", containerArgs)
+		return rc.execJobContainer(containerArgs, sc.Env, "", "")(ctx)
+	}
+}
+
 // nolint: gocyclo
 func (sc *StepContext) runAction(actionDir string, actionPath string, localAction bool) common.Executor {
 	rc := sc.RunContext
@@ -511,6 +629,61 @@ func (sc *StepContext) runAction(actionDir string, actionPath string, localActio
 				model.ActionRunsUsingComposite,
 			}, action.Runs.Using))
 		}
+	}
+}
+
+func (sc *StepContext) runPostAction(actionDir string, actionPath string) common.Executor {
+	rc := sc.RunContext
+	step := sc.Step
+	action := sc.Action
+
+	switch action.Runs.Using {
+	case model.ActionRunsUsingNode12:
+		return common.NewConditionalExecutor(
+			func(ctx context.Context) bool {
+				if action.Runs.Post == "" {
+					return false
+				}
+
+				runPost, err := sc.RunContext.EvalBool(action.Runs.PostIf)
+				if err != nil {
+					common.Logger(ctx).Fatalf("  \u274C  Error in post-if: expression - %s", sc.Step)
+					return false
+				}
+
+				return runPost
+			},
+			common.NewPipelineExecutor(
+				common.NewInfoExecutor("\u2B50  Run Post %s", sc.Step),
+				func(ctx context.Context) error {
+					log.Debugf("About to run post action %v", action)
+
+					actionLocation := ""
+					if actionPath != "" {
+						actionLocation = path.Join(actionDir, actionPath)
+					} else {
+						actionLocation = actionDir
+					}
+
+					_, containerActionDir := sc.getContainerActionPaths(step, actionLocation, rc)
+
+					containerArgs := []string{"node", path.Join(containerActionDir, action.Runs.Post)}
+					log.Debugf("executing remote job container: %s", containerArgs)
+					return rc.execJobContainer(containerArgs, sc.Env, "", "")(ctx)
+				},
+			),
+			nil,
+		)
+	case model.ActionRunsUsingDocker:
+		return common.NewDebugExecutor("No post step for docker actions")
+	case model.ActionRunsUsingComposite:
+		return common.NewDebugExecutor("No post step for composite actions")
+	default:
+		return common.NewErrorExecutor(fmt.Errorf(fmt.Sprintf("The runs.using key must be one of: %v, got %s", []string{
+			model.ActionRunsUsingDocker,
+			model.ActionRunsUsingNode12,
+			model.ActionRunsUsingComposite,
+		}, action.Runs.Using)))
 	}
 }
 
