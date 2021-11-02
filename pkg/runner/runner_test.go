@@ -11,8 +11,10 @@ import (
 
 	"github.com/joho/godotenv"
 	log "github.com/sirupsen/logrus"
+	logTest "github.com/sirupsen/logrus/hooks/test"
 	assert "github.com/stretchr/testify/assert"
 
+	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/model"
 )
 
@@ -271,4 +273,109 @@ func TestContainerPath(t *testing.T) {
 			assert.Equal(t, v.destinationPath, runnerConfig.containerPath(runnerConfig.Workdir))
 		}
 	}
+}
+
+func runWorkflowWithLogger(t *testing.T, workflowPath string) ([]string, []string, error) {
+	logger, hook := logTest.NewNullLogger()
+	globalHook := logTest.NewGlobal()
+
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	platforms := map[string]string{
+		"ubuntu-latest": baseImage,
+	}
+	workdir := "testdata"
+	eventName := "push"
+
+	log.SetLevel(log.DebugLevel)
+
+	ctx := common.WithLogger(common.WithTestContext(context.Background()), logger)
+
+	workdir, err := filepath.Abs(workdir)
+	assert.Nil(t, err, workdir)
+
+	fullWorkflowPath := filepath.Join(workdir, workflowPath)
+	runnerConfig := &Config{
+		Workdir:               workdir,
+		BindWorkdir:           false,
+		EventName:             eventName,
+		Platforms:             platforms,
+		ReuseContainers:       false,
+		ContainerArchitecture: "",
+		GitHubInstance:        "github.com",
+	}
+
+	runner, err := New(runnerConfig)
+	assert.Nil(t, err, workflowPath)
+
+	planner, err := model.NewWorkflowPlanner(fullWorkflowPath, true)
+	assert.Nil(t, err, fullWorkflowPath)
+
+	plan := planner.PlanEvent(eventName)
+
+	err = runner.NewPlanExecutor(plan)(ctx)
+
+	infoMessages := make([]string, 0)
+	debugMessages := make([]string, 0)
+	for _, entry := range hook.AllEntries() {
+		if entry.Level == log.InfoLevel {
+			infoMessages = append(infoMessages, entry.Message)
+		} else if entry.Level == log.DebugLevel {
+			debugMessages = append(debugMessages, entry.Message)
+		}
+	}
+
+	for _, entry := range globalHook.AllEntries() {
+		if entry.Level == log.DebugLevel {
+			debugMessages = append(debugMessages, entry.Message)
+		}
+	}
+	return infoMessages, debugMessages, err
+}
+
+func TestRemoteActionWithPreAndPostStep(t *testing.T) {
+	infoMessages, debugMessages, err := runWorkflowWithLogger(t, "remote-action-with-pre-and-post-step")
+	assert.Nil(t, err, "remote-action-with-pre-and-post-step")
+
+	assert.Contains(t, infoMessages, "⭐  Run Pre xing/act/pkg/runner/testdata/actions/pre-post@pre-post")
+	assert.Contains(t, debugMessages, `expression '${{ "post-if-never-true" == "true" }}' evaluated to 'false'`)
+	assert.Contains(t, infoMessages, "⭐  Run Post xing/act/pkg/runner/testdata/actions/pre-post@pre-post")
+	assert.Contains(t, debugMessages, `expression '${{ "post-if-never-true" == "true" }}' evaluated to 'false'`)
+}
+
+func TestRemoteActionWithMainSkipped(t *testing.T) {
+	infoMessages, debugMessages, err := runWorkflowWithLogger(t, "remote-action-with-main-skipped")
+	assert.Nil(t, err, "remote-action-with-main-skipped")
+
+	assert.Contains(t, infoMessages, "⭐  Run Pre xing/act/pkg/runner/testdata/actions/pre-post@pre-post")
+	assert.Contains(t, debugMessages, `Skipping step 'xing/act/pkg/runner/testdata/actions/pre-post@pre-post' due to 'false'`)
+	assert.Contains(t, infoMessages, "⭐  Run Post xing/act/pkg/runner/testdata/actions/pre-post@pre-post")
+}
+
+func TestRemoteActionWithPreStepFailing(t *testing.T) {
+	infoMessages, debugMessages, err := runWorkflowWithLogger(t, "remote-action-with-pre-step-failing")
+	assert.Error(t, err, "remote-action-with-pre-step-failing")
+
+	assert.Contains(t, infoMessages, "⭐  Run Pre xing/act/pkg/runner/testdata/actions/pre-post@pre-post")
+	assert.Contains(t, debugMessages, "Error: Fail in pre step\n")
+}
+
+func TestRemoteActionWithPostStepFailing(t *testing.T) {
+	infoMessages, debugMessages, err := runWorkflowWithLogger(t, "remote-action-with-post-step-failing")
+	assert.Error(t, err, "remote-action-with-post-step-failing")
+
+	assert.Contains(t, infoMessages, "⭐  Run Post xing/act/pkg/runner/testdata/actions/pre-post@pre-post")
+	assert.Contains(t, debugMessages, "Error: Fail in post step\n")
+}
+
+func TestLocalActionWithPostStep(t *testing.T) {
+	infoMessages, debugMessages, err := runWorkflowWithLogger(t, "local-action-with-post-step")
+	assert.Nil(t, err, "local-action-with-post-step")
+
+	assert.Contains(t, infoMessages, "⭐  Run local action with main")
+	assert.Contains(t, debugMessages, "Skipping step 'local action with skipped main' due to 'false'")
+	assert.Contains(t, infoMessages, "⭐  Run Post local action with main")
+	assert.Contains(t, infoMessages, "⭐  Run Post local action with skipped main")
 }
