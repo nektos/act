@@ -18,11 +18,11 @@ pull_request_rules:
   - name: warn on needs-work
     conditions:
       - or:
-        - check-failure=lint
-        - check-failure=test-linux
-        - check-failure=codecov/patch
-        - check-failure=codecov/project
-        - check-failure=snapshot
+          - check-failure=lint
+          - check-failure=test-linux
+          - check-failure=codecov/patch
+          - check-failure=codecov/project
+          - check-failure=snapshot
     actions:
       comment:
         message: '@{{author}} this pull request has failed checks 🛠'
@@ -86,6 +86,14 @@ pull_request_rules:
       - check-success=codecov/project
       - check-success=snapshot
     actions:
-      merge:
+      queue:
         method: squash
-        strict: true
+        name: default
+queue_rules:
+  - name: default
+    conditions:
+      - check-success=lint
+      - check-success=test-linux
+      - check-success=codecov/patch
+      - check-success=codecov/project
+      - check-success=snapshot
