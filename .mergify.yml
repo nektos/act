@@ -20,7 +20,6 @@ pull_request_rules:
       - or:
         - check-failure=lint
         - check-failure=test-linux
-        - check-failure=test-macos
         - check-failure=codecov/patch
         - check-failure=codecov/project
         - check-failure=snapshot
@@ -34,7 +33,6 @@ pull_request_rules:
     conditions:
       - check-success=lint
       - check-success=test-linux
-      - check-success=test-macos
       - check-success=codecov/patch
       - check-success=codecov/project
       - check-success=snapshot
@@ -51,7 +49,6 @@ pull_request_rules:
       - -conflict
       - check-success=lint
       - check-success=test-linux
-      - check-success=test-macos
       - check-success=codecov/patch
       - check-success=codecov/project
       - check-success=snapshot
@@ -69,7 +66,6 @@ pull_request_rules:
       - -conflict
       - check-success=lint
       - check-success=test-linux
-      - check-success=test-macos
       - check-success=codecov/patch
       - check-success=codecov/project
       - check-success=snapshot
@@ -86,7 +82,6 @@ pull_request_rules:
       - -closed
       - check-success=lint
       - check-success=test-linux
-      - check-success=test-macos
       - check-success=codecov/patch
       - check-success=codecov/project
       - check-success=snapshot
