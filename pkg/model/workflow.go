@@ -33,7 +33,7 @@ type CompositeRestrictions struct {
 func defaultCompositeRestrictions() *CompositeRestrictions {
 	return &CompositeRestrictions{
 		AllowCompositeUses:            true,
-		AllowCompositeIf:              false,
+		AllowCompositeIf:              true,
 		AllowCompositeContinueOnError: false,
 	}
 }
