@@ -29,7 +29,11 @@ type NewDockerBuildExecutorInput struct {
 func NewDockerBuildExecutor(input NewDockerBuildExecutorInput) common.Executor {
 	return func(ctx context.Context) error {
 		logger := common.Logger(ctx)
-		logger.Infof("%sdocker build -t %s --platform %s %s", logPrefix, input.ImageTag, input.Platform, input.ContextDir)
+		if input.Platform != "" {
+			logger.Infof("%sdocker build -t %s --platform %s %s", logPrefix, input.ImageTag, input.Platform, input.ContextDir)
+		} else {
+			logger.Infof("%sdocker build -t %s %s", logPrefix, input.ImageTag, input.ContextDir)
+		}
 		if common.Dryrun(ctx) {
 			return nil
 		}

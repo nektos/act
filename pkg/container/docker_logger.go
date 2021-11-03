@@ -116,7 +116,7 @@ func logDockerResponse(logger logrus.FieldLogger, dockerResponse io.ReadCloser, 
 				writeLog(logger, isError, "%s :: %s\n", msg.Status, msg.ID)
 			}
 		} else if msg.Stream != "" {
-			writeLog(logger, isError, msg.Stream)
+			writeLog(logger, isError, "%s", msg.Stream)
 		} else {
 			writeLog(logger, false, "Unable to handle line: %s", string(line))
 		}

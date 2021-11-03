@@ -191,6 +191,7 @@ func getScriptName(rc *RunContext, step *model.Step) string {
 	return fmt.Sprintf("workflow/%s", scriptName)
 }
 
+// nolint:gocyclo
 func (sc *StepContext) setupShellCommand() common.Executor {
 	rc := sc.RunContext
 	step := sc.Step
@@ -243,6 +244,11 @@ func (sc *StepContext) setupShellCommand() common.Executor {
 		}
 		if step.Shell == "" {
 			step.Shell = rc.Run.Workflow.Defaults.Run.Shell
+		}
+		if rc.Run.Job().Container() != nil {
+			if rc.Run.Job().Container().Image != "" && step.Shell == "" {
+				step.Shell = "sh"
+			}
 		}
 		scCmd := step.ShellCommand()
 

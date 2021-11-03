@@ -97,6 +97,7 @@ func TestRunEvent(t *testing.T) {
 		{"testdata", "fail", "push", "exit with `FAILURE`: 1", platforms, ""},
 		{"testdata", "runs-on", "push", "", platforms, ""},
 		{"testdata", "checkout", "push", "", platforms, ""},
+		{"testdata", "shells/defaults", "push", "", platforms, ""},
 		{"testdata", "shells/pwsh", "push", "", map[string]string{"ubuntu-latest": "ghcr.io/justingrote/act-pwsh:latest"}, ""}, // custom image with pwsh
 		{"testdata", "shells/bash", "push", "", platforms, ""},
 		{"testdata", "shells/python", "push", "", map[string]string{"ubuntu-latest": "node:12-buster"}, ""}, // slim doesn't have python
