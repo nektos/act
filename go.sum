@@ -865,8 +865,8 @@ github.com/mitchellh/mapstructure v1.3.1/go.mod h1:bFUtVrKA4DC2yAKiSyO/QUcy7e+RR
 github.com/mitchellh/mapstructure v1.4.1/go.mod h1:bFUtVrKA4DC2yAKiSyO/QUcy7e+RRV2QTWOzhPopBRo=
 github.com/mitchellh/osext v0.0.0-20151018003038-5e2d6d41470f/go.mod h1:OkQIRizQZAeMln+1tSwduZz7+Af5oFlKirV/MSYes2A=
 github.com/moby/buildkit v0.8.1/go.mod h1:/kyU1hKy/aYCuP39GZA9MaKioovHku57N6cqlKZIaiQ=
-github.com/moby/buildkit v0.9.1 h1:6noq8jvkaRs3OQGTIDf5U5Etkgq6zsPmQHGWi5yhh88=
-github.com/moby/buildkit v0.9.1/go.mod h1:oVZKk3TMm0MlDx7XxnlF0wKmcpyrzOs9GEp0VXKWFPk=
+github.com/moby/buildkit v0.9.2 h1:9vRUpmncxR/zR4MI5/3/q20y9CoOV1L9qoJlundbKjk=
+github.com/moby/buildkit v0.9.2/go.mod h1:oVZKk3TMm0MlDx7XxnlF0wKmcpyrzOs9GEp0VXKWFPk=
 github.com/moby/locker v1.0.1/go.mod h1:S7SDdo5zpBK84bzzVlKr2V0hz+7x9hWbYC/kq7oQppc=
 github.com/moby/sys/mount v0.1.0/go.mod h1:FVQFLDRWwyBjDTBNQXDlWnSFREqOo3OKX9aqhmeoo74=
 github.com/moby/sys/mount v0.1.1/go.mod h1:FVQFLDRWwyBjDTBNQXDlWnSFREqOo3OKX9aqhmeoo74=
