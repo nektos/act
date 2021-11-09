@@ -50,6 +50,8 @@ type ActionRuns struct {
 	Entrypoint []string          `yaml:"entrypoint"`
 	Args       []string          `yaml:"args"`
 	Steps      []Step            `yaml:"steps"`
+	Post       string            `yaml:"post"`
+	PostIf     string            `yaml:"post-if"`
 }
 
 // Action describes a metadata file for GitHub actions. The metadata filename must be either action.yml or action.yaml. The data in the metadata file defines the inputs, outputs and main entrypoint for your action.
