@@ -1,12 +1,8 @@
 package runner
 
 import (
-	"archive/tar"
 	"context"
-	"embed"
 	"fmt"
-	"io"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -373,67 +369,6 @@ func (sc *StepContext) getContainerActionPaths(step *model.Step, actionDir strin
 		}
 	}
 	return actionName, containerActionDir
-}
-
-// nolint: gocyclo
-func (sc *StepContext) runAction(actionDir string, actionPath string, localAction bool) common.Executor {
-	rc := sc.RunContext
-	step := sc.Step
-	return func(ctx context.Context) error {
-		action := sc.Action
-		log.Debugf("About to run action %v", action)
-		sc.populateEnvsFromInput(action, rc)
-		actionLocation := ""
-		if actionPath != "" {
-			actionLocation = path.Join(actionDir, actionPath)
-		} else {
-			actionLocation = actionDir
-		}
-		actionName, containerActionDir := sc.getContainerActionPaths(step, actionLocation, rc)
-
-		sc.Env = mergeMaps(sc.Env, action.Runs.Env)
-
-		log.Debugf("type=%v actionDir=%s actionPath=%s workdir=%s actionCacheDir=%s actionName=%s containerActionDir=%s", step.Type(), actionDir, actionPath, rc.Config.Workdir, rc.ActionCacheDir(), actionName, containerActionDir)
-
-		maybeCopyToActionDir := func() error {
-			sc.Env["GITHUB_ACTION_PATH"] = containerActionDir
-			if step.Type() != model.StepTypeUsesActionRemote {
-				return nil
-			}
-			if err := removeGitIgnore(actionDir); err != nil {
-				return err
-			}
-
-			var containerActionDirCopy string
-			containerActionDirCopy = strings.TrimSuffix(containerActionDir, actionPath)
-			log.Debug(containerActionDirCopy)
-
-			if !strings.HasSuffix(containerActionDirCopy, `/`) {
-				containerActionDirCopy += `/`
-			}
-			return rc.JobContainer.CopyDir(containerActionDirCopy, actionDir+"/", rc.Config.UseGitIgnore)(ctx)
-		}
-
-		switch action.Runs.Using {
-		case model.ActionRunsUsingNode12:
-			if err := maybeCopyToActionDir(); err != nil {
-				return err
-			}
-			containerArgs := []string{"node", path.Join(containerActionDir, action.Runs.Main)}
-			log.Debugf("executing remote job container: %s", containerArgs)
-			return rc.execJobContainer(containerArgs, sc.Env, "", "")(ctx)
-		case model.ActionRunsUsingDocker:
-			return sc.execAsDocker(ctx, action, actionName, containerActionDir, actionLocation, rc, step, localAction)
-		case model.ActionRunsUsingComposite:
-			return sc.execAsComposite(ctx, step, actionDir, rc, containerActionDir, actionName, actionPath, action, maybeCopyToActionDir)
-		default:
-			return fmt.Errorf(fmt.Sprintf("The runs.using key must be one of: %v, got %s", []string{
-				model.ActionRunsUsingDocker,
-				model.ActionRunsUsingNode12,
-				model.ActionRunsUsingComposite,
-			}, action.Runs.Using))
-		}
-	}
 }
 
 func (sc *StepContext) execAsDocker(ctx context.Context, action *model.Action, actionName string, containerLocation string, actionLocation string, rc *RunContext, step *model.Step, localAction bool) error {

@@ -4,10 +4,13 @@ import (
 	"archive/tar"
 	"context"
 	"embed"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
+
 	// Go told me to?
 	"path"
 
@@ -123,8 +126,88 @@ func (a *actProvider) SetupAction(sc *StepContext, actionDir string, actionPath 
 }
 
 func (a *actProvider) RunAction(sc *StepContext, actionDir string, actionPath string, localAction bool) common.Executor {
+	return RunAction(sc, actionDir, actionPath, localAction)
+}
+
+func appendPostAction(sc *StepContext, containerActionDir string, mainErr error) {
+	rc := sc.RunContext
+	rc.PostActionExecutor = append(rc.PostActionExecutor, func(ctx context.Context) error {
+		action := sc.Action
+		if mainErr != nil {
+			log.Warningf("Skipping post action: %s due to main action failure", action.Name)
+			return nil
+		}
+		runPost, err := rc.EvalBool(action.Runs.PostIf)
+		if err != nil {
+			common.Logger(ctx).Errorf("Error in post-if: expression - %s", action.Name)
+			return err
+		}
+
+		if !runPost {
+			log.Debugf("Skipping post action '%s' due to '%s' condittion", action.Name, action.Runs.PostIf)
+			return nil
+		}
+		return rc.Providers.Action.ExecuteNode12PostAction(sc, containerActionDir, ctx)
+	})
+}
+
+func RunAction(sc *StepContext, actionDir string, actionPath string, localAction bool) common.Executor {
+	rc := sc.RunContext
+	step := sc.Step
 	return func(ctx context.Context) error {
-		return nil
+		action := sc.Action
+		log.Debugf("About to run action %v", action)
+		sc.populateEnvsFromInput(action, rc)
+		actionLocation := ""
+		if actionPath != "" {
+			actionLocation = path.Join(actionDir, actionPath)
+		} else {
+			actionLocation = actionDir
+		}
+		actionName, containerActionDir := sc.getContainerActionPaths(step, actionLocation, rc)
+
+		sc.Env = mergeMaps(sc.Env, action.Runs.Env)
+
+		log.Debugf("type=%v actionDir=%s actionPath=%s workdir=%s actionCacheDir=%s actionName=%s containerActionDir=%s", step.Type(), actionDir, actionPath, rc.Config.Workdir, rc.ActionCacheDir(), actionName, containerActionDir)
+
+		maybeCopyToActionDir := func() error {
+			sc.Env["GITHUB_ACTION_PATH"] = containerActionDir
+			if step.Type() != model.StepTypeUsesActionRemote {
+				return nil
+			}
+			if err := removeGitIgnore(actionDir); err != nil {
+				return err
+			}
+
+			var containerActionDirCopy string
+			containerActionDirCopy = strings.TrimSuffix(containerActionDir, actionPath)
+			log.Debug(containerActionDirCopy)
+
+			if !strings.HasSuffix(containerActionDirCopy, `/`) {
+				containerActionDirCopy += `/`
+			}
+			return rc.JobContainer.CopyDir(containerActionDirCopy, actionDir+"/", rc.Config.UseGitIgnore)(ctx)
+		}
+
+		switch action.Runs.Using {
+		case model.ActionRunsUsingNode12:
+			provider := sc.RunContext.Providers.Action
+			mainErr := provider.ExecuteNode12Action(sc, containerActionDir, ctx, maybeCopyToActionDir)
+			if action.Runs.Post != "" {
+				appendPostAction(sc, containerActionDir, mainErr)
+			}
+			return mainErr
+		case model.ActionRunsUsingDocker:
+			return sc.execAsDocker(ctx, action, actionName, containerActionDir, actionLocation, rc, step, localAction)
+		case model.ActionRunsUsingComposite:
+			return sc.execAsComposite(ctx, step, actionDir, rc, containerActionDir, actionName, actionPath, action, maybeCopyToActionDir)
+		default:
+			return fmt.Errorf(fmt.Sprintf("The runs.using key must be one of: %v, got %s", []string{
+				model.ActionRunsUsingDocker,
+				model.ActionRunsUsingNode12,
+				model.ActionRunsUsingComposite,
+			}, action.Runs.Using))
+		}
 	}
 }
 
