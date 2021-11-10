@@ -67,6 +67,25 @@ func NewPipelineExecutor(executors ...Executor) Executor {
 	return rtn
 }
 
+// NewFinallyPipelineExecutor creates a new executor from a series of other executors that will run even if any of the
+// executor returns an error
+func NewFinallyPipelineExecutor(executors ...Executor) Executor {
+	if len(executors) == 0 {
+		return func(ctx context.Context) error {
+			return nil
+		}
+	}
+	var rtn Executor
+	for _, executor := range executors {
+		if rtn == nil {
+			rtn = executor
+		} else {
+			rtn = rtn.Finally(executor)
+		}
+	}
+	return rtn
+}
+
 // NewConditionalExecutor creates a new executor based on conditions
 func NewConditionalExecutor(conditional Conditional, trueExecutor Executor, falseExecutor Executor) Executor {
 	return func(ctx context.Context) error {
