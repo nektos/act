@@ -105,3 +105,14 @@ func TestAddmask(t *testing.T) {
 
 	a.NotEqual("  \U00002699  *my-secret-value", hook.LastEntry().Message)
 }
+
+func TestSaveState(t *testing.T) {
+	a := assert.New(t)
+	ctx := context.Background()
+	rc := new(RunContext)
+	handler := rc.commandHandler(ctx)
+
+	handler("::save-state name=x::valz\n")
+	a.Contains(rc.Env, "STATE_x")
+	a.Equal("valz", rc.Env["STATE_x"])
+}
