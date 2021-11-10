@@ -26,19 +26,20 @@ const ActPath string = "/var/run/act"
 
 // RunContext contains info about current job
 type RunContext struct {
-	Name           string
-	Config         *Config
-	Matrix         map[string]interface{}
-	Run            *model.Run
-	EventJSON      string
-	Env            map[string]string
-	ExtraPath      []string
-	CurrentStep    string
-	StepResults    map[string]*stepResult
-	ExprEval       ExpressionEvaluator
-	JobContainer   container.Container
-	OutputMappings map[MappableOutput]MappableOutput
-	JobName        string
+	Name               string
+	Config             *Config
+	Matrix             map[string]interface{}
+	Run                *model.Run
+	EventJSON          string
+	Env                map[string]string
+	ExtraPath          []string
+	CurrentStep        string
+	StepResults        map[string]*stepResult
+	ExprEval           ExpressionEvaluator
+	JobContainer       container.Container
+	OutputMappings     map[MappableOutput]MappableOutput
+	JobName            string
+	PostActionExecutor []common.Executor
 }
 
 type MappableOutput struct {
@@ -229,14 +230,23 @@ func (rc *RunContext) Executor() common.Executor {
 		}
 		steps = append(steps, rc.newStepExecutor(step))
 	}
-	steps = append(steps, rc.stopJobContainer())
 
-	return common.NewPipelineExecutor(steps...).Finally(func(ctx context.Context) error {
+	finalSteps := make([]common.Executor, 0)
+	finalSteps = append(finalSteps, func(ctx context.Context) error {
+		// delay evaluation as post actions are added when the actions are run
+		return common.NewFinallyPipelineExecutor(rc.PostActionExecutor...)(ctx)
+	})
+
+	finalSteps = append(finalSteps, rc.stopJobContainer())
+	finalSteps = append(finalSteps, func(ctx context.Context) error {
 		if rc.JobContainer != nil {
 			return rc.JobContainer.Close()(ctx)
 		}
 		return nil
-	}).If(rc.isEnabled)
+	})
+
+	return common.NewPipelineExecutor(steps...).Finally(
+		common.NewFinallyPipelineExecutor(finalSteps...)).If(rc.isEnabled)
 }
 
 func (rc *RunContext) newStepExecutor(step *model.Step) common.Executor {
