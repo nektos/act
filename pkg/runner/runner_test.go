@@ -12,7 +12,9 @@ import (
 	"github.com/joho/godotenv"
 	log "github.com/sirupsen/logrus"
 	assert "github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 
+	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/model"
 )
 
@@ -114,6 +116,7 @@ func TestRunEvent(t *testing.T) {
 		{"testdata", "local-action-docker-url", "push", "", platforms, ""},
 		{"testdata", "local-action-dockerfile", "push", "", platforms, ""},
 		{"testdata", "local-action-js", "push", "", platforms, ""},
+		{"testdata", "local-action-js-with-post", "push", "", platforms, ""},
 		{"testdata", "matrix", "push", "", platforms, ""},
 		{"testdata", "matrix-include-exclude", "push", "", platforms, ""},
 		{"testdata", "commands", "push", "", platforms, ""},
@@ -276,5 +279,115 @@ func TestContainerPath(t *testing.T) {
 
 			assert.Equal(t, v.destinationPath, runnerConfig.containerPath(runnerConfig.Workdir))
 		}
+	}
+}
+
+type actionProviderMock struct {
+	mock.Mock
+	postIf string
+}
+
+func (m *actionProviderMock) SetupAction(sc *StepContext, actionDir string, actionPath string, localAction bool) common.Executor {
+	return func(ctx context.Context) error {
+		action := &model.Action{
+			Name: "fake-action",
+			Runs: model.ActionRuns{
+				Using:  "node12",
+				Main:   "fake",
+				Post:   "fake",
+				PostIf: m.postIf,
+			},
+		}
+		sc.Action = action
+		return nil
+	}
+}
+
+func (m *actionProviderMock) RunAction(sc *StepContext, actionDir string, actionPath string, localAction bool) common.Executor {
+	return RunAction(sc, actionDir, actionPath, localAction)
+}
+
+func (m *actionProviderMock) ExecuteNode12Action(sc *StepContext, containerActionDir string, ctx context.Context, maybeCopyToActionDir func() error) error {
+	return nil
+}
+
+func (m *actionProviderMock) ExecuteNode12PostAction(sc *StepContext, containerActionDir string, ctx context.Context) error {
+	m.Called(sc, containerActionDir, ctx)
+	return nil
+}
+
+type TestJobPostStep struct {
+	TestJobFileInfo
+	postIf string
+	called bool
+}
+
+func TestRunEventPostStepSuccessCondition(t *testing.T) {
+	tables := []TestJobPostStep{
+		{postIf: "success()", called: false, TestJobFileInfo: TestJobFileInfo{workflowPath: "post-failed-run", errorMessage: "exit with `FAILURE`: 1"}},
+		{postIf: "success()", called: true, TestJobFileInfo: TestJobFileInfo{workflowPath: "post-success-run", errorMessage: ""}},
+		{postIf: "always()", called: true, TestJobFileInfo: TestJobFileInfo{workflowPath: "post-failed-run", errorMessage: "exit with `FAILURE`: 1"}},
+		{postIf: "always()", called: true, TestJobFileInfo: TestJobFileInfo{workflowPath: "post-success-run", errorMessage: ""}},
+		{postIf: "failure()", called: true, TestJobFileInfo: TestJobFileInfo{workflowPath: "post-failed-run", errorMessage: "exit with `FAILURE`: 1"}},
+		{postIf: "failure()", called: false, TestJobFileInfo: TestJobFileInfo{workflowPath: "post-success-run", errorMessage: ""}},
+	}
+
+	for _, tjps := range tables {
+		name := fmt.Sprintf("post-action-called-%v-if-%s-when-%s", tjps.called, tjps.postIf, tjps.TestJobFileInfo.workflowPath)
+		t.Run(name, func(t *testing.T) {
+			if testing.Short() {
+				t.Skip("skipping integration test")
+			}
+
+			log.SetLevel(log.DebugLevel)
+			ctx := context.Background()
+
+			platforms := map[string]string{
+				"ubuntu-latest": baseImage,
+			}
+
+			workflowPath := tjps.TestJobFileInfo.workflowPath
+			eventName := "push"
+
+			workdir, err := filepath.Abs("testdata")
+			assert.Nil(t, err, workdir)
+			fullWorkflowPath := filepath.Join(workdir, workflowPath)
+			runnerConfig := &Config{
+				Workdir:         workdir,
+				BindWorkdir:     false,
+				EventName:       eventName,
+				Platforms:       platforms,
+				ReuseContainers: false,
+			}
+			providerMock := &actionProviderMock{
+				postIf: tjps.postIf,
+			}
+			if tjps.called {
+				providerMock.On("ExecuteNode12PostAction", mock.Anything, mock.Anything, mock.Anything).Once()
+			}
+
+			providers := &Providers{
+				Action: providerMock,
+			}
+			runner, err := New(runnerConfig, providers)
+			assert.Nil(t, err, workflowPath)
+
+			planner, err := model.NewWorkflowPlanner(fullWorkflowPath, true)
+			assert.Nil(t, err, fullWorkflowPath)
+
+			plan := planner.PlanEvent(eventName)
+
+			err = runner.NewPlanExecutor(plan)(ctx)
+			if tjps.TestJobFileInfo.errorMessage == "" {
+				assert.Nil(t, err, fullWorkflowPath)
+			} else {
+				assert.Error(t, err, tjps.TestJobFileInfo.errorMessage)
+			}
+
+			if !tjps.called {
+				providerMock.AssertNotCalled(t, "ExecuteNode12PostAction")
+			}
+			providerMock.AssertExpectations(t)
+		})
 	}
 }

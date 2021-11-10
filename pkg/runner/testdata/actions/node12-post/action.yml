@@ -1,0 +1,15 @@
+name: 'Hello World And Goodbye'
+description: 'Greet someone and record the time, then say goodbye if job is successful'
+inputs:
+  who-to-greet:  # id of input
+    description: 'Who to greet'
+    required: true
+    default: 'World'
+outputs:
+  time: # id of output
+    description: 'The time we greeted you'
+runs:
+  using: 'node12'
+  main: 'dist/setup.js'
+  post: 'dist/teardown.js'
+  post-if: 'success()'
