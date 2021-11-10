@@ -30,11 +30,24 @@ type ActionProvider interface {
 type actProvider struct{}
 
 func (a *actProvider) ExecuteNode12Action(sc *StepContext, containerActionDir string, ctx context.Context, maybeCopyToActionDir func() error) error {
-	return nil
+	if err := maybeCopyToActionDir(); err != nil {
+		return err
+	}
+	action := sc.Action
+	containerArgs := []string{"node", path.Join(containerActionDir, action.Runs.Main)}
+	log.Debugf("executing remote job container: %s", containerArgs)
+	rc := sc.RunContext
+	return rc.execJobContainer(containerArgs, sc.Env, "", "")(ctx)
 }
 
 func (a *actProvider) ExecuteNode12PostAction(sc *StepContext, containerActionDir string, ctx context.Context) error {
-	return nil
+	action := sc.Action
+	containerArgs := []string{"node", path.Join(containerActionDir, action.Runs.Post)}
+	log.Debugf("executing remote job container: %s", containerArgs)
+
+	rc := sc.RunContext
+	env := mergeMaps(rc.Env, sc.Env)
+	return rc.execJobContainer(containerArgs, env, "", "")(ctx)
 }
 
 //go:embed res/trampoline.js
