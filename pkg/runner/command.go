@@ -41,6 +41,9 @@ func (rc *RunContext) commandHandler(ctx context.Context) common.LineHandler {
 		arg = unescapeCommandData(arg)
 		kvPairs = unescapeKvPairs(kvPairs)
 		switch command {
+		case "save-state":
+			kvPairs["name"] = "STATE_" + kvPairs["name"]
+			rc.setEnv(ctx, kvPairs, arg)
 		case "set-env":
 			rc.setEnv(ctx, kvPairs, arg)
 		case "set-output":
