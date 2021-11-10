@@ -77,9 +77,10 @@ func (sc *StepContext) Executor() common.Executor {
 
 	case model.StepTypeUsesActionLocal:
 		actionDir := filepath.Join(rc.Config.Workdir, step.Uses)
+		provider := sc.RunContext.Providers.Action
 		return common.NewPipelineExecutor(
-			sc.setupAction(actionDir, "", true),
-			sc.runAction(actionDir, "", true),
+			provider.SetupAction(sc, actionDir, "", true),
+			provider.RunAction(sc, actionDir, "", true),
 		)
 	case model.StepTypeUsesActionRemote:
 		remoteAction := newRemoteAction(step.Uses)
@@ -115,10 +116,11 @@ func (sc *StepContext) Executor() common.Executor {
 				ntErr = common.NewInfoExecutor("Non-terminating error while running 'git clone': %v", err)
 			}
 		}
+		provider := sc.RunContext.Providers.Action
 		return common.NewPipelineExecutor(
 			ntErr,
-			sc.setupAction(actionDir, remoteAction.Path, false),
-			sc.runAction(actionDir, remoteAction.Path, false),
+			provider.SetupAction(sc, actionDir, remoteAction.Path, false),
+			provider.RunAction(sc, actionDir, remoteAction.Path, false),
 		)
 	case model.StepTypeInvalid:
 		return common.NewErrorExecutor(fmt.Errorf("Invalid run/uses syntax for job:%s step:%+v", rc.Run, step))

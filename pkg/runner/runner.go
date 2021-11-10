@@ -87,15 +87,21 @@ func (config *Config) ContainerWorkdir() string {
 	return config.containerPath(config.Workdir)
 }
 
+type Providers struct {
+	Action ActionProvider
+}
+
 type runnerImpl struct {
 	config    *Config
+	providers *Providers
 	eventJSON string
 }
 
 // New Creates a new Runner
-func New(runnerConfig *Config) (Runner, error) {
+func New(runnerConfig *Config, providers *Providers) (Runner, error) {
 	runner := &runnerImpl{
-		config: runnerConfig,
+		config:    runnerConfig,
+		providers: providers,
 	}
 
 	runner.eventJSON = "{}"
@@ -171,6 +177,7 @@ func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 func (runner *runnerImpl) newRunContext(run *model.Run, matrix map[string]interface{}) *RunContext {
 	rc := &RunContext{
 		Config:      runner.config,
+		Providers:   runner.providers,
 		Run:         run,
 		EventJSON:   runner.eventJSON,
 		StepResults: make(map[string]*stepResult),

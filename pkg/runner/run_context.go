@@ -28,6 +28,7 @@ const ActPath string = "/var/run/act"
 type RunContext struct {
 	Name               string
 	Config             *Config
+	Providers          *Providers
 	Matrix             map[string]interface{}
 	Run                *model.Run
 	EventJSON          string

@@ -65,8 +65,11 @@ func runTestJobFile(ctx context.Context, t *testing.T, tjfi TestJobFileInfo) {
 			ContainerArchitecture: tjfi.containerArchitecture,
 			GitHubInstance:        "github.com",
 		}
+		providers := &Providers{
+			Action: NewActionProvider(),
+		}
 
-		runner, err := New(runnerConfig)
+		runner, err := New(runnerConfig, providers)
 		assert.Nil(t, err, tjfi.workflowPath)
 
 		planner, err := model.NewWorkflowPlanner(fullWorkflowPath, true)
@@ -164,7 +167,10 @@ func TestRunEventSecrets(t *testing.T) {
 		Secrets:         secrets,
 		Env:             env,
 	}
-	runner, err := New(runnerConfig)
+	providers := &Providers{
+		Action: NewActionProvider(),
+	}
+	runner, err := New(runnerConfig, providers)
 	assert.Nil(t, err, workflowPath)
 
 	planner, err := model.NewWorkflowPlanner(fmt.Sprintf("testdata/%s", workflowPath), true)
@@ -201,7 +207,10 @@ func TestRunEventPullRequest(t *testing.T) {
 		Platforms:       platforms,
 		ReuseContainers: false,
 	}
-	runner, err := New(runnerConfig)
+	providers := &Providers{
+		Action: NewActionProvider(),
+	}
+	runner, err := New(runnerConfig, providers)
 	assert.Nil(t, err, workflowPath)
 
 	planner, err := model.NewWorkflowPlanner(fmt.Sprintf("testdata/%s", workflowPath), true)

@@ -280,7 +280,10 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			ArtifactServerPath:    input.artifactServerPath,
 			ArtifactServerPort:    input.artifactServerPort,
 		}
-		r, err := runner.New(config)
+		providers := &runner.Providers{
+			Action: runner.NewActionProvider(),
+		}
+		r, err := runner.New(config, providers)
 		if err != nil {
 			return err
 		}
