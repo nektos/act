@@ -307,11 +307,11 @@ func (m *actionProviderMock) RunAction(sc *StepContext, actionDir string, action
 	return RunAction(sc, actionDir, actionPath, localAction)
 }
 
-func (m *actionProviderMock) ExecuteNode12Action(sc *StepContext, containerActionDir string, ctx context.Context, maybeCopyToActionDir func() error) error {
+func (m *actionProviderMock) ExecuteNode12Action(ctx context.Context, sc *StepContext, containerActionDir string, maybeCopyToActionDir func() error) error {
 	return nil
 }
 
-func (m *actionProviderMock) ExecuteNode12PostAction(sc *StepContext, containerActionDir string, ctx context.Context) error {
+func (m *actionProviderMock) ExecuteNode12PostAction(ctx context.Context, sc *StepContext, containerActionDir string) error {
 	m.Called(sc, containerActionDir, ctx)
 	return nil
 }

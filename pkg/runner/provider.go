@@ -23,13 +23,13 @@ import (
 type ActionProvider interface {
 	SetupAction(sc *StepContext, actionDir string, actionPath string, localAction bool) common.Executor
 	RunAction(sc *StepContext, actionDir string, actionPath string, localAction bool) common.Executor
-	ExecuteNode12Action(sc *StepContext, containerActionDir string, ctx context.Context, maybeCopyToActionDir func() error) error
-	ExecuteNode12PostAction(sc *StepContext, containerActionDir string, ctx context.Context) error
+	ExecuteNode12Action(ctx context.Context, sc *StepContext, containerActionDir string, maybeCopyToActionDir func() error) error
+	ExecuteNode12PostAction(ctx context.Context, sc *StepContext, containerActionDir string) error
 }
 
 type actProvider struct{}
 
-func (a *actProvider) ExecuteNode12Action(sc *StepContext, containerActionDir string, ctx context.Context, maybeCopyToActionDir func() error) error {
+func (a *actProvider) ExecuteNode12Action(ctx context.Context, sc *StepContext, containerActionDir string, maybeCopyToActionDir func() error) error {
 	if err := maybeCopyToActionDir(); err != nil {
 		return err
 	}
@@ -40,7 +40,7 @@ func (a *actProvider) ExecuteNode12Action(sc *StepContext, containerActionDir st
 	return rc.execJobContainer(containerArgs, sc.Env, "", "")(ctx)
 }
 
-func (a *actProvider) ExecuteNode12PostAction(sc *StepContext, containerActionDir string, ctx context.Context) error {
+func (a *actProvider) ExecuteNode12PostAction(ctx context.Context, sc *StepContext, containerActionDir string) error {
 	action := sc.Action
 	containerArgs := []string{"node", path.Join(containerActionDir, action.Runs.Post)}
 	log.Debugf("executing remote job container: %s", containerArgs)
@@ -160,7 +160,7 @@ func appendPostAction(sc *StepContext, containerActionDir string, mainErr error)
 			log.Debugf("Skipping post action '%s' due to '%s' condittion", action.Name, action.Runs.PostIf)
 			return nil
 		}
-		return rc.Providers.Action.ExecuteNode12PostAction(sc, containerActionDir, ctx)
+		return rc.Providers.Action.ExecuteNode12PostAction(ctx, sc, containerActionDir)
 	})
 }
 
@@ -205,7 +205,7 @@ func RunAction(sc *StepContext, actionDir string, actionPath string, localAction
 		switch action.Runs.Using {
 		case model.ActionRunsUsingNode12:
 			provider := sc.RunContext.Providers.Action
-			mainErr := provider.ExecuteNode12Action(sc, containerActionDir, ctx, maybeCopyToActionDir)
+			mainErr := provider.ExecuteNode12Action(ctx, sc, containerActionDir, maybeCopyToActionDir)
 			if action.Runs.Post != "" {
 				appendPostAction(sc, containerActionDir, mainErr)
 			}
