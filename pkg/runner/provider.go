@@ -14,6 +14,7 @@ import (
 	// Go told me to?
 	"path"
 
+	"github.com/creasty/defaults"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/nektos/act/pkg/common"
@@ -89,6 +90,9 @@ func (a *actProvider) SetupAction(sc *StepContext, actionDir string, actionPath 
 							Image: "Dockerfile",
 						},
 					}
+					if err := defaults.Set(sc.Action); err != nil {
+						return err
+					}
 					log.Debugf("Using synthetic action %v for Dockerfile", sc.Action)
 					return nil
 				}
@@ -121,6 +125,9 @@ func (a *actProvider) SetupAction(sc *StepContext, actionDir string, actionPath 
 								Main:  "trampoline.js",
 							},
 						}
+						if err := defaults.Set(sc.Action); err != nil {
+							return err
+						}
 						log.Debugf("Using synthetic action %v", sc.Action)
 						return nil
 					}
@@ -149,6 +156,11 @@ func appendPostAction(sc *StepContext, containerActionDir string, mainErr error)
 		if mainErr != nil {
 			log.Warningf("Skipping post action: %s due to main action failure", action.Name)
 			return nil
+		}
+		if action.Runs.PostIf == "" {
+			err := fmt.Errorf("action postif member cannot be empty, maybe a default is missing")
+			common.Logger(ctx).Errorf("%v", err)
+			return err
 		}
 		runPost, err := rc.EvalBool(action.Runs.PostIf)
 		if err != nil {

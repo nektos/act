@@ -5,6 +5,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/creasty/defaults"
 	"gopkg.in/yaml.v3"
 )
 
@@ -51,7 +52,7 @@ type ActionRuns struct {
 	Args       []string          `yaml:"args"`
 	Steps      []Step            `yaml:"steps"`
 	Post       string            `yaml:"post"`
-	PostIf     string            `yaml:"post-if"`
+	PostIf     string            `yaml:"post-if" default:"always()"`
 }
 
 // Action describes a metadata file for GitHub actions. The metadata filename must be either action.yml or action.yaml. The data in the metadata file defines the inputs, outputs and main entrypoint for your action.
@@ -84,6 +85,9 @@ type Output struct {
 // ReadAction reads an action from a reader
 func ReadAction(in io.Reader) (*Action, error) {
 	a := new(Action)
+	if err := defaults.Set(a); err != nil {
+		return a, err
+	}
 	err := yaml.NewDecoder(in).Decode(a)
 	return a, err
 }

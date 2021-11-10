@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/creasty/defaults"
 	"github.com/joho/godotenv"
 	log "github.com/sirupsen/logrus"
 	assert "github.com/stretchr/testify/assert"
@@ -292,11 +293,16 @@ func (m *actionProviderMock) SetupAction(sc *StepContext, actionDir string, acti
 		action := &model.Action{
 			Name: "fake-action",
 			Runs: model.ActionRuns{
-				Using:  "node12",
-				Main:   "fake",
-				Post:   "fake",
-				PostIf: m.postIf,
+				Using: "node12",
+				Main:  "fake",
+				Post:  "fake",
 			},
+		}
+		if err := defaults.Set(action); err != nil {
+			return err
+		}
+		if m.postIf != "" {
+			action.Runs.PostIf = m.postIf
 		}
 		sc.Action = action
 		return nil
@@ -330,6 +336,8 @@ func TestRunEventPostStepSuccessCondition(t *testing.T) {
 		{postIf: "always()", called: true, TestJobFileInfo: TestJobFileInfo{workflowPath: "post-success-run", errorMessage: ""}},
 		{postIf: "failure()", called: true, TestJobFileInfo: TestJobFileInfo{workflowPath: "post-failed-run", errorMessage: "exit with `FAILURE`: 1"}},
 		{postIf: "failure()", called: false, TestJobFileInfo: TestJobFileInfo{workflowPath: "post-success-run", errorMessage: ""}},
+		{called: true, TestJobFileInfo: TestJobFileInfo{workflowPath: "post-failed-run", errorMessage: "exit with `FAILURE`: 1"}}, // always()
+		{called: true, TestJobFileInfo: TestJobFileInfo{workflowPath: "post-success-run", errorMessage: ""}},                      // always()
 	}
 
 	for _, tjps := range tables {
