@@ -733,6 +733,10 @@ func (rc *RunContext) withGithubEnv(env map[string]string) map[string]string {
 		env["GITHUB_GRAPHQL_URL"] = fmt.Sprintf("https://%s/api/graphql", rc.Config.GitHubInstance)
 	}
 
+	if rc.Config.ArtifactServerPath != "" {
+		setActionRuntimeVars(rc, env)
+	}
+
 	job := rc.Run.Job()
 	if job.RunsOn() != nil {
 		for _, runnerLabel := range job.RunsOn() {
@@ -750,6 +754,20 @@ func (rc *RunContext) withGithubEnv(env map[string]string) map[string]string {
 	}
 
 	return env
+}
+
+func setActionRuntimeVars(rc *RunContext, env map[string]string) {
+	actionsRuntimeURL := os.Getenv("ACTIONS_RUNTIME_URL")
+	if actionsRuntimeURL == "" {
+		actionsRuntimeURL = fmt.Sprintf("http://%s:%s/", common.GetOutboundIP().String(), rc.Config.ArtifactServerPort)
+	}
+	env["ACTIONS_RUNTIME_URL"] = actionsRuntimeURL
+
+	actionsRuntimeToken := os.Getenv("ACTIONS_RUNTIME_TOKEN")
+	if actionsRuntimeToken == "" {
+		actionsRuntimeToken = "token"
+	}
+	env["ACTIONS_RUNTIME_TOKEN"] = actionsRuntimeToken
 }
 
 func (rc *RunContext) localCheckoutPath() (string, bool) {
