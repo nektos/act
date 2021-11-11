@@ -113,6 +113,8 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			return true
 		})
 
+		username, password := rc.handleCredentials(ctx)
+
 		common.Logger(ctx).Infof("\U0001f680  Start image=%s", image)
 		name := rc.jobContainerName()
 
@@ -129,8 +131,8 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			Entrypoint:  []string{"/usr/bin/tail", "-f", "/dev/null"},
 			WorkingDir:  rc.Config.ContainerWorkdir(),
 			Image:       image,
-			Username:    rc.Config.Secrets["DOCKER_USERNAME"],
-			Password:    rc.Config.Secrets["DOCKER_PASSWORD"],
+			Username:    username,
+			Password:    password,
 			Name:        name,
 			Env:         envList,
 			Mounts:      mounts,
@@ -778,4 +780,39 @@ func (rc *RunContext) localCheckoutPath() (string, bool) {
 		}
 	}
 	return "", false
+}
+
+func (rc *RunContext) handleCredentials(ctx context.Context) (string, string) {
+	username := rc.Config.Secrets["DOCKER_USERNAME"]
+	password := rc.Config.Secrets["DOCKER_PASSWORD"]
+
+	container := rc.Run.Job().Container()
+	if container == nil {
+		return username, password
+	}
+
+	if len(container.Credentials) != 2 {
+		return username, password
+	}
+
+	if container.Credentials["username"] == "" {
+		return username, password
+	}
+
+	username = container.Credentials["username"]
+	password = container.Credentials["password"]
+
+	rawLogger := common.Logger(ctx).WithField("raw_output", true)
+
+	ee := rc.NewExpressionEvaluator()
+	username, _, err := ee.Evaluate(username)
+	if err != nil {
+		rawLogger.Debugf("Couldn't evaluate username: %s (%s)\n", username, err)
+	}
+	password, _, err = ee.Evaluate(password)
+	if err != nil {
+		rawLogger.Errorf("Couldn't evaluate password: %s (%s)\n", password, err)
+	}
+
+	return username, password
 }
