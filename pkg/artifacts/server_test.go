@@ -278,7 +278,11 @@ func runTestJobFile(ctx context.Context, t *testing.T, tjfi TestJobFileInfo) {
 			ArtifactServerPort:    artifactsPort,
 		}
 
-		runner, err := runner.New(runnerConfig)
+		providers := &runner.Providers{
+			Action: runner.NewActionProvider(),
+		}
+
+		rnr, err := runner.New(runnerConfig, providers)
 		assert.Nil(t, err, tjfi.workflowPath)
 
 		planner, err := model.NewWorkflowPlanner(fullWorkflowPath, true)
