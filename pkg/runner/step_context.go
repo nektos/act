@@ -479,6 +479,11 @@ func (sc *StepContext) runAction(actionDir string, actionPath string, localActio
 
 		sc.Env = mergeMaps(sc.Env, action.Runs.Env)
 
+		ee := sc.NewExpressionEvaluator()
+		for k, v := range sc.Env {
+			sc.Env[k] = ee.Interpolate(v)
+		}
+
 		log.Debugf("type=%v actionDir=%s actionPath=%s workdir=%s actionCacheDir=%s actionName=%s containerActionDir=%s", step.Type(), actionDir, actionPath, rc.Config.Workdir, rc.ActionCacheDir(), actionName, containerActionDir)
 
 		maybeCopyToActionDir := func() error {
