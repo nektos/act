@@ -52,7 +52,7 @@ func (fsys MapFsImpl) Open(path string) (fs.File, error) {
 }
 
 func TestNewArtifactUploadPrepare(t *testing.T) {
-	assert := assert.New(t)
+	assertion := assert.New(t)
 
 	var memfs = fstest.MapFS(map[string]*fstest.MapFile{})
 
@@ -65,7 +65,7 @@ func TestNewArtifactUploadPrepare(t *testing.T) {
 	router.ServeHTTP(rr, req)
 
 	if status := rr.Code; status != http.StatusOK {
-		assert.Fail("Wrong status")
+		assertion.Fail("Wrong status")
 	}
 
 	response := FileContainerResourceURL{}
@@ -74,11 +74,11 @@ func TestNewArtifactUploadPrepare(t *testing.T) {
 		panic(err)
 	}
 
-	assert.Equal("http://localhost/upload/1", response.FileContainerResourceURL)
+	assertion.Equal("http://localhost/upload/1", response.FileContainerResourceURL)
 }
 
 func TestArtifactUploadBlob(t *testing.T) {
-	assert := assert.New(t)
+	assertion := assert.New(t)
 
 	var memfs = fstest.MapFS(map[string]*fstest.MapFile{})
 
@@ -91,7 +91,7 @@ func TestArtifactUploadBlob(t *testing.T) {
 	router.ServeHTTP(rr, req)
 
 	if status := rr.Code; status != http.StatusOK {
-		assert.Fail("Wrong status")
+		assertion.Fail("Wrong status")
 	}
 
 	response := ResponseMessage{}
@@ -100,12 +100,12 @@ func TestArtifactUploadBlob(t *testing.T) {
 		panic(err)
 	}
 
-	assert.Equal("success", response.Message)
-	assert.Equal("content", string(memfs["1/some/file"].Data))
+	assertion.Equal("success", response.Message)
+	assertion.Equal("content", string(memfs["1/some/file"].Data))
 }
 
 func TestFinalizeArtifactUpload(t *testing.T) {
-	assert := assert.New(t)
+	assertion := assert.New(t)
 
 	var memfs = fstest.MapFS(map[string]*fstest.MapFile{})
 
@@ -118,7 +118,7 @@ func TestFinalizeArtifactUpload(t *testing.T) {
 	router.ServeHTTP(rr, req)
 
 	if status := rr.Code; status != http.StatusOK {
-		assert.Fail("Wrong status")
+		assertion.Fail("Wrong status")
 	}
 
 	response := ResponseMessage{}
@@ -127,11 +127,11 @@ func TestFinalizeArtifactUpload(t *testing.T) {
 		panic(err)
 	}
 
-	assert.Equal("success", response.Message)
+	assertion.Equal("success", response.Message)
 }
 
 func TestListArtifacts(t *testing.T) {
-	assert := assert.New(t)
+	assertion := assert.New(t)
 
 	var memfs = fstest.MapFS(map[string]*fstest.MapFile{
 		"1/file.txt": {
@@ -148,7 +148,7 @@ func TestListArtifacts(t *testing.T) {
 	router.ServeHTTP(rr, req)
 
 	if status := rr.Code; status != http.StatusOK {
-		assert.FailNow(fmt.Sprintf("Wrong status: %d", status))
+		assertion.FailNow(fmt.Sprintf("Wrong status: %d", status))
 	}
 
 	response := NamedFileContainerResourceURLResponse{}
@@ -157,13 +157,13 @@ func TestListArtifacts(t *testing.T) {
 		panic(err)
 	}
 
-	assert.Equal(1, response.Count)
-	assert.Equal("file.txt", response.Value[0].Name)
-	assert.Equal("http://localhost/download/1", response.Value[0].FileContainerResourceURL)
+	assertion.Equal(1, response.Count)
+	assertion.Equal("file.txt", response.Value[0].Name)
+	assertion.Equal("http://localhost/download/1", response.Value[0].FileContainerResourceURL)
 }
 
 func TestListArtifactContainer(t *testing.T) {
-	assert := assert.New(t)
+	assertion := assert.New(t)
 
 	var memfs = fstest.MapFS(map[string]*fstest.MapFile{
 		"1/some/file": {
@@ -180,7 +180,7 @@ func TestListArtifactContainer(t *testing.T) {
 	router.ServeHTTP(rr, req)
 
 	if status := rr.Code; status != http.StatusOK {
-		assert.FailNow(fmt.Sprintf("Wrong status: %d", status))
+		assertion.FailNow(fmt.Sprintf("Wrong status: %d", status))
 	}
 
 	response := ContainerItemResponse{}
@@ -189,14 +189,14 @@ func TestListArtifactContainer(t *testing.T) {
 		panic(err)
 	}
 
-	assert.Equal(1, len(response.Value))
-	assert.Equal("some/file/.", response.Value[0].Path)
-	assert.Equal("file", response.Value[0].ItemType)
-	assert.Equal("http://localhost/artifact/1/some/file/.", response.Value[0].ContentLocation)
+	assertion.Equal(1, len(response.Value))
+	assertion.Equal("some/file/.", response.Value[0].Path)
+	assertion.Equal("file", response.Value[0].ItemType)
+	assertion.Equal("http://localhost/artifact/1/some/file/.", response.Value[0].ContentLocation)
 }
 
 func TestDownloadArtifactFile(t *testing.T) {
-	assert := assert.New(t)
+	assertion := assert.New(t)
 
 	var memfs = fstest.MapFS(map[string]*fstest.MapFile{
 		"1/some/file": {
@@ -213,12 +213,12 @@ func TestDownloadArtifactFile(t *testing.T) {
 	router.ServeHTTP(rr, req)
 
 	if status := rr.Code; status != http.StatusOK {
-		assert.FailNow(fmt.Sprintf("Wrong status: %d", status))
+		assertion.FailNow(fmt.Sprintf("Wrong status: %d", status))
 	}
 
 	data := rr.Body.Bytes()
 
-	assert.Equal("content", string(data))
+	assertion.Equal("content", string(data))
 }
 
 type TestJobFileInfo struct {
@@ -290,7 +290,7 @@ func runTestJobFile(ctx context.Context, t *testing.T, tjfi TestJobFileInfo) {
 
 		plan := planner.PlanEvent(tjfi.eventName)
 
-		err = runner.NewPlanExecutor(plan)(ctx)
+		err = rnr.NewPlanExecutor(plan)(ctx)
 		if tjfi.errorMessage == "" {
 			assert.Nil(t, err, fullWorkflowPath)
 		} else {
