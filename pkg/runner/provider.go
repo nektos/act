@@ -8,11 +8,9 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
-
-	// Go told me to?
-	"path"
 
 	"github.com/creasty/defaults"
 	log "github.com/sirupsen/logrus"
