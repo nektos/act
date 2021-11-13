@@ -565,7 +565,7 @@ func (sc *StepContext) execAsDocker(ctx context.Context, action *model.Action, a
 			}
 		}
 
-		if !correctArchExists {
+		if !correctArchExists || rc.Config.ForceRebuild {
 			log.Debugf("image '%s' for architecture '%s' will be built from context '%s", image, rc.Config.ContainerArchitecture, contextDir)
 			var actionContainer container.Container
 			if localAction {
