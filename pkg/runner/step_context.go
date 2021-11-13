@@ -479,6 +479,11 @@ func (sc *StepContext) runAction(actionDir string, actionPath string, localActio
 
 		sc.Env = mergeMaps(sc.Env, action.Runs.Env)
 
+		ee := sc.NewExpressionEvaluator()
+		for k, v := range sc.Env {
+			sc.Env[k] = ee.Interpolate(v)
+		}
+
 		log.Debugf("type=%v actionDir=%s actionPath=%s workdir=%s actionCacheDir=%s actionName=%s containerActionDir=%s", step.Type(), actionDir, actionPath, rc.Config.Workdir, rc.ActionCacheDir(), actionName, containerActionDir)
 
 		maybeCopyToActionDir := func() error {
@@ -560,7 +565,7 @@ func (sc *StepContext) execAsDocker(ctx context.Context, action *model.Action, a
 
 		if !correctArchExists {
 			log.Debugf("image '%s' for architecture '%s' will be built from context '%s", image, rc.Config.ContainerArchitecture, contextDir)
-			var actionContainer container.Container = nil
+			var actionContainer container.Container
 			if localAction {
 				actionContainer = sc.RunContext.JobContainer
 			}
