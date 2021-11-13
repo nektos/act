@@ -9,6 +9,7 @@ inputs:
 runs:
   using: docker
   image: docker://node:12-buster-slim
+  entrypoint: /bin/sh -c
   env:
     TEST: enabled
   args:
