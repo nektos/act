@@ -48,7 +48,7 @@ type ActionRuns struct {
 	Env        map[string]string `yaml:"env"`
 	Main       string            `yaml:"main"`
 	Image      string            `yaml:"image"`
-	Entrypoint []string          `yaml:"entrypoint"`
+	Entrypoint string            `yaml:"entrypoint"`
 	Args       []string          `yaml:"args"`
 	Steps      []Step            `yaml:"steps"`
 	Post       string            `yaml:"post"`

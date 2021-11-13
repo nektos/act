@@ -12,6 +12,7 @@ require (
 	github.com/containerd/continuity v0.2.0 // indirect
 	github.com/creasty/defaults v1.5.2
 	github.com/docker/cli v20.10.10+incompatible
+	github.com/docker/distribution v2.7.1+incompatible
 	github.com/docker/docker v20.10.10+incompatible
 	github.com/go-git/go-billy/v5 v5.3.1
 	github.com/go-git/go-git/v5 v5.4.2
