@@ -19,7 +19,7 @@ import (
 	"github.com/nektos/act/pkg/model"
 )
 
-var baseImage string = "node:12-buster-slim"
+var baseImage = "node:12-buster-slim"
 
 func init() {
 	if p := os.Getenv("ACT_TEST_IMAGE"); p != "" {

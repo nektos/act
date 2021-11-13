@@ -409,7 +409,7 @@ func (sc *StepContext) execAsDocker(ctx context.Context, action *model.Action, a
 
 		if !correctArchExists {
 			log.Debugf("image '%s' for architecture '%s' will be built from context '%s", image, rc.Config.ContainerArchitecture, contextDir)
-			var actionContainer container.Container = nil
+			var actionContainer container.Container
 			if localAction {
 				actionContainer = sc.RunContext.JobContainer
 			}
