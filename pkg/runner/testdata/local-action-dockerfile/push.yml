@@ -8,12 +8,14 @@ jobs:
     - uses: actions/checkout@v2
     - run: chmod +x ./actions/docker-local/entrypoint.sh
     - uses: ./actions/docker-local
+      id: dockerlocal
       with:
         who-to-greet: 'Mona the Octocat'
     - run: '[[ "${{ env.SOMEVAR }}" == "Mona the Octocat" ]]'
     - run: '[ "${SOMEVAR}" = "Not Mona" ] || exit 1'
       env:
         SOMEVAR: 'Not Mona'
+    - run: '[[ "${{ steps.dockerlocal.outputs.whoami }}" == "Mona the Octocat" ]]'
     # Test if overriding args doesn't leak inputs
     - uses: ./actions/docker-local
       with:
