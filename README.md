@@ -41,6 +41,12 @@ If you are using Linux, you will need to [install Docker Engine](https://docs.do
 brew install act
 ```
 
+or if you want to install version based on latest commit, you can run below (it requires compiler to be installed installed but Homebrew will suggest you how to install it, if you don't have it):
+
+```shell
+brew install act --HEAD
+```
+
 ### [MacPorts](https://www.macports.org) (macOS)
 
 ```shell
