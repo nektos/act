@@ -50,9 +50,44 @@ func (rc *RunContext) String() string {
 	return fmt.Sprintf("%s/%s", rc.Run.Workflow.Name, rc.Name)
 }
 
+type stepStatus int
+
+const (
+	stepStatusSuccess stepStatus = iota
+	stepStatusFailure
+)
+
+var stepStatusStrings = [...]string{
+	"success",
+	"failure",
+}
+
+func (s stepStatus) MarshalText() ([]byte, error) {
+	return []byte(s.String()), nil
+}
+
+func (s *stepStatus) UnmarshalText(b []byte) error {
+	str := string(b)
+	for i, name := range stepStatusStrings {
+		if name == str {
+			*s = stepStatus(i)
+			return nil
+		}
+	}
+	return fmt.Errorf("invalid step status %q", str)
+}
+
+func (s stepStatus) String() string {
+	if int(s) >= len(stepStatusStrings) {
+		return ""
+	}
+	return stepStatusStrings[s]
+}
+
 type stepResult struct {
-	Success bool              `json:"success"`
-	Outputs map[string]string `json:"outputs"`
+	Outputs    map[string]string `json:"outputs"`
+	Conclusion stepStatus        `json:"conclusion"`
+	Outcome    stepStatus        `json:"outcome"`
 }
 
 // GetEnv returns the env for the context
@@ -261,8 +296,9 @@ func (rc *RunContext) newStepExecutor(step *model.Step) common.Executor {
 	return func(ctx context.Context) error {
 		rc.CurrentStep = sc.Step.ID
 		rc.StepResults[rc.CurrentStep] = &stepResult{
-			Success: true,
-			Outputs: make(map[string]string),
+			Outcome:    stepStatusSuccess,
+			Conclusion: stepStatusSuccess,
+			Outputs:    make(map[string]string),
 		}
 		runStep, err := rc.EvalBool(sc.Step.If.Value)
 
@@ -273,7 +309,8 @@ func (rc *RunContext) newStepExecutor(step *model.Step) common.Executor {
 				return err
 			}
 			rc.ExprEval = exprEval
-			rc.StepResults[rc.CurrentStep].Success = false
+			rc.StepResults[rc.CurrentStep].Conclusion = stepStatusFailure
+			rc.StepResults[rc.CurrentStep].Outcome = stepStatusFailure
 			return err
 		}
 
@@ -295,12 +332,13 @@ func (rc *RunContext) newStepExecutor(step *model.Step) common.Executor {
 		} else {
 			common.Logger(ctx).Errorf("  \u274C  Failure - %s", sc.Step)
 
+			rc.StepResults[rc.CurrentStep].Outcome = stepStatusFailure
 			if sc.Step.ContinueOnError {
 				common.Logger(ctx).Infof("Failed but continue next step")
 				err = nil
-				rc.StepResults[rc.CurrentStep].Success = true
+				rc.StepResults[rc.CurrentStep].Conclusion = stepStatusSuccess
 			} else {
-				rc.StepResults[rc.CurrentStep].Success = false
+				rc.StepResults[rc.CurrentStep].Conclusion = stepStatusFailure
 			}
 		}
 		return err
@@ -495,7 +533,7 @@ type jobContext struct {
 func (rc *RunContext) getJobContext() *jobContext {
 	jobStatus := "success"
 	for _, stepStatus := range rc.StepResults {
-		if !stepStatus.Success {
+		if stepStatus.Conclusion == stepStatusFailure {
 			jobStatus = "failure"
 			break
 		}

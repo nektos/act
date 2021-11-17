@@ -49,22 +49,25 @@ func TestEvaluate(t *testing.T) {
 		},
 		StepResults: map[string]*stepResult{
 			"idwithnothing": {
+				Conclusion: stepStatusSuccess,
+				Outcome:    stepStatusSuccess,
 				Outputs: map[string]string{
 					"foowithnothing": "barwithnothing",
 				},
-				Success: true,
 			},
 			"id-with-hyphens": {
+				Conclusion: stepStatusSuccess,
+				Outcome:    stepStatusSuccess,
 				Outputs: map[string]string{
 					"foo-with-hyphens": "bar-with-hyphens",
 				},
-				Success: true,
 			},
 			"id_with_underscores": {
+				Conclusion: stepStatusSuccess,
+				Outcome:    stepStatusSuccess,
 				Outputs: map[string]string{
 					"foo_with_underscores": "bar_with_underscores",
 				},
-				Success: true,
 			},
 		},
 	}

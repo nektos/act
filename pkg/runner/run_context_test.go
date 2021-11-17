@@ -54,10 +54,11 @@ func TestRunContext_EvalBool(t *testing.T) {
 		},
 		StepResults: map[string]*stepResult{
 			"id1": {
+				Conclusion: stepStatusSuccess,
+				Outcome:    stepStatusSuccess,
 				Outputs: map[string]string{
 					"foo": "bar",
 				},
-				Success: true,
 			},
 		},
 	}
