@@ -1,8 +1,7 @@
 package container
 
 import (
-	"net/url"
-	"regexp"
+	"strings"
 
 	"github.com/docker/cli/cli/config"
 	"github.com/docker/cli/cli/config/credentials"
@@ -21,17 +20,13 @@ func LoadDockerAuthConfig(image string) (types.AuthConfig, error) {
 		config.CredentialsStore = credentials.DetectDefaultStore(config.CredentialsStore)
 	}
 
-	if matches, _ := regexp.MatchString("^[^.:]+\\/", image); matches {
-		image = "index.docker.io/v1/" + image
+	hostName := "index.docker.io"
+	index := strings.IndexRune(image, '/')
+	if index > -1 && (strings.ContainsAny(image[:index], ".:") || image[:index] == "localhost") {
+		hostName = image[:index]
 	}
 
-	parsed, err := url.Parse("http://" + image)
-	if err != nil {
-		log.Warnf("Could not parse image url: %v", err)
-		return types.AuthConfig{}, err
-	}
-
-	authConfig, err := config.GetAuthConfig(parsed.Hostname())
+	authConfig, err := config.GetAuthConfig(hostName)
 	if err != nil {
 		log.Warnf("Could not get auth config from docker config: %v", err)
 		return types.AuthConfig{}, err
