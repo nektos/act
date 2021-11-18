@@ -21,7 +21,7 @@ func LoadDockerAuthConfig(image string) (types.AuthConfig, error) {
 		config.CredentialsStore = credentials.DetectDefaultStore(config.CredentialsStore)
 	}
 
-	if matches, _ := regexp.MatchString("^[^.]+\\/", image); matches {
+	if matches, _ := regexp.MatchString("^[^.:]+\\/", image); matches {
 		image = "index.docker.io/v1/" + image
 	}
 
