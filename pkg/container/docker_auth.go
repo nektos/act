@@ -22,10 +22,10 @@ func LoadDockerAuthConfig(image string) (types.AuthConfig, error) {
 	}
 
 	if matches, _ := regexp.MatchString("^[^.]+\\/", image); matches {
-		image = "https://index.docker.io/v1/" + image
+		image = "index.docker.io/v1/" + image
 	}
 
-	parsed, err := url.Parse(image)
+	parsed, err := url.Parse("http://" + image)
 	if err != nil {
 		log.Warnf("Could not parse image url: %v", err)
 		return types.AuthConfig{}, err
