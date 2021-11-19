@@ -369,7 +369,10 @@ var singleLineEnvPattern, mulitiLineEnvPattern *regexp.Regexp
 
 func (cr *containerReference) extractEnv(srcPath string, env *map[string]string) common.Executor {
 	if singleLineEnvPattern == nil {
-		singleLineEnvPattern = regexp.MustCompile("^([^=]+)=([^=]+)$")
+		// Single line pattern matches:
+		// SOME_VAR=data=moredata
+		// SOME_VAR=datamoredata
+		singleLineEnvPattern = regexp.MustCompile(`^([^=]*)\=(.*)$`)
 		mulitiLineEnvPattern = regexp.MustCompile(`^([^<]+)<<(\w+)$`)
 	}
 
