@@ -43,7 +43,16 @@ jobs:
       - name: "Check single line env"
         run: |
           if [[ "${KEY}" != "value" ]]; then
-            echo "${KEY} dosen't == 'value'"
+            echo "${KEY} doesn't == 'value'"
+            exit 1
+          fi
+      - name: "Write single line env with more than one 'equals' signs to $GITHUB_ENV"
+        run: |
+          echo "KEY=value=anothervalue" >> $GITHUB_ENV
+      - name: "Check single line env"
+        run: |
+          if [[ "${KEY}" != "value=anothervalue" ]]; then
+            echo "${KEY} doesn't == 'value=anothervalue'"
             exit 1
           fi
       - name: "Write multiline env to $GITHUB_ENV"
@@ -54,8 +63,6 @@ jobs:
       - name: "Check multiline line env"
         run: |
           if [[ "${KEY2}" != "value2" ]]; then
-            echo "${KEY2} dosen't == 'value'"
+            echo "${KEY2} doesn't == 'value'"
             exit 1
           fi
-
-
