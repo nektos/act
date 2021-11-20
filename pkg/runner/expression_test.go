@@ -93,6 +93,7 @@ func TestEvaluate(t *testing.T) {
 		{"toJson({'foo':'bar'})", "{\n  \"foo\": \"bar\"\n}", ""},
 		{"(fromJSON('{\"foo\":\"bar\"}')).foo", "bar", ""},
 		{"(fromJson('{\"foo\":\"bar\"}')).foo", "bar", ""},
+		{"(fromJson('[\"foo\",\"bar\"]'))[1]", "bar", ""},
 		{"hashFiles('**/non-extant-files')", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", ""},
 		{"hashFiles('**/non-extant-files', '**/more-non-extant-files')", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", ""},
 		{"hashFiles('**/non.extant.files')", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", ""},

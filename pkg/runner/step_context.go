@@ -553,6 +553,8 @@ func (sc *StepContext) evalDockerArgs(action *model.Action, cmd *[]string) {
 	}
 }
 
+// TODO: break out parts of function to reduce complexicity
+// nolint:gocyclo
 func (sc *StepContext) execAsDocker(ctx context.Context, action *model.Action, actionName string, containerLocation string, actionLocation string, rc *RunContext, step *model.Step, localAction bool) error {
 	var prepImage common.Executor
 	var image string
@@ -616,7 +618,14 @@ func (sc *StepContext) execAsDocker(ctx context.Context, action *model.Action, a
 	}
 	entrypoint := strings.Fields(eval.Interpolate(step.With["entrypoint"]))
 	if len(entrypoint) == 0 {
-		entrypoint = action.Runs.Entrypoint
+		if action.Runs.Entrypoint != "" {
+			entrypoint, err = shellquote.Split(action.Runs.Entrypoint)
+			if err != nil {
+				return err
+			}
+		} else {
+			entrypoint = nil
+		}
 	}
 	stepContainer := sc.newStepContainer(ctx, image, cmd, entrypoint)
 	return common.NewPipelineExecutor(

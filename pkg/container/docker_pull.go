@@ -4,9 +4,8 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
-	"strings"
 
+	"github.com/docker/distribution/reference"
 	"github.com/docker/docker/api/types"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -99,12 +98,11 @@ func getImagePullOptions(ctx context.Context, input NewDockerPullExecutorInput) 
 }
 
 func cleanImage(image string) string {
-	imageParts := len(strings.Split(image, "/"))
-	if imageParts == 1 {
-		image = fmt.Sprintf("docker.io/library/%s", image)
-	} else if imageParts == 2 {
-		image = fmt.Sprintf("docker.io/%s", image)
+	ref, err := reference.ParseAnyReference(image)
+	if err != nil {
+		log.Error(err)
+		return ""
 	}
 
-	return image
+	return ref.String()
 }

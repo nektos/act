@@ -327,8 +327,8 @@ func vmToJSON(vm *otto.Otto) {
 }
 
 func vmFromJSON(vm *otto.Otto) {
-	fromJSON := func(str string) map[string]interface{} {
-		var dat map[string]interface{}
+	fromJSON := func(str string) interface{} {
+		var dat interface{}
 		err := json.Unmarshal([]byte(str), &dat)
 		if err != nil {
 			log.Errorf("Unable to unmarshal: %v", err)

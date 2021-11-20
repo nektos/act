@@ -26,6 +26,7 @@ func TestFindGitSlug(t *testing.T) {
 		{"https://git-codecommit.us-east-1.amazonaws.com/v1/repos/my-repo-name", "CodeCommit", "my-repo-name"},
 		{"ssh://git-codecommit.us-west-2.amazonaws.com/v1/repos/my-repo", "CodeCommit", "my-repo"},
 		{"git@github.com:nektos/act.git", "GitHub", "nektos/act"},
+		{"git@github.com:nektos/act", "GitHub", "nektos/act"},
 		{"https://github.com/nektos/act.git", "GitHub", "nektos/act"},
 		{"http://github.com/nektos/act.git", "GitHub", "nektos/act"},
 		{"https://github.com/nektos/act", "GitHub", "nektos/act"},

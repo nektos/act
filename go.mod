@@ -11,10 +11,11 @@ require (
 	github.com/containerd/containerd v1.5.5 // indirect
 	github.com/containerd/continuity v0.2.0 // indirect
 	github.com/docker/cli v20.10.10+incompatible
+	github.com/docker/distribution v2.7.1+incompatible
 	github.com/docker/docker v20.10.10+incompatible
 	github.com/go-git/go-billy/v5 v5.3.1
 	github.com/go-git/go-git/v5 v5.4.2
-	github.com/go-ini/ini v1.63.2
+	github.com/go-ini/ini v1.64.0
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/joho/godotenv v1.4.0

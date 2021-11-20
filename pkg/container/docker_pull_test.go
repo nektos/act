@@ -18,6 +18,9 @@ func TestCleanImage(t *testing.T) {
 		imageOut string
 	}{
 		{"myhost.com/foo/bar", "myhost.com/foo/bar"},
+		{"localhost:8000/canonical/ubuntu", "localhost:8000/canonical/ubuntu"},
+		{"localhost/canonical/ubuntu:latest", "localhost/canonical/ubuntu:latest"},
+		{"localhost:8000/canonical/ubuntu:latest", "localhost:8000/canonical/ubuntu:latest"},
 		{"ubuntu", "docker.io/library/ubuntu"},
 		{"ubuntu:18.04", "docker.io/library/ubuntu:18.04"},
 		{"cibuilds/hugo:0.53", "docker.io/cibuilds/hugo:0.53"},
