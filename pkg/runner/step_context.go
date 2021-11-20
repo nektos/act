@@ -478,13 +478,6 @@ func (sc *StepContext) runAction(actionDir string, actionPath string, localActio
 		}
 		actionName, containerActionDir := sc.getContainerActionPaths(step, actionLocation, rc)
 
-		sc.Env = mergeMaps(sc.Env, action.Runs.Env)
-
-		ee := sc.NewExpressionEvaluator()
-		for k, v := range sc.Env {
-			sc.Env[k] = ee.Interpolate(v)
-		}
-
 		log.Debugf("type=%v actionDir=%s actionPath=%s workdir=%s actionCacheDir=%s actionName=%s containerActionDir=%s", step.Type(), actionDir, actionPath, rc.Config.Workdir, rc.ActionCacheDir(), actionName, containerActionDir)
 
 		maybeCopyToActionDir := func() error {
@@ -550,6 +543,12 @@ func (sc *StepContext) evalDockerArgs(action *model.Action, cmd *[]string) {
 	stepEE := sc.NewExpressionEvaluator()
 	for i, v := range *cmd {
 		(*cmd)[i] = stepEE.Interpolate(v)
+	}
+	sc.Env = mergeMaps(sc.Env, action.Runs.Env)
+
+	ee := sc.NewExpressionEvaluator()
+	for k, v := range sc.Env {
+		sc.Env[k] = ee.Interpolate(v)
 	}
 }
 
