@@ -17,7 +17,7 @@ jobs:
         SOMEVAR: 'Not Mona'
     - run: '[[ "${{ steps.dockerlocal.outputs.whoami }}" == "Mona the Octocat" ]]'
     # Test if overriding args doesn't leak inputs
-    - uses: ./actions/docker-local
+    - uses: ./actions/docker-local-noargs
       with:
         args: ${{format('"{0}"', 'Mona is not the Octocat') }}
         who-to-greet: 'Mona the Octocat'
