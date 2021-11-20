@@ -1,0 +1,26 @@
+inputs:
+  who-to-greet:
+    default: 'Mona the Octocat'
+runs:
+  using: composite
+  steps:
+  - uses: ./actions/docker-local
+    id: dockerlocal
+    with:
+      who-to-greet: ${{inputs.who-to-greet}}
+  - run: '[[ "${{ env.SOMEVAR }}" == "${{inputs.who-to-greet}}" ]]'
+    shell: bash
+  - run: '[ "${SOMEVAR}" = "Not Mona" ] || exit 1'
+    shell: bash
+    env:
+      SOMEVAR: 'Not Mona'
+  - run: '[[ "${{ steps.dockerlocal.outputs.whoami }}" == "${{inputs.who-to-greet}}" ]]'
+    shell: bash
+  # Test if overriding args doesn't leak inputs
+  - uses: ./actions/docker-local
+    with:
+      args: ${{format('"{0}"', 'Mona is not the Octocat') }}
+      who-to-greet: ${{inputs.who-to-greet}}
+  - run: '[[ "${{ env.SOMEVAR }}" == "Mona is not the Octocat" ]]'
+    shell: bash
+  - uses: ./localdockerimagetest_
