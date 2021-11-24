@@ -210,6 +210,20 @@ func (rc *RunContext) ActionCacheDir() string {
 	return filepath.Join(xdgCache, "act")
 }
 
+// Interpolate outputs after a job is done
+func (rc *RunContext) interpolateOutputs() common.Executor {
+	return func(ctx context.Context) error {
+		ee := rc.NewExpressionEvaluator()
+		for k, v := range rc.Run.Job().Outputs {
+			interpolated := ee.Interpolate(v)
+			if v != interpolated {
+				rc.Run.Job().Outputs[k] = interpolated
+			}
+		}
+		return nil
+	}
+}
+
 // Executor returns a pipeline executor for all the steps in the job
 func (rc *RunContext) Executor() common.Executor {
 	steps := make([]common.Executor, 0)
@@ -231,7 +245,7 @@ func (rc *RunContext) Executor() common.Executor {
 	}
 	steps = append(steps, rc.stopJobContainer())
 
-	return common.NewPipelineExecutor(steps...).Finally(func(ctx context.Context) error {
+	return common.NewPipelineExecutor(steps...).Finally(rc.interpolateOutputs()).Finally(func(ctx context.Context) error {
 		if rc.JobContainer != nil {
 			return rc.JobContainer.Close()(ctx)
 		}
@@ -275,7 +289,7 @@ func (rc *RunContext) newStepExecutor(step *model.Step) common.Executor {
 		rc.ExprEval = exprEval
 
 		common.Logger(ctx).Infof("\u2B50  Run %s", sc.Step)
-		err = sc.Executor().Then(sc.interpolateOutputs())(ctx)
+		err = sc.Executor()(ctx)
 		if err == nil {
 			common.Logger(ctx).Infof("  \u2705  Success - %s", sc.Step)
 		} else {
