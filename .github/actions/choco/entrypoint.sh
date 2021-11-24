@@ -3,7 +3,7 @@
 set -e
 
 function choco {
-  mono /opt/chocolatey/choco.exe "$@" --allow-unofficial --nocolor
+  mono /opt/chocolatey/code_drop/chocolatey/choco.exe "$@" --allow-unofficial --nocolor
 }
 
 function get_version {
