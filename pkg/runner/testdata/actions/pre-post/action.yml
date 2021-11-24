@@ -1,0 +1,16 @@
+name: 'action-with-pre-post-step'
+description: 'Action with pre-post-step'
+inputs:
+  failInPreStep:
+    description: 'Throw error in pre step'
+    required: false
+    default: 'false'
+  failInPostStep:
+    description: 'Throw error in pre step'
+    required: false
+    default: 'false'
+runs:
+  using: 'node12'
+  pre: './pre.js'
+  main: './main.js'
+  post: './post.js'

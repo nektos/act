@@ -1,0 +1,13 @@
+name: runs-on
+on: push
+
+jobs:
+  fail-in-post:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: local action with main
+      uses: ./actions/pre-post
+    - name: local action with skipped main
+      uses: ./actions/pre-post
+      if: false
