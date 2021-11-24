@@ -5,5 +5,5 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-    - uses: nektos/act/pkg/runner/testdata/actions/pre-post@master
-    - uses: nektos/act/pkg/runner/testdata/actions/pre-post-if@master
+    - uses: xing/act/pkg/runner/testdata/actions/pre-post@pre-post
+    - uses: xing/act/pkg/runner/testdata/actions/pre-post-if@pre-post

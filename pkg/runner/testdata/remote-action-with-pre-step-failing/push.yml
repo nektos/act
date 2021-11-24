@@ -5,6 +5,6 @@ jobs:
   fail-in-pre:
     runs-on: ubuntu-latest
     steps:
-    - uses: nektos/act/pkg/runner/testdata/actions/pre-post@master
+    - uses: xing/act/pkg/runner/testdata/actions/pre-post@pre-post
       with:
         failInPreStep: 'true'
