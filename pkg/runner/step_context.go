@@ -39,19 +39,6 @@ func (sc *StepContext) execJobContainer() common.Executor {
 	}
 }
 
-func (sc *StepContext) interpolateOutputs() common.Executor {
-	return func(ctx context.Context) error {
-		ee := sc.NewExpressionEvaluator()
-		for k, v := range sc.RunContext.Run.Job().Outputs {
-			interpolated := ee.Interpolate(v)
-			if v != interpolated {
-				sc.RunContext.Run.Job().Outputs[k] = interpolated
-			}
-		}
-		return nil
-	}
-}
-
 type formatError string
 
 func (e formatError) Error() string {
