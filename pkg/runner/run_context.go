@@ -113,7 +113,10 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			return true
 		})
 
-		username, password := rc.handleCredentials(ctx)
+		username, password, err := rc.handleCredentials()
+		if err != nil {
+			return fmt.Errorf("failed to handle credentials: %s", err)
+		}
 
 		common.Logger(ctx).Infof("\U0001f680  Start image=%s", image)
 		name := rc.jobContainerName()
@@ -782,37 +785,36 @@ func (rc *RunContext) localCheckoutPath() (string, bool) {
 	return "", false
 }
 
-func (rc *RunContext) handleCredentials(ctx context.Context) (string, string) {
-	username := rc.Config.Secrets["DOCKER_USERNAME"]
-	password := rc.Config.Secrets["DOCKER_PASSWORD"]
+func (rc *RunContext) handleCredentials() (username, password string, err error) {
+	// TODO: remove below 2 lines when we can release act with breaking changes
+	username = rc.Config.Secrets["DOCKER_USERNAME"]
+	password = rc.Config.Secrets["DOCKER_PASSWORD"]
 
 	container := rc.Run.Job().Container()
 	if container == nil {
-		return username, password
+		return
 	}
 
 	if len(container.Credentials) != 2 {
-		return username, password
+		err = fmt.Errorf("invalid property count for key 'credentials:'")
+		return
 	}
-
-	if container.Credentials["username"] == "" {
-		return username, password
-	}
-
-	username = container.Credentials["username"]
-	password = container.Credentials["password"]
-
-	rawLogger := common.Logger(ctx).WithField("raw_output", true)
 
 	ee := rc.NewExpressionEvaluator()
-	username, _, err := ee.Evaluate(username)
-	if err != nil {
-		rawLogger.Debugf("Couldn't evaluate username: %s (%s)\n", username, err)
+	var ok bool
+	if username, ok = ee.InterpolateWithStringCheck(container.Credentials["username"]); !ok {
+		err = fmt.Errorf("failed to interpolate container.credentials.username")
+		return
 	}
-	password, _, err = ee.Evaluate(password)
-	if err != nil {
-		rawLogger.Errorf("Couldn't evaluate password: %s (%s)\n", password, err)
+	if password, ok = ee.InterpolateWithStringCheck(container.Credentials["password"]); !ok {
+		err = fmt.Errorf("failed to interpolate container.credentials.password")
+		return
 	}
 
-	return username, password
+	if container.Credentials["username"] == "" || container.Credentials["password"] == "" {
+		err = fmt.Errorf("container.credentials cannot be empty")
+		return
+	}
+
+	return username, password, err
 }
