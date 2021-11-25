@@ -795,7 +795,7 @@ func (rc *RunContext) handleCredentials() (username, password string, err error)
 		return
 	}
 
-	if len(container.Credentials) != 2 {
+	if container.Credentials != nil && len(container.Credentials) != 2 {
 		err = fmt.Errorf("invalid property count for key 'credentials:'")
 		return
 	}
