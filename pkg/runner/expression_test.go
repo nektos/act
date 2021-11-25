@@ -78,6 +78,8 @@ func TestEvaluate(t *testing.T) {
 		{" 1 ", "1", ""},
 		{"1 + 3", "4", ""},
 		{"(1 + 3) * -2", "-8", ""},
+		{"-9.2", "-9.2", ""},
+		{"-9.2 + 5.1", "-4.1", ""},
 		{"'my text'", "my text", ""},
 		{"contains('my text', 'te')", "true", ""},
 		{"contains('my TEXT', 'te')", "true", ""},

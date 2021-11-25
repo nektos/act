@@ -15,11 +15,12 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-var expressionPattern, operatorPattern *regexp.Regexp
+var expressionPattern, operatorPattern, floatPattern *regexp.Regexp
 
 func init() {
 	expressionPattern = regexp.MustCompile(`\${{\s*(.+?)\s*}}`)
 	operatorPattern = regexp.MustCompile("^[!=><|&]+$")
+	floatPattern = regexp.MustCompile(`-?(?:0|[1-9][0-9]*)\.[0-9]+`)
 }
 
 // NewExpressionEvaluator creates a new evaluator
@@ -121,9 +122,10 @@ func (ee *expressionEvaluator) InterpolateWithStringCheck(in string) (string, bo
 // Rewrite tries to transform any javascript property accessor into its bracket notation.
 // For instance, "object.property" would become "object['property']".
 func (ee *expressionEvaluator) Rewrite(in string) string {
+	floatIndizes := floatPattern.FindAllStringIndex(in, -1)
 	var buf strings.Builder
 	r := strings.NewReader(in)
-	for {
+	for i := 0; ; i++ {
 		c, _, err := r.ReadRune()
 		if err == io.EOF {
 			break
@@ -136,12 +138,25 @@ func (ee *expressionEvaluator) Rewrite(in string) string {
 			buf.WriteRune(c)
 			ee.advString(&buf, r)
 		case c == '.':
-			buf.WriteString("['")
-			ee.advPropertyName(&buf, r)
-			buf.WriteString("']")
+			if ee.isFloat(floatIndizes, i) {
+				buf.WriteRune(c)
+			} else {
+				buf.WriteString("['")
+				ee.advPropertyName(&buf, r)
+				buf.WriteString("']")
+			}
 		}
 	}
 	return buf.String()
+}
+
+func (*expressionEvaluator) isFloat(floatIndizes [][]int, index int) bool {
+	for _, floatRange := range floatIndizes {
+		if floatRange[0] < index && floatRange[1] > index {
+			return true
+		}
+	}
+	return false
 }
 
 func (*expressionEvaluator) advString(w *strings.Builder, r *strings.Reader) error {
