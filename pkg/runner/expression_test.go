@@ -50,21 +50,21 @@ func TestEvaluate(t *testing.T) {
 		StepResults: map[string]*stepResult{
 			"idwithnothing": {
 				Conclusion: stepStatusSuccess,
-				Outcome:    stepStatusSuccess,
+				Outcome:    stepStatusFailure,
 				Outputs: map[string]string{
 					"foowithnothing": "barwithnothing",
 				},
 			},
 			"id-with-hyphens": {
 				Conclusion: stepStatusSuccess,
-				Outcome:    stepStatusSuccess,
+				Outcome:    stepStatusFailure,
 				Outputs: map[string]string{
 					"foo-with-hyphens": "bar-with-hyphens",
 				},
 			},
 			"id_with_underscores": {
 				Conclusion: stepStatusSuccess,
-				Outcome:    stepStatusSuccess,
+				Outcome:    stepStatusFailure,
 				Outputs: map[string]string{
 					"foo_with_underscores": "bar_with_underscores",
 				},
@@ -110,8 +110,14 @@ func TestEvaluate(t *testing.T) {
 		{"github.run_id", "1", ""},
 		{"github.run_number", "1", ""},
 		{"job.status", "success", ""},
+		{"steps.idwithnothing.conclusion", "success", ""},
+		{"steps.idwithnothing.outcome", "failure", ""},
 		{"steps.idwithnothing.outputs.foowithnothing", "barwithnothing", ""},
+		{"steps.id-with-hyphens.conclusion", "success", ""},
+		{"steps.id-with-hyphens.outcome", "failure", ""},
 		{"steps.id-with-hyphens.outputs.foo-with-hyphens", "bar-with-hyphens", ""},
+		{"steps.id_with_underscores.conclusion", "success", ""},
+		{"steps.id_with_underscores.outcome", "failure", ""},
 		{"steps.id_with_underscores.outputs.foo_with_underscores", "bar_with_underscores", ""},
 		{"runner.os", "Linux", ""},
 		{"matrix.os", "Linux", ""},
