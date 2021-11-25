@@ -285,24 +285,22 @@ func TestContainerPath(t *testing.T) {
 
 type actionProviderMock struct {
 	mock.Mock
-	postIf string
+	actions        map[string]*model.Action
 }
 
 func (m *actionProviderMock) SetupAction(sc *StepContext, actionDir string, actionPath string, localAction bool) common.Executor {
 	return func(ctx context.Context) error {
-		action := &model.Action{
-			Name: "fake-action",
-			Runs: model.ActionRuns{
-				Using: "node12",
-				Main:  "fake",
-				Post:  "fake",
-			},
+		actionName := filepath.Base(actionDir)
+		action, exists := m.actions[actionName]
+		if !exists {
+			keys := make([]string, len(m.actions))
+			for k := range m.actions {
+				keys = append(keys, k)
+			}
+			panic(fmt.Sprintf("expected action %s but mock just contains %v", actionName, keys))
 		}
 		if err := defaults.Set(action); err != nil {
-			return err
-		}
-		if m.postIf != "" {
-			action.Runs.PostIf = m.postIf
+			panic(err)
 		}
 		sc.Action = action
 		return nil
@@ -367,9 +365,24 @@ func TestRunEventPostStepSuccessCondition(t *testing.T) {
 				Platforms:       platforms,
 				ReuseContainers: false,
 			}
-			providerMock := &actionProviderMock{
-				postIf: tjps.postIf,
+			action := model.Action{
+				Name: "fake-action",
+				Runs: model.ActionRuns{
+					Using: "node12",
+					Main:  "fake",
+					Post:  "fake",
+				},
 			}
+			if tjps.postIf != "" {
+				action.Runs.PostIf = tjps.postIf
+			}
+
+			providerMock := &actionProviderMock{
+				actions: map[string]*model.Action{
+					"fake-action": &action,
+				},
+			}
+
 			if tjps.called {
 				providerMock.On("ExecuteNode12PostAction", mock.Anything, mock.Anything, mock.Anything).Once()
 			}

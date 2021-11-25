@@ -5,6 +5,6 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-    - uses: ./actionProviderMock
+    - uses: ./fake-action
       with:
         who-to-greet: 'Mona the Octocat'

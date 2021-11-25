@@ -5,5 +5,5 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-    - uses: ./actionProviderMock
+    - uses: ./fake-action
     - run: exit 1
