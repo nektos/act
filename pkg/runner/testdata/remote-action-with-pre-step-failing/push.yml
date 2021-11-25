@@ -1,0 +1,10 @@
+name: runs-on
+on: push
+
+jobs:
+  fail-in-pre:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: nektos/act/pkg/runner/testdata/actions/pre-post@master
+      with:
+        failInPreStep: 'true'

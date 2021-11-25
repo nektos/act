@@ -1,0 +1,18 @@
+name: 'action-with-pre-post-if'
+description: 'Action with pre-post-if'
+inputs:
+  failInPreStep:
+    description: 'Throw error in pre step'
+    required: false
+    default: 'false'
+  failInPostStep:
+    description: 'Throw error in post step'
+    required: false
+    default: 'false'
+runs:
+  using: 'node12'
+  pre: './pre.js'
+  pre-if: ${{ "pre-if-never-true" == "true" }}
+  main: './main.js'
+  post: './post.js'
+  post-if: ${{ "post-if-never-true" == "true" }}

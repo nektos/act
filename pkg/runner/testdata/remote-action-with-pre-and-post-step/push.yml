@@ -1,0 +1,9 @@
+name: runs-on
+on: push
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: nektos/act/pkg/runner/testdata/actions/pre-post@master
+    - uses: nektos/act/pkg/runner/testdata/actions/pre-post-if@master
