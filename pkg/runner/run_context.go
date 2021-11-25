@@ -791,7 +791,7 @@ func (rc *RunContext) handleCredentials() (username, password string, err error)
 	password = rc.Config.Secrets["DOCKER_PASSWORD"]
 
 	container := rc.Run.Job().Container()
-	if container == nil {
+	if container == nil || container.Credentials == nil {
 		return
 	}
 
