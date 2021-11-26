@@ -35,19 +35,6 @@ func (sc *StepContext) execJobContainer() common.Executor {
 	}
 }
 
-func (sc *StepContext) interpolateOutputs() common.Executor {
-	return func(ctx context.Context) error {
-		ee := sc.NewExpressionEvaluator()
-		for k, v := range sc.RunContext.Run.Job().Outputs {
-			interpolated := ee.Interpolate(v)
-			if v != interpolated {
-				sc.RunContext.Run.Job().Outputs[k] = interpolated
-			}
-		}
-		return nil
-	}
-}
-
 type formatError string
 
 func (e formatError) Error() string {
@@ -409,7 +396,7 @@ func (sc *StepContext) execAsDocker(ctx context.Context, action *model.Action, a
 			}
 		}
 
-		if !correctArchExists {
+		if !correctArchExists || rc.Config.ForceRebuild {
 			log.Debugf("image '%s' for architecture '%s' will be built from context '%s", image, rc.Config.ContainerArchitecture, contextDir)
 			var actionContainer container.Container
 			if localAction {

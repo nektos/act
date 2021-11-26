@@ -17,6 +17,8 @@ import (
 	"github.com/mitchellh/go-homedir"
 	log "github.com/sirupsen/logrus"
 
+	selinux "github.com/opencontainers/selinux/go-selinux"
+
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/container"
 	"github.com/nektos/act/pkg/model"
@@ -91,6 +93,9 @@ func (rc *RunContext) GetBindsAndMounts() ([]string, map[string]string) {
 		bindModifiers := ""
 		if runtime.GOOS == "darwin" {
 			bindModifiers = ":delegated"
+		}
+		if selinux.GetEnabled() {
+			bindModifiers = ":z"
 		}
 		binds = append(binds, fmt.Sprintf("%s:%s%s", rc.Config.Workdir, rc.Config.ContainerWorkdir(), bindModifiers))
 	} else {
@@ -212,6 +217,20 @@ func (rc *RunContext) ActionCacheDir() string {
 	return filepath.Join(xdgCache, "act")
 }
 
+// Interpolate outputs after a job is done
+func (rc *RunContext) interpolateOutputs() common.Executor {
+	return func(ctx context.Context) error {
+		ee := rc.NewExpressionEvaluator()
+		for k, v := range rc.Run.Job().Outputs {
+			interpolated := ee.Interpolate(v)
+			if v != interpolated {
+				rc.Run.Job().Outputs[k] = interpolated
+			}
+		}
+		return nil
+	}
+}
+
 // Executor returns a pipeline executor for all the steps in the job
 func (rc *RunContext) Executor() common.Executor {
 	steps := make([]common.Executor, 0)
@@ -233,6 +252,7 @@ func (rc *RunContext) Executor() common.Executor {
 	}
 
 	finalSteps := make([]common.Executor, 0)
+	finalSteps = append(finalSteps, rc.interpolateOutputs())
 	finalSteps = append(finalSteps, func(ctx context.Context) error {
 		// delay evaluation as post actions are added when the actions are run
 		return common.NewFinallyPipelineExecutor(rc.PostActionExecutor...)(ctx)
@@ -286,7 +306,7 @@ func (rc *RunContext) newStepExecutor(step *model.Step) common.Executor {
 		rc.ExprEval = exprEval
 
 		common.Logger(ctx).Infof("\u2B50  Run %s", sc.Step)
-		err = sc.Executor().Then(sc.interpolateOutputs())(ctx)
+		err = sc.Executor()(ctx)
 		if err == nil {
 			common.Logger(ctx).Infof("  \u2705  Success - %s", sc.Step)
 		} else {
