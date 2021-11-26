@@ -46,7 +46,7 @@ func createIfTestStepContext(t *testing.T, input string) *StepContext {
 					"ubuntu-latest": "ubuntu-latest",
 				},
 			},
-			StepResults: map[string]*stepResult{},
+			StepResults: map[string]*model.StepResult{},
 			Env:         map[string]string{},
 			Run: &model.Run{
 				JobID: "job1",
@@ -71,14 +71,14 @@ func TestStepContextIsEnabled(t *testing.T) {
 	assertObject.True(sc.isEnabled(context.Background()))
 
 	sc = createIfTestStepContext(t, "if: success()")
-	sc.RunContext.StepResults["a"] = &stepResult{
-		Conclusion: stepStatusSuccess,
+	sc.RunContext.StepResults["a"] = &model.StepResult{
+		Conclusion: model.StepStatusSuccess,
 	}
 	assertObject.True(sc.isEnabled(context.Background()))
 
 	sc = createIfTestStepContext(t, "if: success()")
-	sc.RunContext.StepResults["a"] = &stepResult{
-		Conclusion: stepStatusFailure,
+	sc.RunContext.StepResults["a"] = &model.StepResult{
+		Conclusion: model.StepStatusFailure,
 	}
 	assertObject.False(sc.isEnabled(context.Background()))
 
@@ -87,14 +87,14 @@ func TestStepContextIsEnabled(t *testing.T) {
 	assertObject.False(sc.isEnabled(context.Background()))
 
 	sc = createIfTestStepContext(t, "if: failure()")
-	sc.RunContext.StepResults["a"] = &stepResult{
-		Conclusion: stepStatusSuccess,
+	sc.RunContext.StepResults["a"] = &model.StepResult{
+		Conclusion: model.StepStatusSuccess,
 	}
 	assertObject.False(sc.isEnabled(context.Background()))
 
 	sc = createIfTestStepContext(t, "if: failure()")
-	sc.RunContext.StepResults["a"] = &stepResult{
-		Conclusion: stepStatusFailure,
+	sc.RunContext.StepResults["a"] = &model.StepResult{
+		Conclusion: model.StepStatusFailure,
 	}
 	assertObject.True(sc.isEnabled(context.Background()))
 
@@ -103,14 +103,14 @@ func TestStepContextIsEnabled(t *testing.T) {
 	assertObject.True(sc.isEnabled(context.Background()))
 
 	sc = createIfTestStepContext(t, "if: always()")
-	sc.RunContext.StepResults["a"] = &stepResult{
-		Conclusion: stepStatusSuccess,
+	sc.RunContext.StepResults["a"] = &model.StepResult{
+		Conclusion: model.StepStatusSuccess,
 	}
 	assertObject.True(sc.isEnabled(context.Background()))
 
 	sc = createIfTestStepContext(t, "if: always()")
-	sc.RunContext.StepResults["a"] = &stepResult{
-		Conclusion: stepStatusFailure,
+	sc.RunContext.StepResults["a"] = &model.StepResult{
+		Conclusion: model.StepStatusFailure,
 	}
 	assertObject.True(sc.isEnabled(context.Background()))
 }

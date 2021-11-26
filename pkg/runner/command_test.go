@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/nektos/act/pkg/common"
+	"github.com/nektos/act/pkg/model"
 )
 
 func TestSetEnv(t *testing.T) {
@@ -24,11 +25,11 @@ func TestSetOutput(t *testing.T) {
 	a := assert.New(t)
 	ctx := context.Background()
 	rc := new(RunContext)
-	rc.StepResults = make(map[string]*stepResult)
+	rc.StepResults = make(map[string]*model.StepResult)
 	handler := rc.commandHandler(ctx)
 
 	rc.CurrentStep = "my-step"
-	rc.StepResults[rc.CurrentStep] = &stepResult{
+	rc.StepResults[rc.CurrentStep] = &model.StepResult{
 		Outputs: make(map[string]string),
 	}
 	handler("::set-output name=x::valz\n")

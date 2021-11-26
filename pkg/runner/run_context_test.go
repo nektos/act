@@ -53,10 +53,10 @@ func TestRunContext_EvalBool(t *testing.T) {
 			"os":  "Linux",
 			"foo": "bar",
 		},
-		StepResults: map[string]*stepResult{
+		StepResults: map[string]*model.StepResult{
 			"id1": {
-				Conclusion: stepStatusSuccess,
-				Outcome:    stepStatusFailure,
+				Conclusion: model.StepStatusSuccess,
+				Outcome:    model.StepStatusFailure,
 				Outputs: map[string]string{
 					"foo": "bar",
 				},
@@ -312,7 +312,7 @@ func TestGetGitHubContext(t *testing.T) {
 		Matrix:         map[string]interface{}{},
 		Env:            map[string]string{},
 		ExtraPath:      []string{},
-		StepResults:    map[string]*stepResult{},
+		StepResults:    map[string]*model.StepResult{},
 		OutputMappings: map[MappableOutput]MappableOutput{},
 	}
 

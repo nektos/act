@@ -47,24 +47,24 @@ func TestEvaluate(t *testing.T) {
 			"os":  "Linux",
 			"foo": "bar",
 		},
-		StepResults: map[string]*stepResult{
+		StepResults: map[string]*model.StepResult{
 			"idwithnothing": {
-				Conclusion: stepStatusSuccess,
-				Outcome:    stepStatusFailure,
+				Conclusion: model.StepStatusSuccess,
+				Outcome:    model.StepStatusFailure,
 				Outputs: map[string]string{
 					"foowithnothing": "barwithnothing",
 				},
 			},
 			"id-with-hyphens": {
-				Conclusion: stepStatusSuccess,
-				Outcome:    stepStatusFailure,
+				Conclusion: model.StepStatusSuccess,
+				Outcome:    model.StepStatusFailure,
 				Outputs: map[string]string{
 					"foo-with-hyphens": "bar-with-hyphens",
 				},
 			},
 			"id_with_underscores": {
-				Conclusion: stepStatusSuccess,
-				Outcome:    stepStatusFailure,
+				Conclusion: model.StepStatusSuccess,
+				Outcome:    model.StepStatusFailure,
 				Outputs: map[string]string{
 					"foo_with_underscores": "bar_with_underscores",
 				},
@@ -232,6 +232,7 @@ func updateTestExpressionWorkflow(t *testing.T, tables []struct {
 		envs += fmt.Sprintf("  %s: %s\n", k, rc.Env[k])
 	}
 
+	// editorconfig-checker-disable
 	workflow := fmt.Sprintf(`
 name: "Test how expressions are handled on GitHub"
 on: push
@@ -244,6 +245,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 `, envs)
+	// editorconfig-checker-enable
 	for _, table := range tables {
 		expressionPattern = regexp.MustCompile(`\${{\s*(.+?)\s*}}`)
 
