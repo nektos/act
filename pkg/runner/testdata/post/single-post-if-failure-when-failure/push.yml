@@ -1,0 +1,10 @@
+name: single-post-if-failure-when-failure
+on: push
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: ./actions/post/node12-post-if-failure
+      - run: exit 1

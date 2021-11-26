@@ -1,0 +1,6 @@
+name: 'node12-post-if-always-3'
+description: ''
+runs:
+  using: 'node12'
+  main: 'index.js'
+  post: 'index.js'

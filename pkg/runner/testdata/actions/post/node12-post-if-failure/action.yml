@@ -1,0 +1,7 @@
+name: 'node12-post-if-failure'
+description: ''
+runs:
+  using: 'node12'
+  main: 'index.js'
+  post: 'index.js'
+  post-if: 'failure()'

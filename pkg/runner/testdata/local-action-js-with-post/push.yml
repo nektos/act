@@ -6,6 +6,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - uses: ./actions/node12-post
+    - uses: ./actions/post/node12-post
       with:
         who-to-greet: 'Mona the Octocat'

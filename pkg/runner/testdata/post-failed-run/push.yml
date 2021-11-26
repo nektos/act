@@ -1,9 +1,0 @@
-name: post-failed-run
-on: push
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: ./fake-action
-    - run: exit 1

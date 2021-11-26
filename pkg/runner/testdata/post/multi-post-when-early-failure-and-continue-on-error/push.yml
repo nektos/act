@@ -1,0 +1,14 @@
+name: multi-post-when-early-failure-and-continue-on-error
+on: push
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: ./actions/post/node12-post-if-always
+      - run: exit 1
+        continue-on-error: true
+      - uses: ./actions/post/node12-post-if-always-2
+      - uses: ./actions/post/node12-post-if-always-3
+
