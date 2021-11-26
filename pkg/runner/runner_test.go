@@ -316,30 +316,47 @@ func (m *actionProviderMock) ExecuteNode12Action(ctx context.Context, sc *StepCo
 }
 
 func (m *actionProviderMock) ExecuteNode12PostAction(ctx context.Context, sc *StepContext, containerActionDir string) error {
-	m.Called(sc, containerActionDir, ctx)
+	name := sc.Action.Name
+	m.MethodCalled(fmt.Sprintf("%s_ExecuteNode12PostAction",name), sc, containerActionDir, ctx)
 	return nil
 }
 
 type TestJobPostStep struct {
 	TestJobFileInfo
-	postIf string
-	called bool
+	called  map[string]bool // action name: Post called
+	actions map[string]*model.Action // action name: Action
 }
 
 func TestRunEventPostStepSuccessCondition(t *testing.T) {
 	tables := []TestJobPostStep{
-		{postIf: "success()", called: false, TestJobFileInfo: TestJobFileInfo{workflowPath: "post-failed-run", errorMessage: "exit with `FAILURE`: 1"}},
-		{postIf: "success()", called: true, TestJobFileInfo: TestJobFileInfo{workflowPath: "post-success-run", errorMessage: ""}},
-		{postIf: "always()", called: true, TestJobFileInfo: TestJobFileInfo{workflowPath: "post-failed-run", errorMessage: "exit with `FAILURE`: 1"}},
-		{postIf: "always()", called: true, TestJobFileInfo: TestJobFileInfo{workflowPath: "post-success-run", errorMessage: ""}},
-		{postIf: "failure()", called: true, TestJobFileInfo: TestJobFileInfo{workflowPath: "post-failed-run", errorMessage: "exit with `FAILURE`: 1"}},
-		{postIf: "failure()", called: false, TestJobFileInfo: TestJobFileInfo{workflowPath: "post-success-run", errorMessage: ""}},
-		{called: true, TestJobFileInfo: TestJobFileInfo{workflowPath: "post-failed-run", errorMessage: "exit with `FAILURE`: 1"}}, // always()
-		{called: true, TestJobFileInfo: TestJobFileInfo{workflowPath: "post-success-run", errorMessage: ""}},                      // always()
+		{called: map[string]bool{"fake-action": false},
+			actions: map[string]*model.Action{"fake-action": {Name: "fake-action", Runs: model.ActionRuns{Using: "node12", Main: "fake", Post: "fake", PostIf: "success()"}}},
+			TestJobFileInfo: TestJobFileInfo{workflowPath: "post-failed-run", errorMessage: "exit with `FAILURE`: 1"}},
+		{called: map[string]bool{"fake-action": true},
+			actions: map[string]*model.Action{"fake-action": {Name: "fake-action", Runs: model.ActionRuns{Using: "node12", Main: "fake", Post: "fake", PostIf: "success()"}}},
+			TestJobFileInfo: TestJobFileInfo{workflowPath: "post-success-run", errorMessage: ""}},
+		{called: map[string]bool{"fake-action": true},
+			actions: map[string]*model.Action{"fake-action": {Name: "fake-action", Runs: model.ActionRuns{Using: "node12", Main: "fake", Post: "fake", PostIf: "always()"}}},
+			TestJobFileInfo: TestJobFileInfo{workflowPath: "post-failed-run", errorMessage: "exit with `FAILURE`: 1"}},
+		{called: map[string]bool{"fake-action": true},
+			actions: map[string]*model.Action{"fake-action": {Name: "fake-action", Runs: model.ActionRuns{Using: "node12", Main: "fake", Post: "fake", PostIf: "always()"}}},
+			TestJobFileInfo: TestJobFileInfo{workflowPath: "post-success-run", errorMessage: ""}},
+		{called: map[string]bool{"fake-action": true},
+			actions: map[string]*model.Action{"fake-action": {Name: "fake-action", Runs: model.ActionRuns{Using: "node12", Main: "fake", Post: "fake", PostIf: "failure()"}}},
+			TestJobFileInfo: TestJobFileInfo{workflowPath: "post-failed-run", errorMessage: "exit with `FAILURE`: 1"}},
+		{called: map[string]bool{"fake-action": false},
+			actions: map[string]*model.Action{"fake-action": {Name: "fake-action", Runs: model.ActionRuns{Using: "node12", Main: "fake", Post: "fake", PostIf: "failure()"}}},
+			TestJobFileInfo: TestJobFileInfo{workflowPath: "post-success-run", errorMessage: ""}},
+		{called: map[string]bool{"fake-action": true},
+			actions: map[string]*model.Action{"fake-action": {Name: "fake-action", Runs: model.ActionRuns{Using: "node12", Main: "fake", Post: "fake"}}}, // PostIf: always()
+			TestJobFileInfo: TestJobFileInfo{workflowPath: "post-failed-run", errorMessage: "exit with `FAILURE`: 1"}},
+		{called: map[string]bool{"fake-action": true},
+			actions: map[string]*model.Action{"fake-action": {Name: "fake-action", Runs: model.ActionRuns{Using: "node12", Main: "fake", Post: "fake"}}}, // PostIf: always()
+			TestJobFileInfo: TestJobFileInfo{workflowPath: "post-success-run", errorMessage: ""}},
 	}
 
 	for _, tjps := range tables {
-		name := fmt.Sprintf("post-action-called-%v-if-%s-when-%s", tjps.called, tjps.postIf, tjps.TestJobFileInfo.workflowPath)
+		name := fmt.Sprintf("post-action-called-%v-when-%s", tjps.called, tjps.TestJobFileInfo.workflowPath)
 		t.Run(name, func(t *testing.T) {
 			if testing.Short() {
 				t.Skip("skipping integration test")
@@ -365,26 +382,15 @@ func TestRunEventPostStepSuccessCondition(t *testing.T) {
 				Platforms:       platforms,
 				ReuseContainers: false,
 			}
-			action := model.Action{
-				Name: "fake-action",
-				Runs: model.ActionRuns{
-					Using: "node12",
-					Main:  "fake",
-					Post:  "fake",
-				},
-			}
-			if tjps.postIf != "" {
-				action.Runs.PostIf = tjps.postIf
-			}
 
 			providerMock := &actionProviderMock{
-				actions: map[string]*model.Action{
-					"fake-action": &action,
-				},
+				actions: tjps.actions,
 			}
 
-			if tjps.called {
-				providerMock.On("ExecuteNode12PostAction", mock.Anything, mock.Anything, mock.Anything).Once()
+			for name, called := range tjps.called {
+				if called {
+					providerMock.On(fmt.Sprintf("%s_ExecuteNode12PostAction", name), mock.Anything, mock.Anything, mock.Anything).Once()
+				}
 			}
 
 			providers := &Providers{
@@ -405,10 +411,16 @@ func TestRunEventPostStepSuccessCondition(t *testing.T) {
 				assert.Error(t, err, tjps.TestJobFileInfo.errorMessage)
 			}
 
-			if !tjps.called {
-				providerMock.AssertNotCalled(t, "ExecuteNode12PostAction")
+			for name, called := range tjps.called {
+				if !called {
+					providerMock.AssertNotCalled(t, fmt.Sprintf("%s_ExecuteNode12PostAction", name))
+				}
 			}
 			providerMock.AssertExpectations(t)
 		})
 	}
+}
+
+func TestRunEventPostStepExecutionOrder(t *testing.T) {
+
 }
