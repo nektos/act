@@ -147,9 +147,9 @@ func (a *actProvider) RunAction(sc *StepContext, actionDir string, actionPath st
 	return RunAction(sc, actionDir, actionPath, localAction)
 }
 
-func appendPostAction(sc *StepContext, containerActionDir string, mainErr error) {
+func registerPostAction(sc *StepContext, containerActionDir string, mainErr error) {
 	rc := sc.RunContext
-	rc.PostActionExecutor = append(rc.PostActionExecutor, func(ctx context.Context) error {
+	executor := func(ctx context.Context) error {
 		action := sc.Action
 		if mainErr != nil {
 			log.Warningf("Skipping post action: %s due to main action failure", action.Name)
@@ -171,7 +171,9 @@ func appendPostAction(sc *StepContext, containerActionDir string, mainErr error)
 			return nil
 		}
 		return rc.Providers.Action.ExecuteNode12PostAction(ctx, sc, containerActionDir)
-	})
+	}
+	// insert the post action in a fist in last out manner(first action to execute is the last to execute its post action)
+	rc.PostActionExecutor = append([]common.Executor {executor}, rc.PostActionExecutor...)
 }
 
 func RunAction(sc *StepContext, actionDir string, actionPath string, localAction bool) common.Executor {
@@ -222,7 +224,7 @@ func RunAction(sc *StepContext, actionDir string, actionPath string, localAction
 			provider := sc.RunContext.Providers.Action
 			mainErr := provider.ExecuteNode12Action(ctx, sc, containerActionDir, maybeCopyToActionDir)
 			if action.Runs.Post != "" {
-				appendPostAction(sc, containerActionDir, mainErr)
+				registerPostAction(sc, containerActionDir, mainErr)
 			}
 			return mainErr
 		case model.ActionRunsUsingDocker:
