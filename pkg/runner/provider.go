@@ -173,7 +173,7 @@ func registerPostAction(sc *StepContext, containerActionDir string, mainErr erro
 		return rc.Providers.Action.ExecuteNode12PostAction(ctx, sc, containerActionDir)
 	}
 	// insert the post action in a fist in last out manner(first action to execute is the last to execute its post action)
-	rc.PostActionExecutor = append([]common.Executor {executor}, rc.PostActionExecutor...)
+	rc.PostActionExecutor = append([]common.Executor{executor}, rc.PostActionExecutor...)
 }
 
 func RunAction(sc *StepContext, actionDir string, actionPath string, localAction bool) common.Executor {

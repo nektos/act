@@ -289,14 +289,14 @@ type actProviderMock struct {
 
 func (m *actProviderMock) ExecuteNode12PostAction(ctx context.Context, sc *StepContext, containerActionDir string) error {
 	name := sc.Action.Name
-	m.MethodCalled(fmt.Sprintf("%s_ExecuteNode12PostAction",name), sc, containerActionDir, ctx)
+	m.MethodCalled(fmt.Sprintf("%s_ExecuteNode12PostAction", name), sc, containerActionDir, ctx)
 	return m.actProvider.ExecuteNode12PostAction(ctx, sc, containerActionDir)
 }
 
 type TestJobPostStep struct {
 	TestJobFileInfo
-	called  map[string]bool // action name: Post called
-	postCallOrder[] string // order of successful post called actions
+	called        map[string]bool // action name: Post called
+	postCallOrder []string        // order of successful post called actions
 }
 
 func TestRunEventPostStep(t *testing.T) {
@@ -314,16 +314,16 @@ func TestRunEventPostStep(t *testing.T) {
 		{called: map[string]bool{"node12-post-if-always": true},
 			TestJobFileInfo: TestJobFileInfo{workflowPath: "post/single-post-if-always-when-success", errorMessage: ""}},
 		{called: map[string]bool{"node12-post-if-always": true, "node12-post-if-always-2": true, "node12-post-if-always-3": true},
-			postCallOrder: []string{"node12-post-if-always-3", "node12-post-if-always-2", "node12-post-if-always"},
+			postCallOrder:   []string{"node12-post-if-always-3", "node12-post-if-always-2", "node12-post-if-always"},
 			TestJobFileInfo: TestJobFileInfo{workflowPath: "post/multi-post-when-success", errorMessage: ""}},
 		{called: map[string]bool{"node12-post-if-always": true, "node12-post-if-success": false, "node12-post-if-always-2": true},
-			postCallOrder: []string{"node12-post-if-always-2", "node12-post-if-always"},
+			postCallOrder:   []string{"node12-post-if-always-2", "node12-post-if-always"},
 			TestJobFileInfo: TestJobFileInfo{workflowPath: "post/multi-post-when-failed", errorMessage: "exit with `FAILURE`: 1"}},
 		{called: map[string]bool{"node12-post-if-always": true, "node12-post-if-always-2": true, "node12-post-if-always-3": true},
-			postCallOrder: []string{"node12-post-if-always-3", "node12-post-if-always-2", "node12-post-if-always"},
+			postCallOrder:   []string{"node12-post-if-always-3", "node12-post-if-always-2", "node12-post-if-always"},
 			TestJobFileInfo: TestJobFileInfo{workflowPath: "post/multi-post-when-early-failure-and-continue-on-error", errorMessage: ""}},
 		{called: map[string]bool{"node12-post-if-always": true},
-			postCallOrder: []string{"node12-post-if-always"},
+			postCallOrder:   []string{"node12-post-if-always"},
 			TestJobFileInfo: TestJobFileInfo{workflowPath: "post/multi-post-when-early-failure", errorMessage: "exit with `FAILURE`: 1"}},
 	}
 
