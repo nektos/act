@@ -1,0 +1,15 @@
+name: post-midfailed-run-multiple
+on: push
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: ./first-action
+        with:
+          who-to-greet: 'Mona the Octocat'
+      - run: exit 1
+      - uses: ./second-action
+        with:
+          other-value: 'some-val'
+      - uses: ./third-action

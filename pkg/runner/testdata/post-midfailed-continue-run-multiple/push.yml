@@ -1,0 +1,16 @@
+name: post-midfailed-continue-run-multiple
+on: push
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: ./first-action
+        with:
+          who-to-greet: 'Mona the Octocat'
+      - run: exit 1
+        continue-on-error: true
+      - uses: ./second-action
+        with:
+          other-value: 'some-val'
+      - uses: ./third-action

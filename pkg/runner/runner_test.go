@@ -325,6 +325,7 @@ type TestJobPostStep struct {
 	TestJobFileInfo
 	called  map[string]bool // action name: Post called
 	actions map[string]*model.Action // action name: Action
+	postCallOrder[] string // order of successful post called actions
 }
 
 func TestRunEventPostStepSuccessCondition(t *testing.T) {
@@ -353,6 +354,34 @@ func TestRunEventPostStepSuccessCondition(t *testing.T) {
 		{called: map[string]bool{"fake-action": true},
 			actions: map[string]*model.Action{"fake-action": {Name: "fake-action", Runs: model.ActionRuns{Using: "node12", Main: "fake", Post: "fake"}}}, // PostIf: always()
 			TestJobFileInfo: TestJobFileInfo{workflowPath: "post-success-run", errorMessage: ""}},
+		{called: map[string]bool{"first-action": true, "second-action": true, "third-action": true},
+			postCallOrder: []string{"third-action", "second-action", "first-action"},
+			actions: map[string]*model.Action{
+				"first-action":  {Name: "first-action", Runs: model.ActionRuns{Using: "node12", Main: "fake", Post: "fake"}},
+				"second-action": {Name: "second-action", Runs: model.ActionRuns{Using: "node12", Main: "fake", Post: "fake"}},
+				"third-action":  {Name: "third-action", Runs: model.ActionRuns{Using: "node12", Main: "fake", Post: "fake"}}},
+			TestJobFileInfo: TestJobFileInfo{workflowPath: "post-success-run-multiple", errorMessage: ""}},
+		{called: map[string]bool{"first-action": true, "third-action": true},
+			postCallOrder: []string{"third-action", "first-action"},
+			actions: map[string]*model.Action{
+				"first-action":  {Name: "first-action", Runs: model.ActionRuns{Using: "node12", Main: "fake", Post: "fake"}},
+				"second-action": {Name: "second-action", Runs: model.ActionRuns{Using: "node12", Main: "fake", Post: "fake", PostIf: "success()"}},
+				"third-action":  {Name: "third-action", Runs: model.ActionRuns{Using: "node12", Main: "fake", Post: "fake"}}},
+			TestJobFileInfo: TestJobFileInfo{workflowPath: "post-failed-run-multiple", errorMessage: "exit with `FAILURE`: 1"}},
+		{called: map[string]bool{"first-action": true, "second-action": true, "third-action": true},
+			postCallOrder: []string{"third-action", "second-action", "first-action"},
+			actions: map[string]*model.Action{
+				"first-action":  {Name: "first-action", Runs: model.ActionRuns{Using: "node12", Main: "fake", Post: "fake"}},
+				"second-action": {Name: "second-action", Runs: model.ActionRuns{Using: "node12", Main: "fake", Post: "fake"}},
+				"third-action":  {Name: "third-action", Runs: model.ActionRuns{Using: "node12", Main: "fake", Post: "fake"}}},
+			TestJobFileInfo: TestJobFileInfo{workflowPath: "post-midfailed-continue-run-multiple", errorMessage: ""}},
+		{called: map[string]bool{"first-action": true},
+			postCallOrder: []string{"first-action"},
+			actions: map[string]*model.Action{
+				"first-action":  {Name: "first-action", Runs: model.ActionRuns{Using: "node12", Main: "fake", Post: "fake"}},
+				"second-action": {Name: "second-action", Runs: model.ActionRuns{Using: "node12", Main: "fake", Post: "fake"}},
+				"third-action":  {Name: "third-action", Runs: model.ActionRuns{Using: "node12", Main: "fake", Post: "fake"}}},
+			TestJobFileInfo: TestJobFileInfo{workflowPath: "post-midfailed-run-multiple", errorMessage: "exit with `FAILURE`: 1"}},
 	}
 
 	for _, tjps := range tables {
@@ -417,6 +446,18 @@ func TestRunEventPostStepSuccessCondition(t *testing.T) {
 				}
 			}
 			providerMock.AssertExpectations(t)
+
+			// Test Post action call order if present(the inverse of the action order)
+			postCalls := make([]mock.Call, 0)
+			for _, v := range providerMock.Calls {
+				if strings.HasSuffix(v.Method, "_ExecuteNode12PostAction") {
+					postCalls = append(postCalls, v)
+				}
+			}
+			for i, name := range tjps.postCallOrder {
+				methodName := fmt.Sprintf("%s_ExecuteNode12PostAction", name)
+				assert.Equal(t, methodName, postCalls[i].Method, "Post action order failure")
+			}
 		})
 	}
 }
