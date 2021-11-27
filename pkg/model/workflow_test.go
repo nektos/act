@@ -99,6 +99,36 @@ jobs:
 	assert.Contains(t, workflow.Jobs["test2"].Container().Env["foo"], "bar")
 }
 
+func TestReadWorkflow_ObjectContainer(t *testing.T) {
+	yaml := `
+name: local-action-docker-url
+
+jobs:
+  test:
+    container:
+      image: r.example.org/something:latest
+      credentials:
+        username: registry-username
+        password: registry-password
+      env:
+        HOME: /home/user
+    runs-on: ubuntu-latest
+    steps:
+    - uses: ./actions/docker-url
+`
+
+	workflow, err := ReadWorkflow(strings.NewReader(yaml))
+	assert.NoError(t, err, "read workflow should succeed")
+	assert.Len(t, workflow.Jobs, 1)
+
+	container := workflow.GetJob("test").Container()
+
+	assert.Contains(t, container.Image, "r.example.org/something:latest")
+	assert.Contains(t, container.Env["HOME"], "/home/user")
+	assert.Contains(t, container.Credentials["username"], "registry-username")
+	assert.Contains(t, container.Credentials["password"], "registry-password")
+}
+
 func TestReadWorkflow_StepsTypes(t *testing.T) {
 	yaml := `
 name: invalid step definition
