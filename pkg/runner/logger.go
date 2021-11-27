@@ -48,6 +48,12 @@ func WithJobLogger(ctx context.Context, jobName string, secrets map[string]strin
 	nextColor++
 
 	logger := logrus.New()
+	if common.TestContext(ctx) {
+		fieldLogger := common.Logger(ctx)
+		if fieldLogger != nil {
+			logger = fieldLogger.(*logrus.Logger)
+		}
+	}
 	logger.SetFormatter(formatter)
 	logger.SetOutput(os.Stdout)
 	logger.SetLevel(logrus.GetLevel())

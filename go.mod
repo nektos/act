@@ -29,6 +29,7 @@ require (
 	github.com/moby/buildkit v0.9.2
 	github.com/opencontainers/image-spec v1.0.1
 	github.com/opencontainers/runc v1.0.2 // indirect
+	github.com/opencontainers/selinux v1.10.0
 	github.com/pkg/errors v0.9.1
 	github.com/robertkrimen/otto v0.0.0-20210614181706-373ff5438452
 	github.com/sabhiram/go-gitignore v0.0.0-20201211210132-54b8a0bf510f
