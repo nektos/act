@@ -153,6 +153,11 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			return true
 		})
 
+		username, password, err := rc.handleCredentials()
+		if err != nil {
+			return fmt.Errorf("failed to handle credentials: %s", err)
+		}
+
 		common.Logger(ctx).Infof("\U0001f680  Start image=%s", image)
 		name := rc.jobContainerName()
 
@@ -169,8 +174,8 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			Entrypoint:  []string{"/usr/bin/tail", "-f", "/dev/null"},
 			WorkingDir:  rc.Config.ContainerWorkdir(),
 			Image:       image,
-			Username:    rc.Config.Secrets["DOCKER_USERNAME"],
-			Password:    rc.Config.Secrets["DOCKER_PASSWORD"],
+			Username:    username,
+			Password:    password,
 			Name:        name,
 			Env:         envList,
 			Mounts:      mounts,
@@ -835,4 +840,38 @@ func (rc *RunContext) localCheckoutPath() (string, bool) {
 		}
 	}
 	return "", false
+}
+
+func (rc *RunContext) handleCredentials() (username, password string, err error) {
+	// TODO: remove below 2 lines when we can release act with breaking changes
+	username = rc.Config.Secrets["DOCKER_USERNAME"]
+	password = rc.Config.Secrets["DOCKER_PASSWORD"]
+
+	container := rc.Run.Job().Container()
+	if container == nil || container.Credentials == nil {
+		return
+	}
+
+	if container.Credentials != nil && len(container.Credentials) != 2 {
+		err = fmt.Errorf("invalid property count for key 'credentials:'")
+		return
+	}
+
+	ee := rc.NewExpressionEvaluator()
+	var ok bool
+	if username, ok = ee.InterpolateWithStringCheck(container.Credentials["username"]); !ok {
+		err = fmt.Errorf("failed to interpolate container.credentials.username")
+		return
+	}
+	if password, ok = ee.InterpolateWithStringCheck(container.Credentials["password"]); !ok {
+		err = fmt.Errorf("failed to interpolate container.credentials.password")
+		return
+	}
+
+	if container.Credentials["username"] == "" || container.Credentials["password"] == "" {
+		err = fmt.Errorf("container.credentials cannot be empty")
+		return
+	}
+
+	return username, password, err
 }

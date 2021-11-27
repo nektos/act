@@ -295,15 +295,16 @@ func commonKeysMatch(a map[string]interface{}, b map[string]interface{}) bool {
 
 // ContainerSpec is the specification of the container to use for the job
 type ContainerSpec struct {
-	Image      string            `yaml:"image"`
-	Env        map[string]string `yaml:"env"`
-	Ports      []string          `yaml:"ports"`
-	Volumes    []string          `yaml:"volumes"`
-	Options    string            `yaml:"options"`
-	Entrypoint string
-	Args       string
-	Name       string
-	Reuse      bool
+	Image       string            `yaml:"image"`
+	Env         map[string]string `yaml:"env"`
+	Ports       []string          `yaml:"ports"`
+	Volumes     []string          `yaml:"volumes"`
+	Options     string            `yaml:"options"`
+	Credentials map[string]string `yaml:"credentials"`
+	Entrypoint  string
+	Args        string
+	Name        string
+	Reuse       bool
 }
 
 // Step is the structure of one step in a job
