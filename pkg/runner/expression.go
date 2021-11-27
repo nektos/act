@@ -466,9 +466,19 @@ func (rc *RunContext) vmJob() func(*otto.Otto) {
 }
 
 func (rc *RunContext) vmSteps() func(*otto.Otto) {
-	steps := rc.getStepsContext()
+	ctxSteps := rc.getStepsContext()
+
+	steps := make(map[string]interface{})
+	for id, ctxStep := range ctxSteps {
+		steps[id] = map[string]interface{}{
+			"conclusion": ctxStep.Conclusion.String(),
+			"outcome":    ctxStep.Outcome.String(),
+			"outputs":    ctxStep.Outputs,
+		}
+	}
 
 	return func(vm *otto.Otto) {
+		log.Debugf("context steps => %v", steps)
 		_ = vm.Set("steps", steps)
 	}
 }

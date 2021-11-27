@@ -54,10 +54,11 @@ func TestRunContext_EvalBool(t *testing.T) {
 		},
 		StepResults: map[string]*stepResult{
 			"id1": {
+				Conclusion: stepStatusSuccess,
+				Outcome:    stepStatusFailure,
 				Outputs: map[string]string{
 					"foo": "bar",
 				},
-				Success: true,
 			},
 		},
 	}
@@ -73,6 +74,10 @@ func TestRunContext_EvalBool(t *testing.T) {
 		{in: "success()", out: true},
 		{in: "cancelled()", out: false},
 		{in: "always()", out: true},
+		{in: "steps.id1.conclusion == 'success'", out: true},
+		{in: "steps.id1.conclusion != 'success'", out: false},
+		{in: "steps.id1.outcome == 'failure'", out: true},
+		{in: "steps.id1.outcome != 'failure'", out: false},
 		{in: "true", out: true},
 		{in: "false", out: false},
 		{in: "!true", wantErr: true},
