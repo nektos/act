@@ -31,7 +31,6 @@ require (
 	github.com/opencontainers/selinux v1.10.0
 	github.com/pkg/errors v0.9.1
 	github.com/rhysd/actionlint v1.6.8
-	github.com/robertkrimen/otto v0.0.0-20210614181706-373ff5438452
 	github.com/sabhiram/go-gitignore v0.0.0-20201211210132-54b8a0bf510f
 	github.com/sergi/go-diff v1.2.0 // indirect
 	github.com/sirupsen/logrus v1.8.1
@@ -44,6 +43,5 @@ require (
 	golang.org/x/term v0.0.0-20210916214954-140adaaadfaf
 	golang.org/x/text v0.3.7 // indirect
 	google.golang.org/genproto v0.0.0-20210921142501-181ce0d877f6 // indirect
-	gopkg.in/sourcemap.v1 v1.0.5 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 )
