@@ -195,6 +195,9 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			copyToPath = filepath.Join(rc.Config.ContainerWorkdir(), copyToPath)
 		}
 
+		// fixme: this should be done in a better way
+		rc.GetEnv()
+
 		return common.NewPipelineExecutor(
 			rc.JobContainer.Pull(rc.Config.ForcePull),
 			rc.stopJobContainer(),
