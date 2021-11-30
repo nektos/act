@@ -340,6 +340,10 @@ func (rc *RunContext) CompositeExecutor() common.Executor {
 		stepcopy := step
 		steps = append(steps, rc.newStepExecutor(&stepcopy))
 	}
+
+	steps = append(steps, func(ctx context.Context) error {
+		return common.JobError(ctx)
+	})
 	return common.NewPipelineExecutor(steps...)
 }
 

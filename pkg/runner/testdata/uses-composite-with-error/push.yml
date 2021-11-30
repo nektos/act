@@ -1,0 +1,12 @@
+name: uses-docker-url
+on: push
+
+jobs:
+  failing-composite-action:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: ./uses-composite-with-error/composite_action2
+    - run: echo should run
+      if: failure()
+    - run: echo should not run
