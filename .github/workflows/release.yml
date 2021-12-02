@@ -37,3 +37,4 @@ jobs:
         with:
           version: ${{ github.ref }}
           apiKey: ${{ secrets.CHOCO_APIKEY }}
+          push: true
