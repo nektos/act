@@ -52,8 +52,7 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 		preSteps = append(preSteps, step.pre())
 
 		stepExec := step.main()
-		steps = append(steps, func(ctx context.Context) error {
-			stepName := stepModel.String()
+		steps = append(steps, rc.logStepBoundaries(stepModel, func(ctx context.Context) error {
 			return (func(ctx context.Context) error {
 				err := stepExec(ctx)
 				if err != nil {
@@ -64,8 +63,8 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 					common.SetJobError(ctx, ctx.Err())
 				}
 				return nil
-			})(withStepLogger(ctx, stepName))
-		})
+			})(withStepLogger(ctx, stepModel.ID, stepModel.String()))
+		}))
 
 		postSteps = append([]common.Executor{step.post()}, postSteps...)
 	}
