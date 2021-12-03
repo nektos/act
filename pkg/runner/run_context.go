@@ -286,7 +286,7 @@ func (rc *RunContext) Executor() common.Executor {
 		if step.ID == "" {
 			step.ID = fmt.Sprintf("%d", i)
 		}
-		steps = append(steps, rc.newStepExecutor(step))
+		steps = append(steps, logStepBoundaries(step, rc.newStepExecutor(step)))
 	}
 	steps = append(steps, rc.stopJobContainer())
 
