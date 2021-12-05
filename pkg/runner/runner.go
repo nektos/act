@@ -43,6 +43,7 @@ type Config struct {
 	GitHubInstance        string            // GitHub instance to use, default "github.com"
 	ContainerCapAdd       []string          // list of kernel capabilities to add to the containers
 	ContainerCapDrop      []string          // list of kernel capabilities to remove from the containers
+	ContainerUser         string            // User that will run the command(s) inside the container, also support user:group
 	AutoRemove            bool              // controls if the container is automatically removed upon workflow completion
 	ArtifactServerPath    string            // the path where the artifact server stores uploads
 	ArtifactServerPort    string            // the port the artifact server binds to
