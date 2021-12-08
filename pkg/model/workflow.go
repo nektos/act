@@ -84,6 +84,7 @@ type Job struct {
 	RawContainer   yaml.Node                 `yaml:"container"`
 	Defaults       Defaults                  `yaml:"defaults"`
 	Outputs        map[string]string         `yaml:"outputs"`
+	Result         string
 }
 
 // Strategy for the job
@@ -454,6 +455,9 @@ func (w *Workflow) GetJob(jobID string) *Job {
 		if jobID == id {
 			if j.Name == "" {
 				j.Name = id
+			}
+			if j.If.Value == "" {
+				j.If.Value = "success()"
 			}
 			return j
 		}
