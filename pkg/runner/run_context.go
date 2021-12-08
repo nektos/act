@@ -51,9 +51,6 @@ type RunContext struct {
 func (rc *RunContext) Clone() *RunContext {
 	clone := *rc
 	clone.CurrentStep = ""
-	clone.ActionPath = ""
-	clone.ActionRef = ""
-	clone.ActionRepository = ""
 	clone.Composite = nil
 	clone.Inputs = nil
 	clone.StepResults = make(map[string]*stepResult)
@@ -772,9 +769,9 @@ func (rc *RunContext) withGithubEnv(env map[string]string) map[string]string {
 	env["GITHUB_RUN_ID"] = github.RunID
 	env["GITHUB_RUN_NUMBER"] = github.RunNumber
 	env["GITHUB_ACTION"] = github.Action
-	if github.ActionPath != "" {
-		env["GITHUB_ACTION_PATH"] = github.ActionPath
-	}
+	env["GITHUB_ACTION_PATH"] = github.ActionPath
+	env["GITHUB_ACTION_REPOSITORY"] = github.ActionRepository
+	env["GITHUB_ACTION_REF"] = github.ActionRef
 	env["GITHUB_ACTIONS"] = "true"
 	env["GITHUB_ACTOR"] = github.Actor
 	env["GITHUB_REPOSITORY"] = github.Repository

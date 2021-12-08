@@ -66,7 +66,7 @@ func (sc *StepContext) Executor() common.Executor {
 		actionDir := filepath.Join(rc.Config.Workdir, step.Uses)
 		return common.NewPipelineExecutor(
 			sc.setupAction(actionDir, "", true),
-			sc.runAction(actionDir, "", true),
+			sc.runAction(actionDir, "", "", "", true),
 		)
 	case model.StepTypeUsesActionRemote:
 		remoteAction := newRemoteAction(step.Uses)
@@ -105,7 +105,7 @@ func (sc *StepContext) Executor() common.Executor {
 		return common.NewPipelineExecutor(
 			ntErr,
 			sc.setupAction(actionDir, remoteAction.Path, false),
-			sc.runAction(actionDir, remoteAction.Path, false),
+			sc.runAction(actionDir, remoteAction.Path, remoteAction.Repo, remoteAction.Ref, false),
 		)
 	case model.StepTypeInvalid:
 		return common.NewErrorExecutor(fmt.Errorf("Invalid run/uses syntax for job:%s step:%+v", rc.Run, step))
@@ -465,10 +465,21 @@ func (sc *StepContext) getContainerActionPaths(step *model.Step, actionDir strin
 }
 
 // nolint: gocyclo
-func (sc *StepContext) runAction(actionDir string, actionPath string, localAction bool) common.Executor {
+func (sc *StepContext) runAction(actionDir string, actionPath string, actionRepository string, actionRef string, localAction bool) common.Executor {
 	rc := sc.RunContext
 	step := sc.Step
 	return func(ctx context.Context) error {
+		// Backup the parent composite action path and restore it on continue
+		parentActionPath := rc.ActionPath
+		parentActionRepository := rc.ActionRepository
+		parentActionRef := rc.ActionRef
+		defer func() {
+			rc.ActionPath = parentActionPath
+			rc.ActionRef = parentActionRef
+			rc.ActionRepository = parentActionRepository
+		}()
+		rc.ActionRef = actionRef
+		rc.ActionRepository = actionRepository
 		action := sc.Action
 		log.Debugf("About to run action %v", action)
 		sc.populateEnvsFromInput(action, rc)
@@ -483,7 +494,7 @@ func (sc *StepContext) runAction(actionDir string, actionPath string, localActio
 		log.Debugf("type=%v actionDir=%s actionPath=%s workdir=%s actionCacheDir=%s actionName=%s containerActionDir=%s", step.Type(), actionDir, actionPath, rc.Config.Workdir, rc.ActionCacheDir(), actionName, containerActionDir)
 
 		maybeCopyToActionDir := func() error {
-			sc.Env["GITHUB_ACTION_PATH"] = containerActionDir
+			rc.ActionPath = containerActionDir
 			if step.Type() != model.StepTypeUsesActionRemote {
 				return nil
 			}
@@ -678,9 +689,6 @@ func (sc *StepContext) execAsComposite(ctx context.Context, step *model.Step, _ 
 		CurrentStep: scriptName,
 	}
 	// Workaround end
-	compositerc.ActionPath = containerActionDir
-	compositerc.ActionRef = ""
-	compositerc.ActionRepository = ""
 	compositerc.Composite = action
 	envToEvaluate := mergeMaps(compositerc.Env, step.Environment())
 	compositerc.Env = make(map[string]string)
