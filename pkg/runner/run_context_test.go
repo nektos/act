@@ -179,7 +179,7 @@ func updateTestIfWorkflow(t *testing.T, tables []struct {
 	for _, k := range keys {
 		envs += fmt.Sprintf("  %s: %s\n", k, rc.Env[k])
 	}
-
+	// editorconfig-checker-disable
 	workflow := fmt.Sprintf(`
 name: "Test what expressions result in true and false on GitHub"
 on: push
@@ -192,6 +192,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 `, envs)
+	// editorconfig-checker-enable
 
 	for i, table := range tables {
 		if table.wantErr || strings.HasPrefix(table.in, "github.actor") {
