@@ -455,7 +455,7 @@ func (rc *RunContext) vmJob() func(*otto.Otto) {
 }
 
 func (rc *RunContext) vmSteps() func(*otto.Otto) {
-	steps := *rc.getStepsContext()
+	steps := rc.getStepsContext()
 
 	return func(vm *otto.Otto) {
 		_ = vm.Set("steps", steps)

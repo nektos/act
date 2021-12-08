@@ -55,7 +55,7 @@ func (rc *RunContext) Clone() *RunContext {
 	clone.ActionRepository = ""
 	clone.Composite = nil
 	clone.Inputs = nil
-	clone.StepResults = nil
+	clone.StepResults = make(map[string]*stepResult)
 	clone.Parent = rc
 	return &clone
 }
@@ -279,7 +279,7 @@ func (rc *RunContext) newStepExecutor(step *model.Step) common.Executor {
 	}
 	return func(ctx context.Context) error {
 		rc.CurrentStep = sc.Step.ID
-		(*rc.getStepsContext())[rc.CurrentStep] = &stepResult{
+		rc.StepResults[rc.CurrentStep] = &stepResult{
 			Success: true,
 			Outputs: make(map[string]string),
 		}
@@ -292,7 +292,7 @@ func (rc *RunContext) newStepExecutor(step *model.Step) common.Executor {
 				return err
 			}
 			rc.ExprEval = exprEval
-			(*rc.getStepsContext())[rc.CurrentStep].Success = false
+			rc.StepResults[rc.CurrentStep].Success = false
 			return err
 		}
 
@@ -317,9 +317,9 @@ func (rc *RunContext) newStepExecutor(step *model.Step) common.Executor {
 			if sc.Step.ContinueOnError {
 				common.Logger(ctx).Infof("Failed but continue next step")
 				err = nil
-				(*rc.getStepsContext())[rc.CurrentStep].Success = true
+				rc.StepResults[rc.CurrentStep].Success = true
 			} else {
-				(*rc.getStepsContext())[rc.CurrentStep].Success = false
+				rc.StepResults[rc.CurrentStep].Success = false
 			}
 		}
 		return err
@@ -513,7 +513,7 @@ type jobContext struct {
 
 func (rc *RunContext) getJobContext() *jobContext {
 	jobStatus := "success"
-	for _, stepStatus := range *rc.getStepsContext() {
+	for _, stepStatus := range rc.StepResults {
 		if !stepStatus.Success {
 			jobStatus = "failure"
 			break
@@ -524,11 +524,8 @@ func (rc *RunContext) getJobContext() *jobContext {
 	}
 }
 
-func (rc *RunContext) getStepsContext() *map[string]*stepResult {
-	if rc.StepResults == nil {
-		rc.StepResults = map[string]*stepResult{}
-	}
-	return &rc.StepResults
+func (rc *RunContext) getStepsContext() map[string]*stepResult {
+	return rc.StepResults
 }
 
 type githubContext struct {
