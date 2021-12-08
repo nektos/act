@@ -3,10 +3,14 @@ description: 'Create the choco package and push it'
 inputs:
   version:
     description: 'Version of package'
-    required: true
+    required: false
   apiKey:
     description: 'API Key for chocolately'
-    required: true
+    required: false
+  push:
+    description: 'Option for if package is going to be pushed'
+    required: false
+    default: 'false'
 runs:
   using: 'docker'
   image: 'Dockerfile'

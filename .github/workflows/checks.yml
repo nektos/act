@@ -149,3 +149,7 @@ jobs:
         with:
           name: act-macos-arm64
           path: dist/act_darwin_arm64/act
+      - name: Chocolatey
+        uses: ./.github/actions/choco
+        with:
+          version: v0.0.0-pr
