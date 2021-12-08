@@ -20,6 +20,7 @@ type Input struct {
 	platforms             []string
 	dryrun                bool
 	forcePull             bool
+	forceRebuild          bool
 	noOutput              bool
 	envfile               string
 	secretfile            string

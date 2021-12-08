@@ -165,11 +165,12 @@ It will save that information to `~/.actrc`, please refer to [Configuration](#co
 
 ```none
   -a, --actor string                     user that triggered the event (default "nektos/act")
-      --artifact-server-path string      Defines the path where the artifact server stores uploads and retrieves downloads from.
-      If not specified the artifact server will not start.
+      --artifact-server-path string      Defines the path where the artifact server stores uploads and retrieves downloads from. If not specified the artifact server will not start.
       --artifact-server-port string      Defines the port where the artifact server listens (will only bind to localhost). (default "34567")
   -b, --bind                             bind working directory to container, rather than copy
       --container-architecture string    Architecture which should be used to run containers, e.g.: linux/amd64. If not specified, will use host default architecture. Requires Docker server API Version 1.41+. Ignored on earlier Docker server platforms.
+      --container-cap-add stringArray    kernel capabilities to add to the workflow containers (e.g. --container-cap-add SYS_PTRACE)
+      --container-cap-drop stringArray   kernel capabilities to remove from the workflow containers (e.g. --container-cap-drop SYS_PTRACE)
       --container-daemon-socket string   Path to Docker daemon socket which will be mounted to containers (default "/var/run/docker.sock")
       --defaultbranch string             the name of the main branch
       --detect-event                     Use first event type from workflow as event that triggered the workflow
@@ -189,7 +190,9 @@ It will save that information to `~/.actrc`, please refer to [Configuration](#co
       --privileged                       use privileged mode
   -p, --pull                             pull docker image(s) even if already present
   -q, --quiet                            disable logging of output from steps
+      --rebuild                          rebuild local action docker image(s) even if already present
   -r, --reuse                            reuse action containers to maintain state
+      --rm                               automatically remove containers just before exit
   -s, --secret stringArray               secret to make available to actions with optional value (e.g. -s mysecret=foo or -s mysecret)
       --secret-file string               file with list of secrets to read from (e.g. --secret-file .secrets) (default ".secrets")
       --use-gitignore                    Controls whether paths specified in .gitignore should be copied into container (default true)

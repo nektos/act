@@ -1,0 +1,14 @@
+name: conclusion
+on: push
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - id: first
+        run: exit 0
+      - id: second
+        continue-on-error: true
+        run: exit 1
+      - run: echo '${{ steps.first.conclusion }}' | grep 'success'
+      - run: echo '${{ steps.second.conclusion }}' | grep 'success'
