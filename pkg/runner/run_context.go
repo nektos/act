@@ -44,7 +44,7 @@ type RunContext struct {
 	ActionRef        string
 	ActionRepository string
 	Composite        *model.Action
-	Inputs           map[string]string
+	Inputs           map[string]interface{}
 	Parent           *RunContext
 }
 
@@ -341,9 +341,7 @@ func (rc *RunContext) CompositeExecutor() common.Executor {
 		steps = append(steps, rc.newStepExecutor(&stepcopy))
 	}
 
-	steps = append(steps, func(ctx context.Context) error {
-		return common.JobError(ctx)
-	})
+	steps = append(steps, common.JobError)
 	return common.NewPipelineExecutor(steps...)
 }
 
