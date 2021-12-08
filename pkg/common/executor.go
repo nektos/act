@@ -136,13 +136,12 @@ func (e Executor) Then(then Executor) Executor {
 			case Warning:
 				log.Warning(err.Error())
 			default:
-				log.Debugf("%+v", err)
-				return err
+				SetJobError(ctx, err)
 			}
+		} else if ctx.Err() != nil {
+			SetJobError(ctx, ctx.Err())
 		}
-		if ctx.Err() != nil {
-			return ctx.Err()
-		}
+
 		return then(ctx)
 	}
 }

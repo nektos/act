@@ -1,0 +1,28 @@
+on: push
+jobs:
+  fail:
+    runs-on: ubuntu-latest
+    steps:
+    - run: exit 1
+  suc1:
+    if: success() || failure()
+    needs:
+    - fail
+    runs-on: ubuntu-latest
+    steps:
+    - run: exit 0
+  suc2:
+    if: success() || failure()
+    needs:
+    - fail
+    runs-on: ubuntu-latest
+    steps:
+    - run: exit 0
+  next:
+    needs:
+    - suc1
+    - suc2
+    runs-on: ubuntu-latest
+    steps:
+    - run: echo should never reach here
+    - run: exit 1
