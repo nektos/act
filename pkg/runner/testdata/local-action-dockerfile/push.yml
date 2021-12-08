@@ -9,8 +9,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - run: chmod +x ./actions/docker-local/entrypoint.sh
-    - run: chmod +x ./actions/docker-local-noargs/entrypoint.sh
     - uses: ./actions/docker-local
       id: dockerlocal
       with:
