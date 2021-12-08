@@ -87,10 +87,10 @@ func ReadAction(in io.Reader) (*Action, error) {
 		return nil, err
 	}
 
-	for i, _ := range a.Runs.Steps {
+	for i := range a.Runs.Steps {
 		step := &a.Runs.Steps[i]
-		if (*step).If.Value == "" {
-			(*step).If.Value = "success()"
+		if step.If.Value == "" {
+			step.If.Value = "success()"
 		}
 	}
 
