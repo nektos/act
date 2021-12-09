@@ -36,6 +36,7 @@ func (rc *RunContext) commandHandler(ctx context.Context) common.LineHandler {
 		}
 
 		if resumeCommand != "" && command != resumeCommand {
+			logger.Infof("  \U00002699  %s", line)
 			return false
 		}
 		arg = unescapeCommandData(arg)

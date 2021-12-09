@@ -64,8 +64,10 @@ func TestAddpath(t *testing.T) {
 }
 
 func TestStopCommands(t *testing.T) {
+	logger, hook := test.NewNullLogger()
+
 	a := assert.New(t)
-	ctx := context.Background()
+	ctx := common.WithLogger(context.Background(), logger)
 	rc := new(RunContext)
 	handler := rc.commandHandler(ctx)
 
@@ -77,6 +79,13 @@ func TestStopCommands(t *testing.T) {
 	handler("::my-end-token::\n")
 	handler("::set-env name=x::abcd\n")
 	a.Equal("abcd", rc.Env["x"])
+
+	messages := make([]string, 0)
+	for _, entry := range hook.AllEntries() {
+		messages = append(messages, entry.Message)
+	}
+
+	a.Contains(messages, "  \U00002699  ::set-env name=x::abcd\n")
 }
 
 func TestAddpathADO(t *testing.T) {
