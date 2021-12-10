@@ -244,7 +244,7 @@ func TestArtifactFlow(t *testing.T) {
 	defer cancel()
 
 	platforms := map[string]string{
-		"ubuntu-latest": "node:12.20.1-buster-slim",
+		"ubuntu-latest": "node:16-buster-slim",
 	}
 
 	tables := []TestJobFileInfo{

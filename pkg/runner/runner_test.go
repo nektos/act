@@ -16,7 +16,7 @@ import (
 	"github.com/nektos/act/pkg/model"
 )
 
-var baseImage = "node:12-buster-slim"
+var baseImage = "node:16-buster-slim"
 
 func init() {
 	if p := os.Getenv("ACT_TEST_IMAGE"); p != "" {
@@ -100,7 +100,7 @@ func TestRunEvent(t *testing.T) {
 		{"testdata", "shells/defaults", "push", "", platforms, ""},
 		{"testdata", "shells/pwsh", "push", "", map[string]string{"ubuntu-latest": "ghcr.io/justingrote/act-pwsh:latest"}, ""}, // custom image with pwsh
 		{"testdata", "shells/bash", "push", "", platforms, ""},
-		{"testdata", "shells/python", "push", "", map[string]string{"ubuntu-latest": "node:12-buster"}, ""}, // slim doesn't have python
+		{"testdata", "shells/python", "push", "", map[string]string{"ubuntu-latest": "node:16-buster"}, ""}, // slim doesn't have python
 		{"testdata", "shells/sh", "push", "", platforms, ""},
 		{"testdata", "job-container", "push", "", platforms, ""},
 		{"testdata", "job-container-non-root", "push", "", platforms, ""},

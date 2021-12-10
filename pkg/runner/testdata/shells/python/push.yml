@@ -9,7 +9,7 @@ jobs:
           print(platform.python_version())
   check-container:
     runs-on: ubuntu-latest
-    container: node:12-buster
+    container: node:16-buster
     steps:
       - shell: python
         run: |

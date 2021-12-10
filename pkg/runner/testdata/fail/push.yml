@@ -5,7 +5,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     container:
-      image: node:12-buster-slim
+      image: node:16-buster-slim
       env:
         TEST_ENV: test-value
     steps:
