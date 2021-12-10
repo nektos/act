@@ -8,14 +8,14 @@ trim_trailing_whitespace = true
 indent_style = tab
 indent_size = 4
 
-[*.sh]
+[*.{sh,nuspec}]
 indent_style = space
 indent_size = 2
 
-[{Dockerfile,*.md,*_test.go}]
+[{Dockerfile,*.md,*_test.go,install.sh}]
 indent_style = unset
 indent_size = unset
 
-[*.{yml,yaml,json}]
+[*.{yml,yaml,js{,on}}]
 indent_style = space
 indent_size = 2
