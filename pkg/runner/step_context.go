@@ -508,7 +508,7 @@ func (sc *StepContext) runAction(actionDir string, actionPath string, localActio
 		}
 
 		switch action.Runs.Using {
-		case model.ActionRunsUsingNode12:
+		case model.ActionRunsUsingNode12, model.ActionRunsUsingNode16:
 			if err := maybeCopyToActionDir(); err != nil {
 				return err
 			}
@@ -523,6 +523,7 @@ func (sc *StepContext) runAction(actionDir string, actionPath string, localActio
 			return fmt.Errorf(fmt.Sprintf("The runs.using key must be one of: %v, got %s", []string{
 				model.ActionRunsUsingDocker,
 				model.ActionRunsUsingNode12,
+				model.ActionRunsUsingNode16,
 				model.ActionRunsUsingComposite,
 			}, action.Runs.Using))
 		}
