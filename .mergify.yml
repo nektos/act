@@ -1,6 +1,9 @@
 pull_request_rules:
   - name: warn on conflicts
     conditions:
+      - -draft
+      - -closed
+      - -merged
       - conflict
     actions:
       comment:
@@ -17,6 +20,9 @@ pull_request_rules:
           - conflict
   - name: warn on needs-work
     conditions:
+      - -draft
+      - -closed
+      - -merged
       - or:
           - check-failure=lint
           - check-failure=test-linux
