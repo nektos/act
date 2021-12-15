@@ -18,7 +18,6 @@ import (
 	"github.com/go-git/go-billy/v5/osfs"
 	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
 	"github.com/joho/godotenv"
-	"github.com/mattn/go-isatty"
 
 	"github.com/docker/cli/cli/connhelper"
 	"github.com/docker/docker/api/types"
@@ -31,7 +30,6 @@ import (
 	"github.com/Masterminds/semver"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
-	"golang.org/x/term"
 
 	"github.com/nektos/act/pkg/common"
 )
@@ -192,7 +190,10 @@ func (cr *containerReference) Remove() common.Executor {
 		cr.connect(),
 		cr.find(),
 	).Finally(
-		cr.remove(),
+		common.NewPipelineExecutor(
+			common.NewDockerInfoExecutor("  docker container rm %s", cr.id),
+			cr.remove(),
+		),
 	).IfNot(common.Dryrun)
 }
 
@@ -298,7 +299,6 @@ func (cr *containerReference) remove() common.Executor {
 			logger.Error(errors.WithStack(err))
 		}
 
-		logger.WithField("emoji", logPrefix).Infof("  docker container rm %v", cr.id)
 		cr.id = ""
 		return nil
 	}
@@ -310,7 +310,7 @@ func (cr *containerReference) create(capAdd []string, capDrop []string) common.E
 			return nil
 		}
 		logger := common.Logger(ctx)
-		isTerminal := term.IsTerminal(int(os.Stdout.Fd()))
+		isTerminal := common.CheckIfTerminal(os.Stdout)
 		input := cr.input
 
 		config := &container.Config{
@@ -488,7 +488,7 @@ func (cr *containerReference) exec(cmd []string, env map[string]string, user, wo
 		}
 
 		logger.Debugf("Exec command '%s'", cmd)
-		isTerminal := isatty.IsTerminal(os.Stdout.Fd())
+		isTerminal := common.CheckIfTerminal(os.Stdout)
 		envList := make([]string, 0)
 		for k, v := range env {
 			envList = append(envList, fmt.Sprintf("%s=%s", k, v))
@@ -717,7 +717,7 @@ func (cr *containerReference) attach() common.Executor {
 		if err != nil {
 			return errors.WithStack(err)
 		}
-		isTerminal := term.IsTerminal(int(os.Stdout.Fd()))
+		isTerminal := common.CheckIfTerminal(os.Stdout)
 
 		var outWriter io.Writer
 		outWriter = cr.input.Stdout
