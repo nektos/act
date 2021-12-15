@@ -18,6 +18,7 @@ import (
 	"github.com/go-git/go-billy/v5/osfs"
 	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
 	"github.com/joho/godotenv"
+	"github.com/mattn/go-isatty"
 
 	"github.com/docker/cli/cli/connhelper"
 	"github.com/docker/docker/api/types"
@@ -106,7 +107,7 @@ func supportsContainerImagePlatform(ctx context.Context, cli *client.Client) boo
 
 func (cr *containerReference) Create(capAdd []string, capDrop []string) common.Executor {
 	return common.
-		NewInfoExecutor("%sdocker create image=%s platform=%s entrypoint=%+q cmd=%+q", logPrefix, cr.input.Image, cr.input.Platform, cr.input.Entrypoint, cr.input.Cmd).
+		NewDockerInfoExecutor("  docker create image=%s platform=%s entrypoint=%+q cmd=%+q", cr.input.Image, cr.input.Platform, cr.input.Entrypoint, cr.input.Cmd).
 		Then(
 			common.NewPipelineExecutor(
 				cr.connect(),
@@ -118,7 +119,7 @@ func (cr *containerReference) Create(capAdd []string, capDrop []string) common.E
 
 func (cr *containerReference) Start(attach bool) common.Executor {
 	return common.
-		NewInfoExecutor("%sdocker run image=%s platform=%s entrypoint=%+q cmd=%+q", logPrefix, cr.input.Image, cr.input.Platform, cr.input.Entrypoint, cr.input.Cmd).
+		NewDockerInfoExecutor("  docker run image=%s platform=%s entrypoint=%+q cmd=%+q", cr.input.Image, cr.input.Platform, cr.input.Entrypoint, cr.input.Cmd).
 		Then(
 			common.NewPipelineExecutor(
 				cr.connect(),
@@ -132,7 +133,7 @@ func (cr *containerReference) Start(attach bool) common.Executor {
 
 func (cr *containerReference) Pull(forcePull bool) common.Executor {
 	return common.
-		NewInfoExecutor("%sdocker pull image=%s platform=%s username=%s forcePull=%t", logPrefix, cr.input.Image, cr.input.Platform, cr.input.Username, forcePull).
+		NewDockerInfoExecutor("  docker pull image=%s platform=%s username=%s forcePull=%t", cr.input.Image, cr.input.Platform, cr.input.Username, forcePull).
 		Then(
 			NewDockerPullExecutor(NewDockerPullExecutorInput{
 				Image:     cr.input.Image,
@@ -154,7 +155,7 @@ func (cr *containerReference) Copy(destPath string, files ...*FileEntry) common.
 
 func (cr *containerReference) CopyDir(destPath string, srcPath string, useGitIgnore bool) common.Executor {
 	return common.NewPipelineExecutor(
-		common.NewInfoExecutor("%sdocker cp src=%s dst=%s", logPrefix, srcPath, destPath),
+		common.NewDockerInfoExecutor("  docker cp src=%s dst=%s", srcPath, destPath),
 		cr.Exec([]string{"mkdir", "-p", destPath}, nil, "", ""),
 		cr.copyDir(destPath, srcPath, useGitIgnore),
 	).IfNot(common.Dryrun)
@@ -179,7 +180,7 @@ func (cr *containerReference) UpdateFromPath(env *map[string]string) common.Exec
 
 func (cr *containerReference) Exec(command []string, env map[string]string, user, workdir string) common.Executor {
 	return common.NewPipelineExecutor(
-		common.NewInfoExecutor("%sdocker exec cmd=[%s] user=%s workdir=%s", logPrefix, strings.Join(command, " "), user, workdir),
+		common.NewDockerInfoExecutor("  docker exec cmd=%+v user=%s workdir=%s", command, user, workdir),
 		cr.connect(),
 		cr.find(),
 		cr.exec(command, env, user, workdir),
@@ -297,7 +298,7 @@ func (cr *containerReference) remove() common.Executor {
 			logger.Error(errors.WithStack(err))
 		}
 
-		logger.Debugf("Removed container: %v", cr.id)
+		logger.WithField("emoji", logPrefix).Infof("  docker container rm %v", cr.id)
 		cr.id = ""
 		return nil
 	}
@@ -473,6 +474,7 @@ func (cr *containerReference) extractPath(env *map[string]string) common.Executo
 	}
 }
 
+// nolint:gocyclo
 func (cr *containerReference) exec(cmd []string, env map[string]string, user, workdir string) common.Executor {
 	return func(ctx context.Context) error {
 		logger := common.Logger(ctx)
@@ -486,7 +488,7 @@ func (cr *containerReference) exec(cmd []string, env map[string]string, user, wo
 		}
 
 		logger.Debugf("Exec command '%s'", cmd)
-		isTerminal := term.IsTerminal(int(os.Stdout.Fd()))
+		isTerminal := isatty.IsTerminal(os.Stdout.Fd())
 		envList := make([]string, 0)
 		for k, v := range env {
 			envList = append(envList, fmt.Sprintf("%s=%s", k, v))
@@ -549,8 +551,12 @@ func (cr *containerReference) exec(cmd []string, env map[string]string, user, wo
 			return errors.WithStack(err)
 		}
 
-		if inspectResp.ExitCode == 0 {
+		switch inspectResp.ExitCode {
+		case 0:
 			return nil
+		case 127:
+			logger.Warnf("process exited with code 127 - command not found")
+			logger.Warnf("this docker image might not contain all required tools, please see https://github.com/nektos/act/issues/107 for more information")
 		}
 
 		return fmt.Errorf("exit with `FAILURE`: %v", inspectResp.ExitCode)

@@ -133,7 +133,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			return fmt.Errorf("failed to handle credentials: %s", err)
 		}
 
-		common.Logger(ctx).Infof("\U0001f680  Start image=%s", image)
+		common.Logger(ctx).WithField("emoji", "\U0001f680").Infof("  Start image=%s", image)
 		name := rc.jobContainerName()
 
 		envList := make([]string, 0)
@@ -250,7 +250,7 @@ func (rc *RunContext) Executor() common.Executor {
 
 	steps = append(steps, func(ctx context.Context) error {
 		if len(rc.Matrix) > 0 {
-			common.Logger(ctx).Infof("\U0001F9EA  Matrix: %v", rc.Matrix)
+			common.Logger(ctx).WithField("emoji", "\U0001F9EA").Infof("  Matrix: %v", rc.Matrix)
 		}
 		return nil
 	})
@@ -359,12 +359,12 @@ func (rc *RunContext) newStepExecutor(step *model.Step) common.Executor {
 		}
 		rc.ExprEval = exprEval
 
-		common.Logger(ctx).Infof("\u2B50  Run %s", sc.Step)
+		common.Logger(ctx).WithField("emoji", "\u2B50  ").Infof("Run step #%s", sc.Step)
 		err = sc.Executor(ctx)(ctx)
 		if err == nil {
-			common.Logger(ctx).Infof("  \u2705  Success - %s", sc.Step)
+			common.Logger(ctx).WithField("emoji", "\u2705  ").Infof("Success - step #%s", sc.Step.ID)
 		} else {
-			common.Logger(ctx).Errorf("  \u274C  Failure - %s", sc.Step)
+			common.Logger(ctx).WithField("emoji", "\u274C  ").Errorf("Failure - step #%s", sc.Step.ID)
 
 			rc.StepResults[rc.CurrentStep].Outcome = model.StepStatusFailure
 			if sc.Step.ContinueOnError {
@@ -429,7 +429,7 @@ func (rc *RunContext) isEnabled(ctx context.Context) bool {
 	l := common.Logger(ctx)
 	runJob, err := EvalBool(rc.ExprEval, job.If.Value)
 	if err != nil {
-		common.Logger(ctx).Errorf("  \u274C  Error in if: expression - %s", job.Name)
+		common.Logger(ctx).WithField("emoji", "  \u274C").Errorf("  Error in if: expression - %s", job.Name)
 		return false
 	}
 	if !runJob {
@@ -445,7 +445,7 @@ func (rc *RunContext) isEnabled(ctx context.Context) bool {
 
 		for _, runnerLabel := range job.RunsOn() {
 			platformName := rc.ExprEval.Interpolate(runnerLabel)
-			l.Infof("\U0001F6A7  Skipping unsupported platform -- Try running with `-P %+v=...`", platformName)
+			l.WithField("emoji", "\U0001F6A7").Infof("  Skipping unsupported platform -- Try running with `-P %+v=...`", platformName)
 		}
 		return false
 	}

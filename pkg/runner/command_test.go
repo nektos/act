@@ -86,7 +86,7 @@ func TestStopCommands(t *testing.T) {
 		messages = append(messages, entry.Message)
 	}
 
-	a.Contains(messages, "  \U00002699  ::set-env name=x::abcd\n")
+	a.Contains(messages, "  ::set-env name=x::abcd\n")
 }
 
 func TestAddpathADO(t *testing.T) {

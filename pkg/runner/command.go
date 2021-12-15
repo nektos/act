@@ -36,7 +36,7 @@ func (rc *RunContext) commandHandler(ctx context.Context) common.LineHandler {
 		}
 
 		if resumeCommand != "" && command != resumeCommand {
-			logger.Infof("  \U00002699  %s", line)
+			logger.WithField("emoji", "  \U00002699").Infof("  %s", line)
 			return false
 		}
 		arg = unescapeCommandData(arg)
@@ -49,21 +49,21 @@ func (rc *RunContext) commandHandler(ctx context.Context) common.LineHandler {
 		case "add-path":
 			rc.addPath(ctx, arg)
 		case "debug":
-			logger.Infof("  \U0001F4AC  %s", line)
+			logger.WithField("emoji", "  \U0001F4AC").Infof("  %s", line)
 		case "warning":
-			logger.Infof("  \U0001F6A7  %s", line)
+			logger.WithField("emoji", "  \U0001F6A7").Infof("  %s", line)
 		case "error":
-			logger.Infof("  \U00002757  %s", line)
+			logger.WithField("emoji", "  \U00002757").Infof("  %s", line)
 		case "add-mask":
-			logger.Infof("  \U00002699  %s", "***")
+			logger.WithField("emoji", "  \U00002699").Infof("  %s", "***")
 		case "stop-commands":
 			resumeCommand = arg
-			logger.Infof("  \U00002699  %s", line)
+			logger.WithField("emoji", "  \U00002699").Infof("  %s", line)
 		case resumeCommand:
 			resumeCommand = ""
-			logger.Infof("  \U00002699  %s", line)
+			logger.WithField("emoji", "  \U00002699").Infof("  %s", line)
 		default:
-			logger.Infof("  \U00002753  %s", line)
+			logger.WithField("emoji", "  \U00002753").Infof("  %s", line)
 		}
 
 		return false
@@ -87,15 +87,16 @@ func (rc *RunContext) setOutput(ctx context.Context, kvPairs map[string]string, 
 
 	result, ok := rc.StepResults[stepID]
 	if !ok {
-		common.Logger(ctx).Infof("  \U00002757  no outputs used step '%s'", stepID)
+		common.Logger(ctx).WithField("emoji", "  \U00002757").Infof("  no outputs used step '%s'", stepID)
 		return
 	}
 
-	common.Logger(ctx).Infof("  \U00002699  ::set-output:: %s=%s", outputName, arg)
+	common.Logger(ctx).WithField("emoji", "  \U00002699").Infof("  ::set-output:: %s=%s", outputName, arg)
 	result.Outputs[outputName] = arg
 }
+
 func (rc *RunContext) addPath(ctx context.Context, arg string) {
-	common.Logger(ctx).Infof("  \U00002699  ::add-path:: %s", arg)
+	common.Logger(ctx).WithField("emoji", "  \U00002699").Infof("  ::add-path:: %s", arg)
 	rc.ExtraPath = append(rc.ExtraPath, arg)
 }
 

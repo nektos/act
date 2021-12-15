@@ -11,6 +11,7 @@ import (
 
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/model"
+
 	log "github.com/sirupsen/logrus"
 )
 
@@ -155,7 +156,7 @@ func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 						}
 
 						return nil
-					})(common.WithJobErrorContainer(WithJobLogger(ctx, jobName, rc.Config.Secrets, rc.Config.InsecureSecrets)))
+					})(common.WithJobErrorContainer(common.WithJobLogger(ctx, jobName, rc.Config.Secrets, rc.Config.InsecureSecrets)))
 				})
 				b++
 				if b == maxParallel {

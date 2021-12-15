@@ -36,9 +36,12 @@ func Execute(ctx context.Context, version string) {
 		SilenceUsage:     true,
 	}
 	rootCmd.Flags().BoolP("watch", "w", false, "watch the contents of the local repo and run when files change")
+	rootCmd.Flags().BoolP("no-color", "", false, "disable colour output including emitting emoji/unicode characters")
 	rootCmd.Flags().BoolP("list", "l", false, "list workflows")
 	rootCmd.Flags().BoolP("graph", "g", false, "draw workflows")
 	rootCmd.Flags().StringP("job", "j", "", "run job")
+	rootCmd.Flags().CountP("verbose", "v", "verbose output")
+
 	rootCmd.Flags().StringArrayVarP(&input.secrets, "secret", "s", []string{}, "secret to make available to actions with optional value (e.g. -s mysecret=foo or -s mysecret)")
 	rootCmd.Flags().StringArrayVarP(&input.envs, "env", "", []string{}, "env to make available to actions with optional value (e.g. --env myenv=foo or --env myenv)")
 	rootCmd.Flags().StringArrayVarP(&input.platforms, "platform", "P", []string{}, "custom image to use per platform (e.g. -P ubuntu-18.04=nektos/act-environments-ubuntu:18.04)")
@@ -59,7 +62,6 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.PersistentFlags().StringVarP(&input.workflowsPath, "workflows", "W", "./.github/workflows/", "path to workflow file(s)")
 	rootCmd.PersistentFlags().BoolVarP(&input.noWorkflowRecurse, "no-recurse", "", false, "Flag to disable running workflows from subdirectories of specified path in '--workflows'/'-W' flag")
 	rootCmd.PersistentFlags().StringVarP(&input.workdir, "directory", "C", ".", "working directory")
-	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "verbose output")
 	rootCmd.PersistentFlags().BoolVarP(&input.noOutput, "quiet", "q", false, "disable logging of output from steps")
 	rootCmd.PersistentFlags().BoolVarP(&input.dryrun, "dryrun", "n", false, "dryrun mode")
 	rootCmd.PersistentFlags().StringVarP(&input.secretfile, "secret-file", "", ".secrets", "file with list of secrets to read from (e.g. --secret-file .secrets)")
@@ -133,9 +135,19 @@ func readArgsFile(file string) []string {
 }
 
 func setupLogging(cmd *cobra.Command, _ []string) {
-	verbose, _ := cmd.Flags().GetBool("verbose")
-	if verbose {
+	verbose, _ := cmd.Flags().GetCount("verbose")
+	switch {
+	case verbose == 1:
 		log.SetLevel(log.DebugLevel)
+	case verbose >= 2:
+		log.SetLevel(log.TraceLevel)
+	default:
+		log.SetLevel(log.InfoLevel)
+	}
+
+	noColor, _ := cmd.Flags().GetBool("no-color")
+	if noColor {
+		os.Setenv("NO_COLOR", "")
 	}
 }
 
@@ -157,12 +169,7 @@ func readEnvs(path string, envs map[string]string) bool {
 func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, args []string) error {
 		if runtime.GOOS == "darwin" && runtime.GOARCH == "arm64" && input.containerArchitecture == "" {
-			l := log.New()
-			l.SetFormatter(&log.TextFormatter{
-				DisableQuote:     true,
-				DisableTimestamp: true,
-			})
-			l.Warnf(" \U000026A0 You are using Apple M1 chip and you have not specified container architecture, you might encounter issues while running act. If so, try running it with '--container-architecture linux/amd64'. \U000026A0 \n")
+			log.Warnf("  You are using Apple M1 chip and you have not specified container architecture, you might encounter issues while running act. If so, try running it with '--container-architecture linux/amd64'. \n")
 		}
 
 		log.Debugf("Loading environment from %s", input.Envfile())
@@ -246,7 +253,8 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 					cfgFound = true
 				}
 			}
-			if !cfgFound && len(cfgLocations) > 0 {
+			// Check if config found, if there are config locations and if is capable of answering the survey (example: GitHub Actions isn't)
+			if !cfgFound && len(cfgLocations) > 0 && common.CheckIfTerminal(os.Stdout) {
 				if err := defaultImageSurvey(cfgLocations[0]); err != nil {
 					log.Fatal(err)
 				}

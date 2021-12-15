@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
 
@@ -13,9 +12,6 @@ import (
 )
 
 func TestStepContextExecutor(t *testing.T) {
-	platforms := map[string]string{
-		"ubuntu-latest": baseImage,
-	}
 	tables := []TestJobFileInfo{
 		{"testdata", "uses-and-run-in-one-step", "push", "Invalid run/uses syntax for job:test step:Test", platforms, ""},
 		{"testdata", "uses-github-empty", "push", "Expected format {org}/{repo}[/path]@ref", platforms, ""},
@@ -63,7 +59,6 @@ func createIfTestStepContext(t *testing.T, input string) *StepContext {
 }
 
 func TestStepContextIsEnabled(t *testing.T) {
-	log.SetLevel(log.DebugLevel)
 	assertObject := assert.New(t)
 
 	// success()

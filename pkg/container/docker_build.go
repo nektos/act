@@ -30,9 +30,9 @@ func NewDockerBuildExecutor(input NewDockerBuildExecutorInput) common.Executor {
 	return func(ctx context.Context) error {
 		logger := common.Logger(ctx)
 		if input.Platform != "" {
-			logger.Infof("%sdocker build -t %s --platform %s %s", logPrefix, input.ImageTag, input.Platform, input.ContextDir)
+			logger.WithField("emoji", logPrefix).Infof("  docker build -t %s --platform %s %s", input.ImageTag, input.Platform, input.ContextDir)
 		} else {
-			logger.Infof("%sdocker build -t %s %s", logPrefix, input.ImageTag, input.ContextDir)
+			logger.WithField("emoji", logPrefix).Infof("  docker build -t %s %s", input.ImageTag, input.ContextDir)
 		}
 		if common.Dryrun(ctx) {
 			return nil

@@ -109,6 +109,7 @@ func NewWorkflowPlanner(path string, noWorkflowRecurse bool) (WorkflowPlanner, e
 
 	if fi.IsDir() {
 		log.Debugf("Loading workflows from '%s'", path)
+		log.Debugf("Workflow recursion enabled: %t", !noWorkflowRecurse)
 		if noWorkflowRecurse {
 			files, err := ioutil.ReadDir(path)
 			if err != nil {
@@ -122,7 +123,6 @@ func NewWorkflowPlanner(path string, noWorkflowRecurse bool) (WorkflowPlanner, e
 				})
 			}
 		} else {
-			log.Debug("Loading workflows recursively")
 			if err := filepath.Walk(path,
 				func(p string, f os.FileInfo, err error) error {
 					if err != nil {
@@ -130,7 +130,7 @@ func NewWorkflowPlanner(path string, noWorkflowRecurse bool) (WorkflowPlanner, e
 					}
 
 					if !f.IsDir() {
-						log.Debugf("Found workflow '%s' in '%s'", f.Name(), p)
+						log.Tracef("Found workflow '%s' in '%s'", f.Name(), p)
 						workflows = append(workflows, WorkflowFiles{
 							dirPath:          filepath.Dir(p),
 							workflowFileInfo: f,
@@ -143,7 +143,7 @@ func NewWorkflowPlanner(path string, noWorkflowRecurse bool) (WorkflowPlanner, e
 			}
 		}
 	} else {
-		log.Debugf("Loading workflow '%s'", path)
+		log.Tracef("Loading workflow '%s'", path)
 		dirname := filepath.Dir(path)
 
 		workflows = append(workflows, WorkflowFiles{
@@ -164,7 +164,7 @@ func NewWorkflowPlanner(path string, noWorkflowRecurse bool) (WorkflowPlanner, e
 				return nil, err
 			}
 
-			log.Debugf("Reading workflow '%s'", f.Name())
+			log.Tracef("Reading workflow '%s'", f.Name())
 			workflow, err := ReadWorkflow(f)
 			if err != nil {
 				f.Close()
@@ -178,7 +178,7 @@ func NewWorkflowPlanner(path string, noWorkflowRecurse bool) (WorkflowPlanner, e
 				f.Close()
 				return nil, errors.WithMessagef(err, "error occurring when resetting io pointer, %s", wf.workflowFileInfo.Name())
 			}
-			log.Debugf("Correcting if statements '%s'", f.Name())
+			log.Tracef("Correcting if statements '%s'", f.Name())
 			content, err := ioutil.ReadFile(filepath.Join(wf.dirPath, wf.workflowFileInfo.Name()))
 			if err != nil {
 				return nil, errors.WithMessagef(err, "error occurring when reading file, %s", wf.workflowFileInfo.Name())

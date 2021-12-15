@@ -16,11 +16,25 @@ import (
 	"github.com/nektos/act/pkg/model"
 )
 
-var baseImage = "node:16-buster-slim"
+var (
+	baseImage = "node:16-buster-slim"
+	platforms map[string]string
+)
 
 func init() {
 	if p := os.Getenv("ACT_TEST_IMAGE"); p != "" {
 		baseImage = p
+	}
+
+	platforms = map[string]string{
+		"ubuntu-latest": baseImage,
+	}
+
+	log.SetLevel(log.TraceLevel)
+	if l := os.Getenv("ACT_CUSTOM_LOG_LEVEL"); l != "" {
+		if lvl, err := log.ParseLevel(l); err == nil {
+			log.SetLevel(lvl)
+		}
 	}
 }
 
@@ -88,10 +102,6 @@ func TestRunEvent(t *testing.T) {
 		t.Skip("skipping integration test")
 	}
 
-	platforms := map[string]string{
-		"ubuntu-latest": baseImage,
-	}
-
 	tables := []TestJobFileInfo{
 		{"testdata", "basic", "push", "", platforms, ""},
 		{"testdata", "fail", "push", "exit with `FAILURE`: 1", platforms, ""},
@@ -139,7 +149,6 @@ func TestRunEvent(t *testing.T) {
 		// single test for different architecture: linux/arm64
 		{"testdata", "basic", "push", "", platforms, "linux/arm64"},
 	}
-	log.SetLevel(log.DebugLevel)
 
 	ctx := context.Background()
 
@@ -153,12 +162,7 @@ func TestRunEventSecrets(t *testing.T) {
 		t.Skip("skipping integration test")
 	}
 
-	log.SetLevel(log.DebugLevel)
 	ctx := context.Background()
-
-	platforms := map[string]string{
-		"ubuntu-latest": baseImage,
-	}
 
 	workflowPath := "secrets"
 	eventName := "push"
@@ -194,12 +198,7 @@ func TestRunEventPullRequest(t *testing.T) {
 		t.Skip("skipping integration test")
 	}
 
-	log.SetLevel(log.DebugLevel)
 	ctx := context.Background()
-
-	platforms := map[string]string{
-		"ubuntu-latest": baseImage,
-	}
 
 	workflowPath := "pull-request"
 	eventName := "pull_request"

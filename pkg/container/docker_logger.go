@@ -6,7 +6,7 @@ import (
 	"errors"
 	"io"
 
-	"github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 )
 
 type dockerMessage struct {
@@ -20,62 +20,9 @@ type dockerMessage struct {
 	Progress string `json:"progress"`
 }
 
-const logPrefix = "  \U0001F433  "
+const logPrefix = "  \U0001F433"
 
-/*
-func logDockerOutput(ctx context.Context, dockerResponse io.Reader) {
-	logger := common.Logger(ctx)
-	if entry, ok := logger.(*logrus.Entry); ok {
-		w := entry.Writer()
-		_, err := stdcopy.StdCopy(w, w, dockerResponse)
-		if err != nil {
-			logrus.Error(err)
-		}
-	} else if lgr, ok := logger.(*logrus.Logger); ok {
-		w := lgr.Writer()
-		_, err := stdcopy.StdCopy(w, w, dockerResponse)
-		if err != nil {
-			logrus.Error(err)
-		}
-	} else {
-		logrus.Errorf("Unable to get writer from logger (type=%T)", logger)
-	}
-}
-*/
-
-/*
-func streamDockerOutput(ctx context.Context, dockerResponse io.Reader) {
-	/*
-		out := os.Stdout
-		go func() {
-			<-ctx.Done()
-			//fmt.Println()
-		}()
-
-		_, err := io.Copy(out, dockerResponse)
-		if err != nil {
-			logrus.Error(err)
-		}
-	* /
-
-	logger := common.Logger(ctx)
-	reader := bufio.NewReader(dockerResponse)
-
-	for {
-		if ctx.Err() != nil {
-			break
-		}
-		line, _, err := reader.ReadLine()
-		if err == io.EOF {
-			break
-		}
-		logger.Debugf("%s\n", line)
-	}
-
-}
-*/
-
-func logDockerResponse(logger logrus.FieldLogger, dockerResponse io.ReadCloser, isError bool) error {
+func logDockerResponse(logger log.Ext1FieldLogger, dockerResponse io.ReadCloser, isError bool) error {
 	if dockerResponse == nil {
 		return nil
 	}
@@ -125,7 +72,7 @@ func logDockerResponse(logger logrus.FieldLogger, dockerResponse io.ReadCloser, 
 	return nil
 }
 
-func writeLog(logger logrus.FieldLogger, isError bool, format string, args ...interface{}) {
+func writeLog(logger log.Ext1FieldLogger, isError bool, format string, args ...interface{}) {
 	if isError {
 		logger.Errorf(format, args...)
 	} else {

@@ -114,7 +114,7 @@ func (ghc *GithubContext) SetRefAndSha(defaultBranch string, repoPath string) {
 		if err != nil {
 			log.Warningf("unable to get git ref: %v", err)
 		} else {
-			log.Debugf("using github ref: %s", ref)
+			log.Tracef("using github ref: %s", ref)
 			ghc.Ref = ref
 		}
 

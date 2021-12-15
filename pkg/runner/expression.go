@@ -187,7 +187,7 @@ func EvalBool(evaluator ExpressionEvaluator, expr string) (bool, error) {
 		return false, fmt.Errorf("Unable to map return type to boolean for '%s'", expr)
 	}
 
-	log.Debugf("expression '%s' evaluated to '%t'", nextExpr, result)
+	log.Tracef("expression '%s' evaluated to '%t'", nextExpr, result)
 
 	return result, nil
 }
