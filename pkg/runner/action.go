@@ -13,10 +13,13 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/kballard/go-shellquote"
 	"github.com/nektos/act/pkg/common"
+	"github.com/nektos/act/pkg/common/executor"
+	"github.com/nektos/act/pkg/common/logger"
 	"github.com/nektos/act/pkg/container"
 	"github.com/nektos/act/pkg/model"
+
+	"github.com/kballard/go-shellquote"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -31,7 +34,7 @@ type readAction func(step *model.Step, actionDir string, actionPath string, read
 type actionYamlReader func(filename string) (io.Reader, io.Closer, error)
 type fileWriter func(filename string, data []byte, perm fs.FileMode) error
 
-type runAction func(step actionStep, actionDir string, remoteAction *remoteAction) common.Executor
+type runAction func(step actionStep, actionDir string, remoteAction *remoteAction) executor.Executor
 
 //go:embed res/trampoline.js
 var trampoline embed.FS
@@ -98,7 +101,7 @@ func readActionImpl(step *model.Step, actionDir string, actionPath string, readF
 	return action, err
 }
 
-func runActionImpl(step actionStep, actionDir string, remoteAction *remoteAction) common.Executor {
+func runActionImpl(step actionStep, actionDir string, remoteAction *remoteAction) executor.Executor {
 	rc := step.getRunContext()
 	stepModel := step.getStepModel()
 	return func(ctx context.Context) error {
@@ -205,7 +208,7 @@ func execAsDocker(ctx context.Context, step actionStep, actionName string, based
 	rc := step.getRunContext()
 	action := step.getActionModel()
 
-	var prepImage common.Executor
+	var prepImage executor.Executor
 	var image string
 	if strings.HasPrefix(action.Runs.Image, "docker://") {
 		image = strings.TrimPrefix(action.Runs.Image, "docker://")
@@ -273,7 +276,7 @@ func execAsDocker(ctx context.Context, step actionStep, actionName string, based
 		}
 	}
 	stepContainer := newStepContainer(ctx, step, image, cmd, entrypoint)
-	return common.NewPipelineExecutor(
+	return executor.NewPipelineExecutor(
 		prepImage,
 		stepContainer.Pull(rc.Config.ForcePull),
 		stepContainer.Remove().IfBool(!rc.Config.ReuseContainers),
@@ -318,7 +321,7 @@ func evalDockerArgs(step step, action *model.Action, cmd *[]string) {
 func newStepContainer(ctx context.Context, step step, image string, cmd []string, entrypoint []string) container.Container {
 	rc := step.getRunContext()
 	stepModel := step.getStepModel()
-	rawLogger := common.Logger(ctx).WithField("raw_output", true)
+	rawLogger := logger.Logger(ctx).WithField("raw_output", true)
 	logWriter := common.NewLineWriter(rc.commandHandler(ctx), func(s string) bool {
 		if rc.Config.LogOutput {
 			rawLogger.Infof("%s", s)
@@ -359,14 +362,17 @@ func newStepContainer(ctx context.Context, step step, image string, cmd []string
 	return stepContainer
 }
 
-func execAsComposite(step actionStep) common.Executor {
+func execAsComposite(step actionStep) executor.Executor {
 	rc := step.getRunContext()
 	action := step.getActionModel()
 
 	return func(ctx context.Context) error {
 		// Disable some features of composite actions, only for feature parity with github
 		for _, compositeStep := range action.Runs.Steps {
-			if err := compositeStep.Validate(rc.Config.CompositeRestrictions); err != nil {
+			if rc.Config.CompositeRestrictions == nil {
+				continue
+			}
+			if err := compositeStep.Validate(rc.Config.CompositeRestrictions.(*model.CompositeRestrictions)); err != nil {
 				return err
 			}
 		}

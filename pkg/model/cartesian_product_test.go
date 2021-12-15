@@ -1,4 +1,4 @@
-package common
+package model
 
 import (
 	"testing"
@@ -14,7 +14,7 @@ func TestCartesianProduct(t *testing.T) {
 		"baz": {false, true},
 	}
 
-	output := CartesianProduct(input)
+	output := cartesianProduct(input)
 	assert.Len(output, 24)
 
 	for _, v := range output {
@@ -30,10 +30,10 @@ func TestCartesianProduct(t *testing.T) {
 		"bar": {},
 		"baz": {false, true},
 	}
-	output = CartesianProduct(input)
+	output = cartesianProduct(input)
 	assert.Len(output, 0)
 
 	input = map[string][]interface{}{}
-	output = CartesianProduct(input)
+	output = cartesianProduct(input)
 	assert.Len(output, 0)
 }

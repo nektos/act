@@ -6,6 +6,7 @@ import (
 	"github.com/docker/cli/cli/config"
 	"github.com/docker/cli/cli/config/credentials"
 	"github.com/docker/docker/api/types"
+
 	log "github.com/sirupsen/logrus"
 )
 

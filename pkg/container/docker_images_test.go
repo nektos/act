@@ -7,6 +7,7 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
+
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 )

@@ -6,6 +6,8 @@ import (
 
 	"github.com/nektos/act/pkg/container"
 	"github.com/nektos/act/pkg/model"
+	"github.com/nektos/act/pkg/runner/config"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -22,7 +24,7 @@ func TestStepRun(t *testing.T) {
 		RunContext: &RunContext{
 			StepResults: map[string]*model.StepResult{},
 			ExprEval:    &expressionEvaluator{},
-			Config:      &Config{},
+			Config:      &config.Config{},
 			Run: &model.Run{
 				JobID: "1",
 				Workflow: &model.Workflow{

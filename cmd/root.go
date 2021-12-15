@@ -19,10 +19,13 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/nektos/act/pkg/artifacts"
-	"github.com/nektos/act/pkg/common"
+	"github.com/nektos/act/pkg/common/dryrun"
+	"github.com/nektos/act/pkg/common/executor"
+	"github.com/nektos/act/pkg/common/utils"
 	"github.com/nektos/act/pkg/container"
 	"github.com/nektos/act/pkg/model"
 	"github.com/nektos/act/pkg/runner"
+	"github.com/nektos/act/pkg/runner/config"
 )
 
 // Execute is the entry point to running the CLI
@@ -40,8 +43,10 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.Flags().BoolP("watch", "w", false, "watch the contents of the local repo and run when files change")
 	rootCmd.Flags().BoolP("list", "l", false, "list workflows")
 	rootCmd.Flags().BoolP("graph", "g", false, "draw workflows")
-	rootCmd.Flags().StringP("job", "j", "", "run job")
+	rootCmd.Flags().BoolP("no-color", "", false, "disable colour output including emitting emoji/unicode characters")
 	rootCmd.Flags().BoolP("bug-report", "", false, "Display system information for bug report")
+	rootCmd.Flags().StringP("job", "j", "", "run job")
+	rootCmd.Flags().CountP("verbose", "v", "verbose output")
 
 	rootCmd.Flags().StringArrayVarP(&input.secrets, "secret", "s", []string{}, "secret to make available to actions with optional value (e.g. -s mysecret=foo or -s mysecret)")
 	rootCmd.Flags().StringArrayVarP(&input.envs, "env", "", []string{}, "env to make available to actions with optional value (e.g. --env myenv=foo or --env myenv)")
@@ -63,7 +68,6 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.PersistentFlags().StringVarP(&input.workflowsPath, "workflows", "W", "./.github/workflows/", "path to workflow file(s)")
 	rootCmd.PersistentFlags().BoolVarP(&input.noWorkflowRecurse, "no-recurse", "", false, "Flag to disable running workflows from subdirectories of specified path in '--workflows'/'-W' flag")
 	rootCmd.PersistentFlags().StringVarP(&input.workdir, "directory", "C", ".", "working directory")
-	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "verbose output")
 	rootCmd.PersistentFlags().BoolVar(&input.jsonLogger, "json", false, "Output logs in json format")
 	rootCmd.PersistentFlags().BoolVarP(&input.noOutput, "quiet", "q", false, "disable logging of output from steps")
 	rootCmd.PersistentFlags().BoolVarP(&input.dryrun, "dryrun", "n", false, "dryrun mode")
@@ -221,9 +225,19 @@ func readArgsFile(file string, split bool) []string {
 }
 
 func setupLogging(cmd *cobra.Command, _ []string) {
-	verbose, _ := cmd.Flags().GetBool("verbose")
-	if verbose {
+	verbose, _ := cmd.Flags().GetCount("verbose")
+	switch {
+	case verbose == 1:
 		log.SetLevel(log.DebugLevel)
+	case verbose >= 2:
+		log.SetLevel(log.TraceLevel)
+	default:
+		log.SetLevel(log.InfoLevel)
+	}
+
+	noColor, _ := cmd.Flags().GetBool("no-color")
+	if noColor {
+		os.Setenv("NO_COLOR", "")
 	}
 }
 
@@ -253,12 +267,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 		}
 
 		if runtime.GOOS == "darwin" && runtime.GOARCH == "arm64" && input.containerArchitecture == "" {
-			l := log.New()
-			l.SetFormatter(&log.TextFormatter{
-				DisableQuote:     true,
-				DisableTimestamp: true,
-			})
-			l.Warnf(" \U000026A0 You are using Apple M1 chip and you have not specified container architecture, you might encounter issues while running act. If so, try running it with '--container-architecture linux/amd64'. \U000026A0 \n")
+			log.Warnf("  You are using Apple M1 chip and you have not specified container architecture, you might encounter issues while running act. If so, try running it with '--container-architecture linux/amd64'. \n")
 		}
 
 		log.Debugf("Loading environment from %s", input.Envfile())
@@ -342,7 +351,8 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 					cfgFound = true
 				}
 			}
-			if !cfgFound && len(cfgLocations) > 0 {
+			// Check if config found, if there are config locations and if is capable of answering the survey (example: GitHub Actions isn't)
+			if !cfgFound && len(cfgLocations) > 0 && utils.CheckIfTerminal(os.Stdout) {
 				if err := defaultImageSurvey(cfgLocations[0]); err != nil {
 					log.Fatal(err)
 				}
@@ -351,7 +361,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 		}
 
 		// run the plan
-		config := &runner.Config{
+		config := &config.Config{
 			Actor:                 input.actor,
 			EventName:             eventName,
 			EventPath:             input.EventPath(),
@@ -387,7 +397,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 
 		cancel := artifacts.Serve(ctx, input.artifactServerPath, input.artifactServerPort)
 
-		ctx = common.WithDryrun(ctx, input.dryrun)
+		ctx = dryrun.WithDryrun(ctx, input.dryrun)
 		if watch, err := cmd.Flags().GetBool("watch"); err != nil {
 			return err
 		} else if watch {
@@ -445,7 +455,7 @@ func defaultImageSurvey(actrc string) error {
 	return nil
 }
 
-func watchAndRun(ctx context.Context, fn common.Executor) error {
+func watchAndRun(ctx context.Context, fn executor.Executor) error {
 	recurse := true
 	checkIntervalInSeconds := 2
 	dir, err := os.Getwd()

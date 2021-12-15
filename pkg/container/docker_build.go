@@ -6,15 +6,16 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/nektos/act/pkg/common/dryrun"
+	"github.com/nektos/act/pkg/common/executor"
+	"github.com/nektos/act/pkg/common/logger"
+
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/pkg/archive"
 	"github.com/docker/docker/pkg/fileutils"
-
-	// github.com/docker/docker/builder/dockerignore is deprecated
 	"github.com/moby/buildkit/frontend/dockerfile/dockerignore"
-	log "github.com/sirupsen/logrus"
 
-	"github.com/nektos/act/pkg/common"
+	log "github.com/sirupsen/logrus"
 )
 
 // NewDockerBuildExecutorInput the input for the NewDockerBuildExecutor function
@@ -26,15 +27,15 @@ type NewDockerBuildExecutorInput struct {
 }
 
 // NewDockerBuildExecutor function to create a run executor for the container
-func NewDockerBuildExecutor(input NewDockerBuildExecutorInput) common.Executor {
+func NewDockerBuildExecutor(input NewDockerBuildExecutorInput) executor.Executor {
 	return func(ctx context.Context) error {
-		logger := common.Logger(ctx)
+		logger := logger.Logger(ctx)
 		if input.Platform != "" {
-			logger.Infof("%sdocker build -t %s --platform %s %s", logPrefix, input.ImageTag, input.Platform, input.ContextDir)
+			logger.WithField("emoji", logPrefix).Infof("  docker build -t %s --platform %s %s", input.ImageTag, input.Platform, input.ContextDir)
 		} else {
-			logger.Infof("%sdocker build -t %s %s", logPrefix, input.ImageTag, input.ContextDir)
+			logger.WithField("emoji", logPrefix).Infof("  docker build -t %s %s", input.ImageTag, input.ContextDir)
 		}
-		if common.Dryrun(ctx) {
+		if dryrun.Dryrun(ctx) {
 			return nil
 		}
 

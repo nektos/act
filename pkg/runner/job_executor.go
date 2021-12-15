@@ -5,27 +5,29 @@ import (
 	"fmt"
 
 	"github.com/nektos/act/pkg/common"
+	"github.com/nektos/act/pkg/common/executor"
+	"github.com/nektos/act/pkg/common/logger"
 	"github.com/nektos/act/pkg/model"
 )
 
 type jobInfo interface {
 	matrix() map[string]interface{}
 	steps() []*model.Step
-	startContainer() common.Executor
-	stopContainer() common.Executor
-	closeContainer() common.Executor
-	interpolateOutputs() common.Executor
+	startContainer() executor.Executor
+	stopContainer() executor.Executor
+	closeContainer() executor.Executor
+	interpolateOutputs() executor.Executor
 	result(result string)
 }
 
-func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executor {
-	steps := make([]common.Executor, 0)
-	preSteps := make([]common.Executor, 0)
-	postSteps := make([]common.Executor, 0)
+func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) executor.Executor {
+	steps := make([]executor.Executor, 0)
+	preSteps := make([]executor.Executor, 0)
+	postSteps := make([]executor.Executor, 0)
 
 	steps = append(steps, func(ctx context.Context) error {
 		if len(info.matrix()) > 0 {
-			common.Logger(ctx).Infof("\U0001F9EA  Matrix: %v", info.matrix())
+			logger.Logger(ctx).Infof("\U0001F9EA  Matrix: %v", info.matrix())
 		}
 		return nil
 	})
@@ -33,7 +35,7 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 	infoSteps := info.steps()
 
 	if len(infoSteps) == 0 {
-		return common.NewDebugExecutor("No steps found")
+		return executor.NewDebugExecutor("No steps found")
 	}
 
 	preSteps = append(preSteps, info.startContainer())
@@ -46,7 +48,7 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 		step, err := sf.newStep(stepModel, rc)
 
 		if err != nil {
-			return common.NewErrorExecutor(err)
+			return executor.NewErrorExecutor(err)
 		}
 
 		preSteps = append(preSteps, step.pre())
@@ -57,17 +59,17 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 			return (func(ctx context.Context) error {
 				err := stepExec(ctx)
 				if err != nil {
-					common.Logger(ctx).Errorf("%v", err)
+					logger.Logger(ctx).Errorf("%v", err)
 					common.SetJobError(ctx, err)
 				} else if ctx.Err() != nil {
-					common.Logger(ctx).Errorf("%v", ctx.Err())
+					logger.Logger(ctx).Errorf("%v", ctx.Err())
 					common.SetJobError(ctx, ctx.Err())
 				}
 				return nil
-			})(withStepLogger(ctx, stepName))
+			})(logger.WithStepLogger(ctx, stepName))
 		})
 
-		postSteps = append([]common.Executor{step.post()}, postSteps...)
+		postSteps = append([]executor.Executor{step.post()}, postSteps...)
 	}
 
 	postSteps = append(postSteps, func(ctx context.Context) error {
@@ -85,10 +87,10 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 		return nil
 	})
 
-	pipeline := make([]common.Executor, 0)
+	pipeline := make([]executor.Executor, 0)
 	pipeline = append(pipeline, preSteps...)
 	pipeline = append(pipeline, steps...)
 	pipeline = append(pipeline, postSteps...)
 
-	return common.NewPipelineExecutor(pipeline...).Finally(info.interpolateOutputs()).Finally(info.closeContainer())
+	return executor.NewPipelineExecutor(pipeline...).Finally(info.interpolateOutputs()).Finally(info.closeContainer())
 }

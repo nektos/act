@@ -13,8 +13,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/nektos/act/pkg/common/utils"
+
 	"github.com/julienschmidt/httprouter"
-	"github.com/nektos/act/pkg/common"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -252,7 +253,7 @@ func Serve(ctx context.Context, artifactPath string, port string) context.Cancel
 	fs := os.DirFS(artifactPath)
 	uploads(router, MkdirFsImpl{artifactPath, fs})
 	downloads(router, fs)
-	ip := common.GetOutboundIP().String()
+	ip := utils.GetOutboundIP().String()
 
 	server := &http.Server{Addr: fmt.Sprintf("%s:%s", ip, port), Handler: router}
 

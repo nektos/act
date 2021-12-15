@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/nektos/act/pkg/common"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 )
@@ -277,7 +276,7 @@ func (j *Job) GetMatrixes() []map[string]interface{} {
 			}
 			delete(m, "exclude")
 
-			matrixProduct := common.CartesianProduct(m)
+			matrixProduct := cartesianProduct(m)
 		MATRIX:
 			for _, matrix := range matrixProduct {
 				for _, exclude := range excludes {

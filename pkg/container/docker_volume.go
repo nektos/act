@@ -3,11 +3,14 @@ package container
 import (
 	"context"
 
+	"github.com/nektos/act/pkg/common/dryrun"
+	"github.com/nektos/act/pkg/common/executor"
+	"github.com/nektos/act/pkg/common/logger"
+
 	"github.com/docker/docker/api/types/filters"
-	"github.com/nektos/act/pkg/common"
 )
 
-func NewDockerVolumeRemoveExecutor(volume string, force bool) common.Executor {
+func NewDockerVolumeRemoveExecutor(volume string, force bool) executor.Executor {
 	return func(ctx context.Context) error {
 		cli, err := GetDockerClient(ctx)
 		if err != nil {
@@ -31,12 +34,12 @@ func NewDockerVolumeRemoveExecutor(volume string, force bool) common.Executor {
 	}
 }
 
-func removeExecutor(volume string, force bool) common.Executor {
+func removeExecutor(volume string, force bool) executor.Executor {
 	return func(ctx context.Context) error {
-		logger := common.Logger(ctx)
-		logger.Debugf("%sdocker volume rm %s", logPrefix, volume)
+		logger := logger.Logger(ctx)
+		logger.WithField("emoji", logPrefix).Infof("  docker volume rm %s", volume)
 
-		if common.Dryrun(ctx) {
+		if dryrun.Dryrun(ctx) {
 			return nil
 		}
 

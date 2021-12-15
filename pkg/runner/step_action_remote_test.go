@@ -5,8 +5,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/nektos/act/pkg/common"
+	"github.com/nektos/act/pkg/common/executor"
+	"github.com/nektos/act/pkg/common/git"
 	"github.com/nektos/act/pkg/model"
+	"github.com/nektos/act/pkg/runner/config"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -20,7 +23,7 @@ func (sarm *stepActionRemoteMocks) readAction(step *model.Step, actionDir string
 	return args.Get(0).(*model.Action), args.Error(1)
 }
 
-func (sarm *stepActionRemoteMocks) runAction(step actionStep, actionDir string, remoteAction *remoteAction) common.Executor {
+func (sarm *stepActionRemoteMocks) runAction(step actionStep, actionDir string, remoteAction *remoteAction) executor.Executor {
 	args := sarm.Called(step, actionDir, remoteAction)
 	return args.Get(0).(func(context.Context) error)
 }
@@ -35,7 +38,7 @@ func TestStepActionRemoteTest(t *testing.T) {
 	clonedAction := false
 
 	origStepAtionRemoteNewCloneExecutor := stepActionRemoteNewCloneExecutor
-	stepActionRemoteNewCloneExecutor = func(input common.NewGitCloneExecutorInput) common.Executor {
+	stepActionRemoteNewCloneExecutor = func(input git.NewGitCloneExecutorInput) executor.Executor {
 		return func(ctx context.Context) error {
 			clonedAction = true
 			return nil
@@ -47,7 +50,7 @@ func TestStepActionRemoteTest(t *testing.T) {
 
 	sar := &stepActionRemote{
 		RunContext: &RunContext{
-			Config: &Config{
+			Config: &config.Config{
 				GitHubInstance: "github.com",
 			},
 			Run: &model.Run{

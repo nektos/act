@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"github.com/nektos/act/pkg/common"
+	"github.com/nektos/act/pkg/common/dryrun"
+	"github.com/nektos/act/pkg/common/executor"
 	"github.com/nektos/act/pkg/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -26,7 +28,7 @@ func TestJobExecutor(t *testing.T) {
 		{"testdata", "uses-github-short-sha", "push", "Unable to resolve action `actions/hello-world-docker-action@b136eb8`, the provided ref `b136eb8` is the shortened version of a commit SHA, which is not supported. Please use the full commit SHA `b136eb8894c5cb1dd5807da824be97ccdf9b5423` instead", platforms, ""},
 	}
 	// These tests are sufficient to only check syntax.
-	ctx := common.WithDryrun(context.Background(), true)
+	ctx := dryrun.WithDryrun(context.Background(), true)
 	for _, table := range tables {
 		runTestJobFile(ctx, t, table)
 	}
@@ -47,25 +49,25 @@ func (jim *jobInfoMock) steps() []*model.Step {
 	return args.Get(0).([]*model.Step)
 }
 
-func (jim *jobInfoMock) startContainer() common.Executor {
+func (jim *jobInfoMock) startContainer() executor.Executor {
 	args := jim.Called()
 
 	return args.Get(0).(func(context.Context) error)
 }
 
-func (jim *jobInfoMock) stopContainer() common.Executor {
+func (jim *jobInfoMock) stopContainer() executor.Executor {
 	args := jim.Called()
 
 	return args.Get(0).(func(context.Context) error)
 }
 
-func (jim *jobInfoMock) closeContainer() common.Executor {
+func (jim *jobInfoMock) closeContainer() executor.Executor {
 	args := jim.Called()
 
 	return args.Get(0).(func(context.Context) error)
 }
 
-func (jim *jobInfoMock) interpolateOutputs() common.Executor {
+func (jim *jobInfoMock) interpolateOutputs() executor.Executor {
 	args := jim.Called()
 
 	return args.Get(0).(func(context.Context) error)

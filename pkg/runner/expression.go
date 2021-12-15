@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/nektos/act/pkg/exprparser"
+
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 )

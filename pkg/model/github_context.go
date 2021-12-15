@@ -3,7 +3,8 @@ package model
 import (
 	"fmt"
 
-	"github.com/nektos/act/pkg/common"
+	"github.com/nektos/act/pkg/common/git"
+
 	log "github.com/sirupsen/logrus"
 )
 
@@ -83,8 +84,8 @@ func withDefaultBranch(b string, event map[string]interface{}) map[string]interf
 	return event
 }
 
-var findGitRef = common.FindGitRef
-var findGitRevision = common.FindGitRevision
+var findGitRef = git.FindGitRef
+var findGitRevision = git.FindGitRevision
 
 func (ghc *GithubContext) SetRefAndSha(defaultBranch string, repoPath string) {
 	// https://docs.github.com/en/actions/learn-github-actions/events-that-trigger-workflows
@@ -114,7 +115,7 @@ func (ghc *GithubContext) SetRefAndSha(defaultBranch string, repoPath string) {
 		if err != nil {
 			log.Warningf("unable to get git ref: %v", err)
 		} else {
-			log.Debugf("using github ref: %s", ref)
+			log.Tracef("using github ref: %s", ref)
 			ghc.Ref = ref
 		}
 

@@ -11,16 +11,19 @@ import (
 	"strings"
 
 	"github.com/kballard/go-shellquote"
+	"github.com/mitchellh/go-homedir"
+	"github.com/opencontainers/selinux/go-selinux"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
-	"github.com/mitchellh/go-homedir"
-	log "github.com/sirupsen/logrus"
-
-	selinux "github.com/opencontainers/selinux/go-selinux"
-
 	"github.com/nektos/act/pkg/common"
+	"github.com/nektos/act/pkg/common/executor"
+	"github.com/nektos/act/pkg/common/git"
+	"github.com/nektos/act/pkg/common/logger"
+	"github.com/nektos/act/pkg/common/utils"
 	"github.com/nektos/act/pkg/container"
 	"github.com/nektos/act/pkg/model"
+	"github.com/nektos/act/pkg/runner/config"
 )
 
 const ActPath string = "/var/run/act"
@@ -28,7 +31,7 @@ const ActPath string = "/var/run/act"
 // RunContext contains info about current job
 type RunContext struct {
 	Name             string
-	Config           *Config
+	Config           *config.Config
 	Matrix           map[string]interface{}
 	Run              *model.Run
 	EventJSON        string
@@ -118,12 +121,12 @@ func (rc *RunContext) GetBindsAndMounts() ([]string, map[string]string) {
 	return binds, mounts
 }
 
-func (rc *RunContext) startJobContainer() common.Executor {
+func (rc *RunContext) startJobContainer() executor.Executor {
 	image := rc.platformImage()
 	hostname := rc.hostname()
 
 	return func(ctx context.Context) error {
-		rawLogger := common.Logger(ctx).WithField("raw_output", true)
+		rawLogger := logger.Logger(ctx).WithField("raw_output", true)
 		logWriter := common.NewLineWriter(rc.commandHandler(ctx), func(s string) bool {
 			if rc.Config.LogOutput {
 				rawLogger.Infof("%s", s)
@@ -138,7 +141,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			return fmt.Errorf("failed to handle credentials: %s", err)
 		}
 
-		common.Logger(ctx).Infof("\U0001f680  Start image=%s", image)
+		logger.Logger(ctx).WithField("emoji", "\U0001f680").Infof("  Start image=%s", image)
 		name := rc.jobContainerName()
 
 		envList := make([]string, 0)
@@ -176,7 +179,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			copyToPath = filepath.Join(rc.Config.ContainerWorkdir(), copyToPath)
 		}
 
-		return common.NewPipelineExecutor(
+		return executor.NewPipelineExecutor(
 			rc.JobContainer.Pull(rc.Config.ForcePull),
 			rc.stopJobContainer(),
 			rc.JobContainer.Create(rc.Config.ContainerCapAdd, rc.Config.ContainerCapDrop),
@@ -202,14 +205,14 @@ func (rc *RunContext) startJobContainer() common.Executor {
 	}
 }
 
-func (rc *RunContext) execJobContainer(cmd []string, env map[string]string, user, workdir string) common.Executor {
+func (rc *RunContext) execJobContainer(cmd []string, env map[string]string, user, workdir string) executor.Executor {
 	return func(ctx context.Context) error {
 		return rc.JobContainer.Exec(cmd, env, user, workdir)(ctx)
 	}
 }
 
 // stopJobContainer removes the job container (if it exists) and its volume (if it exists) if !rc.Config.ReuseContainers
-func (rc *RunContext) stopJobContainer() common.Executor {
+func (rc *RunContext) stopJobContainer() executor.Executor {
 	return func(ctx context.Context) error {
 		if rc.JobContainer != nil && !rc.Config.ReuseContainers {
 			return rc.JobContainer.Remove().
@@ -236,7 +239,7 @@ func (rc *RunContext) ActionCacheDir() string {
 }
 
 // Interpolate outputs after a job is done
-func (rc *RunContext) interpolateOutputs() common.Executor {
+func (rc *RunContext) interpolateOutputs() executor.Executor {
 	return func(ctx context.Context) error {
 		ee := rc.NewExpressionEvaluator()
 		for k, v := range rc.Run.Job().Outputs {
@@ -249,15 +252,15 @@ func (rc *RunContext) interpolateOutputs() common.Executor {
 	}
 }
 
-func (rc *RunContext) startContainer() common.Executor {
+func (rc *RunContext) startContainer() executor.Executor {
 	return rc.startJobContainer()
 }
 
-func (rc *RunContext) stopContainer() common.Executor {
+func (rc *RunContext) stopContainer() executor.Executor {
 	return rc.stopJobContainer()
 }
 
-func (rc *RunContext) closeContainer() common.Executor {
+func (rc *RunContext) closeContainer() executor.Executor {
 	return func(ctx context.Context) error {
 		if rc.JobContainer != nil {
 			return rc.JobContainer.Close()(ctx)
@@ -279,7 +282,7 @@ func (rc *RunContext) steps() []*model.Step {
 }
 
 // Executor returns a pipeline executor for all the steps in the job
-func (rc *RunContext) Executor() common.Executor {
+func (rc *RunContext) Executor() executor.Executor {
 	return func(ctx context.Context) error {
 		isEnabled, err := rc.isEnabled(ctx)
 		if err != nil {
@@ -295,8 +298,8 @@ func (rc *RunContext) Executor() common.Executor {
 }
 
 // Executor returns a pipeline executor for all the steps in the job
-func (rc *RunContext) compositeExecutor() common.Executor {
-	steps := make([]common.Executor, 0)
+func (rc *RunContext) compositeExecutor() executor.Executor {
+	steps := make([]executor.Executor, 0)
 
 	sf := &stepFactoryImpl{}
 
@@ -311,17 +314,17 @@ func (rc *RunContext) compositeExecutor() common.Executor {
 
 		step, err := sf.newStep(&stepcopy, rc)
 		if err != nil {
-			return common.NewErrorExecutor(err)
+			return executor.NewErrorExecutor(err)
 		}
-		stepExec := common.NewPipelineExecutor(step.pre(), step.main(), step.post())
+		stepExec := executor.NewPipelineExecutor(step.pre(), step.main(), step.post())
 
 		steps = append(steps, func(ctx context.Context) error {
 			err := stepExec(ctx)
 			if err != nil {
-				common.Logger(ctx).Errorf("%v", err)
+				logger.Logger(ctx).Errorf("%v", err)
 				common.SetJobError(ctx, err)
 			} else if ctx.Err() != nil {
-				common.Logger(ctx).Errorf("%v", ctx.Err())
+				logger.Logger(ctx).Errorf("%v", ctx.Err())
 				common.SetJobError(ctx, ctx.Err())
 			}
 			return nil
@@ -330,7 +333,7 @@ func (rc *RunContext) compositeExecutor() common.Executor {
 
 	steps = append(steps, common.JobError)
 	return func(ctx context.Context) error {
-		return common.NewPipelineExecutor(steps...)(common.WithJobErrorContainer(ctx))
+		return executor.NewPipelineExecutor(steps...)(common.WithJobErrorContainer(ctx))
 	}
 }
 
@@ -381,7 +384,7 @@ func (rc *RunContext) hostname() string {
 
 func (rc *RunContext) isEnabled(ctx context.Context) (bool, error) {
 	job := rc.Run.Job()
-	l := common.Logger(ctx)
+	l := logger.Logger(ctx)
 	runJob, err := EvalBool(rc.ExprEval, job.If.Value)
 	if err != nil {
 		return false, fmt.Errorf("  \u274C  Error in if-expression: \"if: %s\" (%s)", job.If.Value, err)
@@ -399,7 +402,7 @@ func (rc *RunContext) isEnabled(ctx context.Context) (bool, error) {
 
 		for _, runnerLabel := range job.RunsOn() {
 			platformName := rc.ExprEval.Interpolate(runnerLabel)
-			l.Infof("\U0001F6A7  Skipping unsupported platform -- Try running with `-P %+v=...`", platformName)
+			l.WithField("emoji", "\U0001F6A7").Infof("  Skipping unsupported platform -- Try running with `-P %+v=...`", platformName)
 		}
 		return false, nil
 	}
@@ -510,7 +513,7 @@ func (rc *RunContext) getGithubContext() *model.GithubContext {
 	}
 
 	repoPath := rc.Config.Workdir
-	repo, err := common.FindGithubRepo(repoPath, rc.Config.GitHubInstance)
+	repo, err := git.FindGithubRepo(repoPath, rc.Config.GitHubInstance)
 	if err != nil {
 		log.Warningf("unable to get git repo: %v", err)
 	} else {
@@ -654,7 +657,7 @@ func (rc *RunContext) withGithubEnv(env map[string]string) map[string]string {
 func setActionRuntimeVars(rc *RunContext, env map[string]string) {
 	actionsRuntimeURL := os.Getenv("ACTIONS_RUNTIME_URL")
 	if actionsRuntimeURL == "" {
-		actionsRuntimeURL = fmt.Sprintf("http://%s:%s/", common.GetOutboundIP().String(), rc.Config.ArtifactServerPort)
+		actionsRuntimeURL = fmt.Sprintf("http://%s:%s/", utils.GetOutboundIP().String(), rc.Config.ArtifactServerPort)
 	}
 	env["ACTIONS_RUNTIME_URL"] = actionsRuntimeURL
 

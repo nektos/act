@@ -1,8 +1,10 @@
-package common
+package executor
 
 import (
 	"context"
 	"fmt"
+
+	"github.com/nektos/act/pkg/common/logger"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -34,8 +36,17 @@ type Conditional func(ctx context.Context) bool
 // NewInfoExecutor is an executor that logs messages
 func NewInfoExecutor(format string, args ...interface{}) Executor {
 	return func(ctx context.Context) error {
-		logger := Logger(ctx)
+		logger := logger.Logger(ctx)
 		logger.Infof(format, args...)
+		return nil
+	}
+}
+
+// NewInfoExecutor is an executor that logs messages
+func NewDockerInfoExecutor(format string, args ...interface{}) Executor {
+	return func(ctx context.Context) error {
+		logger := logger.Logger(ctx)
+		logger.WithField("emoji", "  \U0001F433").Infof(format, args...)
 		return nil
 	}
 }
@@ -43,7 +54,7 @@ func NewInfoExecutor(format string, args ...interface{}) Executor {
 // NewDebugExecutor is an executor that logs messages
 func NewDebugExecutor(format string, args ...interface{}) Executor {
 	return func(ctx context.Context) error {
-		logger := Logger(ctx)
+		logger := logger.Logger(ctx)
 		logger.Debugf(format, args...)
 		return nil
 	}

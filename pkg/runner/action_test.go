@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"github.com/nektos/act/pkg/model"
+	"github.com/nektos/act/pkg/runner/config"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -161,7 +163,7 @@ func TestActionRunner(t *testing.T) {
 					ActionRepository: "repo",
 					ActionPath:       "path",
 					ActionRef:        "ref",
-					Config:           &Config{},
+					Config:           &config.Config{},
 					Run: &model.Run{
 						JobID: "job",
 						Workflow: &model.Workflow{

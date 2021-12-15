@@ -5,12 +5,14 @@ import (
 	"encoding/base64"
 	"encoding/json"
 
+	"github.com/nektos/act/pkg/common/dryrun"
+	"github.com/nektos/act/pkg/common/executor"
+	"github.com/nektos/act/pkg/common/logger"
+
 	"github.com/docker/distribution/reference"
 	"github.com/docker/docker/api/types"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
-
-	"github.com/nektos/act/pkg/common"
 )
 
 // NewDockerPullExecutorInput the input for the NewDockerPullExecutor function
@@ -23,12 +25,12 @@ type NewDockerPullExecutorInput struct {
 }
 
 // NewDockerPullExecutor function to create a run executor for the container
-func NewDockerPullExecutor(input NewDockerPullExecutorInput) common.Executor {
+func NewDockerPullExecutor(input NewDockerPullExecutorInput) executor.Executor {
 	return func(ctx context.Context) error {
-		logger := common.Logger(ctx)
-		logger.Debugf("%sdocker pull %v", logPrefix, input.Image)
+		logger := logger.Logger(ctx)
+		logger.WithField("emoji", logPrefix).Debugf("  docker pull %v", input.Image)
 
-		if common.Dryrun(ctx) {
+		if dryrun.Dryrun(ctx) {
 			return nil
 		}
 
@@ -79,7 +81,7 @@ func getImagePullOptions(ctx context.Context, input NewDockerPullExecutorInput) 
 	}
 
 	if input.Username != "" && input.Password != "" {
-		logger := common.Logger(ctx)
+		logger := logger.Logger(ctx)
 		logger.Debugf("using authentication for docker pull")
 
 		authConfig := types.AuthConfig{

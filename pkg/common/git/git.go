@@ -1,8 +1,10 @@
-package common
+package git
 
 import (
 	"context"
 	"fmt"
+	"github.com/nektos/act/pkg/common/executor"
+	"github.com/nektos/act/pkg/common/utils"
 	"io"
 	"io/ioutil"
 	"os"
@@ -12,12 +14,13 @@ import (
 	"strings"
 	"sync"
 
-	git "github.com/go-git/go-git/v5"
+	"github.com/nektos/act/pkg/common/logger"
+
+	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-ini/ini"
-	"github.com/mattn/go-isatty"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
@@ -55,7 +58,7 @@ func FindGitRevision(file string) (shortSha string, sha string, err error) {
 		refBuf = []byte(ref)
 	}
 
-	log.Debugf("Found revision: %s", refBuf)
+	log.Tracef("Found revision: %s", refBuf)
 	return string(refBuf[:7]), strings.TrimSpace(string(refBuf)), nil
 }
 
@@ -65,14 +68,14 @@ func FindGitRef(file string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	log.Debugf("Loading revision from git directory '%s'", gitDir)
+	log.Tracef("Loading revision from git directory '%s'", gitDir)
 
 	_, ref, err := FindGitRevision(file)
 	if err != nil {
 		return "", err
 	}
 
-	log.Debugf("HEAD points to '%s'", ref)
+	log.Tracef("HEAD points to '%s'", ref)
 
 	// Prefer the git library to iterate over the references and find a matching tag or branch.
 	var refTag = ""
@@ -86,7 +89,7 @@ func FindGitRef(file string) (string, error) {
 				if r == nil || err != nil {
 					break
 				}
-				// log.Debugf("Reference: name=%s sha=%s", r.Name().String(), r.Hash().String())
+				log.Tracef("Reference: name=%s sha=%s", r.Name().String(), r.Hash().String())
 				if r.Hash().String() == ref {
 					if r.Name().IsTag() {
 						refTag = r.Name().String()
@@ -134,7 +137,7 @@ func findGitPrettyRef(head, root, sub string) (string, error) {
 		if head == pointsTo {
 			// On Windows paths are separated with backslash character so they should be replaced to provide proper git refs format
 			name = strings.TrimPrefix(strings.ReplaceAll(strings.Replace(path, root, "", 1), `\`, `/`), "/")
-			log.Debugf("HEAD matches %s", name)
+			log.Tracef("HEAD matches %s", name)
 		}
 		return nil
 	})
@@ -156,7 +159,7 @@ func findGitRemoteURL(file string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	log.Debugf("Loading slug from git directory '%s'", gitDir)
+	log.Tracef("Loading slug from git directory '%s'", gitDir)
 
 	gitconfig, err := ini.InsensitiveLoad(fmt.Sprintf("%s/config", gitDir))
 	if err != nil {
@@ -233,11 +236,11 @@ type NewGitCloneExecutorInput struct {
 }
 
 // CloneIfRequired ...
-func CloneIfRequired(ctx context.Context, refName plumbing.ReferenceName, input NewGitCloneExecutorInput, logger log.FieldLogger) (*git.Repository, error) {
+func CloneIfRequired(ctx context.Context, refName plumbing.ReferenceName, input NewGitCloneExecutorInput, logger log.Ext1FieldLogger) (*git.Repository, error) {
 	r, err := git.PlainOpen(input.Dir)
 	if err != nil {
 		var progressWriter io.Writer
-		if isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd()) {
+		if utils.CheckIfTerminal(os.Stdout) {
 			if entry, ok := logger.(*log.Entry); ok {
 				progressWriter = entry.WriterLevel(log.DebugLevel)
 			} else if lgr, ok := logger.(*log.Logger); ok {
@@ -275,11 +278,11 @@ func CloneIfRequired(ctx context.Context, refName plumbing.ReferenceName, input 
 
 // NewGitCloneExecutor creates an executor to clone git repos
 // nolint:gocyclo
-func NewGitCloneExecutor(input NewGitCloneExecutorInput) Executor {
+func NewGitCloneExecutor(input NewGitCloneExecutorInput) executor.Executor {
 	return func(ctx context.Context) error {
-		logger := Logger(ctx)
-		logger.Infof("  \u2601  git clone '%s' # ref=%s", input.URL, input.Ref)
-		logger.Debugf("  cloning %s to %s", input.URL, input.Dir)
+		logger := logger.Logger(ctx)
+		logger.WithField("emoji", "  \u2601").Infof("  git clone '%s' # ref=%s", input.URL, input.Ref)
+		logger.Tracef("  cloning %s to %s", input.URL, input.Dir)
 
 		cloneLock.Lock()
 		defer cloneLock.Unlock()
@@ -350,7 +353,7 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) Executor {
 		// Repos on disk point to commit hashes, and need to checkout input.Ref before
 		// we try and pull down any changes
 		if hash.String() != input.Ref && refType == "branch" {
-			logger.Debugf("Provided ref is not a sha. Checking out branch before pulling changes")
+			logger.Tracef("Provided ref is not a sha. Checking out branch before pulling changes")
 			sourceRef := plumbing.ReferenceName(path.Join("refs", "remotes", "origin", input.Ref))
 			if err = w.Checkout(&git.CheckoutOptions{
 				Branch: sourceRef,
@@ -372,12 +375,12 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) Executor {
 		}
 
 		if err = w.Pull(&pullOptions); err != nil && err.Error() != "already up-to-date" {
-			logger.Debugf("Unable to pull %s: %v", refName, err)
+			logger.Tracef("Unable to pull %s: %v", refName, err)
 		}
-		logger.Debugf("Cloned %s to %s", input.URL, input.Dir)
+		logger.Tracef("Cloned %s to %s", input.URL, input.Dir)
 
 		if hash.String() != input.Ref && refType == "branch" {
-			logger.Debugf("Provided ref is not a sha. Updating branch ref after pull")
+			logger.Tracef("Provided ref is not a sha. Updating branch ref after pull")
 			if hash, err = r.ResolveRevision(rev); err != nil {
 				logger.Errorf("Unable to resolve %s: %v", input.Ref, err)
 				return err
@@ -399,7 +402,7 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) Executor {
 			return err
 		}
 
-		logger.Debugf("Checked out %s", input.Ref)
+		logger.Tracef("Checked out %s", input.Ref)
 		return nil
 	}
 }

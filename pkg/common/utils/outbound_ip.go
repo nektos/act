@@ -1,4 +1,4 @@
-package common
+package utils
 
 import (
 	"net"
@@ -6,7 +6,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// https://stackoverflow.com/a/37382208
+// GetOutboundIP https://stackoverflow.com/a/37382208
 // Get preferred outbound ip of this machine
 func GetOutboundIP() net.IP {
 	conn, err := net.Dial("udp", "8.8.8.8:80")

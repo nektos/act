@@ -10,8 +10,11 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/nektos/act/pkg/common"
+	"github.com/nektos/act/pkg/common/executor"
+	"github.com/nektos/act/pkg/common/git"
+	"github.com/nektos/act/pkg/common/logger"
 	"github.com/nektos/act/pkg/model"
+
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
@@ -25,17 +28,17 @@ type stepActionRemote struct {
 	env        map[string]string
 }
 
-func (sar *stepActionRemote) pre() common.Executor {
+func (sar *stepActionRemote) pre() executor.Executor {
 	return func(ctx context.Context) error {
 		return nil
 	}
 }
 
 var (
-	stepActionRemoteNewCloneExecutor = common.NewGitCloneExecutor
+	stepActionRemoteNewCloneExecutor = git.NewGitCloneExecutor
 )
 
-func (sar *stepActionRemote) main() common.Executor {
+func (sar *stepActionRemote) main() executor.Executor {
 	sar.env = map[string]string{}
 
 	return runStepExecutor(sar, func(ctx context.Context) error {
@@ -48,18 +51,18 @@ func (sar *stepActionRemote) main() common.Executor {
 
 		github := sar.RunContext.getGithubContext()
 		if remoteAction.IsCheckout() && isLocalCheckout(github, sar.Step) && !sar.RunContext.Config.NoSkipCheckout {
-			common.Logger(ctx).Debugf("Skipping local actions/checkout because workdir was already copied")
+			logger.Logger(ctx).Debugf("Skipping local actions/checkout because workdir was already copied")
 			return nil
 		}
 
 		actionDir := fmt.Sprintf("%s/%s", sar.RunContext.ActionCacheDir(), strings.ReplaceAll(sar.Step.Uses, "/", "-"))
-		gitClone := stepActionRemoteNewCloneExecutor(common.NewGitCloneExecutorInput{
+		gitClone := stepActionRemoteNewCloneExecutor(git.NewGitCloneExecutorInput{
 			URL:   remoteAction.CloneURL(),
 			Ref:   remoteAction.Ref,
 			Dir:   actionDir,
 			Token: github.Token,
 		})
-		var ntErr common.Executor
+		var ntErr executor.Executor
 		if err := gitClone(ctx); err != nil {
 			if err.Error() == "short SHA references are not supported" {
 				err = errors.Cause(err)
@@ -67,7 +70,7 @@ func (sar *stepActionRemote) main() common.Executor {
 			} else if err.Error() != "some refs were not updated" {
 				return err
 			} else {
-				ntErr = common.NewInfoExecutor("Non-terminating error while running 'git clone': %v", err)
+				ntErr = executor.NewInfoExecutor("Non-terminating error while running 'git clone': %v", err)
 			}
 		}
 
@@ -78,7 +81,7 @@ func (sar *stepActionRemote) main() common.Executor {
 			}
 		}
 
-		return common.NewPipelineExecutor(
+		return executor.NewPipelineExecutor(
 			ntErr,
 			func(ctx context.Context) error {
 				actionModel, err := sar.readAction(sar.Step, actionDir, remoteAction.Path, remoteReader(ctx), ioutil.WriteFile)
@@ -91,7 +94,7 @@ func (sar *stepActionRemote) main() common.Executor {
 	})
 }
 
-func (sar *stepActionRemote) post() common.Executor {
+func (sar *stepActionRemote) post() executor.Executor {
 	return func(ctx context.Context) error {
 		return nil
 	}

@@ -4,8 +4,10 @@ import (
 	"context"
 	"testing"
 
-	"github.com/nektos/act/pkg/common"
+	"github.com/nektos/act/pkg/common/executor"
 	"github.com/nektos/act/pkg/model"
+	"github.com/nektos/act/pkg/runner/config"
+
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -74,17 +76,17 @@ type stepMock struct {
 	step
 }
 
-func (sm *stepMock) pre() common.Executor {
+func (sm *stepMock) pre() executor.Executor {
 	args := sm.Called()
 	return args.Get(0).(func(context.Context) error)
 }
 
-func (sm *stepMock) main() common.Executor {
+func (sm *stepMock) main() executor.Executor {
 	args := sm.Called()
 	return args.Get(0).(func(context.Context) error)
 }
 
-func (sm *stepMock) post() common.Executor {
+func (sm *stepMock) post() executor.Executor {
 	args := sm.Called()
 	return args.Get(0).(func(context.Context) error)
 }
@@ -109,7 +111,7 @@ func TestSetupEnv(t *testing.T) {
 	sm := &stepMock{}
 
 	rc := &RunContext{
-		Config: &Config{
+		Config: &config.Config{
 			Env: map[string]string{
 				"GITHUB_RUN_ID": "runId",
 			},
@@ -201,7 +203,7 @@ func TestIsStepEnabled(t *testing.T) {
 
 		return &stepRun{
 			RunContext: &RunContext{
-				Config: &Config{
+				Config: &config.Config{
 					Workdir: ".",
 					Platforms: map[string]string{
 						"ubuntu-latest": "ubuntu-latest",

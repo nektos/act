@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/nektos/act/pkg/runner"
 	"io/fs"
 	"net/http"
 	"net/http/httptest"
@@ -14,9 +15,10 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/julienschmidt/httprouter"
 	"github.com/nektos/act/pkg/model"
-	"github.com/nektos/act/pkg/runner"
+	"github.com/nektos/act/pkg/runner/config"
+
+	"github.com/julienschmidt/httprouter"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 )
@@ -266,7 +268,7 @@ func runTestJobFile(ctx context.Context, t *testing.T, tjfi TestJobFileInfo) {
 		workdir, err := filepath.Abs(tjfi.workdir)
 		assert.Nil(t, err, workdir)
 		fullWorkflowPath := filepath.Join(workdir, tjfi.workflowPath)
-		runnerConfig := &runner.Config{
+		runnerConfig := &config.Config{
 			Workdir:               workdir,
 			BindWorkdir:           false,
 			EventName:             tjfi.eventName,

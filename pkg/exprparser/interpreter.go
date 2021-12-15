@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/nektos/act/pkg/model"
+
 	"github.com/rhysd/actionlint"
 )
 

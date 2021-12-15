@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"github.com/nektos/act/pkg/model"
+	"github.com/nektos/act/pkg/runner/config"
+
 	assert "github.com/stretchr/testify/assert"
 	yaml "gopkg.in/yaml.v3"
 )
@@ -21,7 +23,7 @@ func createRunContext(t *testing.T) *RunContext {
 	assert.NoError(t, err)
 
 	return &RunContext{
-		Config: &Config{
+		Config: &config.Config{
 			Workdir: ".",
 			Secrets: map[string]string{
 				"CASE_INSENSITIVE_SECRET": "value",
@@ -189,7 +191,7 @@ func TestEvaluateStep(t *testing.T) {
 
 func TestInterpolate(t *testing.T) {
 	rc := &RunContext{
-		Config: &Config{
+		Config: &config.Config{
 			Workdir: ".",
 			Secrets: map[string]string{
 				"CASE_INSENSITIVE_SECRET": "value",

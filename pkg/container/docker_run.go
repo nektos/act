@@ -14,6 +14,11 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/nektos/act/pkg/common/dryrun"
+	"github.com/nektos/act/pkg/common/executor"
+	"github.com/nektos/act/pkg/common/logger"
+	"github.com/nektos/act/pkg/common/utils"
+
 	"github.com/go-git/go-billy/v5/helper/polyfill"
 	"github.com/go-git/go-billy/v5/osfs"
 	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
@@ -30,9 +35,6 @@ import (
 	"github.com/Masterminds/semver"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
-	"golang.org/x/term"
-
-	"github.com/nektos/act/pkg/common"
 )
 
 // NewContainerInput the input for the New function
@@ -65,18 +67,18 @@ type FileEntry struct {
 
 // Container for managing docker run containers
 type Container interface {
-	Create(capAdd []string, capDrop []string) common.Executor
-	Copy(destPath string, files ...*FileEntry) common.Executor
-	CopyDir(destPath string, srcPath string, useGitIgnore bool) common.Executor
+	Create(capAdd []string, capDrop []string) executor.Executor
+	Copy(destPath string, files ...*FileEntry) executor.Executor
+	CopyDir(destPath string, srcPath string, useGitIgnore bool) executor.Executor
 	GetContainerArchive(ctx context.Context, srcPath string) (io.ReadCloser, error)
-	Pull(forcePull bool) common.Executor
-	Start(attach bool) common.Executor
-	Exec(command []string, env map[string]string, user, workdir string) common.Executor
-	UpdateFromEnv(srcPath string, env *map[string]string) common.Executor
-	UpdateFromImageEnv(env *map[string]string) common.Executor
-	UpdateFromPath(env *map[string]string) common.Executor
-	Remove() common.Executor
-	Close() common.Executor
+	Pull(forcePull bool) executor.Executor
+	Start(attach bool) executor.Executor
+	Exec(command []string, env map[string]string, user, workdir string) executor.Executor
+	UpdateFromEnv(srcPath string, env *map[string]string) executor.Executor
+	UpdateFromImageEnv(env *map[string]string) executor.Executor
+	UpdateFromPath(env *map[string]string) executor.Executor
+	Remove() executor.Executor
+	Close() executor.Executor
 }
 
 // NewContainer creates a reference to a container
@@ -89,7 +91,7 @@ func NewContainer(input *NewContainerInput) Container {
 // supportsContainerImagePlatform returns true if the underlying Docker server
 // API version is 1.41 and beyond
 func supportsContainerImagePlatform(ctx context.Context, cli *client.Client) bool {
-	logger := common.Logger(ctx)
+	logger := logger.Logger(ctx)
 	ver, err := cli.ServerVersion(ctx)
 	if err != nil {
 		logger.Panicf("Failed to get Docker API Version: %s", err)
@@ -104,35 +106,32 @@ func supportsContainerImagePlatform(ctx context.Context, cli *client.Client) boo
 	return constraint.Check(sv)
 }
 
-func (cr *containerReference) Create(capAdd []string, capDrop []string) common.Executor {
-	return common.
-		NewInfoExecutor("%sdocker create image=%s platform=%s entrypoint=%+q cmd=%+q", logPrefix, cr.input.Image, cr.input.Platform, cr.input.Entrypoint, cr.input.Cmd).
+func (cr *containerReference) Create(capAdd []string, capDrop []string) executor.Executor {
+	return executor.NewDockerInfoExecutor("  docker create image=%s platform=%s entrypoint=%+q cmd=%+q", cr.input.Image, cr.input.Platform, cr.input.Entrypoint, cr.input.Cmd).
 		Then(
-			common.NewPipelineExecutor(
+			executor.NewPipelineExecutor(
 				cr.connect(),
 				cr.find(),
 				cr.create(capAdd, capDrop),
-			).IfNot(common.Dryrun),
+			).IfNot(dryrun.Dryrun),
 		)
 }
 
-func (cr *containerReference) Start(attach bool) common.Executor {
-	return common.
-		NewInfoExecutor("%sdocker run image=%s platform=%s entrypoint=%+q cmd=%+q", logPrefix, cr.input.Image, cr.input.Platform, cr.input.Entrypoint, cr.input.Cmd).
+func (cr *containerReference) Start(attach bool) executor.Executor {
+	return executor.NewDockerInfoExecutor("  docker run image=%s platform=%s entrypoint=%+q cmd=%+q", cr.input.Image, cr.input.Platform, cr.input.Entrypoint, cr.input.Cmd).
 		Then(
-			common.NewPipelineExecutor(
+			executor.NewPipelineExecutor(
 				cr.connect(),
 				cr.find(),
 				cr.attach().IfBool(attach),
 				cr.start(),
 				cr.wait().IfBool(attach),
-			).IfNot(common.Dryrun),
+			).IfNot(dryrun.Dryrun),
 		)
 }
 
-func (cr *containerReference) Pull(forcePull bool) common.Executor {
-	return common.
-		NewInfoExecutor("%sdocker pull image=%s platform=%s username=%s forcePull=%t", logPrefix, cr.input.Image, cr.input.Platform, cr.input.Username, forcePull).
+func (cr *containerReference) Pull(forcePull bool) executor.Executor {
+	return executor.NewDockerInfoExecutor("  docker pull image=%s platform=%s username=%s forcePull=%t", cr.input.Image, cr.input.Platform, cr.input.Username, forcePull).
 		Then(
 			NewDockerPullExecutor(NewDockerPullExecutorInput{
 				Image:     cr.input.Image,
@@ -144,20 +143,20 @@ func (cr *containerReference) Pull(forcePull bool) common.Executor {
 		)
 }
 
-func (cr *containerReference) Copy(destPath string, files ...*FileEntry) common.Executor {
-	return common.NewPipelineExecutor(
+func (cr *containerReference) Copy(destPath string, files ...*FileEntry) executor.Executor {
+	return executor.NewPipelineExecutor(
 		cr.connect(),
 		cr.find(),
 		cr.copyContent(destPath, files...),
-	).IfNot(common.Dryrun)
+	).IfNot(dryrun.Dryrun)
 }
 
-func (cr *containerReference) CopyDir(destPath string, srcPath string, useGitIgnore bool) common.Executor {
-	return common.NewPipelineExecutor(
-		common.NewInfoExecutor("%sdocker cp src=%s dst=%s", logPrefix, srcPath, destPath),
+func (cr *containerReference) CopyDir(destPath string, srcPath string, useGitIgnore bool) executor.Executor {
+	return executor.NewPipelineExecutor(
+		executor.NewDockerInfoExecutor("  docker cp src=%s dst=%s", srcPath, destPath),
 		cr.Exec([]string{"mkdir", "-p", destPath}, nil, "", ""),
 		cr.copyDir(destPath, srcPath, useGitIgnore),
-	).IfNot(common.Dryrun)
+	).IfNot(dryrun.Dryrun)
 }
 
 func (cr *containerReference) GetContainerArchive(ctx context.Context, srcPath string) (io.ReadCloser, error) {
@@ -165,34 +164,37 @@ func (cr *containerReference) GetContainerArchive(ctx context.Context, srcPath s
 	return a, err
 }
 
-func (cr *containerReference) UpdateFromEnv(srcPath string, env *map[string]string) common.Executor {
-	return cr.extractEnv(srcPath, env).IfNot(common.Dryrun)
+func (cr *containerReference) UpdateFromEnv(srcPath string, env *map[string]string) executor.Executor {
+	return cr.extractEnv(srcPath, env).IfNot(dryrun.Dryrun)
 }
 
-func (cr *containerReference) UpdateFromImageEnv(env *map[string]string) common.Executor {
-	return cr.extractFromImageEnv(env).IfNot(common.Dryrun)
+func (cr *containerReference) UpdateFromImageEnv(env *map[string]string) executor.Executor {
+	return cr.extractFromImageEnv(env).IfNot(dryrun.Dryrun)
 }
 
-func (cr *containerReference) UpdateFromPath(env *map[string]string) common.Executor {
-	return cr.extractPath(env).IfNot(common.Dryrun)
+func (cr *containerReference) UpdateFromPath(env *map[string]string) executor.Executor {
+	return cr.extractPath(env).IfNot(dryrun.Dryrun)
 }
 
-func (cr *containerReference) Exec(command []string, env map[string]string, user, workdir string) common.Executor {
-	return common.NewPipelineExecutor(
-		common.NewInfoExecutor("%sdocker exec cmd=[%s] user=%s workdir=%s", logPrefix, strings.Join(command, " "), user, workdir),
+func (cr *containerReference) Exec(command []string, env map[string]string, user, workdir string) executor.Executor {
+	return executor.NewPipelineExecutor(
+		executor.NewDockerInfoExecutor("  docker exec cmd=%+v user=%s workdir=%s", command, user, workdir),
 		cr.connect(),
 		cr.find(),
 		cr.exec(command, env, user, workdir),
-	).IfNot(common.Dryrun)
+	).IfNot(dryrun.Dryrun)
 }
 
-func (cr *containerReference) Remove() common.Executor {
-	return common.NewPipelineExecutor(
+func (cr *containerReference) Remove() executor.Executor {
+	return executor.NewPipelineExecutor(
 		cr.connect(),
 		cr.find(),
 	).Finally(
-		cr.remove(),
-	).IfNot(common.Dryrun)
+		executor.NewPipelineExecutor(
+			executor.NewDockerInfoExecutor("  docker container rm %s", cr.id),
+			cr.remove(),
+		),
+	).IfNot(dryrun.Dryrun)
 }
 
 type containerReference struct {
@@ -245,7 +247,7 @@ func GetHostInfo(ctx context.Context) (info types.Info, err error) {
 	return info, nil
 }
 
-func (cr *containerReference) connect() common.Executor {
+func (cr *containerReference) connect() executor.Executor {
 	return func(ctx context.Context) error {
 		if cr.cli != nil {
 			return nil
@@ -259,7 +261,7 @@ func (cr *containerReference) connect() common.Executor {
 	}
 }
 
-func (cr *containerReference) Close() common.Executor {
+func (cr *containerReference) Close() executor.Executor {
 	return func(ctx context.Context) error {
 		if cr.cli != nil {
 			cr.cli.Close()
@@ -269,7 +271,7 @@ func (cr *containerReference) Close() common.Executor {
 	}
 }
 
-func (cr *containerReference) find() common.Executor {
+func (cr *containerReference) find() executor.Executor {
 	return func(ctx context.Context) error {
 		if cr.id != "" {
 			return nil
@@ -295,13 +297,13 @@ func (cr *containerReference) find() common.Executor {
 	}
 }
 
-func (cr *containerReference) remove() common.Executor {
+func (cr *containerReference) remove() executor.Executor {
 	return func(ctx context.Context) error {
 		if cr.id == "" {
 			return nil
 		}
 
-		logger := common.Logger(ctx)
+		logger := logger.Logger(ctx)
 		err := cr.cli.ContainerRemove(ctx, cr.id, types.ContainerRemoveOptions{
 			RemoveVolumes: true,
 			Force:         true,
@@ -310,19 +312,19 @@ func (cr *containerReference) remove() common.Executor {
 			logger.Error(errors.WithStack(err))
 		}
 
-		logger.Debugf("Removed container: %v", cr.id)
 		cr.id = ""
 		return nil
 	}
 }
 
-func (cr *containerReference) create(capAdd []string, capDrop []string) common.Executor {
+func (cr *containerReference) create(capAdd []string, capDrop []string) executor.Executor {
 	return func(ctx context.Context) error {
 		if cr.id != "" {
 			return nil
 		}
-		logger := common.Logger(ctx)
-		isTerminal := term.IsTerminal(int(os.Stdout.Fd()))
+
+		logger := logger.Logger(ctx)
+		isTerminal := utils.CheckIfTerminal(os.Stdout)
 		input := cr.input
 
 		config := &container.Config{
@@ -385,7 +387,7 @@ func (cr *containerReference) create(capAdd []string, capDrop []string) common.E
 
 var singleLineEnvPattern, mulitiLineEnvPattern *regexp.Regexp
 
-func (cr *containerReference) extractEnv(srcPath string, env *map[string]string) common.Executor {
+func (cr *containerReference) extractEnv(srcPath string, env *map[string]string) executor.Executor {
 	if singleLineEnvPattern == nil {
 		// Single line pattern matches:
 		// SOME_VAR=data=moredata
@@ -435,10 +437,10 @@ func (cr *containerReference) extractEnv(srcPath string, env *map[string]string)
 	}
 }
 
-func (cr *containerReference) extractFromImageEnv(env *map[string]string) common.Executor {
+func (cr *containerReference) extractFromImageEnv(env *map[string]string) executor.Executor {
 	envMap := *env
 	return func(ctx context.Context) error {
-		logger := common.Logger(ctx)
+		logger := logger.Logger(ctx)
 
 		inspect, _, err := cr.cli.ImageInspectWithRaw(ctx, cr.input.Image)
 		if err != nil {
@@ -467,7 +469,7 @@ func (cr *containerReference) extractFromImageEnv(env *map[string]string) common
 	}
 }
 
-func (cr *containerReference) extractPath(env *map[string]string) common.Executor {
+func (cr *containerReference) extractPath(env *map[string]string) executor.Executor {
 	localEnv := *env
 	return func(ctx context.Context) error {
 		pathTar, _, err := cr.cli.CopyFromContainer(ctx, cr.id, localEnv["GITHUB_PATH"])
@@ -492,9 +494,10 @@ func (cr *containerReference) extractPath(env *map[string]string) common.Executo
 	}
 }
 
-func (cr *containerReference) exec(cmd []string, env map[string]string, user, workdir string) common.Executor {
+// nolint:gocyclo
+func (cr *containerReference) exec(cmd []string, env map[string]string, user, workdir string) executor.Executor {
 	return func(ctx context.Context) error {
-		logger := common.Logger(ctx)
+		logger := logger.Logger(ctx)
 		// Fix slashes when running on Windows
 		if runtime.GOOS == "windows" {
 			var newCmd []string
@@ -505,7 +508,7 @@ func (cr *containerReference) exec(cmd []string, env map[string]string, user, wo
 		}
 
 		logger.Debugf("Exec command '%s'", cmd)
-		isTerminal := term.IsTerminal(int(os.Stdout.Fd()))
+		isTerminal := utils.CheckIfTerminal(os.Stdout)
 		envList := make([]string, 0)
 		for k, v := range env {
 			envList = append(envList, fmt.Sprintf("%s=%s", k, v))
@@ -568,8 +571,12 @@ func (cr *containerReference) exec(cmd []string, env map[string]string, user, wo
 			return errors.WithStack(err)
 		}
 
-		if inspectResp.ExitCode == 0 {
+		switch inspectResp.ExitCode {
+		case 0:
 			return nil
+		case 127:
+			logger.Warnf("process exited with code 127 - command not found")
+			logger.Warnf("this docker image might not contain all required tools, please see https://github.com/nektos/act/issues/107 for more information")
 		}
 
 		return fmt.Errorf("exit with `FAILURE`: %v", inspectResp.ExitCode)
@@ -577,9 +584,9 @@ func (cr *containerReference) exec(cmd []string, env map[string]string, user, wo
 }
 
 // nolint: gocyclo
-func (cr *containerReference) copyDir(dstPath string, srcPath string, useGitIgnore bool) common.Executor {
+func (cr *containerReference) copyDir(dstPath string, srcPath string, useGitIgnore bool) executor.Executor {
 	return func(ctx context.Context) error {
-		logger := common.Logger(ctx)
+		logger := logger.Logger(ctx)
 		tarFile, err := ioutil.TempFile("", "act")
 		if err != nil {
 			return err
@@ -688,9 +695,9 @@ func (cr *containerReference) copyDir(dstPath string, srcPath string, useGitIgno
 	}
 }
 
-func (cr *containerReference) copyContent(dstPath string, files ...*FileEntry) common.Executor {
+func (cr *containerReference) copyContent(dstPath string, files ...*FileEntry) executor.Executor {
 	return func(ctx context.Context) error {
-		logger := common.Logger(ctx)
+		logger := logger.Logger(ctx)
 		var buf bytes.Buffer
 		tw := tar.NewWriter(&buf)
 		for _, file := range files {
@@ -720,7 +727,7 @@ func (cr *containerReference) copyContent(dstPath string, files ...*FileEntry) c
 	}
 }
 
-func (cr *containerReference) attach() common.Executor {
+func (cr *containerReference) attach() executor.Executor {
 	return func(ctx context.Context) error {
 		out, err := cr.cli.ContainerAttach(ctx, cr.id, types.ContainerAttachOptions{
 			Stream: true,
@@ -730,7 +737,7 @@ func (cr *containerReference) attach() common.Executor {
 		if err != nil {
 			return errors.WithStack(err)
 		}
-		isTerminal := term.IsTerminal(int(os.Stdout.Fd()))
+		isTerminal := utils.CheckIfTerminal(os.Stdout)
 
 		var outWriter io.Writer
 		outWriter = cr.input.Stdout
@@ -748,16 +755,16 @@ func (cr *containerReference) attach() common.Executor {
 				_, err = io.Copy(outWriter, out.Reader)
 			}
 			if err != nil {
-				common.Logger(ctx).Error(err)
+				logger.Logger(ctx).Error(err)
 			}
 		}()
 		return nil
 	}
 }
 
-func (cr *containerReference) start() common.Executor {
+func (cr *containerReference) start() executor.Executor {
 	return func(ctx context.Context) error {
-		logger := common.Logger(ctx)
+		logger := logger.Logger(ctx)
 		logger.Debugf("Starting container: %v", cr.id)
 
 		if err := cr.cli.ContainerStart(ctx, cr.id, types.ContainerStartOptions{}); err != nil {
@@ -769,9 +776,9 @@ func (cr *containerReference) start() common.Executor {
 	}
 }
 
-func (cr *containerReference) wait() common.Executor {
+func (cr *containerReference) wait() executor.Executor {
 	return func(ctx context.Context) error {
-		logger := common.Logger(ctx)
+		logger := logger.Logger(ctx)
 		statusCh, errCh := cr.cli.ContainerWait(ctx, cr.id, container.WaitConditionNotRunning)
 		var statusCode int64
 		select {

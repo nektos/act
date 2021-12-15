@@ -9,8 +9,9 @@ import (
 	"path"
 	"path/filepath"
 
-	"github.com/nektos/act/pkg/common"
+	"github.com/nektos/act/pkg/common/executor"
 	"github.com/nektos/act/pkg/model"
+
 	log "github.com/sirupsen/logrus"
 )
 
@@ -23,13 +24,13 @@ type stepActionLocal struct {
 	action     *model.Action
 }
 
-func (sal *stepActionLocal) pre() common.Executor {
+func (sal *stepActionLocal) pre() executor.Executor {
 	return func(ctx context.Context) error {
 		return nil
 	}
 }
 
-func (sal *stepActionLocal) main() common.Executor {
+func (sal *stepActionLocal) main() executor.Executor {
 	sal.env = map[string]string{}
 
 	return runStepExecutor(sal, func(ctx context.Context) error {
@@ -62,7 +63,7 @@ func (sal *stepActionLocal) main() common.Executor {
 	})
 }
 
-func (sal *stepActionLocal) post() common.Executor {
+func (sal *stepActionLocal) post() executor.Executor {
 	return func(ctx context.Context) error {
 		return nil
 	}

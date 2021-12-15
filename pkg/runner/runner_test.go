@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
-	"strings"
 	"testing"
 
 	"github.com/joho/godotenv"
@@ -14,13 +12,28 @@ import (
 	assert "github.com/stretchr/testify/assert"
 
 	"github.com/nektos/act/pkg/model"
+	"github.com/nektos/act/pkg/runner/config"
 )
 
-var baseImage = "node:16-buster-slim"
+var (
+	baseImage = "node:16-buster-slim"
+	platforms map[string]string
+)
 
 func init() {
 	if p := os.Getenv("ACT_TEST_IMAGE"); p != "" {
 		baseImage = p
+	}
+
+	platforms = map[string]string{
+		"ubuntu-latest": baseImage,
+	}
+
+	log.SetLevel(log.TraceLevel)
+	if l := os.Getenv("ACT_CUSTOM_LOG_LEVEL"); l != "" {
+		if lvl, err := log.ParseLevel(l); err == nil {
+			log.SetLevel(lvl)
+		}
 	}
 }
 
@@ -56,7 +69,7 @@ func runTestJobFile(ctx context.Context, t *testing.T, tjfi TestJobFileInfo) {
 		workdir, err := filepath.Abs(tjfi.workdir)
 		assert.Nil(t, err, workdir)
 		fullWorkflowPath := filepath.Join(workdir, tjfi.workflowPath)
-		runnerConfig := &Config{
+		runnerConfig := &config.Config{
 			Workdir:               workdir,
 			BindWorkdir:           false,
 			EventName:             tjfi.eventName,
@@ -86,10 +99,6 @@ func runTestJobFile(ctx context.Context, t *testing.T, tjfi TestJobFileInfo) {
 func TestRunEvent(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
-	}
-
-	platforms := map[string]string{
-		"ubuntu-latest": baseImage,
 	}
 
 	tables := []TestJobFileInfo{
@@ -145,7 +154,6 @@ func TestRunEvent(t *testing.T) {
 		// single test for different architecture: linux/arm64
 		{"testdata", "basic", "push", "", platforms, "linux/arm64"},
 	}
-	log.SetLevel(log.DebugLevel)
 
 	ctx := context.Background()
 
@@ -159,12 +167,7 @@ func TestRunEventSecrets(t *testing.T) {
 		t.Skip("skipping integration test")
 	}
 
-	log.SetLevel(log.DebugLevel)
 	ctx := context.Background()
-
-	platforms := map[string]string{
-		"ubuntu-latest": baseImage,
-	}
 
 	workflowPath := "secrets"
 	eventName := "push"
@@ -175,7 +178,7 @@ func TestRunEventSecrets(t *testing.T) {
 	env, _ := godotenv.Read(filepath.Join(workdir, workflowPath, ".env"))
 	secrets, _ := godotenv.Read(filepath.Join(workdir, workflowPath, ".secrets"))
 
-	runnerConfig := &Config{
+	runnerConfig := &config.Config{
 		Workdir:         workdir,
 		EventName:       eventName,
 		Platforms:       platforms,
@@ -200,12 +203,7 @@ func TestRunEventPullRequest(t *testing.T) {
 		t.Skip("skipping integration test")
 	}
 
-	log.SetLevel(log.DebugLevel)
 	ctx := context.Background()
-
-	platforms := map[string]string{
-		"ubuntu-latest": baseImage,
-	}
 
 	workflowPath := "pull-request"
 	eventName := "pull_request"
@@ -213,7 +211,7 @@ func TestRunEventPullRequest(t *testing.T) {
 	workdir, err := filepath.Abs("testdata")
 	assert.Nil(t, err, workflowPath)
 
-	runnerConfig := &Config{
+	runnerConfig := &config.Config{
 		Workdir:         workdir,
 		EventName:       eventName,
 		EventPath:       filepath.Join(workdir, workflowPath, "event.json"),
@@ -230,61 +228,4 @@ func TestRunEventPullRequest(t *testing.T) {
 
 	err = runner.NewPlanExecutor(plan)(ctx)
 	assert.Nil(t, err, workflowPath)
-}
-
-func TestContainerPath(t *testing.T) {
-	type containerPathJob struct {
-		destinationPath string
-		sourcePath      string
-		workDir         string
-	}
-
-	if runtime.GOOS == "windows" {
-		cwd, err := os.Getwd()
-		if err != nil {
-			log.Error(err)
-		}
-
-		rootDrive := os.Getenv("SystemDrive")
-		rootDriveLetter := strings.ReplaceAll(strings.ToLower(rootDrive), `:`, "")
-		for _, v := range []containerPathJob{
-			{"/mnt/c/Users/act/go/src/github.com/nektos/act", "C:\\Users\\act\\go\\src\\github.com\\nektos\\act\\", ""},
-			{"/mnt/f/work/dir", `F:\work\dir`, ""},
-			{"/mnt/c/windows/to/unix", "windows\\to\\unix", fmt.Sprintf("%s\\", rootDrive)},
-			{fmt.Sprintf("/mnt/%v/act", rootDriveLetter), "act", fmt.Sprintf("%s\\", rootDrive)},
-		} {
-			if v.workDir != "" {
-				if err := os.Chdir(v.workDir); err != nil {
-					log.Error(err)
-					t.Fail()
-				}
-			}
-
-			runnerConfig := &Config{
-				Workdir: v.sourcePath,
-			}
-
-			assert.Equal(t, v.destinationPath, runnerConfig.containerPath(runnerConfig.Workdir))
-		}
-
-		if err := os.Chdir(cwd); err != nil {
-			log.Error(err)
-		}
-	} else {
-		cwd, err := os.Getwd()
-		if err != nil {
-			log.Error(err)
-		}
-		for _, v := range []containerPathJob{
-			{"/home/act/go/src/github.com/nektos/act", "/home/act/go/src/github.com/nektos/act", ""},
-			{"/home/act", `/home/act/`, ""},
-			{cwd, ".", ""},
-		} {
-			runnerConfig := &Config{
-				Workdir: v.sourcePath,
-			}
-
-			assert.Equal(t, v.destinationPath, runnerConfig.containerPath(runnerConfig.Workdir))
-		}
-	}
 }

@@ -11,12 +11,16 @@ import (
 	"testing"
 
 	"github.com/nektos/act/pkg/model"
+	"github.com/nektos/act/pkg/runner/config"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/sirupsen/logrus/hooks/test"
 	assert "github.com/stretchr/testify/assert"
 	yaml "gopkg.in/yaml.v3"
 )
+
+func init() {
+	log.SetLevel(log.TraceLevel)
+}
 
 func TestRunContext_EvalBool(t *testing.T) {
 	var yml yaml.Node
@@ -26,9 +30,8 @@ func TestRunContext_EvalBool(t *testing.T) {
 	})
 	assert.NoError(t, err)
 
-	hook := test.NewGlobal()
 	rc := &RunContext{
-		Config: &Config{
+		Config: &config.Config{
 			Workdir: ".",
 		},
 		Env: map[string]string{
@@ -157,14 +160,12 @@ func TestRunContext_EvalBool(t *testing.T) {
 		table := table
 		t.Run(table.in, func(t *testing.T) {
 			assertObject := assert.New(t)
-			defer hook.Reset()
 			b, err := EvalBool(rc.ExprEval, table.in)
 			if table.wantErr {
 				assertObject.Error(err)
 			}
 
 			assertObject.Equal(table.out, b, fmt.Sprintf("Expected %s to be %v, was %v", table.in, table.out, b))
-			assertObject.Empty(hook.LastEntry(), table.in)
 		})
 	}
 }
@@ -238,7 +239,7 @@ func TestRunContext_GetBindsAndMounts(t *testing.T) {
 				Name: "TestWorkflowName",
 			},
 		},
-		Config: &Config{
+		Config: &config.Config{
 			BindWorkdir: false,
 		},
 	}
@@ -302,7 +303,7 @@ func TestGetGitHubContext(t *testing.T) {
 	assert.Nil(t, err)
 
 	rc := &RunContext{
-		Config: &Config{
+		Config: &config.Config{
 			EventName: "push",
 			Workdir:   cwd,
 		},
@@ -340,7 +341,7 @@ func TestGetGitHubContext(t *testing.T) {
 	}
 
 	assert.Equal(t, ghc.RunID, "1")
-	assert.Equal(t, ghc.Workspace, rc.Config.containerPath(cwd))
+	assert.Equal(t, ghc.Workspace, rc.Config.ContainerWorkdir())
 	assert.Equal(t, ghc.RunNumber, "1")
 	assert.Equal(t, ghc.RetentionDays, "0")
 	assert.Equal(t, ghc.Actor, actor)
@@ -353,7 +354,7 @@ func TestGetGitHubContext(t *testing.T) {
 
 func createIfTestRunContext(jobs map[string]*model.Job) *RunContext {
 	rc := &RunContext{
-		Config: &Config{
+		Config: &config.Config{
 			Workdir: ".",
 			Platforms: map[string]string{
 				"ubuntu-latest": "ubuntu-latest",

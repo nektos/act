@@ -1,7 +1,7 @@
-package common
+package model
 
 // CartesianProduct takes map of lists and returns list of unique tuples
-func CartesianProduct(mapOfLists map[string][]interface{}) []map[string]interface{} {
+func cartesianProduct(mapOfLists map[string][]interface{}) []map[string]interface{} {
 	listNames := make([]string, 0)
 	lists := make([][]interface{}, 0)
 	for k, v := range mapOfLists {

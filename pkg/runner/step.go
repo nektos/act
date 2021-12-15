@@ -5,22 +5,24 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/nektos/act/pkg/common"
+	"github.com/nektos/act/pkg/common/executor"
+	"github.com/nektos/act/pkg/common/logger"
 	"github.com/nektos/act/pkg/model"
+
 	log "github.com/sirupsen/logrus"
 )
 
 type step interface {
-	pre() common.Executor
-	main() common.Executor
-	post() common.Executor
+	pre() executor.Executor
+	main() executor.Executor
+	post() executor.Executor
 
 	getRunContext() *RunContext
 	getStepModel() *model.Step
 	getEnv() *map[string]string
 }
 
-func runStepExecutor(step step, executor common.Executor) common.Executor {
+func runStepExecutor(step step, executor executor.Executor) executor.Executor {
 	return func(ctx context.Context) error {
 		rc := step.getRunContext()
 		stepModel := step.getStepModel()
@@ -51,18 +53,18 @@ func runStepExecutor(step step, executor common.Executor) common.Executor {
 			return nil
 		}
 
-		common.Logger(ctx).Infof("\u2B50  Run %s", stepModel)
+		logger.Logger(ctx).Infof("\u2B50  Run %s", stepModel)
 
 		err = executor(ctx)
 
 		if err == nil {
-			common.Logger(ctx).Infof("  \u2705  Success - %s", stepModel)
+			logger.Logger(ctx).Infof("  \u2705  Success - %s", stepModel)
 		} else {
-			common.Logger(ctx).Errorf("  \u274C  Failure - %s", stepModel)
+			logger.Logger(ctx).Errorf("  \u274C  Failure - %s", stepModel)
 
 			rc.StepResults[rc.CurrentStep].Outcome = model.StepStatusFailure
 			if stepModel.ContinueOnError {
-				common.Logger(ctx).Infof("Failed but continue next step")
+				logger.Logger(ctx).Infof("Failed but continue next step")
 				err = nil
 				rc.StepResults[rc.CurrentStep].Conclusion = model.StepStatusSuccess
 			} else {
@@ -96,7 +98,7 @@ func setupEnv(ctx context.Context, step step) error {
 		(*step.getEnv())[k] = exprEval.Interpolate(v)
 	}
 
-	common.Logger(ctx).Debugf("setupEnv => %v", *step.getEnv())
+	logger.Logger(ctx).Debugf("setupEnv => %v", *step.getEnv())
 
 	return nil
 }

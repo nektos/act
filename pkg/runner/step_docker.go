@@ -6,7 +6,10 @@ import (
 	"strings"
 
 	"github.com/kballard/go-shellquote"
+
 	"github.com/nektos/act/pkg/common"
+	"github.com/nektos/act/pkg/common/executor"
+	"github.com/nektos/act/pkg/common/logger"
 	"github.com/nektos/act/pkg/container"
 	"github.com/nektos/act/pkg/model"
 )
@@ -17,19 +20,19 @@ type stepDocker struct {
 	env        map[string]string
 }
 
-func (sd *stepDocker) pre() common.Executor {
+func (sd *stepDocker) pre() executor.Executor {
 	return func(ctx context.Context) error {
 		return nil
 	}
 }
 
-func (sd *stepDocker) main() common.Executor {
+func (sd *stepDocker) main() executor.Executor {
 	sd.env = map[string]string{}
 
 	return runStepExecutor(sd, sd.runUsesContainer())
 }
 
-func (sd *stepDocker) post() common.Executor {
+func (sd *stepDocker) post() executor.Executor {
 	return func(ctx context.Context) error {
 		return nil
 	}
@@ -47,7 +50,7 @@ func (sd *stepDocker) getEnv() *map[string]string {
 	return &sd.env
 }
 
-func (sd *stepDocker) runUsesContainer() common.Executor {
+func (sd *stepDocker) runUsesContainer() executor.Executor {
 	rc := sd.RunContext
 	step := sd.Step
 
@@ -66,7 +69,7 @@ func (sd *stepDocker) runUsesContainer() common.Executor {
 
 		stepContainer := sd.newStepContainer(ctx, image, cmd, entrypoint)
 
-		return common.NewPipelineExecutor(
+		return executor.NewPipelineExecutor(
 			stepContainer.Pull(rc.Config.ForcePull),
 			stepContainer.Remove().IfBool(!rc.Config.ReuseContainers),
 			stepContainer.Create(rc.Config.ContainerCapAdd, rc.Config.ContainerCapDrop),
@@ -85,7 +88,7 @@ func (sd *stepDocker) newStepContainer(ctx context.Context, image string, cmd []
 	rc := sd.RunContext
 	step := sd.Step
 
-	rawLogger := common.Logger(ctx).WithField("raw_output", true)
+	rawLogger := logger.Logger(ctx).WithField("raw_output", true)
 	logWriter := common.NewLineWriter(rc.commandHandler(ctx), func(s string) bool {
 		if rc.Config.LogOutput {
 			rawLogger.Infof("%s", s)

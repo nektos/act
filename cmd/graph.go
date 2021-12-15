@@ -3,15 +3,15 @@ package cmd
 import (
 	"os"
 
-	"github.com/nektos/act/pkg/common"
+	"github.com/nektos/act/pkg/common/utils"
 	"github.com/nektos/act/pkg/model"
 )
 
 func drawGraph(plan *model.Plan) error {
-	drawings := make([]*common.Drawing, 0)
+	drawings := make([]*utils.Drawing, 0)
 
-	jobPen := common.NewPen(common.StyleSingleLine, 96)
-	arrowPen := common.NewPen(common.StyleNoLine, 97)
+	jobPen := utils.NewPen(utils.StyleSingleLine, 96)
+	arrowPen := utils.NewPen(utils.StyleNoLine, 97)
 	for i, stage := range plan.Stages {
 		if i > 0 {
 			drawings = append(drawings, arrowPen.DrawArrow())

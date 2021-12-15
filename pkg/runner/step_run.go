@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/kballard/go-shellquote"
-	"github.com/nektos/act/pkg/common"
+	"github.com/nektos/act/pkg/common/executor"
 	"github.com/nektos/act/pkg/container"
 	"github.com/nektos/act/pkg/model"
+
+	"github.com/kballard/go-shellquote"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -19,16 +20,16 @@ type stepRun struct {
 	env        map[string]string
 }
 
-func (sr *stepRun) pre() common.Executor {
+func (sr *stepRun) pre() executor.Executor {
 	return func(ctx context.Context) error {
 		return nil
 	}
 }
 
-func (sr *stepRun) main() common.Executor {
+func (sr *stepRun) main() executor.Executor {
 	sr.env = map[string]string{}
 
-	return runStepExecutor(sr, common.NewPipelineExecutor(
+	return runStepExecutor(sr, executor.NewPipelineExecutor(
 		sr.setupShellCommandExecutor(),
 		func(ctx context.Context) error {
 			return sr.getRunContext().JobContainer.Exec(sr.cmd, sr.env, "", sr.Step.WorkingDirectory)(ctx)
@@ -36,7 +37,7 @@ func (sr *stepRun) main() common.Executor {
 	))
 }
 
-func (sr *stepRun) post() common.Executor {
+func (sr *stepRun) post() executor.Executor {
 	return func(ctx context.Context) error {
 		return nil
 	}
@@ -54,7 +55,7 @@ func (sr *stepRun) getEnv() *map[string]string {
 	return &sr.env
 }
 
-func (sr *stepRun) setupShellCommandExecutor() common.Executor {
+func (sr *stepRun) setupShellCommandExecutor() executor.Executor {
 	return func(ctx context.Context) error {
 		scriptName, script, err := sr.setupShellCommand()
 		if err != nil {

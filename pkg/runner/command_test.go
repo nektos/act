@@ -10,8 +10,9 @@ import (
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/nektos/act/pkg/common"
+	"github.com/nektos/act/pkg/common/logger"
 	"github.com/nektos/act/pkg/model"
+	"github.com/nektos/act/pkg/runner/config"
 )
 
 func TestSetEnv(t *testing.T) {
@@ -68,10 +69,10 @@ func TestAddpath(t *testing.T) {
 }
 
 func TestStopCommands(t *testing.T) {
-	logger, hook := test.NewNullLogger()
+	_logger, hook := test.NewNullLogger()
 
 	a := assert.New(t)
-	ctx := common.WithLogger(context.Background(), logger)
+	ctx := logger.WithLogger(context.Background(), _logger)
 	rc := new(RunContext)
 	handler := rc.commandHandler(ctx)
 
@@ -89,7 +90,7 @@ func TestStopCommands(t *testing.T) {
 		messages = append(messages, entry.Message)
 	}
 
-	a.Contains(messages, "  \U00002699  ::set-env name=x::abcd\n")
+	a.Contains(messages, "  ::set-env name=x::abcd\n")
 }
 
 func TestAddpathADO(t *testing.T) {
@@ -106,11 +107,11 @@ func TestAddpathADO(t *testing.T) {
 }
 
 func TestAddmask(t *testing.T) {
-	logger, hook := test.NewNullLogger()
+	_logger, hook := test.NewNullLogger()
 
 	a := assert.New(t)
 	ctx := context.Background()
-	loggerCtx := common.WithLogger(ctx, logger)
+	loggerCtx := logger.WithLogger(ctx, _logger)
 
 	rc := new(RunContext)
 	handler := rc.commandHandler(loggerCtx)
@@ -157,14 +158,14 @@ func TestAddmaskUsemask(t *testing.T) {
 
 	a := assert.New(t)
 
-	config := &Config{
+	cfg := &config.Config{
 		Secrets:         map[string]string{},
 		InsecureSecrets: false,
 	}
 
 	re := captureOutput(t, func() {
 		ctx := context.Background()
-		ctx = WithJobLogger(ctx, "testjob", config, &rc.Masks)
+		ctx = logger.WithJobLogger(ctx, "testjob", cfg, &rc.Masks)
 
 		handler := rc.commandHandler(ctx)
 		handler("::add-mask::secret\n")

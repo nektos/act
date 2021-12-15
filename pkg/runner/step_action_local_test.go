@@ -4,8 +4,10 @@ import (
 	"context"
 	"testing"
 
-	"github.com/nektos/act/pkg/common"
+	"github.com/nektos/act/pkg/common/executor"
 	"github.com/nektos/act/pkg/model"
+	"github.com/nektos/act/pkg/runner/config"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -14,7 +16,7 @@ type stepActionLocalMocks struct {
 	mock.Mock
 }
 
-func (salm *stepActionLocalMocks) runAction(step actionStep, actionDir string, remoteAction *remoteAction) common.Executor {
+func (salm *stepActionLocalMocks) runAction(step actionStep, actionDir string, remoteAction *remoteAction) executor.Executor {
 	args := salm.Called(step, actionDir, remoteAction)
 	return args.Get(0).(func(context.Context) error)
 }
@@ -36,7 +38,7 @@ func TestStepActionLocalTest(t *testing.T) {
 		RunContext: &RunContext{
 			StepResults: map[string]*model.StepResult{},
 			ExprEval:    &expressionEvaluator{},
-			Config: &Config{
+			Config: &config.Config{
 				Workdir: "/tmp",
 			},
 			Run: &model.Run{
