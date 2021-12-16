@@ -266,6 +266,7 @@ func TestStep_ShellCommand(t *testing.T) {
 		shell string
 		want  string
 	}{
+		{"pwsh -v '. {0}'", "pwsh -v '. {0}'"},
 		{"pwsh", "pwsh -command . '{0}'"},
 		{"powershell", "powershell -command . '{0}'"},
 	}
