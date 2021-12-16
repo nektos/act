@@ -12,7 +12,7 @@ indent_size = 4
 indent_style = space
 indent_size = 2
 
-[Dockerfile]
+[{Dockerfile,*.md}]
 indent_style = unset
 indent_size = unset
 
