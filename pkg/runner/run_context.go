@@ -620,17 +620,19 @@ func (rc *RunContext) getJobContext() *jobContext {
 	}
 
 	services := make(map[string]jobServiceContext, len(job.Services))
-	for name, container := range rc.ServiceContainers {
-		service := job.Services[name]
-		ports := make(map[string]string, len(service.Ports))
-		for _, v := range service.Ports {
-			split := strings.Split(v, `:`)
-			ports[split[0]] = split[1]
-		}
-		services[name] = jobServiceContext{
-			ID:      container.ID(),
-			Network: rc.JobNetworkName(),
-			Ports:   ports,
+	if rc.ServiceContainers != nil {
+		for name, container := range rc.ServiceContainers {
+			service := job.Services[name]
+			ports := make(map[string]string, len(service.Ports))
+			for _, v := range service.Ports {
+				split := strings.Split(v, `:`)
+				ports[split[0]] = split[1]
+			}
+			services[name] = jobServiceContext{
+				ID:      container.ID(),
+				Network: rc.JobNetworkName(),
+				Ports:   ports,
+			}
 		}
 	}
 
