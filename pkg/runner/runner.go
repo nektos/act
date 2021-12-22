@@ -188,7 +188,7 @@ func (runner *runnerImpl) newRunContext(run *model.Run, matrix map[string]interf
 		Config:      runner.config,
 		Run:         run,
 		EventJSON:   runner.eventJSON,
-		StepResults: make(map[string]*stepResult),
+		StepResults: make(map[string]*model.StepResult),
 		Matrix:      matrix,
 	}
 	rc.ExprEval = rc.NewExpressionEvaluator()

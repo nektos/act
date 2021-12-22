@@ -35,7 +35,7 @@ type RunContext struct {
 	Env              map[string]string
 	ExtraPath        []string
 	CurrentStep      string
-	StepResults      map[string]*stepResult
+	StepResults      map[string]*model.StepResult
 	ExprEval         ExpressionEvaluator
 	JobContainer     container.Container
 	OutputMappings   map[MappableOutput]MappableOutput
@@ -53,7 +53,7 @@ func (rc *RunContext) Clone() *RunContext {
 	clone.CurrentStep = ""
 	clone.Composite = nil
 	clone.Inputs = nil
-	clone.StepResults = make(map[string]*stepResult)
+	clone.StepResults = make(map[string]*model.StepResult)
 	clone.Parent = rc
 	return &clone
 }
@@ -65,46 +65,6 @@ type MappableOutput struct {
 
 func (rc *RunContext) String() string {
 	return fmt.Sprintf("%s/%s", rc.Run.Workflow.Name, rc.Name)
-}
-
-type stepStatus int
-
-const (
-	stepStatusSuccess stepStatus = iota
-	stepStatusFailure
-)
-
-var stepStatusStrings = [...]string{
-	"success",
-	"failure",
-}
-
-func (s stepStatus) MarshalText() ([]byte, error) {
-	return []byte(s.String()), nil
-}
-
-func (s *stepStatus) UnmarshalText(b []byte) error {
-	str := string(b)
-	for i, name := range stepStatusStrings {
-		if name == str {
-			*s = stepStatus(i)
-			return nil
-		}
-	}
-	return fmt.Errorf("invalid step status %q", str)
-}
-
-func (s stepStatus) String() string {
-	if int(s) >= len(stepStatusStrings) {
-		return ""
-	}
-	return stepStatusStrings[s]
-}
-
-type stepResult struct {
-	Outputs    map[string]string `json:"outputs"`
-	Conclusion stepStatus        `json:"conclusion"`
-	Outcome    stepStatus        `json:"outcome"`
 }
 
 // GetEnv returns the env for the context
@@ -349,16 +309,16 @@ func (rc *RunContext) newStepExecutor(step *model.Step) common.Executor {
 	}
 	return func(ctx context.Context) error {
 		rc.CurrentStep = sc.Step.ID
-		rc.StepResults[rc.CurrentStep] = &stepResult{
-			Outcome:    stepStatusSuccess,
-			Conclusion: stepStatusSuccess,
+		rc.StepResults[rc.CurrentStep] = &model.StepResult{
+			Outcome:    model.StepStatusSuccess,
+			Conclusion: model.StepStatusSuccess,
 			Outputs:    make(map[string]string),
 		}
 
 		runStep, err := sc.isEnabled(ctx)
 		if err != nil {
-			rc.StepResults[rc.CurrentStep].Conclusion = stepStatusFailure
-			rc.StepResults[rc.CurrentStep].Outcome = stepStatusFailure
+			rc.StepResults[rc.CurrentStep].Conclusion = model.StepStatusFailure
+			rc.StepResults[rc.CurrentStep].Outcome = model.StepStatusFailure
 			return err
 		}
 
@@ -380,13 +340,13 @@ func (rc *RunContext) newStepExecutor(step *model.Step) common.Executor {
 		} else {
 			common.Logger(ctx).Errorf("  \u274C  Failure - %s", sc.Step)
 
-			rc.StepResults[rc.CurrentStep].Outcome = stepStatusFailure
+			rc.StepResults[rc.CurrentStep].Outcome = model.StepStatusFailure
 			if sc.Step.ContinueOnError {
 				common.Logger(ctx).Infof("Failed but continue next step")
 				err = nil
-				rc.StepResults[rc.CurrentStep].Conclusion = stepStatusSuccess
+				rc.StepResults[rc.CurrentStep].Conclusion = model.StepStatusSuccess
 			} else {
-				rc.StepResults[rc.CurrentStep].Conclusion = stepStatusFailure
+				rc.StepResults[rc.CurrentStep].Conclusion = model.StepStatusFailure
 			}
 		}
 		return err
@@ -522,31 +482,20 @@ func trimToLen(s string, l int) string {
 	return s
 }
 
-type jobContext struct {
-	Status    string `json:"status"`
-	Container struct {
-		ID      string `json:"id"`
-		Network string `json:"network"`
-	} `json:"container"`
-	Services map[string]struct {
-		ID string `json:"id"`
-	} `json:"services"`
-}
-
-func (rc *RunContext) getJobContext() *jobContext {
+func (rc *RunContext) getJobContext() *model.JobContext {
 	jobStatus := "success"
 	for _, stepStatus := range rc.StepResults {
-		if stepStatus.Conclusion == stepStatusFailure {
+		if stepStatus.Conclusion == model.StepStatusFailure {
 			jobStatus = "failure"
 			break
 		}
 	}
-	return &jobContext{
+	return &model.JobContext{
 		Status: jobStatus,
 	}
 }
 
-func (rc *RunContext) getStepsContext() map[string]*stepResult {
+func (rc *RunContext) getStepsContext() map[string]*model.StepResult {
 	return rc.StepResults
 }
 
@@ -561,35 +510,8 @@ func (rc *RunContext) getNeedsTransitive(job *model.Job) []string {
 	return needs
 }
 
-type githubContext struct {
-	Event            map[string]interface{} `json:"event"`
-	EventPath        string                 `json:"event_path"`
-	Workflow         string                 `json:"workflow"`
-	RunID            string                 `json:"run_id"`
-	RunNumber        string                 `json:"run_number"`
-	Actor            string                 `json:"actor"`
-	Repository       string                 `json:"repository"`
-	EventName        string                 `json:"event_name"`
-	Sha              string                 `json:"sha"`
-	Ref              string                 `json:"ref"`
-	HeadRef          string                 `json:"head_ref"`
-	BaseRef          string                 `json:"base_ref"`
-	Token            string                 `json:"token"`
-	Workspace        string                 `json:"workspace"`
-	Action           string                 `json:"action"`
-	ActionPath       string                 `json:"action_path"`
-	ActionRef        string                 `json:"action_ref"`
-	ActionRepository string                 `json:"action_repository"`
-	Job              string                 `json:"job"`
-	JobName          string                 `json:"job_name"`
-	RepositoryOwner  string                 `json:"repository_owner"`
-	RetentionDays    string                 `json:"retention_days"`
-	RunnerPerflog    string                 `json:"runner_perflog"`
-	RunnerTrackingID string                 `json:"runner_tracking_id"`
-}
-
-func (rc *RunContext) getGithubContext() *githubContext {
-	ghc := &githubContext{
+func (rc *RunContext) getGithubContext() *model.GithubContext {
+	ghc := &model.GithubContext{
 		Event:            make(map[string]interface{}),
 		EventPath:        ActPath + "/workflow/event.json",
 		Workflow:         rc.Run.Workflow.Name,
@@ -685,7 +607,7 @@ func (rc *RunContext) getGithubContext() *githubContext {
 	return ghc
 }
 
-func (ghc *githubContext) isLocalCheckout(step *model.Step) bool {
+func isLocalCheckout(ghc *model.GithubContext, step *model.Step) bool {
 	if step.Type() == model.StepTypeInvalid {
 		// This will be errored out by the executor later, we need this here to avoid a null panic though
 		return false
@@ -839,7 +761,7 @@ func setActionRuntimeVars(rc *RunContext, env map[string]string) {
 func (rc *RunContext) localCheckoutPath() (string, bool) {
 	ghContext := rc.getGithubContext()
 	for _, step := range rc.Run.Job().Steps {
-		if ghContext.isLocalCheckout(step) {
+		if isLocalCheckout(ghContext, step) {
 			return step.With["path"], true
 		}
 	}
