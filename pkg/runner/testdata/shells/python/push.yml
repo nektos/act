@@ -1,9 +1,11 @@
 on: push
+env:
+  MY_SHELL: python
 jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - shell: python
+      - shell: ${{ env.MY_SHELL }}
         run: |
           import platform
           print(platform.python_version())
@@ -11,7 +13,16 @@ jobs:
     runs-on: ubuntu-latest
     container: node:16-buster
     steps:
-      - shell: python
+      - shell: ${{ env.MY_SHELL }}
         run: |
+          import platform
+          print(platform.python_version())
+  check-job-default:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: ${{ env.MY_SHELL }}
+    steps:
+      - run: |
           import platform
           print(platform.python_version())
