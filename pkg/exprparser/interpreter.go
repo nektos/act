@@ -237,7 +237,7 @@ func (impl *interperterImpl) getPropertyValue(left reflect.Value, property strin
 			}
 		}
 
-		return nil, fmt.Errorf("'%s' not found in '%s'", property, left.Type())
+		return nil, nil
 
 	case reflect.Slice:
 		var values []interface{}

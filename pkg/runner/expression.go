@@ -191,6 +191,10 @@ func EvalBool(evaluator ExpressionEvaluator, expr string) (bool, error) {
 	return result, nil
 }
 
+func escapeFormatString(in string) string {
+	return strings.ReplaceAll(strings.ReplaceAll(in, "{", "{{"), "}", "}}")
+}
+
 //nolint:gocyclo
 func rewriteSubExpression(in string, forceFormat bool) (string, error) {
 	if !strings.Contains(in, "${{") || !strings.Contains(in, "}}") {
@@ -237,11 +241,11 @@ func rewriteSubExpression(in string, forceFormat bool) (string, error) {
 		} else {
 			exprStart = strings.Index(in[pos:], "${{")
 			if exprStart != -1 {
-				formatOut += in[pos : pos+exprStart]
+				formatOut += escapeFormatString(in[pos : pos+exprStart])
 				exprStart = pos + exprStart + 3
 				pos = exprStart
 			} else {
-				formatOut += in[pos:]
+				formatOut += escapeFormatString(in[pos:])
 				pos = len(in)
 			}
 		}
