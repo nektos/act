@@ -14,7 +14,7 @@ jobs:
           fi
   check-container:
     runs-on: ubuntu-latest
-    container: node:12-buster-slim
+    container: node:16-buster-slim
     steps:
       - shell: ${{ env.MY_SHELL }}
         run: |

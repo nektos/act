@@ -12,6 +12,8 @@
 | ----------------------------------- | ------------------------------------------------------ |
 | [`node:12-buster`][hub/_/node]      | ![`buster-size`][hub/_/node/12-buster/size]            |
 | [`node:12-buster-slim`][hub/_/node] | ![`micro-buster-size`][hub/_/node/12-buster-slim/size] |
+| [`node:16-buster`][hub/_/node]      | ![`buster-size`][hub/_/node/16-buster/size]            |
+| [`node:16-buster-slim`][hub/_/node] | ![`micro-buster-size`][hub/_/node/16-buster-slim/size] |
 
 **Note: `catthehacker/ubuntu` images are based on Ubuntu root filesystem**
 
@@ -44,6 +46,8 @@ Feel free to make a pull request with your image added here
 [hub/_/node]: https://hub.docker.com/r/_/node
 [hub/_/node/12-buster/size]: https://img.shields.io/docker/image-size/_/node/12-buster
 [hub/_/node/12-buster-slim/size]: https://img.shields.io/docker/image-size/_/node/12-buster-slim
+[hub/_/node/16-buster/size]: https://img.shields.io/docker/image-size/_/node/16-buster
+[hub/_/node/16-buster-slim/size]: https://img.shields.io/docker/image-size/_/node/16-buster-slim
 [ghcr/catthehacker/ubuntu]: https://github.com/catthehacker/docker_images/pkgs/container/ubuntu
 [hub/nektos/act-environments-ubuntu]: https://hub.docker.com/r/nektos/act-environments-ubuntu
 [hub/nektos/act-environments-ubuntu/18.04/size]: https://img.shields.io/docker/image-size/nektos/act-environments-ubuntu/18.04
