@@ -14,11 +14,21 @@ jobs:
         test_input_optional_with_default_overriden: 'test_input_optional_with_default_overriden'
         test_input_required_with_default: 'test_input_optional_value'
         test_input_required_with_default_overriden: 'test_input_required_with_default_overriden'
-
+        secret_input: ${{secrets.test_input_optional || 'NO SUCH SECRET'}}
+      env:
+        secret_input: ${{secrets.test_input_optional || 'NO SUCH SECRET'}}
     - if: steps.composite.outputs.test_output != "test_output_value"
       run: |
         echo "steps.composite.outputs.test_output=${{ steps.composite.outputs.test_output }}"
         exit 1
+    - run: |
+        echo "steps.composite.outputs.secret_output=${{ steps.composite.outputs.secret_output }}"
+        [[ "${{steps.composite.outputs.secret_output == format('{0}/{0}', secrets.test_input_optional || 'NO SUCH SECRET')}}" = "true" ]] || exit 1
+      shell: bash
+    - run: |
+        echo "steps.composite.outputs.secret_output=$COMPOSITE_ACTION_ENV_OUTPUT"
+        [[ "${{env.COMPOSITE_ACTION_ENV_OUTPUT == 'my test value' }}" = "true" ]] || exit 1
+      shell: bash
 
     # Now test again with default values
     - uses: ./uses-composite/composite_action
@@ -30,5 +40,5 @@ jobs:
 
     - if: steps.composite2.outputs.test_output != "test_output_value"
       run: |
-        echo "steps.composite.outputs.test_output=${{ steps.composite.outputs.test_output }}"
+        echo "steps.composite.outputs.test_output=${{ steps.composite2.outputs.test_output }}"
         exit 1

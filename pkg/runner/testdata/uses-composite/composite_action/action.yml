@@ -22,11 +22,15 @@ inputs:
     description: "Required with default, due to an old bug of github actions this is allowed"
     required: true
     default: "test_input_optional_value"
-
+  secret_input:
+    description: test pass a secret as input
 outputs:
   test_output:
     description: "Output value to pass up"
-    value: ${{ step.output.outputs.test_output }}
+    value: ${{ steps.output.outputs.test_output }}
+  secret_output:
+    description: test pass a secret as output
+    value: ${{ format('{0}/{1}', inputs.secret_input, env.secret_input) }}
 
 runs:
   using: "composite"
@@ -85,6 +89,8 @@ runs:
 
     # Let's send up an output to test
     - run: echo "::set-output name=test_output::test_output_value"
+      id: output
       shell: bash
-
+    - run: echo "COMPOSITE_ACTION_ENV_OUTPUT=my test value" >> $GITHUB_ENV
+      shell: bash
 
