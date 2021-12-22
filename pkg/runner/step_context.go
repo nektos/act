@@ -46,7 +46,7 @@ func (e formatError) Error() string {
 }
 
 // Executor for a step context
-func (sc *StepContext) Executor() common.Executor {
+func (sc *StepContext) Executor(ctx context.Context) common.Executor {
 	rc := sc.RunContext
 	step := sc.Step
 
@@ -92,7 +92,7 @@ func (sc *StepContext) Executor() common.Executor {
 			Token: github.Token,
 		})
 		var ntErr common.Executor
-		if err := gitClone(context.TODO()); err != nil {
+		if err := gitClone(ctx); err != nil {
 			if err.Error() == "short SHA references are not supported" {
 				err = errors.Cause(err)
 				return common.NewErrorExecutor(fmt.Errorf("Unable to resolve action `%s`, the provided ref `%s` is the shortened version of a commit SHA, which is not supported. Please use the full commit SHA `%s` instead", step.Uses, remoteAction.Ref, err.Error()))
@@ -482,7 +482,6 @@ func (sc *StepContext) getContainerActionPaths(step *model.Step, actionDir strin
 	return actionName, containerActionDir
 }
 
-// nolint: gocyclo
 func (sc *StepContext) runAction(actionDir string, actionPath string, localAction bool) common.Executor {
 	rc := sc.RunContext
 	step := sc.Step
@@ -704,7 +703,7 @@ func (sc *StepContext) execAsComposite(ctx context.Context, step *model.Step, _ 
 
 		stepContext.Step = &stepClone
 
-		executors = append(executors, stepContext.Executor())
+		executors = append(executors, stepContext.Executor(ctx))
 	}
 	return common.NewPipelineExecutor(executors...)(ctx)
 }
