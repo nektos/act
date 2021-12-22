@@ -57,6 +57,7 @@ func (rc *RunContext) NewExpressionEvaluator() ExpressionEvaluator {
 		Strategy: strategy,
 		Matrix:   rc.Matrix,
 		Needs:    using,
+		Inputs:   rc.Inputs,
 	}
 	return expressionEvaluator{
 		interpreter: exprparser.NewInterpeter(ee, exprparser.Config{
