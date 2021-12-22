@@ -1,9 +1,11 @@
 on: push
+env:
+  MY_SHELL: sh
 jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - shell: sh
+      - shell: ${{ env.MY_SHELL }}
         run: |
           if [ -z ${BASH+x} ]; then
             echo "I'm sh!"
@@ -14,8 +16,20 @@ jobs:
     runs-on: ubuntu-latest
     container: alpine:latest
     steps:
-      - shell: sh
+      - shell: ${{ env.MY_SHELL }}
         run: |
+          if [ -z ${BASH+x} ]; then
+            echo "I'm sh!"
+          else
+            exit 1
+          fi
+  check-job-default:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: ${{ env.MY_SHELL }}
+    steps:
+      - run: |
           if [ -z ${BASH+x} ]; then
             echo "I'm sh!"
           else

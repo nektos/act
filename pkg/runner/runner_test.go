@@ -98,6 +98,8 @@ func TestRunEvent(t *testing.T) {
 		{"testdata", "runs-on", "push", "", platforms, ""},
 		{"testdata", "checkout", "push", "", platforms, ""},
 		{"testdata", "shells/defaults", "push", "", platforms, ""},
+		// TODO: figure out why it fails
+		// {"testdata", "shells/custom", "push", "", map[string]string{"ubuntu-latest": "ghcr.io/justingrote/act-pwsh:latest"}, ""}, // custom image with pwsh
 		{"testdata", "shells/pwsh", "push", "", map[string]string{"ubuntu-latest": "ghcr.io/justingrote/act-pwsh:latest"}, ""}, // custom image with pwsh
 		{"testdata", "shells/bash", "push", "", platforms, ""},
 		{"testdata", "shells/python", "push", "", map[string]string{"ubuntu-latest": "node:12-buster"}, ""}, // slim doesn't have python
