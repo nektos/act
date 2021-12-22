@@ -15,7 +15,9 @@ import (
 	git "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
+	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 	"github.com/go-ini/ini"
 	"github.com/mattn/go-isatty"
 	"github.com/pkg/errors"
@@ -233,7 +235,7 @@ type NewGitCloneExecutorInput struct {
 }
 
 // cloneIfRequired ...
-func cloneIfRequired(ctx context.Context, refName plumbing.ReferenceName, input NewGitCloneExecutorInput, logger log.FieldLogger) (*git.Repository, error) {
+func cloneIfRequired(ctx context.Context, refName plumbing.ReferenceName, input NewGitCloneExecutorInput, auth transport.AuthMethod, logger log.FieldLogger) (*git.Repository, error) {
 	r, err := git.PlainOpen(input.Dir)
 	if err != nil {
 		var progressWriter io.Writer
@@ -251,18 +253,24 @@ func cloneIfRequired(ctx context.Context, refName plumbing.ReferenceName, input 
 		cloneOptions := git.CloneOptions{
 			URL:      input.URL,
 			Progress: progressWriter,
+			Auth:     auth,
 		}
-		if input.Token != "" {
-			cloneOptions.Auth = &http.BasicAuth{
-				Username: "token",
-				Password: input.Token,
-			}
+		if _, ok := auth.(*ssh.PublicKeysCallback); ok {
+			cloneOptions.URL = strings.Replace(input.URL, "https://", "ssh://", 1)
 		}
 
 		r, err = git.PlainCloneContext(ctx, input.Dir, false, &cloneOptions)
 		if err != nil {
-			logger.Errorf("Unable to clone %v %s: %v", input.URL, refName, err)
-			return nil, err
+			if strings.HasPrefix(err.Error(), "ssh: unable to authenticate") {
+				cloneOptions.URL = input.URL
+				cloneOptions.Auth = nil
+				r, err = git.PlainCloneContext(ctx, input.Dir, false, &cloneOptions)
+			}
+
+			if err != nil {
+				logger.Errorf("Unable to clone %v %s: %v", input.URL, refName, err)
+				return nil, err
+			}
 		}
 
 		if err = os.Chmod(input.Dir, 0755); err != nil {
@@ -284,8 +292,24 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) Executor {
 		cloneLock.Lock()
 		defer cloneLock.Unlock()
 
+		var auth transport.AuthMethod
+		var err error
+
+		if input.Token != "" {
+			auth = &http.BasicAuth{
+				Username: "token",
+				Password: input.Token,
+			}
+		} else {
+			auth, err = ssh.NewSSHAgentAuth("git")
+			if err != nil {
+				logger.Warnf("Unable to get ssh agent auth: %s", err)
+				auth = nil
+			}
+		}
+
 		refName := plumbing.ReferenceName(fmt.Sprintf("refs/heads/%s", input.Ref))
-		r, err := cloneIfRequired(ctx, refName, input, logger)
+		r, err := cloneIfRequired(ctx, refName, input, auth, logger)
 		if err != nil {
 			return err
 		}
@@ -293,17 +317,18 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) Executor {
 		// fetch latest changes
 		fetchOptions := git.FetchOptions{
 			RefSpecs: []config.RefSpec{"refs/*:refs/*", "HEAD:refs/heads/HEAD"},
-		}
-		if input.Token != "" {
-			fetchOptions.Auth = &http.BasicAuth{
-				Username: "token",
-				Password: input.Token,
-			}
+			Auth:     auth,
 		}
 
-		err = r.Fetch(&fetchOptions)
-		if err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
-			return err
+		if err = r.Fetch(&fetchOptions); err != nil {
+			if strings.HasPrefix(err.Error(), "ssh: unable to authenticate") {
+				fetchOptions.Auth = nil
+				err = r.Fetch(&fetchOptions)
+			}
+
+			if err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
+				return err
+			}
 		}
 
 		var hash *plumbing.Hash
@@ -363,17 +388,20 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) Executor {
 
 		pullOptions := git.PullOptions{
 			Force: true,
+			Auth:  auth,
 		}
-		if input.Token != "" {
-			pullOptions.Auth = &http.BasicAuth{
-				Username: "token",
-				Password: input.Token,
+
+		if err = w.Pull(&pullOptions); err != nil {
+			if strings.HasPrefix(err.Error(), "ssh: unable to authenticate") {
+				pullOptions.Auth = nil
+				err = w.Pull(&pullOptions)
+			}
+
+			if err != nil && err.Error() != "already up-to-date" {
+				logger.Debugf("Unable to pull %s: %v", refName, err)
 			}
 		}
 
-		if err = w.Pull(&pullOptions); err != nil && err.Error() != "already up-to-date" {
-			logger.Debugf("Unable to pull %s: %v", refName, err)
-		}
 		logger.Debugf("Cloned %s to %s", input.URL, input.Dir)
 
 		if hash.String() != input.Ref && refType == "branch" {
