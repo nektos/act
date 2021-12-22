@@ -54,16 +54,10 @@ lint-md:
 .PHONY: lint-rest
 lint-rest:
 	docker run --rm -it \
-		-e 'RUN_LOCAL=true' \
-		-e 'FILTER_REGEX_EXCLUDE=.*testdata/*' \
-		-e 'VALIDATE_BASH=false' \
-		-e 'VALIDATE_DOCKERFILE=false' \
-		-e 'VALIDATE_DOCKERFILE_HADOLINT=false' \
-		-e 'VALIDATE_GO=false' \
-		-e 'VALIDATE_JSCPD=false' \
-		-e 'VALIDATE_SHELL_SHFMT=false' \
 		-v $(PWD):/tmp/lint \
-		github/super-linter
+		-e GITHUB_STATUS_REPORTER=false \
+		-e GITHUB_COMMENT_REPORTER=false \
+		megalinter/megalinter-go:v5
 
 .PHONY: lint
 lint: lint-go lint-rest

@@ -46,14 +46,14 @@ func (e formatError) Error() string {
 }
 
 // Executor for a step context
-func (sc *StepContext) Executor() common.Executor {
+func (sc *StepContext) Executor(ctx context.Context) common.Executor {
 	rc := sc.RunContext
 	step := sc.Step
 
 	switch step.Type() {
 	case model.StepTypeRun:
 		return common.NewPipelineExecutor(
-			sc.setupShellCommand(),
+			sc.setupShellCommandExecutor(),
 			sc.execJobContainer(),
 		)
 
@@ -92,7 +92,7 @@ func (sc *StepContext) Executor() common.Executor {
 			Token: github.Token,
 		})
 		var ntErr common.Executor
-		if err := gitClone(context.TODO()); err != nil {
+		if err := gitClone(ctx); err != nil {
 			if err.Error() == "short SHA references are not supported" {
 				err = errors.Cause(err)
 				return common.NewErrorExecutor(fmt.Errorf("Unable to resolve action `%s`, the provided ref `%s` is the shortened version of a commit SHA, which is not supported. Please use the full commit SHA `%s` instead", step.Uses, remoteAction.Ref, err.Error()))
@@ -185,87 +185,106 @@ func (sc *StepContext) setupEnv(ctx context.Context) (ExpressionEvaluator, error
 	return evaluator, nil
 }
 
-// nolint:gocyclo
-func (sc *StepContext) setupShellCommand() common.Executor {
+func (sc *StepContext) setupWorkingDirectory() {
 	rc := sc.RunContext
 	step := sc.Step
+
+	if step.WorkingDirectory == "" {
+		step.WorkingDirectory = rc.Run.Job().Defaults.Run.WorkingDirectory
+	}
+
+	// jobs can receive context values, so we interpolate
+	step.WorkingDirectory = rc.ExprEval.Interpolate(step.WorkingDirectory)
+
+	// but top level keys in workflow file like `defaults` or `env` can't
+	if step.WorkingDirectory == "" {
+		step.WorkingDirectory = rc.Run.Workflow.Defaults.Run.WorkingDirectory
+	}
+}
+
+func (sc *StepContext) setupShell() {
+	rc := sc.RunContext
+	step := sc.Step
+
+	if step.Shell == "" {
+		step.Shell = rc.Run.Job().Defaults.Run.Shell
+	}
+
+	step.Shell = rc.ExprEval.Interpolate(step.Shell)
+
+	if step.Shell == "" {
+		step.Shell = rc.Run.Workflow.Defaults.Run.Shell
+	}
+
+	// current GitHub Runner behaviour is that default is `sh`,
+	// but if it's not container it validates with `which` command
+	// if `bash` is available, and provides `bash` if it is
+	// for now I'm going to leave below logic, will address it in different PR
+	// https://github.com/actions/runner/blob/9a829995e02d2db64efb939dc2f283002595d4d9/src/Runner.Worker/Handlers/ScriptHandler.cs#L87-L91
+	if rc.Run.Job().Container() != nil {
+		if rc.Run.Job().Container().Image != "" && step.Shell == "" {
+			step.Shell = "sh"
+		}
+	}
+}
+
+// TODO: Currently we just ignore top level keys, BUT we should return proper error on them
+// BUTx2 I leave this for when we rewrite act to use actionlint for workflow validation
+// so we return proper errors before any execution or spawning containers
+// it will error anyway with:
+// OCI runtime exec failed: exec failed: container_linux.go:380: starting container process caused: exec: "${{": executable file not found in $PATH: unknown
+func (sc *StepContext) setupShellCommand() (name, script string, err error) {
+	sc.setupShell()
+	sc.setupWorkingDirectory()
+
+	step := sc.Step
+
+	script = sc.RunContext.ExprEval.Interpolate(step.Run)
+
+	scCmd := step.ShellCommand()
+
+	name = fmt.Sprintf("workflow/%s", step.ID)
+
+	// Reference: https://github.com/actions/runner/blob/8109c962f09d9acc473d92c595ff43afceddb347/src/Runner.Worker/Handlers/ScriptHandlerHelpers.cs#L47-L64
+	// Reference: https://github.com/actions/runner/blob/8109c962f09d9acc473d92c595ff43afceddb347/src/Runner.Worker/Handlers/ScriptHandlerHelpers.cs#L19-L27
+	runPrepend := ""
+	runAppend := ""
+	switch step.Shell {
+	case "bash", "sh":
+		name += ".sh"
+	case "pwsh", "powershell":
+		name += ".ps1"
+		runPrepend = "$ErrorActionPreference = 'stop'"
+		runAppend = "if ((Test-Path -LiteralPath variable:/LASTEXITCODE)) { exit $LASTEXITCODE }"
+	case "cmd":
+		name += ".cmd"
+		runPrepend = "@echo off"
+	case "python":
+		name += ".py"
+	}
+
+	script = fmt.Sprintf("%s\n%s\n%s", runPrepend, script, runAppend)
+
+	log.Debugf("Wrote command \n%s\n to '%s'", script, name)
+
+	scriptPath := fmt.Sprintf("%s/%s", ActPath, name)
+	sc.Cmd, err = shellquote.Split(strings.Replace(scCmd, `{0}`, scriptPath, 1))
+
+	return name, script, err
+}
+
+func (sc *StepContext) setupShellCommandExecutor() common.Executor {
+	rc := sc.RunContext
 	return func(ctx context.Context) error {
-		var script strings.Builder
-		var err error
-
-		if step.WorkingDirectory == "" {
-			step.WorkingDirectory = rc.Run.Job().Defaults.Run.WorkingDirectory
-		}
-		if step.WorkingDirectory == "" {
-			step.WorkingDirectory = rc.Run.Workflow.Defaults.Run.WorkingDirectory
-		}
-		step.WorkingDirectory = rc.ExprEval.Interpolate(step.WorkingDirectory)
-
-		run := rc.ExprEval.Interpolate(step.Run)
-		step.Shell = rc.ExprEval.Interpolate(step.Shell)
-
-		if _, err = script.WriteString(run); err != nil {
+		scriptName, script, err := sc.setupShellCommand()
+		if err != nil {
 			return err
 		}
-		scriptName := fmt.Sprintf("workflow/%s", step.ID)
 
-		// Reference: https://github.com/actions/runner/blob/8109c962f09d9acc473d92c595ff43afceddb347/src/Runner.Worker/Handlers/ScriptHandlerHelpers.cs#L47-L64
-		// Reference: https://github.com/actions/runner/blob/8109c962f09d9acc473d92c595ff43afceddb347/src/Runner.Worker/Handlers/ScriptHandlerHelpers.cs#L19-L27
-		runPrepend := ""
-		runAppend := ""
-		scriptExt := ""
-		switch step.Shell {
-		case "bash", "sh":
-			scriptExt = ".sh"
-		case "pwsh", "powershell":
-			scriptExt = ".ps1"
-			runPrepend = "$ErrorActionPreference = 'stop'"
-			runAppend = "if ((Test-Path -LiteralPath variable:/LASTEXITCODE)) { exit $LASTEXITCODE }"
-		case "cmd":
-			scriptExt = ".cmd"
-			runPrepend = "@echo off"
-		case "python":
-			scriptExt = ".py"
-		}
-
-		scriptName += scriptExt
-		run = runPrepend + "\n" + run + "\n" + runAppend
-
-		log.Debugf("Wrote command '%s' to '%s'", run, scriptName)
-		scriptPath := fmt.Sprintf("%s/%s", rc.Config.ContainerWorkdir(), scriptName)
-
-		if step.Shell == "" {
-			step.Shell = rc.Run.Job().Defaults.Run.Shell
-		}
-		if step.Shell == "" {
-			step.Shell = rc.Run.Workflow.Defaults.Run.Shell
-		}
-		if rc.Run.Job().Container() != nil {
-			if rc.Run.Job().Container().Image != "" && step.Shell == "" {
-				step.Shell = "sh"
-			}
-		}
-		scCmd := step.ShellCommand()
-
-		var finalCMD []string
-		if step.Shell == "pwsh" || step.Shell == "powershell" {
-			finalCMD = strings.SplitN(scCmd, " ", 3)
-		} else {
-			finalCMD = strings.Fields(scCmd)
-		}
-
-		for k, v := range finalCMD {
-			if strings.Contains(v, `{0}`) {
-				finalCMD[k] = strings.Replace(v, `{0}`, scriptPath, 1)
-			}
-		}
-
-		sc.Cmd = finalCMD
-
-		return rc.JobContainer.Copy(rc.Config.ContainerWorkdir(), &container.FileEntry{
+		return rc.JobContainer.Copy(ActPath, &container.FileEntry{
 			Name: scriptName,
 			Mode: 0755,
-			Body: script.String(),
+			Body: script,
 		})(ctx)
 	}
 }
@@ -463,7 +482,6 @@ func (sc *StepContext) getContainerActionPaths(step *model.Step, actionDir strin
 	return actionName, containerActionDir
 }
 
-// nolint: gocyclo
 func (sc *StepContext) runAction(actionDir string, actionPath string, localAction bool) common.Executor {
 	rc := sc.RunContext
 	step := sc.Step
@@ -685,7 +703,7 @@ func (sc *StepContext) execAsComposite(ctx context.Context, step *model.Step, _ 
 
 		stepContext.Step = &stepClone
 
-		executors = append(executors, stepContext.Executor())
+		executors = append(executors, stepContext.Executor(ctx))
 	}
 	return common.NewPipelineExecutor(executors...)(ctx)
 }

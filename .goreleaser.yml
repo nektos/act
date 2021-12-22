@@ -10,15 +10,15 @@ builds:
       - windows
     goarch:
       - amd64
-      - 386
+      - '386'
       - arm64
       - arm
     goarm:
-      - 6
-      - 7
+      - '6'
+      - '7'
     ignore:
       - goos: windows
-        goarm: 6
+        goarm: '6'
 checksum:
   name_template: 'checksums.txt'
 archives:
