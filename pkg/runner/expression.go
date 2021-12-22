@@ -38,8 +38,6 @@ func (sc *StepContext) NewExpressionEvaluator() ExpressionEvaluator {
 	vm := sc.RunContext.newVM()
 	configers := []func(*otto.Otto){
 		sc.vmEnv(),
-		sc.vmInputs(),
-
 		sc.vmNeeds(),
 		sc.vmSuccess(),
 		sc.vmFailure(),
@@ -237,6 +235,7 @@ func (rc *RunContext) newVM() *otto.Otto {
 		rc.vmMatrix(),
 		rc.vmEnv(),
 		rc.vmNeeds(),
+		rc.vmInputs(),
 	}
 	vm := otto.New()
 	for _, configer := range configers {
@@ -447,22 +446,9 @@ func (sc *StepContext) vmEnv() func(*otto.Otto) {
 	}
 }
 
-func (sc *StepContext) vmInputs() func(*otto.Otto) {
-	inputs := make(map[string]string)
-
-	// Set Defaults
-	if sc.Action != nil {
-		for k, input := range sc.Action.Inputs {
-			inputs[k] = sc.RunContext.NewExpressionEvaluator().Interpolate(input.Default)
-		}
-	}
-
-	for k, v := range sc.Step.With {
-		inputs[k] = sc.RunContext.NewExpressionEvaluator().Interpolate(v)
-	}
-
+func (rc *RunContext) vmInputs() func(*otto.Otto) {
 	return func(vm *otto.Otto) {
-		_ = vm.Set("inputs", inputs)
+		_ = vm.Set("inputs", rc.Inputs)
 	}
 }
 
@@ -587,7 +573,10 @@ func (rc *RunContext) vmRunner() func(*otto.Otto) {
 
 func (rc *RunContext) vmSecrets() func(*otto.Otto) {
 	return func(vm *otto.Otto) {
-		_ = vm.Set("secrets", rc.Config.Secrets)
+		// Hide secrets from composite actions
+		if rc.Composite == nil {
+			_ = vm.Set("secrets", rc.Config.Secrets)
+		}
 	}
 }
 

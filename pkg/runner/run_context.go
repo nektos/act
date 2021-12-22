@@ -27,19 +27,35 @@ const ActPath string = "/var/run/act"
 
 // RunContext contains info about current job
 type RunContext struct {
-	Name           string
-	Config         *Config
-	Matrix         map[string]interface{}
-	Run            *model.Run
-	EventJSON      string
-	Env            map[string]string
-	ExtraPath      []string
-	CurrentStep    string
-	StepResults    map[string]*stepResult
-	ExprEval       ExpressionEvaluator
-	JobContainer   container.Container
-	OutputMappings map[MappableOutput]MappableOutput
-	JobName        string
+	Name             string
+	Config           *Config
+	Matrix           map[string]interface{}
+	Run              *model.Run
+	EventJSON        string
+	Env              map[string]string
+	ExtraPath        []string
+	CurrentStep      string
+	StepResults      map[string]*stepResult
+	ExprEval         ExpressionEvaluator
+	JobContainer     container.Container
+	OutputMappings   map[MappableOutput]MappableOutput
+	JobName          string
+	ActionPath       string
+	ActionRef        string
+	ActionRepository string
+	Composite        *model.Action
+	Inputs           map[string]interface{}
+	Parent           *RunContext
+}
+
+func (rc *RunContext) Clone() *RunContext {
+	clone := *rc
+	clone.CurrentStep = ""
+	clone.Composite = nil
+	clone.Inputs = nil
+	clone.StepResults = make(map[string]*stepResult)
+	clone.Parent = rc
+	return &clone
 }
 
 type MappableOutput struct {
@@ -310,6 +326,22 @@ func (rc *RunContext) Executor() common.Executor {
 	}).If(rc.isEnabled)
 }
 
+// Executor returns a pipeline executor for all the steps in the job
+func (rc *RunContext) CompositeExecutor() common.Executor {
+	steps := make([]common.Executor, 0)
+
+	for i, step := range rc.Composite.Runs.Steps {
+		if step.ID == "" {
+			step.ID = fmt.Sprintf("%d", i)
+		}
+		stepcopy := step
+		steps = append(steps, rc.newStepExecutor(&stepcopy))
+	}
+
+	steps = append(steps, common.JobError)
+	return common.NewPipelineExecutor(steps...)
+}
+
 func (rc *RunContext) newStepExecutor(step *model.Step) common.Executor {
 	sc := &StepContext{
 		RunContext: rc,
@@ -568,9 +600,9 @@ func (rc *RunContext) getGithubContext() *githubContext {
 		Workspace:        rc.Config.ContainerWorkdir(),
 		Action:           rc.CurrentStep,
 		Token:            rc.Config.Secrets["GITHUB_TOKEN"],
-		ActionPath:       rc.Config.Env["GITHUB_ACTION_PATH"],
-		ActionRef:        rc.Config.Env["RUNNER_ACTION_REF"],
-		ActionRepository: rc.Config.Env["RUNNER_ACTION_REPOSITORY"],
+		ActionPath:       rc.ActionPath,
+		ActionRef:        rc.ActionRef,
+		ActionRepository: rc.ActionRepository,
 		RepositoryOwner:  rc.Config.Env["GITHUB_REPOSITORY_OWNER"],
 		RetentionDays:    rc.Config.Env["GITHUB_RETENTION_DAYS"],
 		RunnerPerflog:    rc.Config.Env["RUNNER_PERFLOG"],
@@ -737,9 +769,9 @@ func (rc *RunContext) withGithubEnv(env map[string]string) map[string]string {
 	env["GITHUB_RUN_ID"] = github.RunID
 	env["GITHUB_RUN_NUMBER"] = github.RunNumber
 	env["GITHUB_ACTION"] = github.Action
-	if github.ActionPath != "" {
-		env["GITHUB_ACTION_PATH"] = github.ActionPath
-	}
+	env["GITHUB_ACTION_PATH"] = github.ActionPath
+	env["GITHUB_ACTION_REPOSITORY"] = github.ActionRepository
+	env["GITHUB_ACTION_REF"] = github.ActionRef
 	env["GITHUB_ACTIONS"] = "true"
 	env["GITHUB_ACTOR"] = github.Actor
 	env["GITHUB_REPOSITORY"] = github.Repository

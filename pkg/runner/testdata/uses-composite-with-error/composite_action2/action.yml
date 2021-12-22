@@ -1,0 +1,11 @@
+---
+name: "Test Composite Action"
+description: "Test action uses composite"
+
+runs:
+  using: "composite"
+  steps:
+  - run: exit 1
+    shell: bash
+  - run: echo should not run in composite steps
+    shell: bash

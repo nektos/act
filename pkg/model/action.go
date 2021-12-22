@@ -86,5 +86,16 @@ type Output struct {
 func ReadAction(in io.Reader) (*Action, error) {
 	a := new(Action)
 	err := yaml.NewDecoder(in).Decode(a)
-	return a, err
+	if err != nil {
+		return nil, err
+	}
+
+	for i := range a.Runs.Steps {
+		step := &a.Runs.Steps[i]
+		if step.If.Value == "" {
+			step.If.Value = "success()"
+		}
+	}
+
+	return a, nil
 }
