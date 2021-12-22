@@ -69,12 +69,10 @@ func (sc *StepContext) Executor(ctx context.Context) common.Executor {
 			sc.runAction(actionDir, "", "", "", true),
 		)
 	case model.StepTypeUsesActionRemote:
-		remoteAction := newRemoteAction(step.Uses)
+		remoteAction := newRemoteAction(step.Uses, rc.Config.GitHubInstance)
 		if remoteAction == nil {
 			return common.NewErrorExecutor(formatError(step.Uses))
 		}
-
-		remoteAction.URL = rc.Config.GitHubInstance
 
 		github := rc.getGithubContext()
 		if remoteAction.IsCheckout() && isLocalCheckout(github, step) {
@@ -776,7 +774,7 @@ func (ra *remoteAction) IsCheckout() bool {
 	return false
 }
 
-func newRemoteAction(action string) *remoteAction {
+func newRemoteAction(action, githubInstance string) *remoteAction {
 	// GitHub's document[^] describes:
 	// > We strongly recommend that you include the version of
 	// > the action you are using by specifying a Git ref, SHA, or Docker tag number.
@@ -792,7 +790,7 @@ func newRemoteAction(action string) *remoteAction {
 		Repo: matches[2],
 		Path: matches[4],
 		Ref:  matches[6],
-		URL:  "github.com",
+		URL:  githubInstance,
 	}
 }
 
