@@ -2,10 +2,18 @@ name: local-action-node12
 on: push
 
 jobs:
-  test:
+  test-node12:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
     - uses: ./actions/node12
+      with:
+        who-to-greet: 'Mona the Octocat'
+
+  test-node16:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: ./actions/node16
       with:
         who-to-greet: 'Mona the Octocat'
