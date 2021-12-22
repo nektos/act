@@ -156,24 +156,24 @@ func (*expressionEvaluator) advString(w *strings.Builder, r *strings.Reader) err
 			return err
 		}
 		if c != '\'' {
-			w.WriteRune(c) //nolint
+			w.WriteRune(c)
 			continue
 		}
 
 		// Handles a escaped string: ex. 'It''s ok'
 		c, _, err = r.ReadRune()
 		if err != nil {
-			w.WriteString("'") //nolint
+			w.WriteString("'")
 			return err
 		}
 		if c != '\'' {
-			w.WriteString("'") //nolint
+			w.WriteString("'")
 			if err := r.UnreadRune(); err != nil {
 				return err
 			}
 			break
 		}
-		w.WriteString(`\'`) //nolint
+		w.WriteString(`\'`)
 	}
 	return nil
 }
@@ -190,7 +190,7 @@ func (*expressionEvaluator) advPropertyName(w *strings.Builder, r *strings.Reade
 			}
 			break
 		}
-		w.WriteRune(c) //nolint
+		w.WriteRune(c)
 	}
 	return nil
 }

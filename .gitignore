@@ -29,5 +29,5 @@ coverage.txt
 .env
 .secrets
 
-# ignore docker registry from .github/workflows/checks.yml
-docker-registry/
+# megalinter
+report/
