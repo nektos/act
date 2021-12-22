@@ -5,6 +5,7 @@ env:
   ACT_OWNER: ${{ github.repository_owner }}
   ACT_REPOSITORY: ${{ github.repository }}
   GO_VERSION: 1.17
+  CGO_ENABLED: 0
 
 jobs:
   lint:
@@ -18,22 +19,15 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
       - uses: golangci/golangci-lint-action@v2
-        env:
-          CGO_ENABLED: 0
         with:
           version: latest
-      - uses: github/super-linter@v3
+      - uses: megalinter/megalinter/flavors/go@v5
         env:
           DEFAULT_BRANCH: master
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          FILTER_REGEX_EXCLUDE: .*testdata/*
           VALIDATE_ALL_CODEBASE: false
-          VALIDATE_BASH: false
-          VALIDATE_DOCKERFILE: false
-          VALIDATE_DOCKERFILE_HADOLINT: false
-          VALIDATE_GO: false # it's broken, see commit message
-          VALIDATE_JSCPD: false
-          VALIDATE_SHELL_SHFMT: false
+          GITHUB_STATUS_REPORTER: ${{ !env.ACT }}
+          GITHUB_COMMENT_REPORTER: ${{ !env.ACT }}
 
   test-linux:
     name: test-linux
@@ -55,8 +49,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
       - run: go test -v -cover -coverprofile=coverage.txt -covermode=atomic ./...
-        env:
-          CGO_ENABLED: 0
       - name: Upload Codecov report
         uses: codecov/codecov-action@v2.1.0
         with:

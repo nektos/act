@@ -88,8 +88,7 @@ func NewContainer(input *NewContainerInput) Container {
 
 // supportsContainerImagePlatform returns true if the underlying Docker server
 // API version is 1.41 and beyond
-func supportsContainerImagePlatform(cli *client.Client) bool {
-	ctx := context.TODO()
+func supportsContainerImagePlatform(ctx context.Context, cli *client.Client) bool {
 	logger := common.Logger(ctx)
 	ver, err := cli.ServerVersion(ctx)
 	if err != nil {
@@ -290,7 +289,7 @@ func (cr *containerReference) remove() common.Executor {
 		}
 
 		logger := common.Logger(ctx)
-		err := cr.cli.ContainerRemove(context.Background(), cr.id, types.ContainerRemoveOptions{
+		err := cr.cli.ContainerRemove(ctx, cr.id, types.ContainerRemoveOptions{
 			RemoveVolumes: true,
 			Force:         true,
 		})
@@ -333,7 +332,7 @@ func (cr *containerReference) create(capAdd []string, capDrop []string) common.E
 		}
 
 		var platSpecs *specs.Platform
-		if supportsContainerImagePlatform(cr.cli) && cr.input.Platform != "" {
+		if supportsContainerImagePlatform(ctx, cr.cli) && cr.input.Platform != "" {
 			desiredPlatform := strings.SplitN(cr.input.Platform, `/`, 2)
 
 			if len(desiredPlatform) != 2 {
