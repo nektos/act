@@ -243,9 +243,9 @@ GitHub Actions offers managed [virtual environments](https://help.github.com/en/
 
 | GitHub Runner   | Micro Docker Image             | Medium Docker Image                                       | Large Docker Image                                         |
 | --------------- | ------------------------------ | --------------------------------------------------------- | ---------------------------------------------------------- |
-| `ubuntu-latest` | [`node:12-buster-slim`][micro] | [`ghcr.io/catthehacker/ubuntu:act-latest`][docker_images] | [`ghcr.io/catthehacker/ubuntu:full-latest`][docker_images] |
-| `ubuntu-20.04`  | [`node:12-buster-slim`][micro] | [`ghcr.io/catthehacker/ubuntu:act-20.04`][docker_images]  | [`ghcr.io/catthehacker/ubuntu:full-20.04`][docker_images]  |
-| `ubuntu-18.04`  | [`node:12-buster-slim`][micro] | [`ghcr.io/catthehacker/ubuntu:act-18.04`][docker_images]  | [`ghcr.io/catthehacker/ubuntu:full-18.04`][docker_images]  |
+| `ubuntu-latest` | [`node:16-buster-slim`][micro] | [`ghcr.io/catthehacker/ubuntu:act-latest`][docker_images] | [`ghcr.io/catthehacker/ubuntu:full-latest`][docker_images] |
+| `ubuntu-20.04`  | [`node:16-buster-slim`][micro] | [`ghcr.io/catthehacker/ubuntu:act-20.04`][docker_images]  | [`ghcr.io/catthehacker/ubuntu:full-20.04`][docker_images]  |
+| `ubuntu-18.04`  | [`node:16-buster-slim`][micro] | [`ghcr.io/catthehacker/ubuntu:act-18.04`][docker_images]  | [`ghcr.io/catthehacker/ubuntu:full-18.04`][docker_images]  |
 
 [micro]: https://hub.docker.com/_/buildpack-deps
 [docker_images]: https://github.com/catthehacker/docker_images
@@ -289,7 +289,7 @@ If you use multiple platforms in your workflow, you have to specify them to chan
 For example, if your workflow uses `ubuntu-18.04`, `ubuntu-16.04` and `ubuntu-latest`, specify all platforms like below
 
 ```sh
-act -P ubuntu-18.04=nektos/act-environments-ubuntu:18.04 -P ubuntu-latest=ubuntu:latest -P ubuntu-16.04=node:12-buster-slim
+act -P ubuntu-18.04=nektos/act-environments-ubuntu:18.04 -P ubuntu-latest=ubuntu:latest -P ubuntu-16.04=node:16-buster-slim
 ```
 
 # Secrets

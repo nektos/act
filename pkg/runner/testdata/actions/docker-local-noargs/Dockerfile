@@ -1,5 +1,5 @@
 # Container image that runs your code
-FROM node:16-buster-slim
+FROM node:12-buster-slim
 
 # Copies your code file from your action repository to the filesystem path `/` of the container
 COPY entrypoint.sh /entrypoint.sh

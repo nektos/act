@@ -1,0 +1,9 @@
+name: local-action-dockerfile
+on: push
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: ./local-action-via-composite-dockerfile

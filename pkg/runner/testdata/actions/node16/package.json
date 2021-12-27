@@ -1,5 +1,5 @@
 {
-  "name": "node12",
+  "name": "node16",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -18,6 +18,6 @@
     "@vercel/ncc": "^0.24.1"
   },
   "engines": {
-    "node": ">=12"
+    "node": ">=16"
   }
 }

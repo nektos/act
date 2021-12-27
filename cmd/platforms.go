@@ -6,9 +6,9 @@ import (
 
 func (i *Input) newPlatforms() map[string]string {
 	platforms := map[string]string{
-		"ubuntu-latest": "node:12-buster-slim",
-		"ubuntu-20.04":  "node:12-buster-slim",
-		"ubuntu-18.04":  "node:12-buster-slim",
+		"ubuntu-latest": "node:16-buster-slim",
+		"ubuntu-20.04":  "node:16-buster-slim",
+		"ubuntu-18.04":  "node:16-buster-slim",
 	}
 
 	for _, p := range i.platforms {
