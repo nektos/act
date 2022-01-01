@@ -32,3 +32,18 @@ archives:
     format_overrides:
       - goos: windows
         format: zip
+changelog:
+  groups:
+    - title: 'New Features'
+      regexp: "^.*feat[(\\w)]*:+.*$"
+      order: 0
+    - title: 'Bug fixes'
+      regexp: "^.*fix[(\\w)]*:+.*$"
+      order: 1
+    - title: 'Documentation updates'
+      regexp: "^.*docs[(\\w)]*:+.*$"
+      order: 2
+    - title: 'Other'
+      order: 999
+release:
+  prerelease: auto
