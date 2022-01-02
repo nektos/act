@@ -16,7 +16,9 @@ import (
 
 	"github.com/go-git/go-billy/v5/helper/polyfill"
 	"github.com/go-git/go-billy/v5/osfs"
+	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
+	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/joho/godotenv"
 
 	"github.com/docker/cli/cli/connhelper"
@@ -576,34 +578,11 @@ func (cr *containerReference) copyDir(dstPath string, srcPath string, useGitIgno
 		}
 		log.Debugf("Stripping prefix:%s src:%s", srcPrefix, srcPath)
 
-		var ignorer gitignore.Matcher
-		if useGitIgnore {
-			ps, err := gitignore.ReadPatterns(polyfill.New(osfs.New(srcPath)), nil)
-			if err != nil {
-				log.Debugf("Error loading .gitignore: %v", err)
-			}
-
-			ignorer = gitignore.NewMatcher(ps)
-		}
-
-		err = filepath.Walk(srcPath, func(file string, fi os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-
-			sansPrefix := strings.TrimPrefix(file, srcPrefix)
-			split := strings.Split(sansPrefix, string(filepath.Separator))
-			if ignorer != nil && ignorer.Match(split, fi.IsDir()) {
-				if fi.IsDir() {
-					return filepath.SkipDir
-				}
-				return nil
-			}
-
+		addEntry := func(file string, sansPrefix string, fi os.FileInfo) error {
 			// return on non-regular files (thanks to [kumo](https://medium.com/@komuw/just-like-you-did-fbdd7df829d3) for this suggested update)
 			linkName := fi.Name()
 			if fi.Mode()&os.ModeSymlink == os.ModeSymlink {
-				linkName, err = os.Readlink(file)
+				_, err := os.Readlink(file)
 				if err != nil {
 					return errors.WithMessagef(err, "unable to readlink %s", file)
 				}
@@ -647,7 +626,77 @@ func (cr *containerReference) copyDir(dstPath string, srcPath string, useGitIgno
 			f.Close()
 
 			return nil
-		})
+		}
+
+		var ignorer gitignore.Matcher
+		tryGitIgnore := func() error {
+			repo, err := git.PlainOpen(srcPath)
+			if err == nil {
+				ref, err := repo.Reference("HEAD", true)
+				var commit *object.Commit
+
+				if err == nil {
+					commit, err = repo.CommitObject(ref.Hash())
+				}
+				var tree *object.Tree
+				if err == nil {
+					tree, err = commit.Tree()
+				}
+
+				if err == nil {
+					// seen map[plumbing.Hash]bool
+					walker := object.NewTreeWalker(tree, true, nil)
+
+					for {
+						var name string
+						name, _, err = walker.Next()
+						if err != nil {
+							if err == io.EOF {
+								return nil
+							}
+							return err
+						}
+						fullPath := filepath.Join(srcPath, name)
+						fi, err := os.Stat(fullPath)
+						if err == nil {
+							err = addEntry(fullPath, name, fi)
+							if err != nil {
+								return err
+							}
+						}
+					}
+				}
+			}
+			return err
+		}
+		if useGitIgnore {
+			if tryGitIgnore() != nil {
+				ps, err := gitignore.ReadPatterns(polyfill.New(osfs.New(srcPath)), nil)
+				if err != nil {
+					log.Debugf("Error loading .gitignore: %v", err)
+				}
+
+				ignorer = gitignore.NewMatcher(ps)
+			}
+		}
+		if !useGitIgnore || ignorer != nil {
+			err = filepath.Walk(srcPath, func(file string, fi os.FileInfo, err error) error {
+				if err != nil {
+					return err
+				}
+
+				sansPrefix := strings.TrimPrefix(file, srcPrefix)
+				split := strings.Split(sansPrefix, string(filepath.Separator))
+				if ignorer != nil && ignorer.Match(split, fi.IsDir()) {
+					if fi.IsDir() {
+						return filepath.SkipDir
+					}
+					return nil
+				}
+				return addEntry(file, sansPrefix, fi)
+			})
+		}
+
 		if err != nil {
 			return err
 		}
