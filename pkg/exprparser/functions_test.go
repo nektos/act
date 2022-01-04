@@ -25,10 +25,8 @@ func TestFunctionContains(t *testing.T) {
 		{`contains(fromJSON('["first","second"]'), 'first') }}`, true, "contains-item"},
 		{`contains(fromJSON('[null,"second"]'), '') }}`, true, "contains-item-null-empty-str"},
 		{`contains(fromJSON('["","second"]'), null) }}`, true, "contains-item-empty-str-null"},
-		// TODO: investigate why this evaluates to false
-		// {`contains(fromJSON('[true,"second"]'), 'true') }}`, true, "contains-item-bool-arr"},
-		// TODO: investigate why this evaluates to false
-		// {`contains(fromJSON('["true","second"]'), true) }}`, true, "contains-item-str-bool"},
+		{`contains(fromJSON('[true,"second"]'), 'true') }}`, false, "contains-item-bool-arr"},
+		{`contains(fromJSON('["true","second"]'), true) }}`, false, "contains-item-str-bool"},
 		{`contains(fromJSON('[3.14,"second"]'), '3.14') }}`, true, "contains-item-number-str"},
 		{`contains(fromJSON('[3.14,"second"]'), 3.14) }}`, true, "contains-item-number-number"},
 		{`contains(fromJSON('["","second"]'), fromJSON('[]')) }}`, false, "contains-item-str-arr"},

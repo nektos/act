@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/nektos/act/pkg/model"
+	"github.com/rhysd/actionlint"
 )
 
 func (impl *interperterImpl) contains(search, item reflect.Value) (bool, error) {
@@ -24,21 +25,15 @@ func (impl *interperterImpl) contains(search, item reflect.Value) (bool, error) 
 		), nil
 
 	case reflect.Slice:
-		switch item.Kind() {
-		case reflect.String, reflect.Int, reflect.Float64, reflect.Bool, reflect.Invalid:
-			itemStr := strings.ToLower(impl.coerceToString(item).String())
-
-			for i := 0; i < search.Len(); i++ {
-				if strings.ToLower(impl.coerceToString(search.Index(i).Elem()).String()) == itemStr {
-					return true, nil
-				}
+		for i := 0; i < search.Len(); i++ {
+			arrayItem := search.Index(i).Elem()
+			result, err := impl.compareValues(arrayItem, item, actionlint.CompareOpNodeKindEq)
+			if err != nil {
+				return false, err
 			}
 
-		case reflect.Slice, reflect.Struct:
-			for i := 0; i < search.Len(); i++ {
-				if search.Index(i).Elem() == item {
-					return true, nil
-				}
+			if isEqual, ok := result.(bool); ok && isEqual {
+				return true, nil
 			}
 		}
 	}

@@ -288,6 +288,10 @@ func (impl *interperterImpl) evaluateCompare(compareNode *actionlint.CompareOpNo
 	leftValue := reflect.ValueOf(left)
 	rightValue := reflect.ValueOf(right)
 
+	return impl.compareValues(leftValue, rightValue, compareNode.Kind)
+}
+
+func (impl *interperterImpl) compareValues(leftValue reflect.Value, rightValue reflect.Value, kind actionlint.CompareOpNodeKind) (interface{}, error) {
 	if leftValue.Kind() != rightValue.Kind() {
 		if !impl.isNumber(leftValue) {
 			leftValue = impl.coerceToNumber(leftValue)
@@ -299,24 +303,24 @@ func (impl *interperterImpl) evaluateCompare(compareNode *actionlint.CompareOpNo
 
 	switch leftValue.Kind() {
 	case reflect.String:
-		return impl.compareString(strings.ToLower(leftValue.String()), strings.ToLower(rightValue.String()), compareNode.Kind)
+		return impl.compareString(strings.ToLower(leftValue.String()), strings.ToLower(rightValue.String()), kind)
 
 	case reflect.Int:
 		if rightValue.Kind() == reflect.Float64 {
-			return impl.compareNumber(float64(leftValue.Int()), rightValue.Float(), compareNode.Kind)
+			return impl.compareNumber(float64(leftValue.Int()), rightValue.Float(), kind)
 		}
 
-		return impl.compareNumber(float64(leftValue.Int()), float64(rightValue.Int()), compareNode.Kind)
+		return impl.compareNumber(float64(leftValue.Int()), float64(rightValue.Int()), kind)
 
 	case reflect.Float64:
 		if rightValue.Kind() == reflect.Int {
-			return impl.compareNumber(leftValue.Float(), float64(rightValue.Int()), compareNode.Kind)
+			return impl.compareNumber(leftValue.Float(), float64(rightValue.Int()), kind)
 		}
 
-		return impl.compareNumber(leftValue.Float(), rightValue.Float(), compareNode.Kind)
+		return impl.compareNumber(leftValue.Float(), rightValue.Float(), kind)
 
 	default:
-		return nil, fmt.Errorf("TODO: evaluateCompare not implemented %+v", reflect.TypeOf(left))
+		return nil, fmt.Errorf("TODO: evaluateCompare not implemented %+v", reflect.TypeOf(leftValue))
 	}
 }
 
