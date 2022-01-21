@@ -426,19 +426,6 @@ func (rc *RunContext) isEnabled(ctx context.Context) bool {
 	return true
 }
 
-var splitPattern *regexp.Regexp
-
-func previousOrNextPartIsAnOperator(i int, parts []string) bool {
-	operator := false
-	if i > 0 {
-		operator = operatorPattern.MatchString(parts[i-1])
-	}
-	if i+1 < len(parts) {
-		operator = operator || operatorPattern.MatchString(parts[i+1])
-	}
-	return operator
-}
-
 func mergeMaps(maps ...map[string]string) map[string]string {
 	rtnMap := make(map[string]string)
 	for _, m := range maps {
@@ -497,17 +484,6 @@ func (rc *RunContext) getJobContext() *model.JobContext {
 
 func (rc *RunContext) getStepsContext() map[string]*model.StepResult {
 	return rc.StepResults
-}
-
-func (rc *RunContext) getNeedsTransitive(job *model.Job) []string {
-	needs := job.Needs()
-
-	for _, need := range needs {
-		parentNeeds := rc.getNeedsTransitive(rc.Run.Workflow.GetJob(need))
-		needs = append(needs, parentNeeds...)
-	}
-
-	return needs
 }
 
 func (rc *RunContext) getGithubContext() *model.GithubContext {
@@ -784,12 +760,11 @@ func (rc *RunContext) handleCredentials() (username, password string, err error)
 	}
 
 	ee := rc.NewExpressionEvaluator()
-	var ok bool
-	if username, ok = ee.InterpolateWithStringCheck(container.Credentials["username"]); !ok {
+	if username = ee.Interpolate(container.Credentials["username"]); username == "" {
 		err = fmt.Errorf("failed to interpolate container.credentials.username")
 		return
 	}
-	if password, ok = ee.InterpolateWithStringCheck(container.Credentials["password"]); !ok {
+	if password = ee.Interpolate(container.Credentials["password"]); password == "" {
 		err = fmt.Errorf("failed to interpolate container.credentials.password")
 		return
 	}
