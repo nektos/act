@@ -299,7 +299,9 @@ func (rc *RunContext) CompositeExecutor() common.Executor {
 	}
 
 	steps = append(steps, common.JobError)
-	return common.NewPipelineExecutor(steps...)
+	return func(ctx context.Context) error {
+		return common.NewPipelineExecutor(steps...)(common.WithJobErrorContainer(ctx))
+	}
 }
 
 func (rc *RunContext) newStepExecutor(step *model.Step) common.Executor {
