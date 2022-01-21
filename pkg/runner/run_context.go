@@ -542,13 +542,6 @@ func (rc *RunContext) getGithubContext() *model.GithubContext {
 		}
 	}
 
-	_, sha, err := common.FindGitRevision(repoPath)
-	if err != nil {
-		log.Warningf("unable to get git revision: %v", err)
-	} else {
-		ghc.Sha = sha
-	}
-
 	if rc.EventJSON != "" {
 		err = json.Unmarshal([]byte(rc.EventJSON), &ghc.Event)
 		if err != nil {
@@ -556,31 +549,12 @@ func (rc *RunContext) getGithubContext() *model.GithubContext {
 		}
 	}
 
-	maybeRef := nestedMapLookup(ghc.Event, ghc.EventName, "ref")
-	if maybeRef != nil {
-		log.Debugf("using github ref from event: %s", maybeRef)
-		ghc.Ref = maybeRef.(string)
-	} else {
-		ref, err := common.FindGitRef(repoPath)
-		if err != nil {
-			log.Warningf("unable to get git ref: %v", err)
-		} else {
-			log.Debugf("using github ref: %s", ref)
-			ghc.Ref = ref
-		}
-
-		// set the branch in the event data
-		if rc.Config.DefaultBranch != "" {
-			ghc.Event = withDefaultBranch(rc.Config.DefaultBranch, ghc.Event)
-		} else {
-			ghc.Event = withDefaultBranch("master", ghc.Event)
-		}
-	}
-
 	if ghc.EventName == "pull_request" {
 		ghc.BaseRef = asString(nestedMapLookup(ghc.Event, "pull_request", "base", "ref"))
 		ghc.HeadRef = asString(nestedMapLookup(ghc.Event, "pull_request", "head", "ref"))
 	}
+
+	ghc.SetRefAndSha(rc.Config.DefaultBranch, repoPath)
 
 	return ghc
 }
@@ -635,29 +609,6 @@ func nestedMapLookup(m map[string]interface{}, ks ...string) (rval interface{}) 
 	} else { // 1+ more keys
 		return nestedMapLookup(m, ks[1:]...)
 	}
-}
-
-func withDefaultBranch(b string, event map[string]interface{}) map[string]interface{} {
-	repoI, ok := event["repository"]
-	if !ok {
-		repoI = make(map[string]interface{})
-	}
-
-	repo, ok := repoI.(map[string]interface{})
-	if !ok {
-		log.Warnf("unable to set default branch to %v", b)
-		return event
-	}
-
-	// if the branch is already there return with no changes
-	if _, ok = repo["default_branch"]; ok {
-		return event
-	}
-
-	repo["default_branch"] = b
-	event["repository"] = repo
-
-	return event
 }
 
 func (rc *RunContext) withGithubEnv(env map[string]string) map[string]string {
