@@ -126,7 +126,9 @@ func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 				job := run.Job()
 				if job.Strategy != nil {
 					strategyRc := runner.newRunContext(run, nil)
-					strategyRc.NewExpressionEvaluator().EvaluateYamlNode(&job.Strategy.RawMatrix)
+					if err := strategyRc.NewExpressionEvaluator().EvaluateYamlNode(&job.Strategy.RawMatrix); err != nil {
+						return err
+					}
 				}
 				matrixes := job.GetMatrixes()
 				maxParallel := 4
