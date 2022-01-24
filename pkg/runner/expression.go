@@ -152,75 +152,60 @@ func (ee expressionEvaluator) evaluateScalarYamlNode(node *yaml.Node) error {
 }
 
 func (ee expressionEvaluator) evaluateMappingYamlNode(node *yaml.Node) error {
-	var m map[interface{}]yaml.Node
-	if err := node.Decode(&m); err != nil {
-		return err
-	}
 	// GitHub has this undocumented feature to merge maps, called insert directive
 	insertDirective := regexp.MustCompile(`\${{\s*insert\s*}}`)
-	mout := make(map[interface{}]yaml.Node)
-	for k := range m {
-		v := m[k]
-		if err := ee.EvaluateYamlNode(&v); err != nil {
+	for i := 0; i < len(node.Content)/2; {
+		k := node.Content[i*2]
+		v := node.Content[i*2+1]
+		if err := ee.EvaluateYamlNode(v); err != nil {
 			return err
 		}
-		if sk, ok := k.(string); ok {
-			// Merge the nested map of the insert directive
-			if insertDirective.MatchString(sk) {
-				var vm map[interface{}]yaml.Node
-				if err := v.Decode(&vm); err != nil {
-					return err
-				}
-				for vk, vv := range vm {
-					mout[vk] = vv
-				}
-			} else {
-				mout[ee.Interpolate(sk)] = v
-			}
+		var sk string
+		// Merge the nested map of the insert directive
+		if k.Decode(&sk) == nil && insertDirective.MatchString(sk) {
+			node.Content = append(append(node.Content[:i*2], v.Content...), node.Content[(i+1)*2:]...)
+			i += len(v.Content) / 2
 		} else {
-			mout[k] = v
+			if err := ee.EvaluateYamlNode(k); err != nil {
+				return err
+			}
+			i++
 		}
 	}
-	return node.Encode(&mout)
+	return nil
 }
 
-func (ee expressionEvaluator) EvaluateSequenceYamlNode(node *yaml.Node) error {
-	var a []yaml.Node
-	if err := node.Decode(&a); err != nil {
-		return err
-	}
-	aout := make([]yaml.Node, 0)
-	for i := range a {
-		v := a[i]
+func (ee expressionEvaluator) evaluateSequenceYamlNode(node *yaml.Node) error {
+	for i := 0; i < len(node.Content); {
+		v := node.Content[i]
 		// Preserve nested sequences
 		wasseq := v.Kind == yaml.SequenceNode
-		if err := ee.EvaluateYamlNode(&v); err != nil {
+		if err := ee.EvaluateYamlNode(v); err != nil {
 			return err
 		}
 		// GitHub has this undocumented feature to merge sequences / arrays
 		// We have a nested sequence via evaluation, merge the arrays
 		if v.Kind == yaml.SequenceNode && !wasseq {
-			var va []yaml.Node
-			if err := v.Decode(&va); err != nil {
-				return err
-			}
-			aout = append(aout, va...)
+			node.Content = append(append(node.Content[:i], v.Content...), node.Content[i+1:]...)
+			i += len(v.Content)
 		} else {
-			aout = append(aout, v)
+			i++
 		}
 	}
-	return node.Encode(&aout)
+	return nil
 }
 
 func (ee expressionEvaluator) EvaluateYamlNode(node *yaml.Node) error {
-	if node.Kind == yaml.ScalarNode {
+	switch node.Kind {
+	case yaml.ScalarNode:
 		return ee.evaluateScalarYamlNode(node)
-	} else if node.Kind == yaml.MappingNode {
+	case yaml.MappingNode:
 		return ee.evaluateMappingYamlNode(node)
-	} else if node.Kind == yaml.SequenceNode {
-		return ee.EvaluateSequenceYamlNode(node)
+	case yaml.SequenceNode:
+		return ee.evaluateSequenceYamlNode(node)
+	default:
+		return nil
 	}
-	return nil
 }
 
 func (ee expressionEvaluator) Interpolate(in string) string {

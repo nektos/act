@@ -127,7 +127,7 @@ func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 				if job.Strategy != nil {
 					strategyRc := runner.newRunContext(run, nil)
 					if err := strategyRc.NewExpressionEvaluator().EvaluateYamlNode(&job.Strategy.RawMatrix); err != nil {
-						return err
+						log.Errorf("Error while evaluating matrix: %v", err)
 					}
 				}
 				matrixes := job.GetMatrixes()
