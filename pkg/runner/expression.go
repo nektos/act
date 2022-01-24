@@ -144,7 +144,7 @@ func (ee expressionEvaluator) evaluateScalarYamlNode(node *yaml.Node) error {
 	if in != expr {
 		log.Debugf("expression '%s' rewritten to '%s'", in, expr)
 	}
-	res, err := ee.evaluate(in, false)
+	res, err := ee.evaluate(expr, false)
 	if err != nil {
 		return err
 	}
