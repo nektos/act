@@ -125,6 +125,7 @@ func TestRunEvent(t *testing.T) {
 		{"testdata", "composite-fail-with-output", "push", "", platforms, ""},
 		{"testdata", "issue-597", "push", "", platforms, ""},
 		{"testdata", "issue-598", "push", "", platforms, ""},
+		{"testdata", "if-env-act", "push", "", platforms, ""},
 		{"testdata", "env-and-path", "push", "", platforms, ""},
 		{"testdata", "outputs", "push", "", platforms, ""},
 		{"testdata", "steps-context/conclusion", "push", "", platforms, ""},
