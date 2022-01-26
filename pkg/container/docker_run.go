@@ -576,6 +576,11 @@ func (cr *containerReference) copyDir(dstPath string, srcPath string, useGitIgno
 				return err
 			}
 
+			// symlinks don't need to be copied
+			if fi.Mode()&os.ModeSymlink == os.ModeSymlink {
+				return nil
+			}
+
 			// open files for taring
 			f, err := os.Open(file)
 			if err != nil {
@@ -584,10 +589,6 @@ func (cr *containerReference) copyDir(dstPath string, srcPath string, useGitIgno
 
 			// copy file data into tar writer
 			if _, err := io.Copy(tw, f); err != nil {
-				if fi.Mode()&os.ModeSymlink == os.ModeSymlink {
-					// symlinks don't need to be copied, ignore this error
-					err = nil
-				}
 				return err
 			}
 
