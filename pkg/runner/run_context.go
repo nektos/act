@@ -299,7 +299,9 @@ func (rc *RunContext) CompositeExecutor() common.Executor {
 	}
 
 	steps = append(steps, common.JobError)
-	return common.NewPipelineExecutor(steps...)
+	return func(ctx context.Context) error {
+		return common.NewPipelineExecutor(steps...)(common.WithJobErrorContainer(ctx))
+	}
 }
 
 func (rc *RunContext) newStepExecutor(step *model.Step) common.Executor {
@@ -324,6 +326,8 @@ func (rc *RunContext) newStepExecutor(step *model.Step) common.Executor {
 
 		if !runStep {
 			log.Debugf("Skipping step '%s' due to '%s'", sc.Step.String(), sc.Step.If.Value)
+			rc.StepResults[rc.CurrentStep].Conclusion = model.StepStatusSkipped
+			rc.StepResults[rc.CurrentStep].Outcome = model.StepStatusSkipped
 			return nil
 		}
 
@@ -426,19 +430,6 @@ func (rc *RunContext) isEnabled(ctx context.Context) bool {
 	return true
 }
 
-var splitPattern *regexp.Regexp
-
-func previousOrNextPartIsAnOperator(i int, parts []string) bool {
-	operator := false
-	if i > 0 {
-		operator = operatorPattern.MatchString(parts[i-1])
-	}
-	if i+1 < len(parts) {
-		operator = operator || operatorPattern.MatchString(parts[i+1])
-	}
-	return operator
-}
-
 func mergeMaps(maps ...map[string]string) map[string]string {
 	rtnMap := make(map[string]string)
 	for _, m := range maps {
@@ -499,17 +490,6 @@ func (rc *RunContext) getStepsContext() map[string]*model.StepResult {
 	return rc.StepResults
 }
 
-func (rc *RunContext) getNeedsTransitive(job *model.Job) []string {
-	needs := job.Needs()
-
-	for _, need := range needs {
-		parentNeeds := rc.getNeedsTransitive(rc.Run.Workflow.GetJob(need))
-		needs = append(needs, parentNeeds...)
-	}
-
-	return needs
-}
-
 func (rc *RunContext) getGithubContext() *model.GithubContext {
 	ghc := &model.GithubContext{
 		Event:            make(map[string]interface{}),
@@ -564,13 +544,6 @@ func (rc *RunContext) getGithubContext() *model.GithubContext {
 		}
 	}
 
-	_, sha, err := common.FindGitRevision(repoPath)
-	if err != nil {
-		log.Warningf("unable to get git revision: %v", err)
-	} else {
-		ghc.Sha = sha
-	}
-
 	if rc.EventJSON != "" {
 		err = json.Unmarshal([]byte(rc.EventJSON), &ghc.Event)
 		if err != nil {
@@ -578,31 +551,12 @@ func (rc *RunContext) getGithubContext() *model.GithubContext {
 		}
 	}
 
-	maybeRef := nestedMapLookup(ghc.Event, ghc.EventName, "ref")
-	if maybeRef != nil {
-		log.Debugf("using github ref from event: %s", maybeRef)
-		ghc.Ref = maybeRef.(string)
-	} else {
-		ref, err := common.FindGitRef(repoPath)
-		if err != nil {
-			log.Warningf("unable to get git ref: %v", err)
-		} else {
-			log.Debugf("using github ref: %s", ref)
-			ghc.Ref = ref
-		}
-
-		// set the branch in the event data
-		if rc.Config.DefaultBranch != "" {
-			ghc.Event = withDefaultBranch(rc.Config.DefaultBranch, ghc.Event)
-		} else {
-			ghc.Event = withDefaultBranch("master", ghc.Event)
-		}
-	}
-
 	if ghc.EventName == "pull_request" {
 		ghc.BaseRef = asString(nestedMapLookup(ghc.Event, "pull_request", "base", "ref"))
 		ghc.HeadRef = asString(nestedMapLookup(ghc.Event, "pull_request", "head", "ref"))
 	}
+
+	ghc.SetRefAndSha(rc.Config.DefaultBranch, repoPath)
 
 	return ghc
 }
@@ -657,29 +611,6 @@ func nestedMapLookup(m map[string]interface{}, ks ...string) (rval interface{}) 
 	} else { // 1+ more keys
 		return nestedMapLookup(m, ks[1:]...)
 	}
-}
-
-func withDefaultBranch(b string, event map[string]interface{}) map[string]interface{} {
-	repoI, ok := event["repository"]
-	if !ok {
-		repoI = make(map[string]interface{})
-	}
-
-	repo, ok := repoI.(map[string]interface{})
-	if !ok {
-		log.Warnf("unable to set default branch to %v", b)
-		return event
-	}
-
-	// if the branch is already there return with no changes
-	if _, ok = repo["default_branch"]; ok {
-		return event
-	}
-
-	repo["default_branch"] = b
-	event["repository"] = repo
-
-	return event
 }
 
 func (rc *RunContext) withGithubEnv(env map[string]string) map[string]string {
@@ -784,12 +715,11 @@ func (rc *RunContext) handleCredentials() (username, password string, err error)
 	}
 
 	ee := rc.NewExpressionEvaluator()
-	var ok bool
-	if username, ok = ee.InterpolateWithStringCheck(container.Credentials["username"]); !ok {
+	if username = ee.Interpolate(container.Credentials["username"]); username == "" {
 		err = fmt.Errorf("failed to interpolate container.credentials.username")
 		return
 	}
-	if password, ok = ee.InterpolateWithStringCheck(container.Credentials["password"]); !ok {
+	if password = ee.Interpolate(container.Credentials["password"]); password == "" {
 		err = fmt.Errorf("failed to interpolate container.credentials.password")
 		return
 	}

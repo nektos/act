@@ -47,3 +47,4 @@ changelog:
       order: 999
 release:
   prerelease: auto
+  mode: append
