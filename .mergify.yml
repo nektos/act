@@ -84,7 +84,9 @@ pull_request_rules:
       - '#changes-requested-reviews-by=0'
       - or:
           - 'approved-reviews-by=@nektos/act-committers'
-          - '#approved-reviews-by>=3'
+          - and:
+              - 'approved-reviews-by=@nektos/act-maintainers'
+              - '#approved-reviews-by>=3'
       - -draft
       - -merged
       - -closed
