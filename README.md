@@ -202,7 +202,15 @@ It will save that information to `~/.actrc`, please refer to [Configuration](#co
   -W, --workflows string                 path to workflow file(s) (default "./.github/workflows/")
 ```
 
-In case you want to pass a value for `${{ github.token }}`, you should pass `GITHUB_TOKEN` as secret: `act -s GITHUB_TOKEN=[insert token or leave blank for secure input]`.
+## `GITHUB_TOKEN`
+
+Github [automatically provides](https://docs.github.com/en/actions/security-guides/automatic-token-authentication#about-the-github_token-secret) a `GITHUB_TOKEN` secret when running workflows inside Github.
+
+If your workflow depends on this token, you need to create a [personal access token](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token) and pass it to `act`  as a secret:
+
+```bash
+act -s GITHUB_TOKEN=[insert token or leave blank for secure input]
+```
 
 # Known Issues
 
