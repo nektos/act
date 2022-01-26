@@ -1,0 +1,25 @@
+name: if-env-act-test
+on: push
+
+jobs:
+  if_env_test:
+    name: Test if env.ACT matching
+    runs-on: ubuntu-latest
+    steps:
+      # Should RUN, since we are running in act
+      - name: Positive env.ACT match
+        if: ${{ env.ACT }}
+        shell: bash
+        run: |
+          echo "This workflow is run using act, continue!"
+          echo "ACT: $ACT"
+          exit 0
+
+      # Should SKIP, since we are running in act
+      - name: Negative env.ACT match
+        if: ${{ !env.ACT }}
+        shell: bash
+        run: |
+          echo "This should be skipped since this workflow is run using act, fail!"
+          echo "ACT: $ACT"
+          exit 1
