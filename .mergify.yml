@@ -82,7 +82,9 @@ pull_request_rules:
   - name: Automatic merge on approval
     conditions:
       - '#changes-requested-reviews-by=0'
-      - 'approved-reviews-by=@nektos/act-committers'
+      - or:
+          - 'approved-reviews-by=@nektos/act-committers'
+          - '#approved-reviews-by>=3'
       - -draft
       - -merged
       - -closed
