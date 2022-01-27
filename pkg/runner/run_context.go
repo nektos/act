@@ -265,7 +265,11 @@ func (rc *RunContext) Executor() common.Executor {
 		steps = append(steps, func(ctx context.Context) error {
 			err := stepExec(ctx)
 			if err != nil {
+				common.Logger(ctx).Errorf("%v", err)
 				common.SetJobError(ctx, err)
+			} else if ctx.Err() != nil {
+				common.Logger(ctx).Errorf("%v", ctx.Err())
+				common.SetJobError(ctx, ctx.Err())
 			}
 			return nil
 		})
@@ -306,8 +310,10 @@ func (rc *RunContext) CompositeExecutor() common.Executor {
 		steps = append(steps, func(ctx context.Context) error {
 			err := stepExec(ctx)
 			if err != nil {
+				common.Logger(ctx).Errorf("%v", err)
 				common.SetJobError(ctx, err)
 			} else if ctx.Err() != nil {
+				common.Logger(ctx).Errorf("%v", ctx.Err())
 				common.SetJobError(ctx, ctx.Err())
 			}
 			return nil
