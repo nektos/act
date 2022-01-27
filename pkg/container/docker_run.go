@@ -17,6 +17,7 @@ import (
 	"github.com/go-git/go-billy/v5/helper/polyfill"
 	"github.com/go-git/go-billy/v5/osfs"
 	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
+	"github.com/joho/godotenv"
 
 	"github.com/docker/cli/cli/connhelper"
 	"github.com/docker/docker/api/types"
@@ -72,8 +73,10 @@ type Container interface {
 	Start(attach bool) common.Executor
 	Exec(command []string, env map[string]string, user, workdir string) common.Executor
 	UpdateFromEnv(srcPath string, env *map[string]string) common.Executor
+	UpdateFromImageEnv(env *map[string]string) common.Executor
 	UpdateFromPath(env *map[string]string) common.Executor
 	Remove() common.Executor
+	Close() common.Executor
 }
 
 // NewContainer creates a reference to a container
@@ -85,8 +88,7 @@ func NewContainer(input *NewContainerInput) Container {
 
 // supportsContainerImagePlatform returns true if the underlying Docker server
 // API version is 1.41 and beyond
-func supportsContainerImagePlatform(cli *client.Client) bool {
-	ctx := context.TODO()
+func supportsContainerImagePlatform(ctx context.Context, cli *client.Client) bool {
 	logger := common.Logger(ctx)
 	ver, err := cli.ServerVersion(ctx)
 	if err != nil {
@@ -167,6 +169,10 @@ func (cr *containerReference) UpdateFromEnv(srcPath string, env *map[string]stri
 	return cr.extractEnv(srcPath, env).IfNot(common.Dryrun)
 }
 
+func (cr *containerReference) UpdateFromImageEnv(env *map[string]string) common.Executor {
+	return cr.extractFromImageEnv(env).IfNot(common.Dryrun)
+}
+
 func (cr *containerReference) UpdateFromPath(env *map[string]string) common.Executor {
 	return cr.extractPath(env).IfNot(common.Dryrun)
 }
@@ -240,6 +246,16 @@ func (cr *containerReference) connect() common.Executor {
 	}
 }
 
+func (cr *containerReference) Close() common.Executor {
+	return func(ctx context.Context) error {
+		if cr.cli != nil {
+			cr.cli.Close()
+			cr.cli = nil
+		}
+		return nil
+	}
+}
+
 func (cr *containerReference) find() common.Executor {
 	return func(ctx context.Context) error {
 		if cr.id != "" {
@@ -273,7 +289,7 @@ func (cr *containerReference) remove() common.Executor {
 		}
 
 		logger := common.Logger(ctx)
-		err := cr.cli.ContainerRemove(context.Background(), cr.id, types.ContainerRemoveOptions{
+		err := cr.cli.ContainerRemove(ctx, cr.id, types.ContainerRemoveOptions{
 			RemoveVolumes: true,
 			Force:         true,
 		})
@@ -294,8 +310,8 @@ func (cr *containerReference) create(capAdd []string, capDrop []string) common.E
 		}
 		logger := common.Logger(ctx)
 		isTerminal := term.IsTerminal(int(os.Stdout.Fd()))
-
 		input := cr.input
+
 		config := &container.Config{
 			Image:      input.Image,
 			Cmd:        input.Cmd,
@@ -316,7 +332,7 @@ func (cr *containerReference) create(capAdd []string, capDrop []string) common.E
 		}
 
 		var platSpecs *specs.Platform
-		if supportsContainerImagePlatform(cr.cli) && cr.input.Platform != "" {
+		if supportsContainerImagePlatform(ctx, cr.cli) && cr.input.Platform != "" {
 			desiredPlatform := strings.SplitN(cr.input.Platform, `/`, 2)
 
 			if len(desiredPlatform) != 2 {
@@ -352,7 +368,10 @@ var singleLineEnvPattern, mulitiLineEnvPattern *regexp.Regexp
 
 func (cr *containerReference) extractEnv(srcPath string, env *map[string]string) common.Executor {
 	if singleLineEnvPattern == nil {
-		singleLineEnvPattern = regexp.MustCompile("^([^=]+)=([^=]+)$")
+		// Single line pattern matches:
+		// SOME_VAR=data=moredata
+		// SOME_VAR=datamoredata
+		singleLineEnvPattern = regexp.MustCompile(`^([^=]*)\=(.*)$`)
 		mulitiLineEnvPattern = regexp.MustCompile(`^([^<]+)<<(\w+)$`)
 	}
 
@@ -393,6 +412,38 @@ func (cr *containerReference) extractEnv(srcPath string, env *map[string]string)
 			}
 		}
 		env = &localEnv
+		return nil
+	}
+}
+
+func (cr *containerReference) extractFromImageEnv(env *map[string]string) common.Executor {
+	envMap := *env
+	return func(ctx context.Context) error {
+		logger := common.Logger(ctx)
+
+		inspect, _, err := cr.cli.ImageInspectWithRaw(ctx, cr.input.Image)
+		if err != nil {
+			logger.Error(err)
+		}
+
+		imageEnv, err := godotenv.Unmarshal(strings.Join(inspect.Config.Env, "\n"))
+		if err != nil {
+			logger.Error(err)
+		}
+
+		for k, v := range imageEnv {
+			if k == "PATH" {
+				if envMap[k] == "" {
+					envMap[k] = v
+				} else {
+					envMap[k] += `:` + v
+				}
+			} else if envMap[k] == "" {
+				envMap[k] = v
+			}
+		}
+
+		env = &envMap
 		return nil
 	}
 }

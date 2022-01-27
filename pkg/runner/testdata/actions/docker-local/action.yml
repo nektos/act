@@ -11,5 +11,7 @@ outputs:
 runs:
   using: 'docker'
   image: 'Dockerfile'
+  env:
+    WHOAMI: ${{ inputs.who-to-greet }}
   args:
     - ${{ inputs.who-to-greet }}

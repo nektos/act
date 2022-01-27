@@ -1,5 +1,8 @@
 name: local-action-dockerfile
 on: push
+defaults:
+  run:
+    shell: bash
 
 jobs:
   test:
@@ -7,6 +10,18 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - uses: ./actions/docker-local
+      id: dockerlocal
       with:
         who-to-greet: 'Mona the Octocat'
+    - run: '[[ "${{ env.SOMEVAR }}" == "Mona the Octocat" ]]'
+    - run: '[ "${SOMEVAR}" = "Not Mona" ] || exit 1'
+      env:
+        SOMEVAR: 'Not Mona'
+    - run: '[[ "${{ steps.dockerlocal.outputs.whoami }}" == "Mona the Octocat" ]]'
+    # Test if overriding args doesn't leak inputs
+    - uses: ./actions/docker-local-noargs
+      with:
+        args: ${{format('"{0}"', 'Mona is not the Octocat') }}
+        who-to-greet: 'Mona the Octocat'
+    - run: '[[ "${{ env.SOMEVAR }}" == "Mona is not the Octocat" ]]'
     - uses: ./localdockerimagetest_

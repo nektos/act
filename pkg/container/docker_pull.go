@@ -4,9 +4,8 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
-	"strings"
 
+	"github.com/docker/distribution/reference"
 	"github.com/docker/docker/api/types"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -57,6 +56,7 @@ func NewDockerPullExecutor(input NewDockerPullExecutorInput) common.Executor {
 		if err != nil {
 			return err
 		}
+		defer cli.Close()
 
 		imagePullOptions, err := getImagePullOptions(ctx, input)
 		if err != nil {
@@ -77,6 +77,7 @@ func getImagePullOptions(ctx context.Context, input NewDockerPullExecutorInput) 
 	imagePullOptions := types.ImagePullOptions{
 		Platform: input.Platform,
 	}
+
 	if input.Username != "" && input.Password != "" {
 		logger := common.Logger(ctx)
 		logger.Debugf("using authentication for docker pull")
@@ -92,18 +93,32 @@ func getImagePullOptions(ctx context.Context, input NewDockerPullExecutorInput) 
 		}
 
 		imagePullOptions.RegistryAuth = base64.URLEncoding.EncodeToString(encodedJSON)
+	} else {
+		authConfig, err := LoadDockerAuthConfig(input.Image)
+		if err != nil {
+			return imagePullOptions, err
+		}
+		if authConfig.Username == "" && authConfig.Password == "" {
+			return imagePullOptions, nil
+		}
+
+		encodedJSON, err := json.Marshal(authConfig)
+		if err != nil {
+			return imagePullOptions, err
+		}
+
+		imagePullOptions.RegistryAuth = base64.URLEncoding.EncodeToString(encodedJSON)
 	}
 
 	return imagePullOptions, nil
 }
 
 func cleanImage(image string) string {
-	imageParts := len(strings.Split(image, "/"))
-	if imageParts == 1 {
-		image = fmt.Sprintf("docker.io/library/%s", image)
-	} else if imageParts == 2 {
-		image = fmt.Sprintf("docker.io/%s", image)
+	ref, err := reference.ParseAnyReference(image)
+	if err != nil {
+		log.Error(err)
+		return ""
 	}
 
-	return image
+	return ref.String()
 }

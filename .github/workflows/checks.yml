@@ -4,9 +4,8 @@ on: [pull_request, workflow_dispatch]
 env:
   ACT_OWNER: ${{ github.repository_owner }}
   ACT_REPOSITORY: ${{ github.repository }}
-  CACHED_DOCKER_IMAGES: '"node:12-buster" "node:12-buster-slim" "ubuntu:18.04" "ubuntu:latest" "alpine:3.10" "tonistiigi/binfmt:latest"'
-  CACHED_DOCKER_IMAGES_KEY: docker-images-0
   GO_VERSION: 1.17
+  CGO_ENABLED: 0
 
 jobs:
   lint:
@@ -16,26 +15,19 @@ jobs:
       - uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      - uses: actions/setup-go@v1
+      - uses: actions/setup-go@v2
         with:
           go-version: ${{ env.GO_VERSION }}
       - uses: golangci/golangci-lint-action@v2
-        env:
-          CGO_ENABLED: 0
         with:
-          version: v1.40.0
-      - uses: github/super-linter@v3
+          version: latest
+      - uses: megalinter/megalinter/flavors/go@v5
         env:
           DEFAULT_BRANCH: master
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          FILTER_REGEX_EXCLUDE: .*testdata/*
           VALIDATE_ALL_CODEBASE: false
-          VALIDATE_BASH: false
-          VALIDATE_DOCKERFILE: false
-          VALIDATE_DOCKERFILE_HADOLINT: false
-          VALIDATE_GO: false # it's broken, see commit message
-          VALIDATE_JSCPD: false
-          VALIDATE_SHELL_SHFMT: false
+          GITHUB_STATUS_REPORTER: ${{ !env.ACT }}
+          GITHUB_COMMENT_REPORTER: ${{ !env.ACT }}
 
   test-linux:
     name: test-linux
@@ -46,7 +38,7 @@ jobs:
           fetch-depth: 2
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v1
-      - uses: actions/setup-go@v1
+      - uses: actions/setup-go@v2
         with:
           go-version: ${{ env.GO_VERSION }}
       - uses: actions/cache@v2
@@ -57,115 +49,18 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
       - run: go test -v -cover -coverprofile=coverage.txt -covermode=atomic ./...
-        env:
-          CGO_ENABLED: 0
       - name: Upload Codecov report
-        uses: codecov/codecov-action@v1.5.2
+        uses: codecov/codecov-action@v2.1.0
         with:
           files: coverage.txt
           fail_ci_if_error: true # optional (default = false)
-
-  dump_images:
-    runs-on: ubuntu-latest
-    continue-on-error: true
-    steps:
-      - uses: actions/cache@v2
-        id: image_cache
-        with:
-          key: ${{ env.CACHED_DOCKER_IMAGES_KEY }}
-          path: |
-            registry
-            docker-registry
-      - name: Pull and export images
-        if: steps.image_cache.outputs.cache-hit != 'true'
-        run: |
-          docker pull registry:2
-          docker image save -o registry registry:2
-          mkdir -p docker-registry
-          docker run -d -p 5000:5000 --name registry -v $PWD/docker-registry:/var/lib/registry registry:2
-          npx wait-on tcp:5000
-          for image in ${{ env.CACHED_DOCKER_IMAGES }}
-          do
-            bash -c 'docker pull "'"$image"'" && docker tag "'"$image"'" "localhost:5000/'"$image"'" && docker push "localhost:5000/'"$image"'"'&
-          done
-          wait
-
-  test-macos:
-    needs: dump_images
-    name: test-macos
-    runs-on: macos-latest
-    continue-on-error: true # Don't let macos test fail whole workflow
-    env:
-      ISO_PATH: ~/.docker/machine/cache/boot2docker.iso
-    steps:
-      - uses: actions/checkout@v2
-      - name: Restore Docker Image Cache
-        uses: actions/cache@v2
-        id: image_cache
-        continue-on-error: true
-        with:
-          key: ${{ env.CACHED_DOCKER_IMAGES_KEY }}
-          path: |
-            registry
-            docker-registry
-      - uses: actions/setup-go@v1
-        with:
-          go-version: ${{ env.GO_VERSION }}
-      - uses: actions/cache@v2
-        if: ${{ !env.ACT }}
-        with:
-          path: ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
-      - uses: actions/cache@v2
-        with:
-          key: boot2docker
-          path: ${{ env.ISO_PATH }}
-          restore-keys: boot2docker
-      - name: Install Docker on macOS
-        run: |
-          printf " 🛠️ Downloading boot2docker.iso 🛠️ \n\n"
-          mkdir -p ~/.docker/machine/cache/
-          test -f ${{ env.ISO_PATH }} && printf " 🛠️ ${{ env.ISO_PATH }} successfully restored 🛠️ \n\n" || wget "https://github.com/boot2docker/boot2docker/releases/download/v19.03.12/boot2docker.iso" -O ${{ env.ISO_PATH }}
-          printf " 🛠️ Installing Docker from Homebrew 🛠️ \n\n"
-          brew install docker docker-machine
-          printf " 🛠️ Creating Docker VM 🛠️ \n\n"
-          docker-machine create --driver virtualbox --virtualbox-boot2docker-url ${{ env.ISO_PATH }} default
-          docker-machine env default
-          printf " 🛠️ Adding Docker VM info to environment 🛠️ \n\n"
-          eval "$(docker-machine env default)"
-          echo "DOCKER_TLS_VERIFY=$DOCKER_TLS_VERIFY" | tee -a $GITHUB_ENV
-          echo "DOCKER_HOST=$DOCKER_HOST" | tee -a $GITHUB_ENV
-          echo "DOCKER_CERT_PATH=$DOCKER_CERT_PATH" | tee -a $GITHUB_ENV
-          echo "DOCKER_MACHINE_NAME=$DOCKER_MACHINE_NAME" | tee -a $GITHUB_ENV
-          printf " 🛠️ Finished installing Docker 🛠️ \n\n"
-      - name: Import images
-        if: steps.image_cache.outputs.cache-hit == 'true'
-        continue-on-error: true
-        run: |
-          echo load registry
-          docker image load -i registry
-          echo Setup local registry
-          docker run -d -p 5000:5000 --name registry -v $PWD/docker-registry:/var/lib/registry registry:2
-          echo pulling images from cache
-          for image in ${{ env.CACHED_DOCKER_IMAGES }}
-          do
-            bash -c '(sleep 1 && docker pull "localhost:5000/'"$image"'" || sleep 2 && docker pull "localhost:5000/'"$image"'" || sleep 10 && docker pull "localhost:5000/'"$image"'") && docker tag "localhost:5000/'"$image"'" "'"$image"'"'&
-          done
-          wait
-      - name: 🛠️ Install Qemu for running containers with different architecture 🛠️
-        run: docker run --rm --privileged tonistiigi/binfmt:latest --install all
-      - run: go test -v -timeout 30m -cover ./...
-        env:
-          CGO_ENABLED: 0
 
   snapshot:
     name: snapshot
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: actions/setup-go@v1
+      - uses: actions/setup-go@v2
         with:
           go-version: ${{ env.GO_VERSION }}
       - uses: actions/cache@v2
@@ -246,3 +141,7 @@ jobs:
         with:
           name: act-macos-arm64
           path: dist/act_darwin_arm64/act
+      - name: Chocolatey
+        uses: ./.github/actions/choco
+        with:
+          version: v0.0.0-pr

@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/nektos/act/pkg/common"
+	"github.com/nektos/act/pkg/model"
 )
 
 func TestSetEnv(t *testing.T) {
@@ -24,11 +25,11 @@ func TestSetOutput(t *testing.T) {
 	a := assert.New(t)
 	ctx := context.Background()
 	rc := new(RunContext)
-	rc.StepResults = make(map[string]*stepResult)
+	rc.StepResults = make(map[string]*model.StepResult)
 	handler := rc.commandHandler(ctx)
 
 	rc.CurrentStep = "my-step"
-	rc.StepResults[rc.CurrentStep] = &stepResult{
+	rc.StepResults[rc.CurrentStep] = &model.StepResult{
 		Outputs: make(map[string]string),
 	}
 	handler("::set-output name=x::valz\n")
@@ -64,8 +65,10 @@ func TestAddpath(t *testing.T) {
 }
 
 func TestStopCommands(t *testing.T) {
+	logger, hook := test.NewNullLogger()
+
 	a := assert.New(t)
-	ctx := context.Background()
+	ctx := common.WithLogger(context.Background(), logger)
 	rc := new(RunContext)
 	handler := rc.commandHandler(ctx)
 
@@ -77,6 +80,13 @@ func TestStopCommands(t *testing.T) {
 	handler("::my-end-token::\n")
 	handler("::set-env name=x::abcd\n")
 	a.Equal("abcd", rc.Env["x"])
+
+	messages := make([]string, 0)
+	for _, entry := range hook.AllEntries() {
+		messages = append(messages, entry.Message)
+	}
+
+	a.Contains(messages, "  \U00002699  ::set-env name=x::abcd\n")
 }
 
 func TestAddpathADO(t *testing.T) {

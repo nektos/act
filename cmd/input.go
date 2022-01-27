@@ -20,6 +20,7 @@ type Input struct {
 	platforms             []string
 	dryrun                bool
 	forcePull             bool
+	forceRebuild          bool
 	noOutput              bool
 	envfile               string
 	secretfile            string
@@ -35,6 +36,8 @@ type Input struct {
 	containerCapAdd       []string
 	containerCapDrop      []string
 	autoRemove            bool
+	artifactServerPath    string
+	artifactServerPort    string
 }
 
 func (i *Input) resolve(path string) string {

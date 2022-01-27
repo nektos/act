@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"regexp"
@@ -52,12 +53,13 @@ func TestRunContext_EvalBool(t *testing.T) {
 			"os":  "Linux",
 			"foo": "bar",
 		},
-		StepResults: map[string]*stepResult{
+		StepResults: map[string]*model.StepResult{
 			"id1": {
+				Conclusion: model.StepStatusSuccess,
+				Outcome:    model.StepStatusFailure,
 				Outputs: map[string]string{
 					"foo": "bar",
 				},
-				Success: true,
 			},
 		},
 	}
@@ -73,10 +75,16 @@ func TestRunContext_EvalBool(t *testing.T) {
 		{in: "success()", out: true},
 		{in: "cancelled()", out: false},
 		{in: "always()", out: true},
+		// TODO: move to sc.NewExpressionEvaluator(), because "steps" context is not available here
+		// {in: "steps.id1.conclusion == 'success'", out: true},
+		// {in: "steps.id1.conclusion != 'success'", out: false},
+		// {in: "steps.id1.outcome == 'failure'", out: true},
+		// {in: "steps.id1.outcome != 'failure'", out: false},
 		{in: "true", out: true},
 		{in: "false", out: false},
-		{in: "!true", wantErr: true},
-		{in: "!false", wantErr: true},
+		// TODO: This does not throw an error, because the evaluator does not know if the expression is inside ${{ }} or not
+		// {in: "!true", wantErr: true},
+		// {in: "!false", wantErr: true},
 		{in: "1 != 0", out: true},
 		{in: "1 != 1", out: false},
 		{in: "${{ 1 != 0 }}", out: true},
@@ -94,14 +102,15 @@ func TestRunContext_EvalBool(t *testing.T) {
 		{in: "env.UNKNOWN == 'true'", out: false},
 		{in: "env.UNKNOWN", out: false},
 		// Inline expressions
-		{in: "env.SOME_TEXT", out: true}, // this is because Boolean('text') is true in Javascript
+		{in: "env.SOME_TEXT", out: true},
 		{in: "env.SOME_TEXT == 'text'", out: true},
 		{in: "env.SOMETHING_TRUE == 'true'", out: true},
 		{in: "env.SOMETHING_FALSE == 'true'", out: false},
 		{in: "env.SOMETHING_TRUE", out: true},
-		{in: "env.SOMETHING_FALSE", out: true}, // this is because Boolean('text') is true in Javascript
-		{in: "!env.SOMETHING_TRUE", wantErr: true},
-		{in: "!env.SOMETHING_FALSE", wantErr: true},
+		{in: "env.SOMETHING_FALSE", out: true},
+		// TODO: This does not throw an error, because the evaluator does not know if the expression is inside ${{ }} or not
+		// {in: "!env.SOMETHING_TRUE", wantErr: true},
+		// {in: "!env.SOMETHING_FALSE", wantErr: true},
 		{in: "${{ !env.SOMETHING_TRUE }}", out: false},
 		{in: "${{ !env.SOMETHING_FALSE }}", out: false},
 		{in: "${{ ! env.SOMETHING_TRUE }}", out: false},
@@ -117,7 +126,8 @@ func TestRunContext_EvalBool(t *testing.T) {
 		{in: "${{ env.SOMETHING_TRUE && true }}", out: true},
 		{in: "${{ env.SOMETHING_FALSE || true }}", out: true},
 		{in: "${{ env.SOMETHING_FALSE || false }}", out: true},
-		{in: "!env.SOMETHING_TRUE || true", wantErr: true},
+		// TODO: This does not throw an error, because the evaluator does not know if the expression is inside ${{ }} or not
+		// {in: "!env.SOMETHING_TRUE || true", wantErr: true},
 		{in: "${{ env.SOMETHING_TRUE == 'true'}}", out: true},
 		{in: "${{ env.SOMETHING_FALSE == 'true'}}", out: false},
 		{in: "${{ env.SOMETHING_FALSE == 'false'}}", out: true},
@@ -148,7 +158,7 @@ func TestRunContext_EvalBool(t *testing.T) {
 		t.Run(table.in, func(t *testing.T) {
 			assertObject := assert.New(t)
 			defer hook.Reset()
-			b, err := rc.EvalBool(table.in)
+			b, err := EvalBool(rc.ExprEval, table.in)
 			if table.wantErr {
 				assertObject.Error(err)
 			}
@@ -173,7 +183,7 @@ func updateTestIfWorkflow(t *testing.T, tables []struct {
 	for _, k := range keys {
 		envs += fmt.Sprintf("  %s: %s\n", k, rc.Env[k])
 	}
-
+	// editorconfig-checker-disable
 	workflow := fmt.Sprintf(`
 name: "Test what expressions result in true and false on GitHub"
 on: push
@@ -186,12 +196,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 `, envs)
+	// editorconfig-checker-enable
 
 	for i, table := range tables {
 		if table.wantErr || strings.HasPrefix(table.in, "github.actor") {
 			continue
 		}
-		expressionPattern = regexp.MustCompile(`\${{\s*(.+?)\s*}}`)
+		expressionPattern := regexp.MustCompile(`\${{\s*(.+?)\s*}}`)
 
 		expr := expressionPattern.ReplaceAllStringFunc(table.in, func(match string) string {
 			return fmt.Sprintf("€{{ %s }}", expressionPattern.ReplaceAllString(match, "$1"))
@@ -305,7 +316,7 @@ func TestGetGitHubContext(t *testing.T) {
 		Matrix:         map[string]interface{}{},
 		Env:            map[string]string{},
 		ExtraPath:      []string{},
-		StepResults:    map[string]*stepResult{},
+		StepResults:    map[string]*model.StepResult{},
 		OutputMappings: map[MappableOutput]MappableOutput{},
 	}
 
@@ -338,4 +349,139 @@ func TestGetGitHubContext(t *testing.T) {
 	assert.Equal(t, ghc.RunnerPerflog, "/dev/null")
 	assert.Equal(t, ghc.EventPath, ActPath+"/workflow/event.json")
 	assert.Equal(t, ghc.Token, rc.Config.Secrets["GITHUB_TOKEN"])
+}
+
+func createIfTestRunContext(jobs map[string]*model.Job) *RunContext {
+	rc := &RunContext{
+		Config: &Config{
+			Workdir: ".",
+			Platforms: map[string]string{
+				"ubuntu-latest": "ubuntu-latest",
+			},
+		},
+		Env: map[string]string{},
+		Run: &model.Run{
+			JobID: "job1",
+			Workflow: &model.Workflow{
+				Name: "test-workflow",
+				Jobs: jobs,
+			},
+		},
+	}
+	rc.ExprEval = rc.NewExpressionEvaluator()
+
+	return rc
+}
+
+func createJob(t *testing.T, input string, result string) *model.Job {
+	var job *model.Job
+	err := yaml.Unmarshal([]byte(input), &job)
+	assert.NoError(t, err)
+	job.Result = result
+
+	return job
+}
+
+func TestRunContextIsEnabled(t *testing.T) {
+	log.SetLevel(log.DebugLevel)
+	assertObject := assert.New(t)
+
+	// success()
+	rc := createIfTestRunContext(map[string]*model.Job{
+		"job1": createJob(t, `runs-on: ubuntu-latest
+if: success()`, ""),
+	})
+	assertObject.True(rc.isEnabled(context.Background()))
+
+	rc = createIfTestRunContext(map[string]*model.Job{
+		"job1": createJob(t, `runs-on: ubuntu-latest`, "failure"),
+		"job2": createJob(t, `runs-on: ubuntu-latest
+needs: [job1]
+if: success()`, ""),
+	})
+	rc.Run.JobID = "job2"
+	assertObject.False(rc.isEnabled(context.Background()))
+
+	rc = createIfTestRunContext(map[string]*model.Job{
+		"job1": createJob(t, `runs-on: ubuntu-latest`, "success"),
+		"job2": createJob(t, `runs-on: ubuntu-latest
+needs: [job1]
+if: success()`, ""),
+	})
+	rc.Run.JobID = "job2"
+	assertObject.True(rc.isEnabled(context.Background()))
+
+	rc = createIfTestRunContext(map[string]*model.Job{
+		"job1": createJob(t, `runs-on: ubuntu-latest`, "failure"),
+		"job2": createJob(t, `runs-on: ubuntu-latest
+if: success()`, ""),
+	})
+	rc.Run.JobID = "job2"
+	assertObject.True(rc.isEnabled(context.Background()))
+
+	// failure()
+	rc = createIfTestRunContext(map[string]*model.Job{
+		"job1": createJob(t, `runs-on: ubuntu-latest
+if: failure()`, ""),
+	})
+	assertObject.False(rc.isEnabled(context.Background()))
+
+	rc = createIfTestRunContext(map[string]*model.Job{
+		"job1": createJob(t, `runs-on: ubuntu-latest`, "failure"),
+		"job2": createJob(t, `runs-on: ubuntu-latest
+needs: [job1]
+if: failure()`, ""),
+	})
+	rc.Run.JobID = "job2"
+	assertObject.True(rc.isEnabled(context.Background()))
+
+	rc = createIfTestRunContext(map[string]*model.Job{
+		"job1": createJob(t, `runs-on: ubuntu-latest`, "success"),
+		"job2": createJob(t, `runs-on: ubuntu-latest
+needs: [job1]
+if: failure()`, ""),
+	})
+	rc.Run.JobID = "job2"
+	assertObject.False(rc.isEnabled(context.Background()))
+
+	rc = createIfTestRunContext(map[string]*model.Job{
+		"job1": createJob(t, `runs-on: ubuntu-latest`, "failure"),
+		"job2": createJob(t, `runs-on: ubuntu-latest
+if: failure()`, ""),
+	})
+	rc.Run.JobID = "job2"
+	assertObject.False(rc.isEnabled(context.Background()))
+
+	// always()
+	rc = createIfTestRunContext(map[string]*model.Job{
+		"job1": createJob(t, `runs-on: ubuntu-latest
+if: always()`, ""),
+	})
+	assertObject.True(rc.isEnabled(context.Background()))
+
+	rc = createIfTestRunContext(map[string]*model.Job{
+		"job1": createJob(t, `runs-on: ubuntu-latest`, "failure"),
+		"job2": createJob(t, `runs-on: ubuntu-latest
+needs: [job1]
+if: always()`, ""),
+	})
+	rc.Run.JobID = "job2"
+	assertObject.True(rc.isEnabled(context.Background()))
+
+	rc = createIfTestRunContext(map[string]*model.Job{
+		"job1": createJob(t, `runs-on: ubuntu-latest`, "success"),
+		"job2": createJob(t, `runs-on: ubuntu-latest
+needs: [job1]
+if: always()`, ""),
+	})
+	rc.Run.JobID = "job2"
+	assertObject.True(rc.isEnabled(context.Background()))
+
+	rc = createIfTestRunContext(map[string]*model.Job{
+		"job1": createJob(t, `runs-on: ubuntu-latest`, "success"),
+		"job2": createJob(t, `runs-on: ubuntu-latest
+if: always()`, ""),
+	})
+	rc.Run.JobID = "job2"
+	assertObject.True(rc.isEnabled(context.Background()))
 }

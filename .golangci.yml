@@ -1,9 +1,9 @@
-# yaml-language-server: $schema=https://schemastore.pages.dev/schemas/json/golangci-lint.json
-# Your editor might complain about invalid types, but this is correct config
-# above schema should prevent editor from "shouting" about this
-# Minimum golangci-lint version required: v1.40.0
+# Minimum golangci-lint version required: v1.42.0
 run:
   timeout: 3m
+
+skip-dirs:
+  - report # megalinter results+fixes
 
 linters-settings:
   gocyclo:
@@ -32,7 +32,7 @@ linters:
   enable:
     - megacheck
     - govet
-    - golint
+    - revive
     - gocyclo
     - gosec
     - unconvert
@@ -46,3 +46,6 @@ linters:
     - misspell
     - depguard
     - importas
+    - contextcheck
+    - nolintlint
+    - revive

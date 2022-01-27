@@ -1,6 +1,9 @@
 pull_request_rules:
   - name: warn on conflicts
     conditions:
+      - -draft
+      - -closed
+      - -merged
       - conflict
     actions:
       comment:
@@ -17,7 +20,15 @@ pull_request_rules:
           - conflict
   - name: warn on needs-work
     conditions:
-      - '#check-failure>=1'
+      - -draft
+      - -closed
+      - -merged
+      - or:
+          - check-failure=lint
+          - check-failure=test-linux
+          - check-failure=codecov/patch
+          - check-failure=codecov/project
+          - check-failure=snapshot
     actions:
       comment:
         message: '@{{author}} this pull request has failed checks 🛠'
@@ -28,7 +39,6 @@ pull_request_rules:
     conditions:
       - check-success=lint
       - check-success=test-linux
-      - check-success=test-macos
       - check-success=codecov/patch
       - check-success=codecov/project
       - check-success=snapshot
@@ -45,7 +55,6 @@ pull_request_rules:
       - -conflict
       - check-success=lint
       - check-success=test-linux
-      - check-success=test-macos
       - check-success=codecov/patch
       - check-success=codecov/project
       - check-success=snapshot
@@ -63,7 +72,6 @@ pull_request_rules:
       - -conflict
       - check-success=lint
       - check-success=test-linux
-      - check-success=test-macos
       - check-success=codecov/patch
       - check-success=codecov/project
       - check-success=snapshot
@@ -74,17 +82,28 @@ pull_request_rules:
   - name: Automatic merge on approval
     conditions:
       - '#changes-requested-reviews-by=0'
-      - 'approved-reviews-by=@nektos/act-committers'
+      - or:
+          - 'approved-reviews-by=@nektos/act-committers'
+          - and:
+              - 'approved-reviews-by=@nektos/act-maintainers'
+              - '#approved-reviews-by>=3'
       - -draft
       - -merged
       - -closed
       - check-success=lint
       - check-success=test-linux
-      - check-success=test-macos
       - check-success=codecov/patch
       - check-success=codecov/project
       - check-success=snapshot
     actions:
-      merge:
+      queue:
         method: squash
-        strict: true
+        name: default
+queue_rules:
+  - name: default
+    conditions:
+      - check-success=lint
+      - check-success=test-linux
+      - check-success=codecov/patch
+      - check-success=codecov/project
+      - check-success=snapshot

@@ -1,0 +1,13 @@
+outputs:
+  customoutput:
+    value: my-customoutput-${{ steps.random-color-generator.outputs.SELECTED_COLOR }}
+runs:
+  using: composite
+  steps:
+  - name: Set selected color
+    run: echo '::set-output name=SELECTED_COLOR::green'
+    id: random-color-generator
+    shell: bash
+  - name: fail
+    run: exit 1
+    shell: bash

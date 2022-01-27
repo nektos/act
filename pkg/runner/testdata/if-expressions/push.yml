@@ -1,0 +1,29 @@
+on: push
+jobs:
+  mytest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      # - run: exit 1
+      - uses: ./
+        if: failure()
+      - run: echo Success
+        shell: bash
+      - run: echo Success
+        if: success()
+        shell: bash
+      - run: exit 1
+        shell: bash
+      - run: echo "Shouldn't run"
+        if: success()
+        shell: bash
+      - run: echo "Shouldn't run2"
+        shell: bash
+      - run: echo expected to run
+        if: failure()
+        shell: bash
+  next:
+    needs: mytest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2

@@ -35,10 +35,16 @@ If you are using Linux, you will need to [install Docker Engine](https://docs.do
 
 ### [Homebrew](https://brew.sh/) (Linux/macOS)
 
-[![homebrew version](https://img.shields.io/homebrew/v/act)](https://github.com/nektos/homebrew-tap/blob/master/Formula/act.rb)
+[![homebrew version](https://img.shields.io/homebrew/v/act)](https://github.com/Homebrew/homebrew-core/blob/master/Formula/act.rb)
 
 ```shell
 brew install act
+```
+
+or if you want to install version based on latest commit, you can run below (it requires compiler to be installed installed but Homebrew will suggest you how to install it, if you don't have it):
+
+```shell
+brew install act --HEAD
 ```
 
 ### [MacPorts](https://www.macports.org) (macOS)
@@ -71,7 +77,9 @@ scoop install act
 yay -S act
 ```
 
-### Nix (Linux/macOS)
+### [Nix](https://nixos.org) (Linux/macOS)
+
+[Nix recipe](https://github.com/NixOS/nixpkgs/blob/master/pkgs/development/tools/misc/act/default.nix)
 
 Global install:
 
@@ -85,7 +93,7 @@ or through `nix-shell`:
 nix-shell -p act
 ```
 
-### Go (Linux/Windows/macOS/any other platform supported by Go)
+### [Go](https://golang.org) (Linux/Windows/macOS/any other platform supported by Go)
 
 If you have Go 1.16+, you can install latest released version of `act` directly from source by running:
 
@@ -157,8 +165,12 @@ It will save that information to `~/.actrc`, please refer to [Configuration](#co
 
 ```none
   -a, --actor string                     user that triggered the event (default "nektos/act")
+      --artifact-server-path string      Defines the path where the artifact server stores uploads and retrieves downloads from. If not specified the artifact server will not start.
+      --artifact-server-port string      Defines the port where the artifact server listens (will only bind to localhost). (default "34567")
   -b, --bind                             bind working directory to container, rather than copy
       --container-architecture string    Architecture which should be used to run containers, e.g.: linux/amd64. If not specified, will use host default architecture. Requires Docker server API Version 1.41+. Ignored on earlier Docker server platforms.
+      --container-cap-add stringArray    kernel capabilities to add to the workflow containers (e.g. --container-cap-add SYS_PTRACE)
+      --container-cap-drop stringArray   kernel capabilities to remove from the workflow containers (e.g. --container-cap-drop SYS_PTRACE)
       --container-daemon-socket string   Path to Docker daemon socket which will be mounted to containers (default "/var/run/docker.sock")
       --defaultbranch string             the name of the main branch
       --detect-event                     Use first event type from workflow as event that triggered the workflow
@@ -178,7 +190,9 @@ It will save that information to `~/.actrc`, please refer to [Configuration](#co
       --privileged                       use privileged mode
   -p, --pull                             pull docker image(s) even if already present
   -q, --quiet                            disable logging of output from steps
-  -r, --reuse                            reuse action containers to maintain state
+      --rebuild                          rebuild local action docker image(s) even if already present
+  -r, --reuse                            don't remove container(s) on successfully completed workflow(s) to maintain state between runs
+      --rm                               automatically remove container(s)/volume(s) after a workflow(s) failure
   -s, --secret stringArray               secret to make available to actions with optional value (e.g. -s mysecret=foo or -s mysecret)
       --secret-file string               file with list of secrets to read from (e.g. --secret-file .secrets) (default ".secrets")
       --use-gitignore                    Controls whether paths specified in .gitignore should be copied into container (default true)
@@ -227,22 +241,16 @@ export DOCKER_HOST=$(docker context inspect --format '{{.Endpoints.docker.Host}}
 
 GitHub Actions offers managed [virtual environments](https://help.github.com/en/actions/reference/virtual-environments-for-github-hosted-runners) for running workflows. In order for `act` to run your workflows locally, it must run a container for the runner defined in your workflow file. Here are the images that `act` uses for each runner type and size:
 
-| GitHub Runner   | Micro Docker Image              | Medium Docker Image                                       | Large Docker Image                                         |
-| --------------- | ------------------------------- | --------------------------------------------------------- | ---------------------------------------------------------- |
-| `ubuntu-latest` | [`node:12-buster-slim`][micro]  | [`ghcr.io/catthehacker/ubuntu:act-latest`][docker_images] | [`ghcr.io/catthehacker/ubuntu:full-latest`][docker_images] |
-| `ubuntu-20.04`  | [`node:12-buster-slim`][micro]  | [`ghcr.io/catthehacker/ubuntu:act-20.04`][docker_images]  | [`ghcr.io/catthehacker/ubuntu:full-20.04`][docker_images]  |
-| `ubuntu-18.04`  | [`node:12-buster-slim`][micro]  | [`ghcr.io/catthehacker/ubuntu:act-18.04`][docker_images]  | [`ghcr.io/catthehacker/ubuntu:full-18.04`][docker_images]  |
-| `ubuntu-16.04`  | [`node:12-stretch-slim`][micro] | [`ghcr.io/catthehacker/ubuntu:act-16.04`][docker_images]  | `unavailable`                                              |
+| GitHub Runner   | Micro Docker Image             | Medium Docker Image                                       | Large Docker Image                                         |
+| --------------- | ------------------------------ | --------------------------------------------------------- | ---------------------------------------------------------- |
+| `ubuntu-latest` | [`node:16-buster-slim`][micro] | [`ghcr.io/catthehacker/ubuntu:act-latest`][docker_images] | [`ghcr.io/catthehacker/ubuntu:full-latest`][docker_images] |
+| `ubuntu-20.04`  | [`node:16-buster-slim`][micro] | [`ghcr.io/catthehacker/ubuntu:act-20.04`][docker_images]  | [`ghcr.io/catthehacker/ubuntu:full-20.04`][docker_images]  |
+| `ubuntu-18.04`  | [`node:16-buster-slim`][micro] | [`ghcr.io/catthehacker/ubuntu:act-18.04`][docker_images]  | [`ghcr.io/catthehacker/ubuntu:full-18.04`][docker_images]  |
 
 [micro]: https://hub.docker.com/_/buildpack-deps
 [docker_images]: https://github.com/catthehacker/docker_images
 
-Below platforms are currently **unsupported and won't work** (see issue [#97](https://github.com/nektos/act/issues/97))
-
-- `windows-latest`
-- `windows-2019`
-- `macos-latest`
-- `macos-10.15`
+Windows and macOS based platforms are currently **unsupported and won't work** (see issue [#97](https://github.com/nektos/act/issues/97))
 
 ## Please see [IMAGES.md](./IMAGES.md) for more information about the Docker images that can be used with `act`
 
@@ -281,7 +289,7 @@ If you use multiple platforms in your workflow, you have to specify them to chan
 For example, if your workflow uses `ubuntu-18.04`, `ubuntu-16.04` and `ubuntu-latest`, specify all platforms like below
 
 ```sh
-act -P ubuntu-18.04=nektos/act-environments-ubuntu:18.04 -P ubuntu-latest=ubuntu:latest -P ubuntu-16.04=node:12-buster-slim
+act -P ubuntu-18.04=nektos/act-environments-ubuntu:18.04 -P ubuntu-latest=ubuntu:latest -P ubuntu-16.04=node:16-buster-slim
 ```
 
 # Secrets

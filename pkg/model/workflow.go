@@ -23,6 +23,21 @@ type Workflow struct {
 	Defaults Defaults          `yaml:"defaults"`
 }
 
+// CompositeRestrictions is the structure to control what is allowed in composite actions
+type CompositeRestrictions struct {
+	AllowCompositeUses            bool
+	AllowCompositeIf              bool
+	AllowCompositeContinueOnError bool
+}
+
+func defaultCompositeRestrictions() *CompositeRestrictions {
+	return &CompositeRestrictions{
+		AllowCompositeUses:            true,
+		AllowCompositeIf:              true,
+		AllowCompositeContinueOnError: false,
+	}
+}
+
 // On events for the workflow
 func (w *Workflow) On() []string {
 	switch w.RawOn.Kind {
@@ -69,6 +84,7 @@ type Job struct {
 	RawContainer   yaml.Node                 `yaml:"container"`
 	Defaults       Defaults                  `yaml:"defaults"`
 	Outputs        map[string]string         `yaml:"outputs"`
+	Result         string
 }
 
 // Strategy for the job
@@ -295,15 +311,16 @@ func commonKeysMatch(a map[string]interface{}, b map[string]interface{}) bool {
 
 // ContainerSpec is the specification of the container to use for the job
 type ContainerSpec struct {
-	Image      string            `yaml:"image"`
-	Env        map[string]string `yaml:"env"`
-	Ports      []string          `yaml:"ports"`
-	Volumes    []string          `yaml:"volumes"`
-	Options    string            `yaml:"options"`
-	Entrypoint string
-	Args       string
-	Name       string
-	Reuse      bool
+	Image       string            `yaml:"image"`
+	Env         map[string]string `yaml:"env"`
+	Ports       []string          `yaml:"ports"`
+	Volumes     []string          `yaml:"volumes"`
+	Options     string            `yaml:"options"`
+	Credentials map[string]string `yaml:"credentials"`
+	Entrypoint  string
+	Args        string
+	Name        string
+	Reuse       bool
 }
 
 // Step is the structure of one step in a job
@@ -409,11 +426,18 @@ func (s *Step) Type() StepType {
 	return StepTypeUsesActionRemote
 }
 
-func (s *Step) Validate() error {
-	if s.Type() != StepTypeRun {
+func (s *Step) Validate(config *CompositeRestrictions) error {
+	if config == nil {
+		config = defaultCompositeRestrictions()
+	}
+	if s.Type() != StepTypeRun && !config.AllowCompositeUses {
 		return fmt.Errorf("(StepID: %s): Unexpected value 'uses'", s.String())
-	} else if s.Shell == "" {
+	} else if s.Type() == StepTypeRun && s.Shell == "" {
 		return fmt.Errorf("(StepID: %s): Required property is missing: 'shell'", s.String())
+	} else if !s.If.IsZero() && !config.AllowCompositeIf {
+		return fmt.Errorf("(StepID: %s): Property is not available: 'if'", s.String())
+	} else if s.ContinueOnError && !config.AllowCompositeContinueOnError {
+		return fmt.Errorf("(StepID: %s): Property is not available: 'continue-on-error'", s.String())
 	}
 	return nil
 }
@@ -431,6 +455,9 @@ func (w *Workflow) GetJob(jobID string) *Job {
 		if jobID == id {
 			if j.Name == "" {
 				j.Name = id
+			}
+			if j.If.Value == "" {
+				j.If.Value = "success()"
 			}
 			return j
 		}

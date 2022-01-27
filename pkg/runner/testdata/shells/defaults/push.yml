@@ -1,0 +1,21 @@
+on: push
+jobs:
+  check: # GHA uses `bash` as default for runners
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          if [[ -n "$BASH" ]]; then
+            echo "I'm $BASH!"
+          else
+            exit 1
+          fi
+  check-container: # GHA uses `sh` as default for containers
+    runs-on: ubuntu-latest
+    container: alpine:latest
+    steps:
+      - run: |
+          if [ -z ${BASH+x} ]; then
+            echo "I'm sh!"
+          else
+            exit 1
+          fi

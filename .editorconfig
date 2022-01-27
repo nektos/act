@@ -5,12 +5,13 @@ end_of_line = lf
 charset = utf-8
 insert_final_newline = true
 trim_trailing_whitespace = true
-
-# Override for Makefile
-[{Makefile, makefile, GNUmakefile}]
 indent_style = tab
 indent_size = 4
 
-[*.{yml.yaml,json}]
+[{Dockerfile,*.md,*_test.go,install.sh,act-cli.nuspec}]
+indent_style = unset
+indent_size = unset
+
+[*.{yml,yaml,js{,on}}]
 indent_style = space
 indent_size = 2

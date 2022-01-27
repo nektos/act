@@ -10,15 +10,15 @@ builds:
       - windows
     goarch:
       - amd64
-      - 386
+      - '386'
       - arm64
       - arm
     goarm:
-      - 6
-      - 7
+      - '6'
+      - '7'
     ignore:
       - goos: windows
-        goarm: 6
+        goarm: '6'
 checksum:
   name_template: 'checksums.txt'
 archives:
@@ -32,12 +32,19 @@ archives:
     format_overrides:
       - goos: windows
         format: zip
-brews:
-  - tap:
-      owner: nektos
-      name: homebrew-tap
-    folder: Formula
-    homepage: https://github.com/nektos/act
-    description: Run GitHub Actions locally
-    test: |
-      system "#{bin}/act --version"
+changelog:
+  groups:
+    - title: 'New Features'
+      regexp: "^.*feat[(\\w)]*:+.*$"
+      order: 0
+    - title: 'Bug fixes'
+      regexp: "^.*fix[(\\w)]*:+.*$"
+      order: 1
+    - title: 'Documentation updates'
+      regexp: "^.*docs[(\\w)]*:+.*$"
+      order: 2
+    - title: 'Other'
+      order: 999
+release:
+  prerelease: auto
+  mode: append

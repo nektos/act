@@ -28,3 +28,6 @@ coverage.txt
 
 .env
 .secrets
+
+# megalinter
+report/

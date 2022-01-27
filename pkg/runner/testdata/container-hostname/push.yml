@@ -1,11 +1,15 @@
 name: container-hostname
 on: push
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   with-hostname:
     runs-on: ubuntu-latest
     container:
-      image: node:12-buster-slim
+      image: node:16-buster-slim
       options: "--hostname my.host.local"
     steps:
       - run: |
@@ -14,7 +18,7 @@ jobs:
   default-hostname:
     runs-on: ubuntu-latest
     container:
-      image: node:12-buster-slim
+      image: node:16-buster-slim
     steps:
       - run: |
           [[ $(uname -n) ]] && [[ $(uname -n) != "my.host.local" ]]
