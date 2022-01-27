@@ -62,23 +62,6 @@ pull_request_rules:
       request_reviews:
         teams:
           - '@nektos/act-maintainers'
-  - name: Automatic committer assignment
-    conditions:
-      - 'approved-reviews-by=@nektos/act-maintainers'
-      - '-approved-reviews-by=@nektos/act-committers'
-      - -draft
-      - -merged
-      - -closed
-      - -conflict
-      - check-success=lint
-      - check-success=test-linux
-      - check-success=codecov/patch
-      - check-success=codecov/project
-      - check-success=snapshot
-    actions:
-      request_reviews:
-        teams:
-          - '@nektos/act-committers'
   - name: Automatic merge on approval
     conditions:
       - '#changes-requested-reviews-by=0'
