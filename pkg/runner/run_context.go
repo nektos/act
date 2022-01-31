@@ -261,7 +261,18 @@ func (rc *RunContext) Executor() common.Executor {
 		if step.ID == "" {
 			step.ID = fmt.Sprintf("%d", i)
 		}
-		steps = append(steps, rc.newStepExecutor(step))
+		stepExec := rc.newStepExecutor(step)
+		steps = append(steps, func(ctx context.Context) error {
+			err := stepExec(ctx)
+			if err != nil {
+				common.Logger(ctx).Errorf("%v", err)
+				common.SetJobError(ctx, err)
+			} else if ctx.Err() != nil {
+				common.Logger(ctx).Errorf("%v", ctx.Err())
+				common.SetJobError(ctx, ctx.Err())
+			}
+			return nil
+		})
 	}
 	steps = append(steps, func(ctx context.Context) error {
 		err := rc.stopJobContainer()(ctx)
@@ -295,7 +306,18 @@ func (rc *RunContext) CompositeExecutor() common.Executor {
 			step.ID = fmt.Sprintf("%d", i)
 		}
 		stepcopy := step
-		steps = append(steps, rc.newStepExecutor(&stepcopy))
+		stepExec := rc.newStepExecutor(&stepcopy)
+		steps = append(steps, func(ctx context.Context) error {
+			err := stepExec(ctx)
+			if err != nil {
+				common.Logger(ctx).Errorf("%v", err)
+				common.SetJobError(ctx, err)
+			} else if ctx.Err() != nil {
+				common.Logger(ctx).Errorf("%v", ctx.Err())
+				common.SetJobError(ctx, ctx.Err())
+			}
+			return nil
+		})
 	}
 
 	steps = append(steps, common.JobError)
