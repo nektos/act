@@ -1,0 +1,7 @@
+on: push
+name: non-existent-action
+jobs:
+  nopanic:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: ./path/to/non-existent-action

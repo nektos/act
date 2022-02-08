@@ -244,46 +244,38 @@ func (rc *RunContext) interpolateOutputs() common.Executor {
 	}
 }
 
-// Executor returns a pipeline executor for all the steps in the job
-func (rc *RunContext) Executor() common.Executor {
-	steps := make([]common.Executor, 0)
+func (rc *RunContext) startContainer() common.Executor {
+	return rc.startJobContainer()
+}
 
-	steps = append(steps, func(ctx context.Context) error {
-		if len(rc.Matrix) > 0 {
-			common.Logger(ctx).Infof("\U0001F9EA  Matrix: %v", rc.Matrix)
-		}
-		return nil
-	})
+func (rc *RunContext) stopContainer() common.Executor {
+	return rc.stopJobContainer()
+}
 
-	steps = append(steps, rc.startJobContainer())
-
-	for i, step := range rc.Run.Job().Steps {
-		if step.ID == "" {
-			step.ID = fmt.Sprintf("%d", i)
-		}
-		steps = append(steps, rc.newStepExecutor(step))
-	}
-	steps = append(steps, func(ctx context.Context) error {
-		err := rc.stopJobContainer()(ctx)
-		if err != nil {
-			return err
-		}
-
-		rc.Run.Job().Result = "success"
-		jobError := common.JobError(ctx)
-		if jobError != nil {
-			rc.Run.Job().Result = "failure"
-		}
-
-		return nil
-	})
-
-	return common.NewPipelineExecutor(steps...).Finally(rc.interpolateOutputs()).Finally(func(ctx context.Context) error {
+func (rc *RunContext) closeContainer() common.Executor {
+	return func(ctx context.Context) error {
 		if rc.JobContainer != nil {
 			return rc.JobContainer.Close()(ctx)
 		}
 		return nil
-	}).If(rc.isEnabled)
+	}
+}
+
+func (rc *RunContext) matrix() map[string]interface{} {
+	return rc.Matrix
+}
+
+func (rc *RunContext) result(result string) {
+	rc.Run.Job().Result = result
+}
+
+func (rc *RunContext) steps() []*model.Step {
+	return rc.Run.Job().Steps
+}
+
+// Executor returns a pipeline executor for all the steps in the job
+func (rc *RunContext) Executor() common.Executor {
+	return newJobExecutor(rc).If(rc.isEnabled)
 }
 
 // Executor returns a pipeline executor for all the steps in the job
@@ -295,7 +287,18 @@ func (rc *RunContext) CompositeExecutor() common.Executor {
 			step.ID = fmt.Sprintf("%d", i)
 		}
 		stepcopy := step
-		steps = append(steps, rc.newStepExecutor(&stepcopy))
+		stepExec := rc.newStepExecutor(&stepcopy)
+		steps = append(steps, func(ctx context.Context) error {
+			err := stepExec(ctx)
+			if err != nil {
+				common.Logger(ctx).Errorf("%v", err)
+				common.SetJobError(ctx, err)
+			} else if ctx.Err() != nil {
+				common.Logger(ctx).Errorf("%v", ctx.Err())
+				common.SetJobError(ctx, ctx.Err())
+			}
+			return nil
+		})
 	}
 
 	steps = append(steps, common.JobError)

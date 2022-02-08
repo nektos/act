@@ -97,6 +97,7 @@ func TestRunEvent(t *testing.T) {
 		{"testdata", "fail", "push", "exit with `FAILURE`: 1", platforms, ""},
 		{"testdata", "runs-on", "push", "", platforms, ""},
 		{"testdata", "checkout", "push", "", platforms, ""},
+		{"testdata", "non-existent-action", "push", "Job 'nopanic' failed", platforms, ""},
 		{"testdata", "shells/defaults", "push", "", platforms, ""},
 		// TODO: figure out why it fails
 		// {"testdata", "shells/custom", "push", "", map[string]string{"ubuntu-latest": "ghcr.io/justingrote/act-pwsh:latest"}, ""}, // custom image with pwsh
