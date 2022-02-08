@@ -3,7 +3,6 @@ package runner
 import (
 	"archive/tar"
 	"context"
-	"embed"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -64,8 +63,24 @@ func (sc *StepContext) Executor(ctx context.Context) common.Executor {
 
 	case model.StepTypeUsesActionLocal:
 		actionDir := filepath.Join(rc.Config.Workdir, step.Uses)
+
+		localReader := func(ctx context.Context) actionyamlReader {
+			_, cpath := sc.getContainerActionPaths(sc.Step, path.Join(actionDir, ""), sc.RunContext)
+			return func(filename string) (io.Reader, io.Closer, error) {
+				tars, err := sc.RunContext.JobContainer.GetContainerArchive(ctx, path.Join(cpath, filename))
+				if err != nil {
+					return nil, nil, os.ErrNotExist
+				}
+				treader := tar.NewReader(tars)
+				if _, err := treader.Next(); err != nil {
+					return nil, nil, os.ErrNotExist
+				}
+				return treader, tars, nil
+			}
+		}
+
 		return common.NewPipelineExecutor(
-			sc.setupAction(actionDir, "", true),
+			sc.setupAction(actionDir, "", localReader),
 			sc.runAction(actionDir, "", "", "", true),
 		)
 	case model.StepTypeUsesActionRemote:
@@ -102,9 +117,17 @@ func (sc *StepContext) Executor(ctx context.Context) common.Executor {
 				ntErr = common.NewInfoExecutor("Non-terminating error while running 'git clone': %v", err)
 			}
 		}
+
+		remoteReader := func(ctx context.Context) actionyamlReader {
+			return func(filename string) (io.Reader, io.Closer, error) {
+				f, err := os.Open(filepath.Join(actionDir, remoteAction.Path, filename))
+				return f, f, err
+			}
+		}
+
 		return common.NewPipelineExecutor(
 			ntErr,
-			sc.setupAction(actionDir, remoteAction.Path, false),
+			sc.setupAction(actionDir, remoteAction.Path, remoteReader),
 			sc.runAction(actionDir, remoteAction.Path, remoteAction.Repo, remoteAction.Ref, false),
 		)
 	case model.StepTypeInvalid:
@@ -365,89 +388,10 @@ func (sc *StepContext) runUsesContainer() common.Executor {
 	}
 }
 
-//go:embed res/trampoline.js
-var trampoline embed.FS
-
-func (sc *StepContext) setupAction(actionDir string, actionPath string, localAction bool) common.Executor {
+func (sc *StepContext) setupAction(actionDir string, actionPath string, reader func(context.Context) actionyamlReader) common.Executor {
 	return func(ctx context.Context) error {
-		var readFile func(filename string) (io.Reader, io.Closer, error)
-		if localAction {
-			_, cpath := sc.getContainerActionPaths(sc.Step, path.Join(actionDir, actionPath), sc.RunContext)
-			readFile = func(filename string) (io.Reader, io.Closer, error) {
-				tars, err := sc.RunContext.JobContainer.GetContainerArchive(ctx, path.Join(cpath, filename))
-				if err != nil {
-					return nil, nil, os.ErrNotExist
-				}
-				treader := tar.NewReader(tars)
-				if _, err := treader.Next(); err != nil {
-					return nil, nil, os.ErrNotExist
-				}
-				return treader, tars, nil
-			}
-		} else {
-			readFile = func(filename string) (io.Reader, io.Closer, error) {
-				f, err := os.Open(filepath.Join(actionDir, actionPath, filename))
-				return f, f, err
-			}
-		}
-
-		reader, closer, err := readFile("action.yml")
-		if os.IsNotExist(err) {
-			reader, closer, err = readFile("action.yaml")
-			if err != nil {
-				if _, closer, err2 := readFile("Dockerfile"); err2 == nil {
-					closer.Close()
-					sc.Action = &model.Action{
-						Name: "(Synthetic)",
-						Runs: model.ActionRuns{
-							Using: "docker",
-							Image: "Dockerfile",
-						},
-					}
-					log.Debugf("Using synthetic action %v for Dockerfile", sc.Action)
-					return nil
-				}
-				if sc.Step.With != nil {
-					if val, ok := sc.Step.With["args"]; ok {
-						var b []byte
-						if b, err = trampoline.ReadFile("res/trampoline.js"); err != nil {
-							return err
-						}
-						err2 := ioutil.WriteFile(filepath.Join(actionDir, actionPath, "trampoline.js"), b, 0400)
-						if err2 != nil {
-							return err
-						}
-						sc.Action = &model.Action{
-							Name: "(Synthetic)",
-							Inputs: map[string]model.Input{
-								"cwd": {
-									Description: "(Actual working directory)",
-									Required:    false,
-									Default:     filepath.Join(actionDir, actionPath),
-								},
-								"command": {
-									Description: "(Actual program)",
-									Required:    false,
-									Default:     val,
-								},
-							},
-							Runs: model.ActionRuns{
-								Using: "node12",
-								Main:  "trampoline.js",
-							},
-						}
-						log.Debugf("Using synthetic action %v", sc.Action)
-						return nil
-					}
-				}
-				return err
-			}
-		} else if err != nil {
-			return err
-		}
-		defer closer.Close()
-
-		sc.Action, err = model.ReadAction(reader)
+		action, err := sc.readAction(sc.Step, actionDir, actionPath, reader(ctx), ioutil.WriteFile)
+		sc.Action = action
 		log.Debugf("Read action %v from '%s'", sc.Action, "Unknown")
 		return err
 	}
