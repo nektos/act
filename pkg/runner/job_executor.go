@@ -48,6 +48,7 @@ func newJobExecutor(info jobInfo) common.Executor {
 			return nil
 		})
 	}
+
 	steps = append(steps, func(ctx context.Context) error {
 		err := info.stopContainer()(ctx)
 		if err != nil {
