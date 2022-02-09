@@ -64,8 +64,5 @@ func newJobExecutor(info jobInfo) common.Executor {
 		return nil
 	})
 
-	return common.NewPipelineExecutor(steps...).Finally(info.interpolateOutputs()).Finally(func(ctx context.Context) error {
-		info.closeContainer()
-		return nil
-	})
+	return common.NewPipelineExecutor(steps...).Finally(info.interpolateOutputs()).Finally(info.closeContainer())
 }
