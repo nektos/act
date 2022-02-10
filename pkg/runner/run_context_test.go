@@ -63,7 +63,7 @@ func TestRunContext_EvalBool(t *testing.T) {
 			},
 		},
 	}
-	rc.ExprEval = rc.NewExpressionEvaluator()
+	rc.ExprEval = rc.NewExpressionEvaluator("job")
 
 	tables := []struct {
 		in      string
@@ -75,7 +75,7 @@ func TestRunContext_EvalBool(t *testing.T) {
 		{in: "success()", out: true},
 		{in: "cancelled()", out: false},
 		{in: "always()", out: true},
-		// TODO: move to sc.NewExpressionEvaluator(), because "steps" context is not available here
+		// TODO: move to rc.NewExpressionEvaluator("step"), because "steps" context is not available here
 		// {in: "steps.id1.conclusion == 'success'", out: true},
 		// {in: "steps.id1.conclusion != 'success'", out: false},
 		// {in: "steps.id1.outcome == 'failure'", out: true},
@@ -368,7 +368,7 @@ func createIfTestRunContext(jobs map[string]*model.Job) *RunContext {
 			},
 		},
 	}
-	rc.ExprEval = rc.NewExpressionEvaluator()
+	rc.ExprEval = rc.NewExpressionEvaluator("job")
 
 	return rc
 }

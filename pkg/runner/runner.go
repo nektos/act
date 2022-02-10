@@ -191,7 +191,7 @@ func (runner *runnerImpl) newRunContext(run *model.Run, matrix map[string]interf
 		StepResults: make(map[string]*model.StepResult),
 		Matrix:      matrix,
 	}
-	rc.ExprEval = rc.NewExpressionEvaluator()
+	rc.ExprEval = rc.NewExpressionEvaluator("job")
 	rc.Name = rc.ExprEval.Interpolate(run.String())
 	return rc
 }

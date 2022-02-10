@@ -75,7 +75,7 @@ func createRunContext(t *testing.T) *RunContext {
 
 func TestEvaluateRunContext(t *testing.T) {
 	rc := createRunContext(t)
-	ee := rc.NewExpressionEvaluator()
+	ee := rc.NewExpressionEvaluator("job")
 
 	tables := []struct {
 		in      string
@@ -150,10 +150,7 @@ func TestEvaluateRunContext(t *testing.T) {
 func TestEvaluateStepContext(t *testing.T) {
 	rc := createRunContext(t)
 
-	sc := &StepContext{
-		RunContext: rc,
-	}
-	ee := sc.NewExpressionEvaluator()
+	ee := rc.NewExpressionEvaluator("step")
 
 	tables := []struct {
 		in      string
@@ -212,7 +209,7 @@ func TestInterpolate(t *testing.T) {
 			},
 		},
 	}
-	ee := rc.NewExpressionEvaluator()
+	ee := rc.NewExpressionEvaluator("job")
 	tables := []struct {
 		in  string
 		out string

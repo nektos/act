@@ -17,7 +17,7 @@ type ExpressionEvaluator interface {
 }
 
 // NewExpressionEvaluator creates a new evaluator
-func (rc *RunContext) NewExpressionEvaluator() ExpressionEvaluator {
+func (rc *RunContext) NewExpressionEvaluator(context string) ExpressionEvaluator {
 	// todo: cleanup EvaluationEnvironment creation
 	job := rc.Run.Job()
 	strategy := make(map[string]interface{})
@@ -45,7 +45,7 @@ func (rc *RunContext) NewExpressionEvaluator() ExpressionEvaluator {
 		Github: rc.getGithubContext(),
 		Env:    rc.GetEnv(),
 		Job:    rc.getJobContext(),
-		// todo: should be unavailable
+		// todo: should be unavailable in job context
 		// but required to interpolate/evaluate the step outputs on the job
 		Steps: rc.getStepsContext(),
 		Runner: map[string]interface{}{
@@ -57,58 +57,7 @@ func (rc *RunContext) NewExpressionEvaluator() ExpressionEvaluator {
 		Strategy: strategy,
 		Matrix:   rc.Matrix,
 		Needs:    using,
-		Inputs:   rc.Inputs,
-	}
-	return expressionEvaluator{
-		interpreter: exprparser.NewInterpeter(ee, exprparser.Config{
-			Run:        rc.Run,
-			WorkingDir: rc.Config.Workdir,
-			Context:    "job",
-		}),
-	}
-}
-
-// NewExpressionEvaluator creates a new evaluator
-func (sc *StepContext) NewExpressionEvaluator() ExpressionEvaluator {
-	rc := sc.RunContext
-	// todo: cleanup EvaluationEnvironment creation
-	job := rc.Run.Job()
-	strategy := make(map[string]interface{})
-	if job.Strategy != nil {
-		strategy["fail-fast"] = job.Strategy.FailFast
-		strategy["max-parallel"] = job.Strategy.MaxParallel
-	}
-
-	jobs := rc.Run.Workflow.Jobs
-	jobNeeds := rc.Run.Job().Needs()
-
-	using := make(map[string]map[string]map[string]string)
-	for _, needs := range jobNeeds {
-		using[needs] = map[string]map[string]string{
-			"outputs": jobs[needs].Outputs,
-		}
-	}
-
-	secrets := rc.Config.Secrets
-	if rc.Composite != nil {
-		secrets = nil
-	}
-
-	ee := &exprparser.EvaluationEnvironment{
-		Github: rc.getGithubContext(),
-		Env:    rc.GetEnv(),
-		Job:    rc.getJobContext(),
-		Steps:  rc.getStepsContext(),
-		Runner: map[string]interface{}{
-			"os":         "Linux",
-			"temp":       "/tmp",
-			"tool_cache": "/opt/hostedtoolcache",
-		},
-		Secrets:  secrets,
-		Strategy: strategy,
-		Matrix:   rc.Matrix,
-		Needs:    using,
-		// todo: should be unavailable
+		// todo: should be unavailable in step context
 		// but required to interpolate/evaluate the inputs in actions/composite
 		Inputs: rc.Inputs,
 	}
@@ -116,7 +65,7 @@ func (sc *StepContext) NewExpressionEvaluator() ExpressionEvaluator {
 		interpreter: exprparser.NewInterpeter(ee, exprparser.Config{
 			Run:        rc.Run,
 			WorkingDir: rc.Config.Workdir,
-			Context:    "step",
+			Context:    context,
 		}),
 	}
 }

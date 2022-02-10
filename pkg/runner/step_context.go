@@ -169,7 +169,7 @@ func (sc *StepContext) interpolateEnv(exprEval ExpressionEvaluator) {
 }
 
 func (sc *StepContext) isEnabled(ctx context.Context) (bool, error) {
-	runStep, err := EvalBool(sc.NewExpressionEvaluator(), sc.Step.If.Value)
+	runStep, err := EvalBool(sc.RunContext.NewExpressionEvaluator("step"), sc.Step.If.Value)
 	if err != nil {
 		common.Logger(ctx).Errorf("  \u274C  Error in if: expression - %s", sc.Step)
 		exprEval, err := sc.setupEnv(ctx)
@@ -201,7 +201,7 @@ func (sc *StepContext) setupEnv(ctx context.Context) (ExpressionEvaluator, error
 		}
 	}
 	sc.Env = mergeMaps(sc.Env, sc.Step.GetEnv()) // step env should not be overwritten
-	evaluator := sc.NewExpressionEvaluator()
+	evaluator := sc.RunContext.NewExpressionEvaluator("step")
 	sc.interpolateEnv(evaluator)
 
 	common.Logger(ctx).Debugf("setupEnv => %v", sc.Env)
@@ -369,7 +369,7 @@ func (sc *StepContext) runUsesContainer() common.Executor {
 	step := sc.Step
 	return func(ctx context.Context) error {
 		image := strings.TrimPrefix(step.Uses, "docker://")
-		eval := sc.RunContext.NewExpressionEvaluator()
+		eval := sc.RunContext.NewExpressionEvaluator("job")
 		cmd, err := shellquote.Split(eval.Interpolate(step.With["args"]))
 		if err != nil {
 			return err
@@ -506,7 +506,7 @@ func (sc *StepContext) evalDockerArgs(action *model.Action, cmd *[]string) {
 		rc.Inputs = oldInputs
 	}()
 	inputs := make(map[string]interface{})
-	eval := sc.RunContext.NewExpressionEvaluator()
+	eval := sc.RunContext.NewExpressionEvaluator("job")
 	// Set Defaults
 	for k, input := range action.Inputs {
 		inputs[k] = eval.Interpolate(input.Default)
@@ -517,13 +517,13 @@ func (sc *StepContext) evalDockerArgs(action *model.Action, cmd *[]string) {
 		}
 	}
 	rc.Inputs = inputs
-	stepEE := sc.NewExpressionEvaluator()
+	stepEE := sc.RunContext.NewExpressionEvaluator("step")
 	for i, v := range *cmd {
 		(*cmd)[i] = stepEE.Interpolate(v)
 	}
 	sc.Env = mergeMaps(sc.Env, action.Runs.Env)
 
-	ee := sc.NewExpressionEvaluator()
+	ee := sc.RunContext.NewExpressionEvaluator("step")
 	for k, v := range sc.Env {
 		sc.Env[k] = ee.Interpolate(v)
 	}
@@ -583,7 +583,7 @@ func (sc *StepContext) execAsDocker(ctx context.Context, action *model.Action, a
 			log.Debugf("image '%s' for architecture '%s' already exists", image, rc.Config.ContainerArchitecture)
 		}
 	}
-	eval := sc.NewExpressionEvaluator()
+	eval := sc.RunContext.NewExpressionEvaluator("step")
 	cmd, err := shellquote.Split(eval.Interpolate(step.With["args"]))
 	if err != nil {
 		return err
@@ -628,7 +628,7 @@ func (sc *StepContext) execAsComposite(ctx context.Context, step *model.Step, _ 
 		}
 	}
 	inputs := make(map[string]interface{})
-	eval := sc.RunContext.NewExpressionEvaluator()
+	eval := sc.RunContext.NewExpressionEvaluator("job")
 	// Set Defaults
 	for k, input := range action.Inputs {
 		inputs[k] = eval.Interpolate(input.Default)
@@ -664,14 +664,11 @@ func (sc *StepContext) execAsComposite(ctx context.Context, step *model.Step, _ 
 		compositerc.Env[k] = ev
 	}
 	compositerc.Inputs = inputs
-	compositerc.ExprEval = compositerc.NewExpressionEvaluator()
+	compositerc.ExprEval = compositerc.NewExpressionEvaluator("job")
 	err = compositerc.CompositeExecutor()(ctx)
 
 	// Map outputs to parent rc
-	eval = (&StepContext{
-		Env:        compositerc.Env,
-		RunContext: compositerc,
-	}).NewExpressionEvaluator()
+	eval = compositerc.NewExpressionEvaluator("step")
 	for outputName, output := range action.Outputs {
 		backup.setOutput(ctx, map[string]string{
 			"name": outputName,

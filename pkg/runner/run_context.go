@@ -233,7 +233,7 @@ func (rc *RunContext) ActionCacheDir() string {
 // Interpolate outputs after a job is done
 func (rc *RunContext) interpolateOutputs() common.Executor {
 	return func(ctx context.Context) error {
-		ee := rc.NewExpressionEvaluator()
+		ee := rc.NewExpressionEvaluator("job")
 		for k, v := range rc.Run.Job().Outputs {
 			interpolated := ee.Interpolate(v)
 			if v != interpolated {
@@ -717,7 +717,7 @@ func (rc *RunContext) handleCredentials() (username, password string, err error)
 		return
 	}
 
-	ee := rc.NewExpressionEvaluator()
+	ee := rc.NewExpressionEvaluator("job")
 	if username = ee.Interpolate(container.Credentials["username"]); username == "" {
 		err = fmt.Errorf("failed to interpolate container.credentials.username")
 		return
