@@ -47,6 +47,9 @@ func NewInterpeter(env *EvaluationEnvironment, config Config) Interpreter {
 
 func (impl *interperterImpl) Evaluate(input string, isIfExpression bool) (interface{}, error) {
 	input = strings.TrimPrefix(input, "${{")
+	if isIfExpression && input == "" {
+		input = "success()"
+	}
 	parser := actionlint.NewExprParser()
 	exprNode, err := parser.Parse(actionlint.NewExprLexer(input + "}}"))
 	if err != nil {

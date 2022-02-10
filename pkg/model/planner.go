@@ -78,9 +78,6 @@ func FixIfStatement(content []byte, wr *Workflow) error {
 			if err != nil {
 				return err
 			}
-			if val == "" {
-				val = "success()"
-			}
 			jobs[j].Steps[i].If.Value = val
 		}
 	}
