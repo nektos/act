@@ -77,6 +77,15 @@ scoop install act
 yay -S act
 ```
 
+### [COPR](https://copr.fedorainfracloud.org/coprs/rubemlrm/act-cli/) (Linux)
+
+[![copr-shield](https://img.shields.io/copr/version/act)](https://copr.fedorainfracloud.org/coprs/rubemlrm/act-cli/)
+
+```shell
+dnf copr enable rubemlrm/act-cli
+dnf install act-cli
+```
+
 ### [Nix](https://nixos.org) (Linux/macOS)
 
 [Nix recipe](https://github.com/NixOS/nixpkgs/blob/master/pkgs/development/tools/misc/act/default.nix)
