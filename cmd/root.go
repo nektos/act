@@ -23,6 +23,12 @@ import (
 	"github.com/nektos/act/pkg/runner"
 )
 
+var (
+	defaultEnvVars = map[string]string{
+		"GIT_TERMINAL_PROMPT": "0", // Disable terminal prompts from Git
+	}
+)
+
 // Execute is the entry point to running the CLI
 func Execute(ctx context.Context, version string) {
 	input := new(Input)
@@ -166,7 +172,15 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 		}
 
 		log.Debugf("Loading environment from %s", input.Envfile())
-		envs := make(map[string]string)
+		envs := map[string]string{}
+
+		// Set the default environment variables for the run.
+		// Environment variables could be overridden by a user.
+		for k, v := range defaultEnvVars {
+			log.Debugf("Setting default env var %s=%s", k, v)
+			envs[k] = v
+		}
+
 		if input.envs != nil {
 			for _, envVar := range input.envs {
 				e := strings.SplitN(envVar, `=`, 2)
