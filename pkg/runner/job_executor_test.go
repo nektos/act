@@ -62,32 +62,71 @@ func (jpm *jobInfoMock) result(result string) {
 
 func TestNewJobExecutor(t *testing.T) {
 	table := []struct {
-		name     string
-		steps    []*model.Step
-		result   string
-		hasError bool
+		name          string
+		steps         []*model.Step
+		executedSteps []string
+		result        string
+		hasError      bool
 	}{
 		{
-			"zeroSteps",
-			[]*model.Step{},
-			"success",
-			false,
+			name:  "zeroSteps",
+			steps: []*model.Step{},
+			executedSteps: []string{
+				"startContainer",
+				"stopContainer",
+				"interpolateOutputs",
+				"closeContainer",
+			},
+			result:   "success",
+			hasError: false,
 		},
 		{
-			"stepWithoutPrePost",
-			[]*model.Step{{
+			name: "stepWithoutPrePost",
+			steps: []*model.Step{{
 				ID: "1",
 			}},
-			"success",
-			false,
+			executedSteps: []string{
+				"startContainer",
+				"step1",
+				"stopContainer",
+				"interpolateOutputs",
+				"closeContainer",
+			},
+			result:   "success",
+			hasError: false,
 		},
 		{
-			"stepWithFailure",
-			[]*model.Step{{
+			name: "stepWithFailure",
+			steps: []*model.Step{{
 				ID: "1",
 			}},
-			"failure",
-			true,
+			executedSteps: []string{
+				"startContainer",
+				"step1",
+				"stopContainer",
+				"interpolateOutputs",
+				"closeContainer",
+			},
+			result:   "failure",
+			hasError: true,
+		},
+		{
+			name: "multipleSteps",
+			steps: []*model.Step{{
+				ID: "1",
+			}, {
+				ID: "2",
+			}},
+			executedSteps: []string{
+				"startContainer",
+				"step1",
+				"step2",
+				"stopContainer",
+				"interpolateOutputs",
+				"closeContainer",
+			},
+			result:   "success",
+			hasError: false,
 		},
 	}
 
@@ -95,41 +134,50 @@ func TestNewJobExecutor(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := common.WithJobErrorContainer(context.Background())
 			jpm := &jobInfoMock{}
+			executorOrder := make([]string, 0)
 
 			jpm.On("startContainer").Return(func(ctx context.Context) error {
+				executorOrder = append(executorOrder, "startContainer")
 				return nil
 			})
 
 			jpm.On("steps").Return(tt.steps)
 
 			for _, stepMock := range tt.steps {
-				jpm.On("newStepExecutor", stepMock).Return(func(ctx context.Context) error {
-					if tt.hasError {
-						return fmt.Errorf("error")
-					}
-					return nil
-				})
+				func(stepMock *model.Step) {
+					jpm.On("newStepExecutor", stepMock).Return(func(ctx context.Context) error {
+						executorOrder = append(executorOrder, "step"+stepMock.ID)
+						if tt.hasError {
+							return fmt.Errorf("error")
+						}
+						return nil
+					})
+				}(stepMock)
 			}
 
 			jpm.On("interpolateOutputs").Return(func(ctx context.Context) error {
+				executorOrder = append(executorOrder, "interpolateOutputs")
 				return nil
 			})
 
 			jpm.On("matrix").Return(map[string]interface{}{})
 
 			jpm.On("stopContainer").Return(func(ctx context.Context) error {
+				executorOrder = append(executorOrder, "stopContainer")
 				return nil
 			})
 
 			jpm.On("result", tt.result)
 
 			jpm.On("closeContainer").Return(func(ctx context.Context) error {
+				executorOrder = append(executorOrder, "closeContainer")
 				return nil
 			})
 
 			executor := newJobExecutor(jpm)
 			err := executor(ctx)
 			assert.Nil(t, err)
+			assert.Equal(t, tt.executedSteps, executorOrder)
 		})
 	}
 }
