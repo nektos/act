@@ -1,0 +1,24 @@
+on: push
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+    - run: |
+        echo '::set-output name=matrix::{"package": ["a", "b"]}'
+      id: r1
+    outputs:
+      matrix: ${{steps.r1.outputs.matrix}}
+  evalm:
+    needs:
+    - prepare
+    strategy:
+      matrix: |-
+        ${{fromJson(needs.prepare.outputs.matrix)}}
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check if the matrix key package exists
+      run: |
+        echo $MATRIX
+        exit ${{matrix.package && '0' || '1'}}
+      env:
+        MATRIX: ${{toJSON(matrix)}}

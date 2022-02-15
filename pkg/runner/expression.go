@@ -8,11 +8,13 @@ import (
 
 	"github.com/nektos/act/pkg/exprparser"
 	log "github.com/sirupsen/logrus"
+	"gopkg.in/yaml.v3"
 )
 
 // ExpressionEvaluator is the interface for evaluating expressions
 type ExpressionEvaluator interface {
 	evaluate(string, bool) (interface{}, error)
+	EvaluateYamlNode(node *yaml.Node) error
 	Interpolate(string) string
 }
 
@@ -128,6 +130,82 @@ type expressionEvaluator struct {
 func (ee expressionEvaluator) evaluate(in string, isIfExpression bool) (interface{}, error) {
 	evaluated, err := ee.interpreter.Evaluate(in, isIfExpression)
 	return evaluated, err
+}
+
+func (ee expressionEvaluator) evaluateScalarYamlNode(node *yaml.Node) error {
+	var in string
+	if err := node.Decode(&in); err != nil {
+		return err
+	}
+	if !strings.Contains(in, "${{") || !strings.Contains(in, "}}") {
+		return nil
+	}
+	expr, _ := rewriteSubExpression(in, false)
+	if in != expr {
+		log.Debugf("expression '%s' rewritten to '%s'", in, expr)
+	}
+	res, err := ee.evaluate(expr, false)
+	if err != nil {
+		return err
+	}
+	return node.Encode(res)
+}
+
+func (ee expressionEvaluator) evaluateMappingYamlNode(node *yaml.Node) error {
+	// GitHub has this undocumented feature to merge maps, called insert directive
+	insertDirective := regexp.MustCompile(`\${{\s*insert\s*}}`)
+	for i := 0; i < len(node.Content)/2; {
+		k := node.Content[i*2]
+		v := node.Content[i*2+1]
+		if err := ee.EvaluateYamlNode(v); err != nil {
+			return err
+		}
+		var sk string
+		// Merge the nested map of the insert directive
+		if k.Decode(&sk) == nil && insertDirective.MatchString(sk) {
+			node.Content = append(append(node.Content[:i*2], v.Content...), node.Content[(i+1)*2:]...)
+			i += len(v.Content) / 2
+		} else {
+			if err := ee.EvaluateYamlNode(k); err != nil {
+				return err
+			}
+			i++
+		}
+	}
+	return nil
+}
+
+func (ee expressionEvaluator) evaluateSequenceYamlNode(node *yaml.Node) error {
+	for i := 0; i < len(node.Content); {
+		v := node.Content[i]
+		// Preserve nested sequences
+		wasseq := v.Kind == yaml.SequenceNode
+		if err := ee.EvaluateYamlNode(v); err != nil {
+			return err
+		}
+		// GitHub has this undocumented feature to merge sequences / arrays
+		// We have a nested sequence via evaluation, merge the arrays
+		if v.Kind == yaml.SequenceNode && !wasseq {
+			node.Content = append(append(node.Content[:i], v.Content...), node.Content[i+1:]...)
+			i += len(v.Content)
+		} else {
+			i++
+		}
+	}
+	return nil
+}
+
+func (ee expressionEvaluator) EvaluateYamlNode(node *yaml.Node) error {
+	switch node.Kind {
+	case yaml.ScalarNode:
+		return ee.evaluateScalarYamlNode(node)
+	case yaml.MappingNode:
+		return ee.evaluateMappingYamlNode(node)
+	case yaml.SequenceNode:
+		return ee.evaluateSequenceYamlNode(node)
+	default:
+		return nil
+	}
 }
 
 func (ee expressionEvaluator) Interpolate(in string) string {

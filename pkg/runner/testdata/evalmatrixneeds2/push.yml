@@ -1,0 +1,29 @@
+on: push
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+    - run: |
+        echo '::set-output name=matrix::["a", "b"]'
+      id: r1
+    outputs:
+      matrix: ${{steps.r1.outputs.matrix}}
+      helix: steady
+  evalm:
+    needs:
+    - prepare
+    strategy:
+      matrix: 
+        ${{needs.prepare.outputs.helix}}: |-
+          ${{fromJson(needs.prepare.outputs.matrix)}}
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check if the matrix key doesn't ends up unevaluated
+      run: |
+        echo $MATRIX
+        exit ${{matrix['${{needs.prepare.outputs.helix}}'] && '1' || '0'}}
+      env:
+        MATRIX: ${{toJSON(matrix)}}
+    - name: Check if the evaluated matrix key contains a value
+      run: |
+        exit ${{matrix[needs.prepare.outputs.helix] && '0' || '1'}}
