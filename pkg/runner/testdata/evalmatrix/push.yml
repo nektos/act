@@ -1,0 +1,18 @@
+on: push
+jobs:
+  evalm:
+    strategy:
+      matrix: |-
+        ${{fromJson('
+          {
+            "A": [ "A", "B" ]
+          }
+        ')}}
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check if the matrix key A exists
+      run: |
+        echo $MATRIX
+        exit ${{matrix.A && '0' || '1'}}
+      env:
+        MATRIX: ${{toJSON(matrix)}}
