@@ -169,13 +169,13 @@ func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 					})
 					b++
 					if b == maxParallel {
-						pipeline = append(pipeline, common.NewParallelExecutor(stageExecutor...))
+						pipeline = append(pipeline, common.NewParallelExecutor(maxParallel, stageExecutor...))
 						stageExecutor = make([]common.Executor, 0)
 						b = 0
 					}
 				}
 			}
-			return common.NewPipelineExecutor(pipeline...)(ctx)
+			return common.NewParallelExecutor(runtime.NumCPU(), pipeline...)(ctx)
 		})
 	}
 

@@ -84,7 +84,7 @@ func TestNewParallelExecutor(t *testing.T) {
 		return nil
 	})
 
-	err := NewParallelExecutor(emptyWorkflow, emptyWorkflow)(ctx)
+	err := NewParallelExecutor(2, emptyWorkflow, emptyWorkflow)(ctx)
 	assert.Equal(2, count)
 
 	assert.Nil(err)
@@ -101,7 +101,7 @@ func TestNewParallelExecutorFailed(t *testing.T) {
 		count++
 		return fmt.Errorf("fake error")
 	})
-	err := NewParallelExecutor(errorWorkflow)(ctx)
+	err := NewParallelExecutor(1, errorWorkflow)(ctx)
 	assert.Equal(1, count)
 	assert.ErrorIs(context.Canceled, err)
 }
@@ -123,7 +123,7 @@ func TestNewParallelExecutorCanceled(t *testing.T) {
 		count++
 		return errExpected
 	})
-	err := NewParallelExecutor(errorWorkflow, successWorkflow, successWorkflow)(ctx)
+	err := NewParallelExecutor(3, errorWorkflow, successWorkflow, successWorkflow)(ctx)
 	assert.Equal(3, count)
 	assert.Error(errExpected, err)
 }
