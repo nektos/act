@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -79,14 +80,19 @@ func TestNewParallelExecutor(t *testing.T) {
 	ctx := context.Background()
 
 	count := 0
+	maxCount := 0
 	emptyWorkflow := NewPipelineExecutor(func(ctx context.Context) error {
 		count++
+
+		time.Sleep(2 * time.Second)
+
 		return nil
 	})
 
-	err := NewParallelExecutor(2, emptyWorkflow, emptyWorkflow)(ctx)
-	assert.Equal(2, count)
+	err := NewParallelExecutor(2, emptyWorkflow, emptyWorkflow, emptyWorkflow)(ctx)
 
+	assert.Equal(2, count)
+	assert.Equal(2, maxCount)
 	assert.Nil(err)
 }
 
