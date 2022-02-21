@@ -80,19 +80,25 @@ func TestNewParallelExecutor(t *testing.T) {
 	ctx := context.Background()
 
 	count := 0
+	activeCount := 0
 	maxCount := 0
 	emptyWorkflow := NewPipelineExecutor(func(ctx context.Context) error {
 		count++
 
+		activeCount++
+		if activeCount > maxCount {
+			maxCount = activeCount
+		}
 		time.Sleep(2 * time.Second)
+		activeCount--
 
 		return nil
 	})
 
 	err := NewParallelExecutor(2, emptyWorkflow, emptyWorkflow, emptyWorkflow)(ctx)
 
-	assert.Equal(2, count)
-	assert.Equal(2, maxCount)
+	assert.Equal(3, count, "should run all 3 executors")
+	assert.Equal(2, maxCount, "should run at most 2 executors in parallel")
 	assert.Nil(err)
 }
 
