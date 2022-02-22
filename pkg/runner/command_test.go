@@ -173,3 +173,21 @@ func TestAddmaskUsemask(t *testing.T) {
 
 	a.Equal("[testjob]   \U00002699  ***\n[testjob]   \U00002699  ::set-output:: = token=***\n", re)
 }
+
+func TestSaveState(t *testing.T) {
+	rc := &RunContext{
+		CurrentStep: "step",
+		StepResults: map[string]*model.StepResult{
+			"step": {
+				State: map[string]string{},
+			},
+		},
+	}
+
+	ctx := context.Background()
+
+	handler := rc.commandHandler(ctx)
+	handler("::save-state name=state-name::state-value\n")
+
+	assert.Equal(t, "state-value", rc.StepResults["step"].State["state-name"])
+}

@@ -18,14 +18,49 @@ type step interface {
 	getRunContext() *RunContext
 	getStepModel() *model.Step
 	getEnv() *map[string]string
+	getIfExpression(stage stepStage) string
 }
 
-func runStepExecutor(step step, executor common.Executor) common.Executor {
+type stepStage int
+
+const (
+	stepStagePre stepStage = iota
+	stepStageMain
+	stepStagePost
+)
+
+func (s stepStage) String() string {
+	switch s {
+	case stepStagePre:
+		return "Pre"
+	case stepStageMain:
+		return "Run"
+	case stepStagePost:
+		return "Post"
+	}
+	return "Unknown"
+}
+
+func (s stepStage) getStepName(stepModel *model.Step) string {
+	switch s {
+	case stepStagePre:
+		return fmt.Sprintf("pre-%s", stepModel.ID)
+	case stepStageMain:
+		return stepModel.ID
+	case stepStagePost:
+		return fmt.Sprintf("post-%s", stepModel.ID)
+	}
+	return "unknown"
+}
+
+func runStepExecutor(step step, stage stepStage, executor common.Executor) common.Executor {
 	return func(ctx context.Context) error {
 		rc := step.getRunContext()
 		stepModel := step.getStepModel()
 
-		rc.CurrentStep = stepModel.ID
+		ifExpression := step.getIfExpression(stage)
+		rc.CurrentStep = stage.getStepName(stepModel)
+
 		rc.StepResults[rc.CurrentStep] = &model.StepResult{
 			Outcome:    model.StepStatusSuccess,
 			Conclusion: model.StepStatusSuccess,
@@ -37,7 +72,7 @@ func runStepExecutor(step step, executor common.Executor) common.Executor {
 			return err
 		}
 
-		runStep, err := isStepEnabled(ctx, step)
+		runStep, err := isStepEnabled(ctx, ifExpression, step)
 		if err != nil {
 			rc.StepResults[rc.CurrentStep].Conclusion = model.StepStatusFailure
 			rc.StepResults[rc.CurrentStep].Outcome = model.StepStatusFailure
@@ -45,13 +80,13 @@ func runStepExecutor(step step, executor common.Executor) common.Executor {
 		}
 
 		if !runStep {
-			log.Debugf("Skipping step '%s' due to '%s'", stepModel.String(), stepModel.If.Value)
+			log.Debugf("Skipping step '%s' due to '%s'", stepModel, stepModel.If.Value)
 			rc.StepResults[rc.CurrentStep].Conclusion = model.StepStatusSkipped
 			rc.StepResults[rc.CurrentStep].Outcome = model.StepStatusSkipped
 			return nil
 		}
 
-		common.Logger(ctx).Infof("\u2B50  Run %s", stepModel)
+		common.Logger(ctx).Infof("\u2B50  %s %s", stage, stepModel)
 
 		err = executor(ctx)
 
@@ -125,10 +160,10 @@ func mergeEnv(step step) {
 	mergeIntoMap(env, rc.withGithubEnv(*env))
 }
 
-func isStepEnabled(ctx context.Context, step step) (bool, error) {
+func isStepEnabled(ctx context.Context, expr string, step step) (bool, error) {
 	rc := step.getRunContext()
 
-	runStep, err := EvalBool(rc.NewStepExpressionEvaluator(step), step.getStepModel().If.Value)
+	runStep, err := EvalBool(rc.NewStepExpressionEvaluator(step), expr)
 	if err != nil {
 		return false, fmt.Errorf("  \u274C  Error in if-expression: \"if: %s\" (%s)", step.getStepModel().If.Value, err)
 	}

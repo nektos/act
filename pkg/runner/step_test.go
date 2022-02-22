@@ -228,49 +228,49 @@ func TestIsStepEnabled(t *testing.T) {
 
 	// success()
 	step := createTestStep(t, "if: success()")
-	assertObject.True(isStepEnabled(context.Background(), step))
+	assertObject.True(isStepEnabled(context.Background(), step.getStepModel().If.Value, step))
 
 	step = createTestStep(t, "if: success()")
 	step.getRunContext().StepResults["a"] = &model.StepResult{
 		Conclusion: model.StepStatusSuccess,
 	}
-	assertObject.True(isStepEnabled(context.Background(), step))
+	assertObject.True(isStepEnabled(context.Background(), step.getStepModel().If.Value, step))
 
 	step = createTestStep(t, "if: success()")
 	step.getRunContext().StepResults["a"] = &model.StepResult{
 		Conclusion: model.StepStatusFailure,
 	}
-	assertObject.False(isStepEnabled(context.Background(), step))
+	assertObject.False(isStepEnabled(context.Background(), step.getStepModel().If.Value, step))
 
 	// failure()
 	step = createTestStep(t, "if: failure()")
-	assertObject.False(isStepEnabled(context.Background(), step))
+	assertObject.False(isStepEnabled(context.Background(), step.getStepModel().If.Value, step))
 
 	step = createTestStep(t, "if: failure()")
 	step.getRunContext().StepResults["a"] = &model.StepResult{
 		Conclusion: model.StepStatusSuccess,
 	}
-	assertObject.False(isStepEnabled(context.Background(), step))
+	assertObject.False(isStepEnabled(context.Background(), step.getStepModel().If.Value, step))
 
 	step = createTestStep(t, "if: failure()")
 	step.getRunContext().StepResults["a"] = &model.StepResult{
 		Conclusion: model.StepStatusFailure,
 	}
-	assertObject.True(isStepEnabled(context.Background(), step))
+	assertObject.True(isStepEnabled(context.Background(), step.getStepModel().If.Value, step))
 
 	// always()
 	step = createTestStep(t, "if: always()")
-	assertObject.True(isStepEnabled(context.Background(), step))
+	assertObject.True(isStepEnabled(context.Background(), step.getStepModel().If.Value, step))
 
 	step = createTestStep(t, "if: always()")
 	step.getRunContext().StepResults["a"] = &model.StepResult{
 		Conclusion: model.StepStatusSuccess,
 	}
-	assertObject.True(isStepEnabled(context.Background(), step))
+	assertObject.True(isStepEnabled(context.Background(), step.getStepModel().If.Value, step))
 
 	step = createTestStep(t, "if: always()")
 	step.getRunContext().StepResults["a"] = &model.StepResult{
 		Conclusion: model.StepStatusFailure,
 	}
-	assertObject.True(isStepEnabled(context.Background(), step))
+	assertObject.True(isStepEnabled(context.Background(), step.getStepModel().If.Value, step))
 }

@@ -49,6 +49,10 @@ type ActionRuns struct {
 	Using      ActionRunsUsing   `yaml:"using"`
 	Env        map[string]string `yaml:"env"`
 	Main       string            `yaml:"main"`
+	Pre        string            `yaml:"pre"`
+	PreIf      string            `yaml:"pre-if"`
+	Post       string            `yaml:"post"`
+	PostIf     string            `yaml:"post-if"`
 	Image      string            `yaml:"image"`
 	Entrypoint string            `yaml:"entrypoint"`
 	Args       []string          `yaml:"args"`
@@ -88,6 +92,14 @@ func ReadAction(in io.Reader) (*Action, error) {
 	err := yaml.NewDecoder(in).Decode(a)
 	if err != nil {
 		return nil, err
+	}
+
+	// set defaults
+	if a.Runs.Pre != "" && a.Runs.PreIf == "" {
+		a.Runs.PreIf = "always()"
+	}
+	if a.Runs.Post != "" && a.Runs.PostIf == "" {
+		a.Runs.PostIf = "always()"
 	}
 
 	return a, nil
