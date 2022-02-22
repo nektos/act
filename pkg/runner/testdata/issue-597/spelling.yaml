@@ -1,10 +1,10 @@
 name: issue-597
 on: push
-  
+
 
 jobs:
   my_first_job:
-    
+
     runs-on: ubuntu-latest
     steps:
       - name: My first false step
@@ -14,7 +14,7 @@ jobs:
           ref: refs/pull/${{github.event.pull_request.number}}/merge
           fetch-depth: 5
       - name: My first true step
-        if: ${{"endsWith('Hello world', 'ld')"}}
+        if: ${{endsWith('Hello world', 'ld')}}
         uses: actions/hello-world-javascript-action@main
         with:
           who-to-greet: "Renst the Octocat"

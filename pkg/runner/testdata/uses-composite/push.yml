@@ -17,7 +17,7 @@ jobs:
         secret_input: ${{secrets.test_input_optional || 'NO SUCH SECRET'}}
       env:
         secret_input: ${{secrets.test_input_optional || 'NO SUCH SECRET'}}
-    - if: steps.composite.outputs.test_output != "test_output_value"
+    - if: steps.composite.outputs.test_output != 'test_output_value'
       run: |
         echo "steps.composite.outputs.test_output=${{ steps.composite.outputs.test_output }}"
         exit 1
@@ -38,7 +38,7 @@ jobs:
         test_input_optional_with_default_overriden: 'test_input_optional_with_default_overriden'
         test_input_required_with_default_overriden: 'test_input_required_with_default_overriden'
 
-    - if: steps.composite2.outputs.test_output != "test_output_value"
+    - if: steps.composite2.outputs.test_output != 'test_output_value'
       run: |
         echo "steps.composite.outputs.test_output=${{ steps.composite2.outputs.test_output }}"
         exit 1
