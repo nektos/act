@@ -128,7 +128,9 @@ type expressionEvaluator struct {
 }
 
 func (ee expressionEvaluator) evaluate(in string, isIfExpression bool) (interface{}, error) {
+	log.Debugf("evaluating expression '%s'", in)
 	evaluated, err := ee.interpreter.Evaluate(in, isIfExpression)
+	log.Debugf("expression '%s' evaluated to '%t'", in, evaluated)
 	return evaluated, err
 }
 
@@ -224,8 +226,6 @@ func (ee expressionEvaluator) Interpolate(in string) string {
 		return ""
 	}
 
-	log.Debugf("expression '%s' evaluated to '%s'", expr, evaluated)
-
 	value, ok := evaluated.(string)
 	if !ok {
 		panic(fmt.Sprintf("Expression %s did not evaluate to a string", expr))
@@ -262,10 +262,8 @@ func EvalBool(evaluator ExpressionEvaluator, expr string) (bool, error) {
 			result = t != 0
 		}
 	default:
-		return false, fmt.Errorf("Unable to map return type to boolean for '%s'", expr)
+		return false, fmt.Errorf("Unable to map type '%t' to boolean for '%s'", evaluated, expr)
 	}
-
-	log.Debugf("expression '%s' evaluated to '%t'", nextExpr, result)
 
 	return result, nil
 }
