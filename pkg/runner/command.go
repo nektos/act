@@ -63,6 +63,9 @@ func (rc *RunContext) commandHandler(ctx context.Context) common.LineHandler {
 		case resumeCommand:
 			resumeCommand = ""
 			logger.Infof("  \U00002699  %s", line)
+		case "save-state":
+			logger.Infof("  \U0001f4be  %s", line)
+			rc.saveState(ctx, kvPairs, arg)
 		default:
 			logger.Infof("  \U00002753  %s", line)
 		}
@@ -140,4 +143,16 @@ func unescapeKvPairs(kvPairs map[string]string) map[string]string {
 		kvPairs[k] = unescapeCommandProperty(v)
 	}
 	return kvPairs
+}
+
+func (rc *RunContext) saveState(ctx context.Context, kvPairs map[string]string, arg string) {
+	if rc.CurrentStep != "" {
+		stepResult := rc.StepResults[rc.CurrentStep]
+		if stepResult != nil {
+			if stepResult.State == nil {
+				stepResult.State = map[string]string{}
+			}
+			stepResult.State[kvPairs["name"]] = arg
+		}
+	}
 }

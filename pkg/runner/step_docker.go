@@ -26,7 +26,7 @@ func (sd *stepDocker) pre() common.Executor {
 func (sd *stepDocker) main() common.Executor {
 	sd.env = map[string]string{}
 
-	return runStepExecutor(sd, sd.runUsesContainer())
+	return runStepExecutor(sd, stepStageMain, sd.runUsesContainer())
 }
 
 func (sd *stepDocker) post() common.Executor {
@@ -45,6 +45,10 @@ func (sd *stepDocker) getStepModel() *model.Step {
 
 func (sd *stepDocker) getEnv() *map[string]string {
 	return &sd.env
+}
+
+func (sd *stepDocker) getIfExpression(stage stepStage) string {
+	return sd.Step.If.Value
 }
 
 func (sd *stepDocker) runUsesContainer() common.Executor {
