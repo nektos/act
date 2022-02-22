@@ -127,6 +127,7 @@ func runActionImpl(step actionStep, actionDir string, remoteAction *remoteAction
 		// time, we don't have all environment prepared
 		mergeIntoMap(step.getEnv(), rc.withGithubEnv(map[string]string{}))
 
+		populateEnvsFromSavedState(step.getEnv(), step, rc)
 		populateEnvsFromInput(step.getEnv(), action, rc)
 
 		actionLocation := path.Join(actionDir, actionPath)
@@ -497,6 +498,16 @@ func (rc *RunContext) compositeExecutor(action *model.Action) common.Executor {
 	}
 }
 
+func populateEnvsFromSavedState(env *map[string]string, step actionStep, rc *RunContext) {
+	stepResult := rc.StepResults[step.getStepModel().ID]
+	if stepResult != nil {
+		for name, value := range stepResult.State {
+			envName := fmt.Sprintf("STATE_%s", name)
+			(*env)[envName] = value
+		}
+	}
+}
+
 func populateEnvsFromInput(env *map[string]string, action *model.Action, rc *RunContext) {
 	eval := rc.NewExpressionEvaluator()
 	for inputID, input := range action.Inputs {
@@ -537,4 +548,69 @@ func getOsSafeRelativePath(s, prefix string) string {
 	actionName = strings.TrimPrefix(actionName, "/")
 
 	return actionName
+}
+
+func shouldRunPostStep(step actionStep) common.Conditional {
+	return func(ctx context.Context) bool {
+		stepResults := step.getRunContext().getStepsContext()
+
+		if stepResults[step.getStepModel().ID].Conclusion == model.StepStatusSkipped {
+			return false
+		}
+
+		if step.getActionModel() == nil {
+			return false
+		}
+
+		return true
+	}
+}
+
+func hasPostStep(step actionStep) common.Conditional {
+	return func(ctx context.Context) bool {
+		action := step.getActionModel()
+		return (action.Runs.Using == model.ActionRunsUsingNode12 ||
+			action.Runs.Using == model.ActionRunsUsingNode16) &&
+			action.Runs.Post != ""
+	}
+}
+
+func runPostStep(step actionStep) common.Executor {
+	return func(ctx context.Context) error {
+		rc := step.getRunContext()
+		stepModel := step.getStepModel()
+		action := step.getActionModel()
+
+		switch action.Runs.Using {
+		case model.ActionRunsUsingNode12, model.ActionRunsUsingNode16:
+
+			populateEnvsFromSavedState(step.getEnv(), step, rc)
+
+			var actionDir string
+			var actionPath string
+			if _, ok := step.(*stepActionRemote); ok {
+				actionPath = newRemoteAction(stepModel.Uses).Path
+				actionDir = fmt.Sprintf("%s/%s", rc.ActionCacheDir(), strings.ReplaceAll(stepModel.Uses, "/", "-"))
+			} else {
+				actionDir = filepath.Join(rc.Config.Workdir, stepModel.Uses)
+				actionPath = ""
+			}
+
+			actionLocation := ""
+			if actionPath != "" {
+				actionLocation = path.Join(actionDir, actionPath)
+			} else {
+				actionLocation = actionDir
+			}
+
+			_, containerActionDir := getContainerActionPaths(stepModel, actionLocation, rc)
+
+			containerArgs := []string{"node", path.Join(containerActionDir, action.Runs.Post)}
+			log.Debugf("executing remote job container: %s", containerArgs)
+
+			return rc.execJobContainer(containerArgs, *step.getEnv(), "", "")(ctx)
+		default:
+			return nil
+		}
+	}
 }

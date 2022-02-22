@@ -38,7 +38,7 @@ var (
 func (sar *stepActionRemote) main() common.Executor {
 	sar.env = map[string]string{}
 
-	return runStepExecutor(sar, func(ctx context.Context) error {
+	return runStepExecutor(sar, stepStageMain, func(ctx context.Context) error {
 		remoteAction := newRemoteAction(sar.Step.Uses)
 		if remoteAction == nil {
 			return fmt.Errorf("Expected format {org}/{repo}[/path]@ref. Actual '%s' Input string was not in a correct format", sar.Step.Uses)
@@ -92,9 +92,7 @@ func (sar *stepActionRemote) main() common.Executor {
 }
 
 func (sar *stepActionRemote) post() common.Executor {
-	return func(ctx context.Context) error {
-		return nil
-	}
+	return runStepExecutor(sar, stepStagePost, runPostStep(sar)).If(hasPostStep(sar)).If(shouldRunPostStep(sar))
 }
 
 func (sar *stepActionRemote) getRunContext() *RunContext {
@@ -107,6 +105,18 @@ func (sar *stepActionRemote) getStepModel() *model.Step {
 
 func (sar *stepActionRemote) getEnv() *map[string]string {
 	return &sar.env
+}
+
+func (sar *stepActionRemote) getIfExpression(stage stepStage) string {
+	switch stage {
+	case stepStagePre:
+		return sar.action.Runs.PreIf
+	case stepStageMain:
+		return sar.Step.If.Value
+	case stepStagePost:
+		return sar.action.Runs.PostIf
+	}
+	return ""
 }
 
 func (sar *stepActionRemote) getActionModel() *model.Action {
