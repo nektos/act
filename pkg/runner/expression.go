@@ -249,6 +249,8 @@ func EvalBool(evaluator ExpressionEvaluator, expr string) (bool, error) {
 	var result bool
 
 	switch t := evaluated.(type) {
+	case nil:
+		result = false
 	case bool:
 		result = t
 	case string:
