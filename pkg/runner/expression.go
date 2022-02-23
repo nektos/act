@@ -2,7 +2,6 @@ package runner
 
 import (
 	"fmt"
-	"math"
 	"regexp"
 	"strings"
 
@@ -246,28 +245,7 @@ func EvalBool(evaluator ExpressionEvaluator, expr string) (bool, error) {
 		return false, err
 	}
 
-	var result bool
-
-	switch t := evaluated.(type) {
-	case nil:
-		result = false
-	case bool:
-		result = t
-	case string:
-		result = t != ""
-	case int:
-		result = t != 0
-	case float64:
-		if math.IsNaN(t) {
-			result = false
-		} else {
-			result = t != 0
-		}
-	default:
-		return false, fmt.Errorf("Unable to map type '%t' to boolean for '%s'", evaluated, expr)
-	}
-
-	return result, nil
+	return exprparser.IsTruthy(evaluated), nil
 }
 
 func escapeFormatString(in string) string {
