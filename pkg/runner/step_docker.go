@@ -2,24 +2,64 @@ package runner
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/kballard/go-shellquote"
 	"github.com/nektos/act/pkg/common"
+	"github.com/nektos/act/pkg/container"
+	"github.com/nektos/act/pkg/model"
 )
 
-func (sc *StepContext) runUsesContainer() common.Executor {
-	rc := sc.RunContext
-	step := sc.Step
+type stepDocker struct {
+	Step       *model.Step
+	RunContext *RunContext
+	env        map[string]string
+}
+
+func (sd *stepDocker) pre() common.Executor {
+	return func(ctx context.Context) error {
+		return nil
+	}
+}
+
+func (sd *stepDocker) main() common.Executor {
+	sd.env = map[string]string{}
+
+	return runStepExecutor(sd, sd.runUsesContainer())
+}
+
+func (sd *stepDocker) post() common.Executor {
+	return func(ctx context.Context) error {
+		return nil
+	}
+}
+
+func (sd *stepDocker) getRunContext() *RunContext {
+	return sd.RunContext
+}
+
+func (sd *stepDocker) getStepModel() *model.Step {
+	return sd.Step
+}
+
+func (sd *stepDocker) getEnv() *map[string]string {
+	return &sd.env
+}
+
+func (sd *stepDocker) runUsesContainer() common.Executor {
+	rc := sd.RunContext
+	step := sd.Step
+
 	return func(ctx context.Context) error {
 		image := strings.TrimPrefix(step.Uses, "docker://")
-		eval := sc.RunContext.NewExpressionEvaluator()
+		eval := sd.RunContext.NewExpressionEvaluator()
 		cmd, err := shellquote.Split(eval.Interpolate(step.With["args"]))
 		if err != nil {
 			return err
 		}
 		entrypoint := strings.Fields(eval.Interpolate(step.With["entrypoint"]))
-		stepContainer := sc.newStepContainer(ctx, image, cmd, entrypoint)
+		stepContainer := sd.newStepContainer(ctx, image, cmd, entrypoint)
 
 		return common.NewPipelineExecutor(
 			stepContainer.Pull(rc.Config.ForcePull),
@@ -30,4 +70,52 @@ func (sc *StepContext) runUsesContainer() common.Executor {
 			stepContainer.Remove().IfBool(!rc.Config.ReuseContainers),
 		).Finally(stepContainer.Close())(ctx)
 	}
+}
+
+var (
+	ContainerNewContainer = container.NewContainer
+)
+
+func (sd *stepDocker) newStepContainer(ctx context.Context, image string, cmd []string, entrypoint []string) container.Container {
+	rc := sd.RunContext
+	step := sd.Step
+
+	rawLogger := common.Logger(ctx).WithField("raw_output", true)
+	logWriter := common.NewLineWriter(rc.commandHandler(ctx), func(s string) bool {
+		if rc.Config.LogOutput {
+			rawLogger.Infof("%s", s)
+		} else {
+			rawLogger.Debugf("%s", s)
+		}
+		return true
+	})
+	envList := make([]string, 0)
+	for k, v := range sd.env {
+		envList = append(envList, fmt.Sprintf("%s=%s", k, v))
+	}
+
+	envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_TOOL_CACHE", "/opt/hostedtoolcache"))
+	envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_OS", "Linux"))
+	envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_TEMP", "/tmp"))
+
+	binds, mounts := rc.GetBindsAndMounts()
+	stepContainer := ContainerNewContainer(&container.NewContainerInput{
+		Cmd:         cmd,
+		Entrypoint:  entrypoint,
+		WorkingDir:  rc.Config.ContainerWorkdir(),
+		Image:       image,
+		Username:    rc.Config.Secrets["DOCKER_USERNAME"],
+		Password:    rc.Config.Secrets["DOCKER_PASSWORD"],
+		Name:        createContainerName(rc.jobContainerName(), step.ID),
+		Env:         envList,
+		Mounts:      mounts,
+		NetworkMode: fmt.Sprintf("container:%s", rc.jobContainerName()),
+		Binds:       binds,
+		Stdout:      logWriter,
+		Stderr:      logWriter,
+		Privileged:  rc.Config.Privileged,
+		UsernsMode:  rc.Config.UsernsMode,
+		Platform:    rc.Config.ContainerArchitecture,
+	})
+	return stepContainer
 }

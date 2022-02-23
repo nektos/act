@@ -12,15 +12,56 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func (sc *StepContext) setupShellCommandExecutor() common.Executor {
-	rc := sc.RunContext
+type stepRun struct {
+	Step       *model.Step
+	RunContext *RunContext
+	cmd        []string
+	env        map[string]string
+}
+
+func (sr *stepRun) pre() common.Executor {
 	return func(ctx context.Context) error {
-		scriptName, script, err := sc.setupShellCommand()
+		return nil
+	}
+}
+
+func (sr *stepRun) main() common.Executor {
+	sr.env = map[string]string{}
+
+	return runStepExecutor(sr, common.NewPipelineExecutor(
+		sr.setupShellCommandExecutor(),
+		func(ctx context.Context) error {
+			return sr.getRunContext().JobContainer.Exec(sr.cmd, sr.env, "", sr.Step.WorkingDirectory)(ctx)
+		},
+	))
+}
+
+func (sr *stepRun) post() common.Executor {
+	return func(ctx context.Context) error {
+		return nil
+	}
+}
+
+func (sr *stepRun) getRunContext() *RunContext {
+	return sr.RunContext
+}
+
+func (sr *stepRun) getStepModel() *model.Step {
+	return sr.Step
+}
+
+func (sr *stepRun) getEnv() *map[string]string {
+	return &sr.env
+}
+
+func (sr *stepRun) setupShellCommandExecutor() common.Executor {
+	return func(ctx context.Context) error {
+		scriptName, script, err := sr.setupShellCommand()
 		if err != nil {
 			return err
 		}
 
-		return rc.JobContainer.Copy(ActPath, &container.FileEntry{
+		return sr.getRunContext().JobContainer.Copy(ActPath, &container.FileEntry{
 			Name: scriptName,
 			Mode: 0755,
 			Body: script,
@@ -41,17 +82,17 @@ func getScriptName(rc *RunContext, step *model.Step) string {
 // so we return proper errors before any execution or spawning containers
 // it will error anyway with:
 // OCI runtime exec failed: exec failed: container_linux.go:380: starting container process caused: exec: "${{": executable file not found in $PATH: unknown
-func (sc *StepContext) setupShellCommand() (name, script string, err error) {
-	sc.setupShell()
-	sc.setupWorkingDirectory()
+func (sr *stepRun) setupShellCommand() (name, script string, err error) {
+	sr.setupShell()
+	sr.setupWorkingDirectory()
 
-	step := sc.Step
+	step := sr.Step
 
-	script = sc.RunContext.ExprEval.Interpolate(step.Run)
+	script = sr.RunContext.NewStepExpressionEvaluator(sr).Interpolate(step.Run)
 
 	scCmd := step.ShellCommand()
 
-	name = getScriptName(sc.RunContext, step)
+	name = getScriptName(sr.RunContext, step)
 
 	// Reference: https://github.com/actions/runner/blob/8109c962f09d9acc473d92c595ff43afceddb347/src/Runner.Worker/Handlers/ScriptHandlerHelpers.cs#L47-L64
 	// Reference: https://github.com/actions/runner/blob/8109c962f09d9acc473d92c595ff43afceddb347/src/Runner.Worker/Handlers/ScriptHandlerHelpers.cs#L19-L27
@@ -76,14 +117,14 @@ func (sc *StepContext) setupShellCommand() (name, script string, err error) {
 	log.Debugf("Wrote command \n%s\n to '%s'", script, name)
 
 	scriptPath := fmt.Sprintf("%s/%s", ActPath, name)
-	sc.Cmd, err = shellquote.Split(strings.Replace(scCmd, `{0}`, scriptPath, 1))
+	sr.cmd, err = shellquote.Split(strings.Replace(scCmd, `{0}`, scriptPath, 1))
 
 	return name, script, err
 }
 
-func (sc *StepContext) setupShell() {
-	rc := sc.RunContext
-	step := sc.Step
+func (sr *stepRun) setupShell() {
+	rc := sr.RunContext
+	step := sr.Step
 
 	if step.Shell == "" {
 		step.Shell = rc.Run.Job().Defaults.Run.Shell
@@ -107,9 +148,9 @@ func (sc *StepContext) setupShell() {
 	}
 }
 
-func (sc *StepContext) setupWorkingDirectory() {
-	rc := sc.RunContext
-	step := sc.Step
+func (sr *stepRun) setupWorkingDirectory() {
+	rc := sr.RunContext
+	step := sr.Step
 
 	if step.WorkingDirectory == "" {
 		step.WorkingDirectory = rc.Run.Job().Defaults.Run.WorkingDirectory

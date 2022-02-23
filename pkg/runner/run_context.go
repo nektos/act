@@ -287,7 +287,7 @@ func (rc *RunContext) Executor() common.Executor {
 		}
 
 		if isEnabled {
-			return newJobExecutor(rc)(ctx)
+			return newJobExecutor(rc, &stepFactoryImpl{}, rc)(ctx)
 		}
 
 		return nil
@@ -298,12 +298,23 @@ func (rc *RunContext) Executor() common.Executor {
 func (rc *RunContext) CompositeExecutor() common.Executor {
 	steps := make([]common.Executor, 0)
 
+	sf := &stepFactoryImpl{}
+
 	for i, step := range rc.Composite.Runs.Steps {
 		if step.ID == "" {
 			step.ID = fmt.Sprintf("%d", i)
 		}
+
+		// create a copy of the step, since this composite action could
+		// run multiple times and we might modify the instance
 		stepcopy := step
-		stepExec := rc.newStepExecutor(&stepcopy)
+
+		step, err := sf.newStep(&stepcopy, rc)
+		if err != nil {
+			return common.NewErrorExecutor(err)
+		}
+		stepExec := common.NewPipelineExecutor(step.pre(), step.main(), step.post())
+
 		steps = append(steps, func(ctx context.Context) error {
 			err := stepExec(ctx)
 			if err != nil {

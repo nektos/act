@@ -147,13 +147,13 @@ func TestEvaluateRunContext(t *testing.T) {
 	}
 }
 
-func TestEvaluateStepContext(t *testing.T) {
+func TestEvaluateStep(t *testing.T) {
 	rc := createRunContext(t)
-
-	sc := &StepContext{
+	step := &stepRun{
 		RunContext: rc,
 	}
-	ee := sc.NewExpressionEvaluator()
+
+	ee := rc.NewStepExpressionEvaluator(step)
 
 	tables := []struct {
 		in      string

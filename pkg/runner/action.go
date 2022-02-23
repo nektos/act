@@ -20,17 +20,23 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type ActionReader interface {
-	readAction(step *model.Step, actionDir string, actionPath string, readFile actionyamlReader) (*model.Action, error)
+type actionStep interface {
+	step
+
+	getActionModel() *model.Action
 }
 
-type actionyamlReader func(filename string) (io.Reader, io.Closer, error)
+type readAction func(step *model.Step, actionDir string, actionPath string, readFile actionYamlReader, writeFile fileWriter) (*model.Action, error)
+
+type actionYamlReader func(filename string) (io.Reader, io.Closer, error)
 type fileWriter func(filename string, data []byte, perm fs.FileMode) error
+
+type runAction func(step actionStep, actionDir string, actionPath string, actionRepository string, actionRef string, localAction bool) common.Executor
 
 //go:embed res/trampoline.js
 var trampoline embed.FS
 
-func (sc *StepContext) readAction(step *model.Step, actionDir string, actionPath string, readFile actionyamlReader, writeFile fileWriter) (*model.Action, error) {
+func readActionImpl(step *model.Step, actionDir string, actionPath string, readFile actionYamlReader, writeFile fileWriter) (*model.Action, error) {
 	reader, closer, err := readFile("action.yml")
 	if os.IsNotExist(err) {
 		reader, closer, err = readFile("action.yaml")
@@ -92,9 +98,9 @@ func (sc *StepContext) readAction(step *model.Step, actionDir string, actionPath
 	return action, err
 }
 
-func (sc *StepContext) runAction(actionDir string, actionPath string, actionRepository string, actionRef string, localAction bool) common.Executor {
-	rc := sc.RunContext
-	step := sc.Step
+func runActionImpl(step actionStep, actionDir string, actionPath string, actionRepository string, actionRef string, localAction bool) common.Executor {
+	rc := step.getRunContext()
+	stepModel := step.getStepModel()
 	return func(ctx context.Context) error {
 		// Backup the parent composite action path and restore it on continue
 		parentActionPath := rc.ActionPath
@@ -107,22 +113,24 @@ func (sc *StepContext) runAction(actionDir string, actionPath string, actionRepo
 		}()
 		rc.ActionRef = actionRef
 		rc.ActionRepository = actionRepository
-		action := sc.Action
+		action := step.getActionModel()
 		log.Debugf("About to run action %v", action)
-		sc.populateEnvsFromInput(action, rc)
+
+		populateEnvsFromInput(step.getEnv(), action, rc)
+
 		actionLocation := ""
 		if actionPath != "" {
 			actionLocation = path.Join(actionDir, actionPath)
 		} else {
 			actionLocation = actionDir
 		}
-		actionName, containerActionDir := sc.getContainerActionPaths(step, actionLocation, rc)
+		actionName, containerActionDir := getContainerActionPaths(stepModel, actionLocation, rc)
 
-		log.Debugf("type=%v actionDir=%s actionPath=%s workdir=%s actionCacheDir=%s actionName=%s containerActionDir=%s", step.Type(), actionDir, actionPath, rc.Config.Workdir, rc.ActionCacheDir(), actionName, containerActionDir)
+		log.Debugf("type=%v actionDir=%s actionPath=%s workdir=%s actionCacheDir=%s actionName=%s containerActionDir=%s", stepModel.Type(), actionDir, actionPath, rc.Config.Workdir, rc.ActionCacheDir(), actionName, containerActionDir)
 
 		maybeCopyToActionDir := func() error {
 			rc.ActionPath = containerActionDir
-			if step.Type() != model.StepTypeUsesActionRemote {
+			if stepModel.Type() != model.StepTypeUsesActionRemote {
 				return nil
 			}
 			if err := removeGitIgnore(actionDir); err != nil {
@@ -146,11 +154,11 @@ func (sc *StepContext) runAction(actionDir string, actionPath string, actionRepo
 			}
 			containerArgs := []string{"node", path.Join(containerActionDir, action.Runs.Main)}
 			log.Debugf("executing remote job container: %s", containerArgs)
-			return rc.execJobContainer(containerArgs, sc.Env, "", "")(ctx)
+			return rc.execJobContainer(containerArgs, *step.getEnv(), "", "")(ctx)
 		case model.ActionRunsUsingDocker:
-			return sc.execAsDocker(ctx, action, actionName, containerActionDir, actionLocation, rc, step, localAction)
+			return execAsDocker(ctx, action, actionName, containerActionDir, actionLocation, rc, step, localAction)
 		case model.ActionRunsUsingComposite:
-			return sc.execAsComposite(ctx, step, actionDir, rc, containerActionDir, actionName, actionPath, action, maybeCopyToActionDir)
+			return execAsComposite(ctx, step, actionDir, rc, containerActionDir, actionName, actionPath, action, maybeCopyToActionDir)
 		default:
 			return fmt.Errorf(fmt.Sprintf("The runs.using key must be one of: %v, got %s", []string{
 				model.ActionRunsUsingDocker,
@@ -181,7 +189,7 @@ func removeGitIgnore(directory string) error {
 
 // TODO: break out parts of function to reduce complexicity
 // nolint:gocyclo
-func (sc *StepContext) execAsDocker(ctx context.Context, action *model.Action, actionName string, containerLocation string, actionLocation string, rc *RunContext, step *model.Step, localAction bool) error {
+func execAsDocker(ctx context.Context, action *model.Action, actionName string, containerLocation string, actionLocation string, rc *RunContext, step step, localAction bool) error {
 	var prepImage common.Executor
 	var image string
 	if strings.HasPrefix(action.Runs.Image, "docker://") {
@@ -221,7 +229,7 @@ func (sc *StepContext) execAsDocker(ctx context.Context, action *model.Action, a
 			log.Debugf("image '%s' for architecture '%s' will be built from context '%s", image, rc.Config.ContainerArchitecture, contextDir)
 			var actionContainer container.Container
 			if localAction {
-				actionContainer = sc.RunContext.JobContainer
+				actionContainer = step.getRunContext().JobContainer
 			}
 			prepImage = container.NewDockerBuildExecutor(container.NewDockerBuildExecutorInput{
 				ContextDir: contextDir,
@@ -233,16 +241,16 @@ func (sc *StepContext) execAsDocker(ctx context.Context, action *model.Action, a
 			log.Debugf("image '%s' for architecture '%s' already exists", image, rc.Config.ContainerArchitecture)
 		}
 	}
-	eval := sc.NewExpressionEvaluator()
-	cmd, err := shellquote.Split(eval.Interpolate(step.With["args"]))
+	eval := step.getRunContext().NewStepExpressionEvaluator(step)
+	cmd, err := shellquote.Split(eval.Interpolate(step.getStepModel().With["args"]))
 	if err != nil {
 		return err
 	}
 	if len(cmd) == 0 {
 		cmd = action.Runs.Args
-		sc.evalDockerArgs(action, &cmd)
+		evalDockerArgs(step, action, &cmd)
 	}
-	entrypoint := strings.Fields(eval.Interpolate(step.With["entrypoint"]))
+	entrypoint := strings.Fields(eval.Interpolate(step.getStepModel().With["entrypoint"]))
 	if len(entrypoint) == 0 {
 		if action.Runs.Entrypoint != "" {
 			entrypoint, err = shellquote.Split(action.Runs.Entrypoint)
@@ -253,7 +261,7 @@ func (sc *StepContext) execAsDocker(ctx context.Context, action *model.Action, a
 			entrypoint = nil
 		}
 	}
-	stepContainer := sc.newStepContainer(ctx, image, cmd, entrypoint)
+	stepContainer := newStepContainer(ctx, step, image, cmd, entrypoint)
 	return common.NewPipelineExecutor(
 		prepImage,
 		stepContainer.Pull(rc.Config.ForcePull),
@@ -265,40 +273,40 @@ func (sc *StepContext) execAsDocker(ctx context.Context, action *model.Action, a
 	).Finally(stepContainer.Close())(ctx)
 }
 
-func (sc *StepContext) evalDockerArgs(action *model.Action, cmd *[]string) {
-	rc := sc.RunContext
-	step := sc.Step
+func evalDockerArgs(step step, action *model.Action, cmd *[]string) {
+	rc := step.getRunContext()
+	stepModel := step.getStepModel()
 	oldInputs := rc.Inputs
 	defer func() {
 		rc.Inputs = oldInputs
 	}()
 	inputs := make(map[string]interface{})
-	eval := sc.RunContext.NewExpressionEvaluator()
+	eval := step.getRunContext().NewExpressionEvaluator()
 	// Set Defaults
 	for k, input := range action.Inputs {
 		inputs[k] = eval.Interpolate(input.Default)
 	}
-	if step.With != nil {
-		for k, v := range step.With {
+	if stepModel.With != nil {
+		for k, v := range stepModel.With {
 			inputs[k] = eval.Interpolate(v)
 		}
 	}
 	rc.Inputs = inputs
-	stepEE := sc.NewExpressionEvaluator()
+	stepEE := step.getRunContext().NewStepExpressionEvaluator(step)
 	for i, v := range *cmd {
 		(*cmd)[i] = stepEE.Interpolate(v)
 	}
-	sc.Env = mergeMaps(sc.Env, action.Runs.Env)
+	mergeIntoMap(step.getEnv(), action.Runs.Env)
 
-	ee := sc.NewExpressionEvaluator()
-	for k, v := range sc.Env {
-		sc.Env[k] = ee.Interpolate(v)
+	ee := step.getRunContext().NewStepExpressionEvaluator(step)
+	for k, v := range *step.getEnv() {
+		(*step.getEnv())[k] = ee.Interpolate(v)
 	}
 }
 
-func (sc *StepContext) newStepContainer(ctx context.Context, image string, cmd []string, entrypoint []string) container.Container {
-	rc := sc.RunContext
-	step := sc.Step
+func newStepContainer(ctx context.Context, step step, image string, cmd []string, entrypoint []string) container.Container {
+	rc := step.getRunContext()
+	stepModel := step.getStepModel()
 	rawLogger := common.Logger(ctx).WithField("raw_output", true)
 	logWriter := common.NewLineWriter(rc.commandHandler(ctx), func(s string) bool {
 		if rc.Config.LogOutput {
@@ -309,7 +317,7 @@ func (sc *StepContext) newStepContainer(ctx context.Context, image string, cmd [
 		return true
 	})
 	envList := make([]string, 0)
-	for k, v := range sc.Env {
+	for k, v := range *step.getEnv() {
 		envList = append(envList, fmt.Sprintf("%s=%s", k, v))
 	}
 
@@ -326,7 +334,7 @@ func (sc *StepContext) newStepContainer(ctx context.Context, image string, cmd [
 		Image:       image,
 		Username:    rc.Config.Secrets["DOCKER_USERNAME"],
 		Password:    rc.Config.Secrets["DOCKER_PASSWORD"],
-		Name:        createContainerName(rc.jobContainerName(), step.ID),
+		Name:        createContainerName(rc.jobContainerName(), stepModel.ID),
 		Env:         envList,
 		Mounts:      mounts,
 		NetworkMode: fmt.Sprintf("container:%s", rc.jobContainerName()),
@@ -340,7 +348,7 @@ func (sc *StepContext) newStepContainer(ctx context.Context, image string, cmd [
 	return stepContainer
 }
 
-func (sc *StepContext) execAsComposite(ctx context.Context, step *model.Step, _ string, rc *RunContext, containerActionDir string, actionName string, _ string, action *model.Action, maybeCopyToActionDir func() error) error {
+func execAsComposite(ctx context.Context, step step, _ string, rc *RunContext, containerActionDir string, actionName string, _ string, action *model.Action, maybeCopyToActionDir func() error) error {
 	err := maybeCopyToActionDir()
 
 	if err != nil {
@@ -353,13 +361,13 @@ func (sc *StepContext) execAsComposite(ctx context.Context, step *model.Step, _ 
 		}
 	}
 	inputs := make(map[string]interface{})
-	eval := sc.RunContext.NewExpressionEvaluator()
+	eval := step.getRunContext().NewExpressionEvaluator()
 	// Set Defaults
 	for k, input := range action.Inputs {
 		inputs[k] = eval.Interpolate(input.Default)
 	}
-	if step.With != nil {
-		for k, v := range step.With {
+	if step.getStepModel().With != nil {
+		for k, v := range step.getStepModel().With {
 			inputs[k] = eval.Interpolate(v)
 		}
 	}
@@ -379,7 +387,7 @@ func (sc *StepContext) execAsComposite(ctx context.Context, step *model.Step, _ 
 	}
 	// Workaround end
 	compositerc.Composite = action
-	envToEvaluate := mergeMaps(compositerc.Env, step.Environment())
+	envToEvaluate := mergeMaps(compositerc.Env, step.getStepModel().Environment())
 	compositerc.Env = make(map[string]string)
 	// origEnvMap: is used to pass env changes back to parent runcontext
 	origEnvMap := make(map[string]string)
@@ -393,10 +401,7 @@ func (sc *StepContext) execAsComposite(ctx context.Context, step *model.Step, _ 
 	err = compositerc.CompositeExecutor()(ctx)
 
 	// Map outputs to parent rc
-	eval = (&StepContext{
-		Env:        compositerc.Env,
-		RunContext: compositerc,
-	}).NewExpressionEvaluator()
+	eval = compositerc.NewStepExpressionEvaluator(step)
 	for outputName, output := range action.Outputs {
 		backup.setOutput(ctx, map[string]string{
 			"name": outputName,
@@ -415,17 +420,17 @@ func (sc *StepContext) execAsComposite(ctx context.Context, step *model.Step, _ 
 	return err
 }
 
-func (sc *StepContext) populateEnvsFromInput(action *model.Action, rc *RunContext) {
+func populateEnvsFromInput(env *map[string]string, action *model.Action, rc *RunContext) {
 	for inputID, input := range action.Inputs {
 		envKey := regexp.MustCompile("[^A-Z0-9-]").ReplaceAllString(strings.ToUpper(inputID), "_")
 		envKey = fmt.Sprintf("INPUT_%s", envKey)
-		if _, ok := sc.Env[envKey]; !ok {
-			sc.Env[envKey] = rc.ExprEval.Interpolate(input.Default)
+		if _, ok := (*env)[envKey]; !ok {
+			(*env)[envKey] = rc.ExprEval.Interpolate(input.Default)
 		}
 	}
 }
 
-func (sc *StepContext) getContainerActionPaths(step *model.Step, actionDir string, rc *RunContext) (string, string) {
+func getContainerActionPaths(step *model.Step, actionDir string, rc *RunContext) (string, string) {
 	actionName := ""
 	containerActionDir := "."
 	if step.Type() != model.StepTypeUsesActionRemote {
