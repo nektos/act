@@ -274,7 +274,7 @@ func (impl *interperterImpl) evaluateNot(notNode *actionlint.NotOpNode) (interfa
 		return nil, err
 	}
 
-	return !impl.isTruthy(reflect.ValueOf(operand)), nil
+	return !IsTruthy(operand), nil
 }
 
 func (impl *interperterImpl) evaluateCompare(compareNode *actionlint.CompareOpNode) (interface{}, error) {
@@ -434,7 +434,8 @@ func (impl *interperterImpl) compareNumber(left float64, right float64, kind act
 	}
 }
 
-func (impl *interperterImpl) isTruthy(value reflect.Value) bool {
+func IsTruthy(input interface{}) bool {
+	value := reflect.ValueOf(input)
 	switch value.Kind() {
 	case reflect.Bool:
 		return value.Bool()
@@ -452,10 +453,7 @@ func (impl *interperterImpl) isTruthy(value reflect.Value) bool {
 
 		return value.Float() != 0
 
-	case reflect.Map:
-		return true
-
-	case reflect.Slice:
+	case reflect.Map, reflect.Slice:
 		return true
 
 	default:
@@ -503,14 +501,14 @@ func (impl *interperterImpl) evaluateLogicalCompare(compareNode *actionlint.Logi
 
 	switch compareNode.Kind {
 	case actionlint.LogicalOpNodeKindAnd:
-		if impl.isTruthy(leftValue) {
+		if IsTruthy(left) {
 			return impl.getSafeValue(rightValue), nil
 		}
 
 		return impl.getSafeValue(leftValue), nil
 
 	case actionlint.LogicalOpNodeKindOr:
-		if impl.isTruthy(leftValue) {
+		if IsTruthy(left) {
 			return impl.getSafeValue(leftValue), nil
 		}
 
