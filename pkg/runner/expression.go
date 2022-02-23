@@ -142,9 +142,6 @@ func (ee expressionEvaluator) evaluateScalarYamlNode(node *yaml.Node) error {
 		return nil
 	}
 	expr, _ := rewriteSubExpression(in, false)
-	if in != expr {
-		log.Debugf("expression '%s' rewritten to '%s'", in, expr)
-	}
 	res, err := ee.evaluate(expr, false)
 	if err != nil {
 		return err
@@ -215,10 +212,6 @@ func (ee expressionEvaluator) Interpolate(in string) string {
 	}
 
 	expr, _ := rewriteSubExpression(in, true)
-	if in != expr {
-		log.Debugf("expression '%s' rewritten to '%s'", in, expr)
-	}
-
 	evaluated, err := ee.evaluate(expr, false)
 	if err != nil {
 		log.Errorf("Unable to interpolate expression '%s': %s", expr, err)
@@ -236,9 +229,6 @@ func (ee expressionEvaluator) Interpolate(in string) string {
 // EvalBool evaluates an expression against given evaluator
 func EvalBool(evaluator ExpressionEvaluator, expr string) (bool, error) {
 	nextExpr, _ := rewriteSubExpression(expr, false)
-	if expr != nextExpr {
-		log.Debugf("expression '%s' rewritten to '%s'", expr, nextExpr)
-	}
 
 	evaluated, err := evaluator.evaluate(nextExpr, true)
 	if err != nil {
@@ -312,5 +302,9 @@ func rewriteSubExpression(in string, forceFormat bool) (string, error) {
 		return in, nil
 	}
 
-	return fmt.Sprintf("format('%s', %s)", strings.ReplaceAll(formatOut, "'", "''"), strings.Join(results, ", ")), nil
+	out := fmt.Sprintf("format('%s', %s)", strings.ReplaceAll(formatOut, "'", "''"), strings.Join(results, ", "))
+	if in != out {
+		log.Debugf("expression '%s' rewritten to '%s'", in, out)
+	}
+	return out, nil
 }
