@@ -72,6 +72,8 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.PersistentFlags().StringVarP(&input.artifactServerPort, "artifact-server-port", "", "34567", "Defines the port where the artifact server listens (will only bind to localhost).")
 	rootCmd.SetArgs(args())
 
+	addGitHubAgentCommand(rootCmd)
+
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}
