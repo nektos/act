@@ -26,6 +26,7 @@ func newSecrets(secretList []string) secrets {
 		} else {
 			fmt.Printf("Provide value for '%s': ", secretPairParts[0])
 			val, err := term.ReadPassword(int(os.Stdin.Fd()))
+			fmt.Println()
 			if err != nil {
 				log.Errorf("failed to read input: %v", err)
 				os.Exit(1)
