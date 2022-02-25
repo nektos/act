@@ -1,0 +1,12 @@
+on: push
+jobs:
+  a:
+    strategy:
+      matrix:
+        a:
+        - env:
+              key1: ${{'val'}}1
+        - ${{fromJSON('[{"env":{"key2":"val2"}},{"env":{"key3":"val3"}}]')}}
+    runs-on: ubuntu-latest
+    steps:
+    - run: exit ${{ (matrix.a.env.key2 == 'val2' || matrix.a.env.key1 == 'val1' || matrix.a.env.key3 == 'val3' ) && '0' || '1' }}
