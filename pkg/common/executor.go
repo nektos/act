@@ -134,7 +134,6 @@ func (e Executor) Then(then Executor) Executor {
 			case Warning:
 				log.Warning(err.Error())
 			default:
-				log.Debugf("%+v", err)
 				return err
 			}
 		}

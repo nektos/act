@@ -2,7 +2,6 @@ package runner
 
 import (
 	"fmt"
-	"math"
 	"regexp"
 	"strings"
 
@@ -128,7 +127,9 @@ type expressionEvaluator struct {
 }
 
 func (ee expressionEvaluator) evaluate(in string, isIfExpression bool) (interface{}, error) {
+	log.Debugf("evaluating expression '%s'", in)
 	evaluated, err := ee.interpreter.Evaluate(in, isIfExpression)
+	log.Debugf("expression '%s' evaluated to '%t'", in, evaluated)
 	return evaluated, err
 }
 
@@ -141,9 +142,6 @@ func (ee expressionEvaluator) evaluateScalarYamlNode(node *yaml.Node) error {
 		return nil
 	}
 	expr, _ := rewriteSubExpression(in, false)
-	if in != expr {
-		log.Debugf("expression '%s' rewritten to '%s'", in, expr)
-	}
 	res, err := ee.evaluate(expr, false)
 	if err != nil {
 		return err
@@ -214,17 +212,11 @@ func (ee expressionEvaluator) Interpolate(in string) string {
 	}
 
 	expr, _ := rewriteSubExpression(in, true)
-	if in != expr {
-		log.Debugf("expression '%s' rewritten to '%s'", in, expr)
-	}
-
 	evaluated, err := ee.evaluate(expr, false)
 	if err != nil {
 		log.Errorf("Unable to interpolate expression '%s': %s", expr, err)
 		return ""
 	}
-
-	log.Debugf("expression '%s' evaluated to '%s'", expr, evaluated)
 
 	value, ok := evaluated.(string)
 	if !ok {
@@ -237,37 +229,13 @@ func (ee expressionEvaluator) Interpolate(in string) string {
 // EvalBool evaluates an expression against given evaluator
 func EvalBool(evaluator ExpressionEvaluator, expr string) (bool, error) {
 	nextExpr, _ := rewriteSubExpression(expr, false)
-	if expr != nextExpr {
-		log.Debugf("expression '%s' rewritten to '%s'", expr, nextExpr)
-	}
 
 	evaluated, err := evaluator.evaluate(nextExpr, true)
 	if err != nil {
 		return false, err
 	}
 
-	var result bool
-
-	switch t := evaluated.(type) {
-	case bool:
-		result = t
-	case string:
-		result = t != ""
-	case int:
-		result = t != 0
-	case float64:
-		if math.IsNaN(t) {
-			result = false
-		} else {
-			result = t != 0
-		}
-	default:
-		return false, fmt.Errorf("Unable to map return type to boolean for '%s'", expr)
-	}
-
-	log.Debugf("expression '%s' evaluated to '%t'", nextExpr, result)
-
-	return result, nil
+	return exprparser.IsTruthy(evaluated), nil
 }
 
 func escapeFormatString(in string) string {
@@ -334,5 +302,9 @@ func rewriteSubExpression(in string, forceFormat bool) (string, error) {
 		return in, nil
 	}
 
-	return fmt.Sprintf("format('%s', %s)", strings.ReplaceAll(formatOut, "'", "''"), strings.Join(results, ", ")), nil
+	out := fmt.Sprintf("format('%s', %s)", strings.ReplaceAll(formatOut, "'", "''"), strings.Join(results, ", "))
+	if in != out {
+		log.Debugf("expression '%s' rewritten to '%s'", in, out)
+	}
+	return out, nil
 }
