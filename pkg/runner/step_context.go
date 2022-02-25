@@ -171,13 +171,7 @@ func (sc *StepContext) interpolateEnv(exprEval ExpressionEvaluator) {
 func (sc *StepContext) isEnabled(ctx context.Context) (bool, error) {
 	runStep, err := EvalBool(sc.NewExpressionEvaluator(), sc.Step.If.Value)
 	if err != nil {
-		common.Logger(ctx).Errorf("  \u274C  Error in if: expression - %s", sc.Step)
-		exprEval, err := sc.setupEnv(ctx)
-		if err != nil {
-			return false, err
-		}
-		sc.RunContext.ExprEval = exprEval
-		return false, err
+		return false, fmt.Errorf("  \u274C  Error in if-expression: \"if: %s\" (%s)", sc.Step.If.Value, err)
 	}
 
 	return runStep, nil
