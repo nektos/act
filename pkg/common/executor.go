@@ -91,39 +91,37 @@ func NewErrorExecutor(err error) Executor {
 }
 
 // NewParallelExecutor creates a new executor from a parallel of other executors
-func NewParallelExecutor(executors ...Executor) Executor {
+func NewParallelExecutor(parallel int, executors ...Executor) Executor {
 	return func(ctx context.Context) error {
-		errChan := make(chan error)
+		work := make(chan Executor, len(executors))
+		errs := make(chan error, len(executors))
 
-		for _, executor := range executors {
-			e := executor
-			go func() {
-				err := e.ChannelError(errChan)(ctx)
-				if err != nil {
-					log.Fatal(err)
+		for i := 0; i < parallel; i++ {
+			go func(work <-chan Executor, errs chan<- error) {
+				for executor := range work {
+					errs <- executor(ctx)
 				}
-			}()
+			}(work, errs)
 		}
+
+		for i := 0; i < len(executors); i++ {
+			work <- executors[i]
+		}
+		close(work)
 
 		// Executor waits all executors to cleanup these resources.
 		var firstErr error
 		for i := 0; i < len(executors); i++ {
-			if err := <-errChan; err != nil && firstErr == nil {
+			err := <-errs
+			if firstErr == nil {
 				firstErr = err
 			}
 		}
+
 		if err := ctx.Err(); err != nil {
 			return err
 		}
 		return firstErr
-	}
-}
-
-// ChannelError sends error to errChan rather than returning error
-func (e Executor) ChannelError(errChan chan error) Executor {
-	return func(ctx context.Context) error {
-		errChan <- e(ctx)
-		return nil
 	}
 }
 
