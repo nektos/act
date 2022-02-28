@@ -1096,8 +1096,8 @@ github.com/quasilyte/go-consistent v0.0.0-20190521200055-c6f3937de18c/go.mod h1:
 github.com/quasilyte/go-ruleguard v0.1.2-0.20200318202121-b00d7a75d3d8/go.mod h1:CGFX09Ci3pq9QZdj86B+VGIdNj4VyCo2iPOGS9esB/k=
 github.com/rcrowley/go-metrics v0.0.0-20181016184325-3113b8401b8a/go.mod h1:bCqnVzQkZxMG4s8nGwiZ5l3QUCyqpo9Y+/ZMZ9VjZe4=
 github.com/remyoudompheng/bigfft v0.0.0-20170806203942-52369c62f446/go.mod h1:uYEyJGbgTkfkS4+E/PavXkNJcbFIpEtjt2B0KDQ5+9M=
-github.com/rhysd/actionlint v1.6.8 h1:li0691FNuuS3da2igfjMb9M58AgMXX7j9U5EgbCZFuc=
-github.com/rhysd/actionlint v1.6.8/go.mod h1:0AA4pvZ2nrZHT6D86eUhieH2NFmLqhxrNex0NEa2A2g=
+github.com/rhysd/actionlint v1.6.9 h1:8rQQ76o88zctUCzukt0A5O/FO003wTGbkLQuwQkMf9c=
+github.com/rhysd/actionlint v1.6.9/go.mod h1:0AA4pvZ2nrZHT6D86eUhieH2NFmLqhxrNex0NEa2A2g=
 github.com/rivo/uniseg v0.2.0 h1:S1pD9weZBuJdFmowNwbpi7BJ8TNftyUImj/0WQi72jY=
 github.com/rivo/uniseg v0.2.0/go.mod h1:J6wj4VEh+S6ZtnVlnTBMWIodfgj8LQOQFoIToxlJtxc=
 github.com/robfig/cron v1.2.0 h1:ZjScXvvxeQ63Dbyxy76Fj3AT3Ut0aKsyd2/tl3DTMuQ=

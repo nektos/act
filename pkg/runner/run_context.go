@@ -275,7 +275,18 @@ func (rc *RunContext) steps() []*model.Step {
 
 // Executor returns a pipeline executor for all the steps in the job
 func (rc *RunContext) Executor() common.Executor {
-	return newJobExecutor(rc).If(rc.isEnabled)
+	return func(ctx context.Context) error {
+		isEnabled, err := rc.isEnabled(ctx)
+		if err != nil {
+			return err
+		}
+
+		if isEnabled {
+			return newJobExecutor(rc)(ctx)
+		}
+
+		return nil
+	}
 }
 
 // Executor returns a pipeline executor for all the steps in the job
@@ -405,17 +416,16 @@ func (rc *RunContext) hostname() string {
 	return *hostname
 }
 
-func (rc *RunContext) isEnabled(ctx context.Context) bool {
+func (rc *RunContext) isEnabled(ctx context.Context) (bool, error) {
 	job := rc.Run.Job()
 	l := common.Logger(ctx)
 	runJob, err := EvalBool(rc.ExprEval, job.If.Value)
 	if err != nil {
-		common.Logger(ctx).Errorf("  \u274C  Error in if: expression - %s", job.Name)
-		return false
+		return false, fmt.Errorf("  \u274C  Error in if-expression: \"if: %s\" (%s)", job.If.Value, err)
 	}
 	if !runJob {
 		l.Debugf("Skipping job '%s' due to '%s'", job.Name, job.If.Value)
-		return false
+		return false, nil
 	}
 
 	img := rc.platformImage()
@@ -428,9 +438,9 @@ func (rc *RunContext) isEnabled(ctx context.Context) bool {
 			platformName := rc.ExprEval.Interpolate(runnerLabel)
 			l.Infof("\U0001F6A7  Skipping unsupported platform -- Try running with `-P %+v=...`", platformName)
 		}
-		return false
+		return false, nil
 	}
-	return true
+	return true, nil
 }
 
 func mergeMaps(maps ...map[string]string) map[string]string {
