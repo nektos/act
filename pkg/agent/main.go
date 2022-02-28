@@ -1819,6 +1819,10 @@ func (config *RemoveRunner) Remove() int {
 		result := func() int {
 			confremove := config.ConfigureRemoveRunner
 			confremove.Url = instance.RegistrationUrl
+			if needsPat {
+				// Enshure that gitHubAuth always uses the Personal access token
+				confremove.Token = ""
+			}
 			res, shouldReturn, returnValue := gitHubAuth(&confremove, c, "remove", "remove-token")
 			if shouldReturn {
 				return returnValue
