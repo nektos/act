@@ -28,7 +28,6 @@ import (
 
 	"github.com/nektos/act/pkg/protocol"
 
-	"github.com/dgrijalva/jwt-go"
 	"github.com/google/uuid"
 	_ "github.com/mtibben/androiddnsfix"
 	"github.com/nektos/act/pkg/common"
@@ -119,20 +118,29 @@ func (f *ghaFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	return b.Bytes(), nil
 }
 
+type ConfigureRemoveRunner struct {
+	Url        string
+	Name       string
+	Token      string
+	Pat        string
+	Unattended bool
+	Trace      bool
+}
+
 type ConfigureRunner struct {
-	Url             string
-	Token           string
-	Pat             string
+	ConfigureRemoveRunner
 	Labels          []string
-	Name            string
 	NoDefaultLabels bool
 	SystemLabels    []string
-	Unattended      bool
 	RunnerGroup     string
-	Trace           bool
 	Ephemeral       bool
 	RunnerGuard     string
 	Replace         bool
+}
+
+type RemoveRunner struct {
+	ConfigureRemoveRunner
+	Force bool
 }
 
 type RunnerInstance struct {
@@ -156,7 +164,7 @@ func WriteJson(path string, value interface{}) error {
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(path, b, 0777)
+	return ioutil.WriteFile(path, b, 0600)
 }
 
 func ReadJson(path string, value interface{}) error {
@@ -192,98 +200,12 @@ func (config *ConfigureRunner) Configure() int {
 		return 1
 	}
 	instance.RegistrationUrl = config.Url
-	registerUrl, err := url.Parse(config.Url)
-	if err != nil {
-		fmt.Printf("Invalid Url: %v\n", config.Url)
-		return 1
-	}
-	apiscope := "/"
-	if strings.ToLower(registerUrl.Host) == "github.com" {
-		registerUrl.Host = "api." + registerUrl.Host
-	} else {
-		apiscope = "/api/v3"
-	}
-
 	c := &http.Client{
 		Timeout: 100 * time.Second,
 	}
-	if len(config.Token) == 0 {
-		if len(config.Pat) > 0 {
-			paths := strings.Split(strings.TrimPrefix(registerUrl.Path, "/"), "/")
-			url := *registerUrl
-			if len(paths) == 1 {
-				url.Path = path.Join(apiscope, "orgs", paths[0], "actions/runners/registration-token")
-			} else if len(paths) == 2 {
-				scope := "repos"
-				if strings.EqualFold(paths[0], "enterprises") {
-					scope = ""
-				}
-				url.Path = path.Join(apiscope, scope, paths[0], paths[1], "actions/runners/registration-token")
-			} else {
-				fmt.Println("Unsupported registration url")
-				return 1
-			}
-			req, _ := http.NewRequest("POST", url.String(), nil)
-			req.SetBasicAuth("github", config.Pat)
-			req.Header.Add("Accept", "application/vnd.github.v3+json")
-			resp, err := c.Do(req)
-			if err != nil {
-				fmt.Println("Failed to retrive registration token via pat: " + err.Error())
-				return 1
-			}
-			defer resp.Body.Close()
-			if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-				body, _ := ioutil.ReadAll(resp.Body)
-				fmt.Println("Failed to retrive registration token via pat [" + fmt.Sprint(resp.StatusCode) + "]: " + string(body))
-				return 1
-			}
-			tokenresp := &protocol.GitHubRunnerRegisterToken{}
-			dec := json.NewDecoder(resp.Body)
-			if err := dec.Decode(tokenresp); err != nil {
-				fmt.Println("Failed to decode registration token via pat: " + err.Error())
-				return 1
-			}
-			config.Token = tokenresp.Token
-		} else {
-			if !config.Unattended {
-				config.Token = GetInput("Please enter your runner registration token:", "")
-			}
-		}
-	}
-	if len(config.Token) == 0 {
-		fmt.Println("No runner registration token provided")
-		return 1
-	}
-	registerUrl.Path = path.Join(apiscope, "actions/runner-registration")
-
-	buf := new(bytes.Buffer)
-	req := &protocol.RunnerAddRemove{}
-	req.Url = config.Url
-	req.RunnerEvent = "register"
-	enc := json.NewEncoder(buf)
-	if err := enc.Encode(req); err != nil {
-		return 1
-	}
-	finalregisterUrl := registerUrl.String()
-	// fmt.Printf("Try to register runner with url: %v\n", finalregisterUrl)
-	r, _ := http.NewRequest("POST", finalregisterUrl, buf)
-	r.Header["Authorization"] = []string{"RemoteAuth " + config.Token}
-	resp, err := c.Do(r)
-	if err != nil {
-		fmt.Printf("Failed to register Runner: %v\n", err)
-		return 1
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != 200 {
-		fmt.Printf("Failed to register Runner with status code: %v\n", resp.StatusCode)
-		return 1
-	}
-
-	res := &protocol.GitHubAuthResult{}
-	dec := json.NewDecoder(resp.Body)
-	if err := dec.Decode(res); err != nil {
-		fmt.Printf("error decoding struct from JSON: %v\n", err)
-		return 1
+	res, shouldReturn, returnValue := gitHubAuth(&config.ConfigureRemoveRunner, c, "register", "registration-token")
+	if shouldReturn {
+		return returnValue
 	}
 
 	instance.Auth = res
@@ -341,7 +263,7 @@ func (config *ConfigureRunner) Configure() int {
 	for ; expof < 3 && bs[expof] == 0; expof++ {
 	}
 	taskAgent.Authorization.PublicKey = protocol.TaskAgentPublicKey{Exponent: base64.StdEncoding.EncodeToString(bs[expof:]), Modulus: base64.StdEncoding.EncodeToString(key.N.Bytes())}
-	taskAgent.Version = "3.0.0" //version, will not use fips crypto if set to 0.0.0 *
+	taskAgent.Version = "3.0.0" // version, will not use fips crypto if set to 0.0.0 *
 	taskAgent.OSDescription = "github-act-runner " + runtime.GOOS + "/" + runtime.GOARCH
 	if config.Name != "" {
 		taskAgent.Name = config.Name
@@ -352,7 +274,7 @@ func (config *ConfigureRunner) Configure() int {
 		}
 	}
 	if !config.Unattended && len(config.Labels) == 0 {
-		if res := GetInput("Please enter custom labels of your new runner (case insensitive, seperated by ','):", ""); len(res) > 0 {
+		if res := GetInput("Please enter custom labels of your new runner (case insensitive, separated by ','):", ""); len(res) > 0 {
 			config.Labels = strings.Split(res, ",")
 		}
 	}
@@ -453,6 +375,100 @@ func (config *ConfigureRunner) Configure() int {
 	}
 	fmt.Println("success")
 	return 0
+}
+
+func gitHubAuth(config *ConfigureRemoveRunner, c *http.Client, runnerEvent string, apiEndpoint string) (*protocol.GitHubAuthResult, bool, int) {
+	registerUrl, err := url.Parse(config.Url)
+	if err != nil {
+		fmt.Printf("Invalid Url: %v\n", config.Url)
+		return nil, true, 1
+	}
+	apiscope := "/"
+	if strings.ToLower(registerUrl.Host) == "github.com" {
+		registerUrl.Host = "api." + registerUrl.Host
+	} else {
+		apiscope = "/api/v3"
+	}
+
+	if len(config.Token) == 0 {
+		if len(config.Pat) > 0 {
+			paths := strings.Split(strings.TrimPrefix(registerUrl.Path, "/"), "/")
+			url := *registerUrl
+			if len(paths) == 1 {
+				url.Path = path.Join(apiscope, "orgs", paths[0], "actions/runners", apiEndpoint)
+			} else if len(paths) == 2 {
+				scope := "repos"
+				if strings.EqualFold(paths[0], "enterprises") {
+					scope = ""
+				}
+				url.Path = path.Join(apiscope, scope, paths[0], paths[1], "actions/runners", apiEndpoint)
+			} else {
+				fmt.Println("Unsupported registration url")
+				return nil, true, 1
+			}
+			req, _ := http.NewRequest("POST", url.String(), nil)
+			req.SetBasicAuth("github", config.Pat)
+			req.Header.Add("Accept", "application/vnd.github.v3+json")
+			resp, err := c.Do(req)
+			if err != nil {
+				fmt.Printf("Failed to retrieve %v token via pat: %v\n", apiEndpoint, err.Error())
+				return nil, true, 1
+			}
+			defer resp.Body.Close()
+			if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+				body, _ := ioutil.ReadAll(resp.Body)
+				fmt.Printf("Failed to retrieve %v via pat [%v]: %v\n", apiEndpoint, fmt.Sprint(resp.StatusCode), string(body))
+				return nil, true, 1
+			}
+			tokenresp := &protocol.GitHubRunnerRegisterToken{}
+			dec := json.NewDecoder(resp.Body)
+			if err := dec.Decode(tokenresp); err != nil {
+				fmt.Printf("Failed to decode registration token via pat: " + err.Error())
+				return nil, true, 1
+			}
+			config.Token = tokenresp.Token
+		} else {
+			if !config.Unattended {
+				config.Token = GetInput("Please enter your runner registration token:", "")
+			}
+		}
+	}
+	if len(config.Token) == 0 {
+		fmt.Println("No runner registration token provided")
+		return nil, true, 1
+	}
+	registerUrl.Path = path.Join(apiscope, "actions/runner-registration")
+
+	buf := new(bytes.Buffer)
+	req := &protocol.RunnerAddRemove{}
+	req.Url = config.Url
+	req.RunnerEvent = runnerEvent
+	enc := json.NewEncoder(buf)
+	if err := enc.Encode(req); err != nil {
+		return nil, true, 1
+	}
+	finalregisterUrl := registerUrl.String()
+
+	r, _ := http.NewRequest("POST", finalregisterUrl, buf)
+	r.Header["Authorization"] = []string{"RemoteAuth " + config.Token}
+	resp, err := c.Do(r)
+	if err != nil {
+		fmt.Printf("Failed to register Runner: %v\n", err)
+		return nil, true, 1
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		fmt.Printf("Failed to register Runner with status code: %v\n", resp.StatusCode)
+		return nil, true, 1
+	}
+
+	res := &protocol.GitHubAuthResult{}
+	dec := json.NewDecoder(resp.Body)
+	if err := dec.Decode(res); err != nil {
+		fmt.Printf("error decoding struct from JSON: %v\n", err)
+		return nil, true, 1
+	}
+	return res, false, 0
 }
 
 type RunRunner struct {
@@ -583,7 +599,7 @@ func (run *RunRunner) Run() int {
 			fmt.Println("CTRL+C received, no job is running shutdown")
 			cancel()
 		default:
-			fmt.Println("CTRL+C received, stop accepting new jobs and exit after the current job finishs")
+			fmt.Println("CTRL+C received, stop accepting new jobs and exit after the current job finishes")
 			// Switch to run once mode
 			run.Once = true
 			firstJobReceived = true
@@ -736,7 +752,7 @@ func (run *RunRunner) Run() int {
 					if session.Agent.Name == instance.Agent.Name && session.Agent.Authorization.PublicKey == instance.Agent.Authorization.PublicKey {
 						session, err := vssConnection.LoadSession(session)
 						if deleteSessions {
-							session.Delete()
+							_ = session.Delete()
 							for i, _session := range sessions {
 								if session.TaskAgentSession.SessionId == _session.SessionId {
 									sessions[i] = sessions[len(sessions)-1]
@@ -826,7 +842,6 @@ func (run *RunRunner) Run() int {
 						}, map[string]string{
 							"sessionId": session.TaskAgentSession.SessionId,
 						}, nil, message)
-						//TODO lastMessageId=
 						if err != nil {
 							if errors.Is(err, context.Canceled) {
 								return 0
@@ -889,7 +904,7 @@ func (run *RunRunner) Run() int {
 										if firstJobReceived && strings.EqualFold(message.MessageType, "PipelineAgentJobRequest") {
 											fmt.Println("Skip deleting the duplicated job request, we hope that the actions service reschedules your job to a different runner")
 										} else {
-											session.DeleteMessage(message)
+											_ = session.DeleteMessage(message)
 										}
 										if strings.EqualFold(message.MessageType, "JobCancellation") && cancelJob != nil {
 											message = nil
@@ -970,7 +985,10 @@ func runJob(vssConnection *protocol.VssConnection, run *RunRunner, cancel contex
 		jobreq := &protocol.AgentJobRequestMessage{}
 		{
 			dec := json.NewDecoder(bytes.NewReader(src[off:validlen]))
-			dec.Decode(jobreq)
+			if err := dec.Decode(jobreq); err != nil {
+				fmt.Printf("Fatal failed to parse job request %v\n", err)
+				return
+			}
 		}
 		jobrun := &JobRun{
 			RequestId:       jobreq.RequestId,
@@ -1038,12 +1056,11 @@ func runJob(vssConnection *protocol.VssConnection, run *RunRunner, cancel contex
 				var req interface{}
 				e := json.Unmarshal(src[off:validlen], &req)
 				fmt.Println(e)
-				vm.Set("runnerInstance", instance)
-				vm.Set("jobrequest", req)
-				vm.Set("jobrun", jobrun)
-				vm.Set("runnerConfig", runnerConfig)
-				//otto panics
-				vm.Set("TemplateTokenToObject", func(p interface{}) interface{} {
+				_ = vm.Set("runnerInstance", instance)
+				_ = vm.Set("jobrequest", req)
+				_ = vm.Set("jobrun", jobrun)
+				_ = vm.Set("runnerConfig", runnerConfig)
+				_ = vm.Set("TemplateTokenToObject", func(p interface{}) interface{} {
 					val, err := vm.Call("JSON.stringify", nil, p)
 					if err != nil {
 						panic(vm.MakeCustomError("TemplateTokenToObject", err.Error()))
@@ -1065,7 +1082,7 @@ func runJob(vssConnection *protocol.VssConnection, run *RunRunner, cancel contex
 						contextData[k] = ctxdata.ToRawObject()
 					}
 				}
-				vm.Set("contextData", contextData)
+				_ = vm.Set("contextData", contextData)
 				val, err := vm.Run(instance.RunnerGuard)
 				if err != nil {
 					fmt.Printf("Failed to run `%v`: %v", instance.RunnerGuard, err)
@@ -1090,12 +1107,12 @@ func runJob(vssConnection *protocol.VssConnection, run *RunRunner, cancel contex
 		wrap.Value[1] = protocol.CreateTimelineEntry(rqt.JobId, "__setup", "Setup Job")
 		wrap.Value[1].Order = 1
 		wrap.Value[1].Start()
-		vssConnection.UpdateTimeLine(jobreq.Timeline.Id, jobreq, wrap)
+		_ = vssConnection.UpdateTimeLine(jobreq.Timeline.Id, jobreq, wrap)
 		failInitJob := func(message string) {
 			wrap.Value[1].Log = &protocol.TaskLogReference{Id: vssConnection.UploadLogFile(jobreq.Timeline.Id, jobreq, message)}
 			wrap.Value[1].Complete("Failed")
 			wrap.Value[0].Complete("Failed")
-			vssConnection.UpdateTimeLine(jobreq.Timeline.Id, jobreq, wrap)
+			_ = vssConnection.UpdateTimeLine(jobreq.Timeline.Id, jobreq, wrap)
 			fmt.Println(message)
 			finishJob("Failed")
 		}
@@ -1142,10 +1159,11 @@ func runJob(vssConnection *protocol.VssConnection, run *RunRunner, cancel contex
 			if strings.EqualFold(endpoint.Name, "SystemVssConnection") && endpoint.Authorization.Parameters != nil && endpoint.Authorization.Parameters["AccessToken"] != "" {
 				jobToken := endpoint.Authorization.Parameters["AccessToken"]
 				jobTenant := endpoint.Url
-				claims := jwt.MapClaims{}
-				jwt.ParseWithClaims(jobToken, claims, func(t *jwt.Token) (interface{}, error) {
-					return nil, nil
-				})
+				// Seems to be not required, but actions/runner did that to get orchid which was passed to some api calls
+				// claims := jwt.MapClaims{}
+				// jwt.ParseWithClaims(jobToken, claims, func(t *jwt.Token) (interface{}, error) {
+				// 	return nil, nil
+				// })
 				// if _orchid, suc := claims["orchid"]; suc {
 				// 	orchid = _orchid.(string)
 				// }
@@ -1567,10 +1585,10 @@ func runJob(vssConnection *protocol.VssConnection, run *RunRunner, cancel contex
 		}
 		formatter.current = &wrap.Value[1]
 		wrap.Count = int64(len(wrap.Value))
-		vssConnection.UpdateTimeLine(jobreq.Timeline.Id, jobreq, wrap)
+		_ = vssConnection.UpdateTimeLine(jobreq.Timeline.Id, jobreq, wrap)
 		{
 			formatter.updateTimeLine = func() {
-				vssConnection.UpdateTimeLine(jobreq.Timeline.Id, jobreq, wrap)
+				_ = vssConnection.UpdateTimeLine(jobreq.Timeline.Id, jobreq, wrap)
 			}
 			formatter.uploadLogFile = func(log string) int {
 				return vssConnection.UploadLogFile(jobreq.Timeline.Id, jobreq, log)
@@ -1736,16 +1754,6 @@ func runJob(vssConnection *protocol.VssConnection, run *RunRunner, cancel contex
 	}()
 }
 
-type RemoveRunner struct {
-	Url        string
-	Name       string
-	Token      string
-	Pat        string
-	Unattended bool
-	Trace      bool
-	Force      bool
-}
-
 func (config *RemoveRunner) Remove() int {
 	c := &http.Client{}
 	settings, err := loadConfiguration()
@@ -1809,97 +1817,11 @@ func (config *RemoveRunner) Remove() int {
 	}
 	for _, instance := range instancesToRemove {
 		result := func() int {
-			res := &protocol.GitHubAuthResult{}
-			{
-				buf := new(bytes.Buffer)
-				req := &protocol.RunnerAddRemove{}
-				req.Url = instance.RegistrationUrl
-				req.RunnerEvent = "remove"
-				enc := json.NewEncoder(buf)
-				if err := enc.Encode(req); err != nil {
-					return 1
-				}
-				registerUrl, err := url.Parse(instance.RegistrationUrl)
-				if err != nil {
-					fmt.Printf("Invalid Url: %v\n", instance.RegistrationUrl)
-					return 1
-				}
-				apiscope := "/"
-				if strings.ToLower(registerUrl.Host) == "github.com" {
-					registerUrl.Host = "api." + registerUrl.Host
-				} else {
-					apiscope = "/api/v3"
-				}
-
-				c := &http.Client{}
-				if len(config.Token) == 0 || needsPat {
-					if len(config.Pat) > 0 {
-						paths := strings.Split(strings.TrimPrefix(registerUrl.Path, "/"), "/")
-						url := *registerUrl
-						if len(paths) == 1 {
-							url.Path = path.Join(apiscope, "orgs", paths[0], "actions/runners/remove-token")
-						} else if len(paths) == 2 {
-							scope := "repos"
-							if strings.EqualFold(paths[0], "enterprises") {
-								scope = ""
-							}
-							url.Path = path.Join(apiscope, scope, paths[0], paths[1], "actions/runners/remove-token")
-						} else {
-							fmt.Println("Unsupported remove url")
-							return 1
-						}
-						req, _ := http.NewRequest("POST", url.String(), nil)
-						req.SetBasicAuth("github", config.Pat)
-						req.Header.Add("Accept", "application/vnd.github.v3+json")
-						resp, err := c.Do(req)
-						if err != nil {
-							fmt.Println("Failed to retrive remove token via pat: " + err.Error())
-							return 1
-						}
-						defer resp.Body.Close()
-						if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-							body, _ := ioutil.ReadAll(resp.Body)
-							fmt.Println("Failed to retrive remove token via pat [" + fmt.Sprint(resp.StatusCode) + "]: " + string(body))
-							return 1
-						}
-						tokenresp := &protocol.GitHubRunnerRegisterToken{}
-						dec := json.NewDecoder(resp.Body)
-						if err := dec.Decode(tokenresp); err != nil {
-							fmt.Println("Failed to decode remove token via pat: " + err.Error())
-							return 1
-						}
-						config.Token = tokenresp.Token
-					} else {
-						if !config.Unattended {
-							config.Token = GetInput("Please enter your runner remove token:", "")
-						}
-					}
-				}
-				if len(config.Token) == 0 {
-					fmt.Println("No runner remove token provided")
-					return 1
-				}
-				registerUrl.Path = path.Join(apiscope, "actions/runner-registration")
-				finalregisterUrl := registerUrl.String()
-				//fmt.Printf("Try to remove runner with url: %v\n", finalregisterUrl)
-				r, _ := http.NewRequest("POST", finalregisterUrl, buf)
-				r.Header["Authorization"] = []string{"RemoteAuth " + config.Token}
-				resp, err := c.Do(r)
-				if err != nil {
-					fmt.Printf("Failed to remove Runner: %v\n", err)
-					return 1
-				}
-				defer resp.Body.Close()
-				if resp.StatusCode != 200 {
-					fmt.Printf("Failed to remove Runner with status code: %v\n", resp.StatusCode)
-					return 1
-				}
-
-				dec := json.NewDecoder(resp.Body)
-				if err := dec.Decode(res); err != nil {
-					fmt.Printf("Failed to remove Runner:\nerror decoding struct from JSON: %v\n", err)
-					return 1
-				}
+			confremove := config.ConfigureRemoveRunner
+			confremove.Url = instance.RegistrationUrl
+			res, shouldReturn, returnValue := gitHubAuth(&confremove, c, "remove", "remove-token")
+			if shouldReturn {
+				return returnValue
 			}
 
 			vssConnection := &protocol.VssConnection{
