@@ -18,7 +18,7 @@ jobs:
       - uses: actions/setup-go@v2
         with:
           go-version: ${{ env.GO_VERSION }}
-      - uses: golangci/golangci-lint-action@v2
+      - uses: golangci/golangci-lint-action@v3.1.0
         with:
           version: latest
       - uses: megalinter/megalinter/flavors/go@v5
