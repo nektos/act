@@ -64,7 +64,7 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 			return nil
 		})
 
-		postSteps = append(postSteps, step.post())
+		postSteps = append([]common.Executor{step.post()}, postSteps...)
 	}
 	postSteps = append(postSteps, func(ctx context.Context) error {
 		err := info.stopContainer()(ctx)
