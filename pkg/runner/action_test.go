@@ -122,12 +122,16 @@ runs:
 				return nil
 			}
 
-			closerMock.On("Close")
+			if tt.filename != "" {
+				closerMock.On("Close")
+			}
 
 			action, err := readActionImpl(tt.step, "actionDir", "actionPath", readFile, writeFile)
 
 			assert.Nil(t, err)
 			assert.Equal(t, tt.expected, action)
+
+			closerMock.AssertExpectations(t)
 		})
 	}
 }

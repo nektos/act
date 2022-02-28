@@ -263,6 +263,8 @@ func TestNewJobExecutor(t *testing.T) {
 						}
 						return nil
 					})
+
+					sm.AssertExpectations(t)
 				}(i, stepModel)
 			}
 
@@ -289,6 +291,9 @@ func TestNewJobExecutor(t *testing.T) {
 			err := executor(ctx)
 			assert.Nil(t, err)
 			assert.Equal(t, tt.executedSteps, executorOrder)
+
+			jim.AssertExpectations(t)
+			sfm.AssertExpectations(t)
 		})
 	}
 }
