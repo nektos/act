@@ -229,63 +229,68 @@ func TestNewJobExecutor(t *testing.T) {
 			rc := &RunContext{}
 			executorOrder := make([]string, 0)
 
-			jim.On("startContainer").Return(func(ctx context.Context) error {
-				executorOrder = append(executorOrder, "startContainer")
-				return nil
-			})
-
 			jim.On("steps").Return(tt.steps)
 
-			for i, stepModel := range tt.steps {
-				func(i int, stepModel *model.Step) {
-					sm := &stepMock{}
-
-					sfm.On("newStep", stepModel, rc).Return(sm, nil)
-
-					sm.On("pre").Return(func(ctx context.Context) error {
-						if tt.preSteps[i] {
-							executorOrder = append(executorOrder, "pre"+stepModel.ID)
-						}
-						return nil
-					})
-
-					sm.On("main").Return(func(ctx context.Context) error {
-						executorOrder = append(executorOrder, "step"+stepModel.ID)
-						if tt.hasError {
-							return fmt.Errorf("error")
-						}
-						return nil
-					})
-
-					sm.On("post").Return(func(ctx context.Context) error {
-						if tt.postSteps[i] {
-							executorOrder = append(executorOrder, "post"+stepModel.ID)
-						}
-						return nil
-					})
-
-					sm.AssertExpectations(t)
-				}(i, stepModel)
+			if len(tt.steps) > 0 {
+				jim.On("startContainer").Return(func(ctx context.Context) error {
+					executorOrder = append(executorOrder, "startContainer")
+					return nil
+				})
 			}
 
-			jim.On("interpolateOutputs").Return(func(ctx context.Context) error {
-				executorOrder = append(executorOrder, "interpolateOutputs")
-				return nil
-			})
+			for i, stepModel := range tt.steps {
+				i := i
+				stepModel := stepModel
 
-			jim.On("matrix").Return(map[string]interface{}{})
+				sm := &stepMock{}
 
-			jim.On("stopContainer").Return(func(ctx context.Context) error {
-				executorOrder = append(executorOrder, "stopContainer")
-				return nil
-			})
+				sfm.On("newStep", stepModel, rc).Return(sm, nil)
 
-			jim.On("result", tt.result)
+				sm.On("pre").Return(func(ctx context.Context) error {
+					if tt.preSteps[i] {
+						executorOrder = append(executorOrder, "pre"+stepModel.ID)
+					}
+					return nil
+				})
 
-			jim.On("closeContainer").Return(func(ctx context.Context) error {
-				executorOrder = append(executorOrder, "closeContainer")
-				return nil
-			})
+				sm.On("main").Return(func(ctx context.Context) error {
+					executorOrder = append(executorOrder, "step"+stepModel.ID)
+					if tt.hasError {
+						return fmt.Errorf("error")
+					}
+					return nil
+				})
+
+				sm.On("post").Return(func(ctx context.Context) error {
+					if tt.postSteps[i] {
+						executorOrder = append(executorOrder, "post"+stepModel.ID)
+					}
+					return nil
+				})
+
+				defer sm.AssertExpectations(t)
+			}
+
+			if len(tt.steps) > 0 {
+				jim.On("matrix").Return(map[string]interface{}{})
+
+				jim.On("interpolateOutputs").Return(func(ctx context.Context) error {
+					executorOrder = append(executorOrder, "interpolateOutputs")
+					return nil
+				})
+
+				jim.On("stopContainer").Return(func(ctx context.Context) error {
+					executorOrder = append(executorOrder, "stopContainer")
+					return nil
+				})
+
+				jim.On("result", tt.result)
+
+				jim.On("closeContainer").Return(func(ctx context.Context) error {
+					executorOrder = append(executorOrder, "closeContainer")
+					return nil
+				})
+			}
 
 			executor := newJobExecutor(jim, sfm, rc)
 			err := executor(ctx)
