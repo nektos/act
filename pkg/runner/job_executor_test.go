@@ -95,56 +95,56 @@ func TestNewJobExecutor(t *testing.T) {
 		hasError      bool
 	}{
 		{
-			"zeroSteps",
-			[]*model.Step{},
-			[]bool{},
-			[]bool{},
-			[]string{},
-			"success",
-			false,
+			name:          "zeroSteps",
+			steps:         []*model.Step{},
+			preSteps:      []bool{},
+			postSteps:     []bool{},
+			executedSteps: []string{},
+			result:        "success",
+			hasError:      false,
 		},
 		{
-			"stepWithoutPrePost",
-			[]*model.Step{{
+			name: "stepWithoutPrePost",
+			steps: []*model.Step{{
 				ID: "1",
 			}},
-			[]bool{false},
-			[]bool{false},
-			[]string{
+			preSteps:  []bool{false},
+			postSteps: []bool{false},
+			executedSteps: []string{
 				"startContainer",
 				"step1",
 				"stopContainer",
 				"interpolateOutputs",
 				"closeContainer",
 			},
-			"success",
-			false,
+			result:   "success",
+			hasError: false,
 		},
 		{
-			"stepWithFailure",
-			[]*model.Step{{
+			name: "stepWithFailure",
+			steps: []*model.Step{{
 				ID: "1",
 			}},
-			[]bool{false},
-			[]bool{false},
-			[]string{
+			preSteps:  []bool{false},
+			postSteps: []bool{false},
+			executedSteps: []string{
 				"startContainer",
 				"step1",
 				"stopContainer",
 				"interpolateOutputs",
 				"closeContainer",
 			},
-			"failure",
-			true,
+			result:   "failure",
+			hasError: true,
 		},
 		{
-			"stepWithPre",
-			[]*model.Step{{
+			name: "stepWithPre",
+			steps: []*model.Step{{
 				ID: "1",
 			}},
-			[]bool{true},
-			[]bool{false},
-			[]string{
+			preSteps:  []bool{true},
+			postSteps: []bool{false},
+			executedSteps: []string{
 				"startContainer",
 				"pre1",
 				"step1",
@@ -152,17 +152,17 @@ func TestNewJobExecutor(t *testing.T) {
 				"interpolateOutputs",
 				"closeContainer",
 			},
-			"success",
-			false,
+			result:   "success",
+			hasError: false,
 		},
 		{
-			"stepWithPost",
-			[]*model.Step{{
+			name: "stepWithPost",
+			steps: []*model.Step{{
 				ID: "1",
 			}},
-			[]bool{false},
-			[]bool{true},
-			[]string{
+			preSteps:  []bool{false},
+			postSteps: []bool{true},
+			executedSteps: []string{
 				"startContainer",
 				"step1",
 				"post1",
@@ -170,17 +170,17 @@ func TestNewJobExecutor(t *testing.T) {
 				"interpolateOutputs",
 				"closeContainer",
 			},
-			"success",
-			false,
+			result:   "success",
+			hasError: false,
 		},
 		{
-			"stepWithPreAndPost",
-			[]*model.Step{{
+			name: "stepWithPreAndPost",
+			steps: []*model.Step{{
 				ID: "1",
 			}},
-			[]bool{true},
-			[]bool{true},
-			[]string{
+			preSteps:  []bool{true},
+			postSteps: []bool{true},
+			executedSteps: []string{
 				"startContainer",
 				"pre1",
 				"step1",
@@ -189,21 +189,21 @@ func TestNewJobExecutor(t *testing.T) {
 				"interpolateOutputs",
 				"closeContainer",
 			},
-			"success",
-			false,
+			result:   "success",
+			hasError: false,
 		},
 		{
-			"stepsWithPreAndPost",
-			[]*model.Step{{
+			name: "stepsWithPreAndPost",
+			steps: []*model.Step{{
 				ID: "1",
 			}, {
 				ID: "2",
 			}, {
 				ID: "3",
 			}},
-			[]bool{true, false, true},
-			[]bool{false, true, true},
-			[]string{
+			preSteps:  []bool{true, false, true},
+			postSteps: []bool{false, true, true},
+			executedSteps: []string{
 				"startContainer",
 				"pre1",
 				"pre3",
@@ -216,8 +216,8 @@ func TestNewJobExecutor(t *testing.T) {
 				"interpolateOutputs",
 				"closeContainer",
 			},
-			"success",
-			false,
+			result:   "success",
+			hasError: false,
 		},
 	}
 
