@@ -61,7 +61,7 @@ func (sr *stepRun) setupShellCommandExecutor() common.Executor {
 			return err
 		}
 
-		return sr.getRunContext().JobContainer.Copy(ActPath, &container.FileEntry{
+		return sr.RunContext.JobContainer.Copy(ActPath, &container.FileEntry{
 			Name: scriptName,
 			Mode: 0755,
 			Body: script,

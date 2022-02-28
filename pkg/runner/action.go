@@ -281,7 +281,7 @@ func evalDockerArgs(step step, action *model.Action, cmd *[]string) {
 		rc.Inputs = oldInputs
 	}()
 	inputs := make(map[string]interface{})
-	eval := step.getRunContext().NewExpressionEvaluator()
+	eval := rc.NewExpressionEvaluator()
 	// Set Defaults
 	for k, input := range action.Inputs {
 		inputs[k] = eval.Interpolate(input.Default)
@@ -292,13 +292,13 @@ func evalDockerArgs(step step, action *model.Action, cmd *[]string) {
 		}
 	}
 	rc.Inputs = inputs
-	stepEE := step.getRunContext().NewStepExpressionEvaluator(step)
+	stepEE := rc.NewStepExpressionEvaluator(step)
 	for i, v := range *cmd {
 		(*cmd)[i] = stepEE.Interpolate(v)
 	}
 	mergeIntoMap(step.getEnv(), action.Runs.Env)
 
-	ee := step.getRunContext().NewStepExpressionEvaluator(step)
+	ee := rc.NewStepExpressionEvaluator(step)
 	for k, v := range *step.getEnv() {
 		(*step.getEnv())[k] = ee.Interpolate(v)
 	}

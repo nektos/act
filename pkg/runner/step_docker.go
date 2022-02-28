@@ -53,7 +53,7 @@ func (sd *stepDocker) runUsesContainer() common.Executor {
 
 	return func(ctx context.Context) error {
 		image := strings.TrimPrefix(step.Uses, "docker://")
-		eval := sd.RunContext.NewExpressionEvaluator()
+		eval := rc.NewExpressionEvaluator()
 		cmd, err := shellquote.Split(eval.Interpolate(step.With["args"]))
 		if err != nil {
 			return err
