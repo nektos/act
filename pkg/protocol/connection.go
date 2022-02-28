@@ -110,7 +110,7 @@ func (vssConnection *VssConnection) RequestWithContext(ctx context.Context, serv
 		AddHeaders(request.Header)
 		if vssConnection.Trace {
 			headerbuf := new(bytes.Buffer)
-			request.Header.Write(headerbuf)
+			_ = request.Header.Write(headerbuf)
 			body := ""
 			if _buf, ok := buf.(*bytes.Buffer); ok {
 				body = _buf.String()
@@ -160,7 +160,7 @@ func (vssConnection *VssConnection) RequestWithContext(ctx context.Context, serv
 			}
 			if vssConnection.Trace {
 				headerbuf := new(bytes.Buffer)
-				request.Header.Write(headerbuf)
+				_ = request.Header.Write(headerbuf)
 				bytes, err := ioutil.ReadAll(response.Body)
 				if err != nil {
 					bytes = []byte("no response: " + err.Error())
@@ -204,7 +204,7 @@ func (vssConnection *VssConnection) CreateSession() (*AgentMessageConnection, er
 	var err error
 	con.Block, err = con.TaskAgentSession.GetSessionKey(vssConnection.Key)
 	if err != nil {
-		con.Delete()
+		_ = con.Delete()
 		return nil, err
 	}
 	return con, nil
@@ -215,7 +215,7 @@ func (vssConnection *VssConnection) LoadSession(session *TaskAgentSession) (*Age
 	var err error
 	con.Block, err = con.TaskAgentSession.GetSessionKey(vssConnection.Key)
 	if err != nil {
-		con.Delete()
+		_ = con.Delete()
 		return nil, err
 	}
 	return con, nil
