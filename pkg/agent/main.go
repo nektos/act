@@ -176,12 +176,14 @@ func ReadJson(path string, value interface{}) error {
 }
 
 func (config *ConfigureRunner) Configure() int {
-	settings := &RunnerSettings{RegistrationUrl: config.Url}
-	_ = ReadJson("settings.json", settings)
 	instance := &RunnerInstance{
 		RunnerGuard: config.RunnerGuard,
 	}
-	loadConfiguration()
+	settings, err := loadConfiguration()
+	if err != nil {
+		fmt.Println("Corrupted settings.json detected, please delete it to continue")
+		return 1
+	}
 	if config.Ephemeral && len(settings.Instances) > 0 || containsEphemeralConfiguration() {
 		fmt.Println("Ephemeral is not supported for multi runners, runner already configured.")
 		return 1
@@ -427,10 +429,8 @@ func gitHubAuth(config *ConfigureRemoveRunner, c *http.Client, runnerEvent strin
 				return nil, true, 1
 			}
 			config.Token = tokenresp.Token
-		} else {
-			if !config.Unattended {
-				config.Token = GetInput("Please enter your runner registration token:", "")
-			}
+		} else if !config.Unattended {
+			config.Token = GetInput("Please enter your runner registration token:", "")
 		}
 	}
 	if len(config.Token) == 0 {
@@ -626,7 +626,7 @@ func (run *RunRunner) Run() int {
 		fmt.Printf("settings.json is corrupted: %v, please reconfigure the runner\n", err.Error())
 		return 1
 	}
-	if len(settings.Instances) <= 0 {
+	if len(settings.Instances) == 0 {
 		fmt.Printf("Please configure the runner")
 		return 1
 	}
@@ -752,6 +752,7 @@ func (run *RunRunner) Run() int {
 					if session.Agent.Name == instance.Agent.Name && session.Agent.Authorization.PublicKey == instance.Agent.Authorization.PublicKey {
 						session, err := vssConnection.LoadSession(session)
 						if deleteSessions {
+							// Best effort
 							_ = session.Delete()
 							for i, _session := range sessions {
 								if session.TaskAgentSession.SessionId == _session.SessionId {
@@ -759,7 +760,8 @@ func (run *RunRunner) Run() int {
 									sessions = sessions[:len(sessions)-1]
 								}
 							}
-							WriteJson("sessions.json", sessions)
+							// Best effort
+							_ = WriteJson("sessions.json", sessions)
 						} else if err == nil {
 							_session = session
 						}
@@ -1248,7 +1250,11 @@ func runJob(vssConnection *protocol.VssConnection, run *RunRunner, cancel contex
 					failInitJob("Failed to eval defaults")
 					return
 				}
-				json.Unmarshal(b, &defaults)
+				err = json.Unmarshal(b, &defaults)
+				if err != nil {
+					failInitJob("Failed to eval defaults")
+					return
+				}
 			}
 		}
 		steps := []*model.Step{}
