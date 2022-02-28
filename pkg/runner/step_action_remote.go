@@ -32,7 +32,7 @@ func (sar *stepActionRemote) pre() common.Executor {
 }
 
 var (
-	stepAtionRemoteNewCloneExecutor = common.NewGitCloneExecutor
+	stepActionRemoteNewCloneExecutor = common.NewGitCloneExecutor
 )
 
 func (sar *stepActionRemote) main() common.Executor {
@@ -53,7 +53,7 @@ func (sar *stepActionRemote) main() common.Executor {
 		}
 
 		actionDir := fmt.Sprintf("%s/%s", sar.RunContext.ActionCacheDir(), strings.ReplaceAll(sar.Step.Uses, "/", "-"))
-		gitClone := stepAtionRemoteNewCloneExecutor(common.NewGitCloneExecutorInput{
+		gitClone := stepActionRemoteNewCloneExecutor(common.NewGitCloneExecutorInput{
 			URL:   remoteAction.CloneURL(),
 			Ref:   remoteAction.Ref,
 			Dir:   actionDir,

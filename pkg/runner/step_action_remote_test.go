@@ -34,15 +34,15 @@ func TestStepActionRemoteTest(t *testing.T) {
 
 	clonedAction := false
 
-	origStepAtionRemoteNewCloneExecutor := stepAtionRemoteNewCloneExecutor
-	stepAtionRemoteNewCloneExecutor = func(input common.NewGitCloneExecutorInput) common.Executor {
+	origStepAtionRemoteNewCloneExecutor := stepActionRemoteNewCloneExecutor
+	stepActionRemoteNewCloneExecutor = func(input common.NewGitCloneExecutorInput) common.Executor {
 		return func(ctx context.Context) error {
 			clonedAction = true
 			return nil
 		}
 	}
 	defer (func() {
-		stepAtionRemoteNewCloneExecutor = origStepAtionRemoteNewCloneExecutor
+		stepActionRemoteNewCloneExecutor = origStepAtionRemoteNewCloneExecutor
 	})()
 
 	sar := &stepActionRemote{
