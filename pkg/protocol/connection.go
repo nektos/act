@@ -230,27 +230,30 @@ func (vssConnection *VssConnection) UpdateTimeLine(timelineId string, jobreq *Ag
 	}, map[string]string{}, wrap, nil)
 }
 
-func (vssConnection *VssConnection) UploadLogFile(timelineId string, jobreq *AgentJobRequestMessage, logContent string) int {
+func (vssConnection *VssConnection) UploadLogFile(timelineId string, jobreq *AgentJobRequestMessage, logContent string) (int, error) {
 	log := &TaskLog{}
 	p := "logs/" + uuid.NewString()
 	log.Path = &p
 	log.CreatedOn = time.Now().UTC().Format("2006-01-02T15:04:05")
 	log.LastChangedOn = time.Now().UTC().Format("2006-01-02T15:04:05")
 
-	vssConnection.Request("46f5667d-263a-4684-91b1-dff7fdcf64e2", "5.1-preview", "POST", map[string]string{
+	err := vssConnection.Request("46f5667d-263a-4684-91b1-dff7fdcf64e2", "5.1-preview", "POST", map[string]string{
 		"scopeIdentifier": jobreq.Plan.ScopeIdentifier,
 		"planId":          jobreq.Plan.PlanId,
 		"hubName":         jobreq.Plan.PlanType,
 		"timelineId":      timelineId,
 	}, map[string]string{}, log, log)
-	vssConnection.Request("46f5667d-263a-4684-91b1-dff7fdcf64e2", "5.1-preview", "POST", map[string]string{
+	if err != nil {
+		return 0, err
+	}
+	err = vssConnection.Request("46f5667d-263a-4684-91b1-dff7fdcf64e2", "5.1-preview", "POST", map[string]string{
 		"scopeIdentifier": jobreq.Plan.ScopeIdentifier,
 		"planId":          jobreq.Plan.PlanId,
 		"hubName":         jobreq.Plan.PlanType,
 		"timelineId":      timelineId,
 		"logId":           fmt.Sprint(log.Id),
 	}, map[string]string{}, bytes.NewBufferString(logContent), nil)
-	return log.Id
+	return log.Id, err
 }
 
 func (vssConnection *VssConnection) DeleteAgent(taskAgent *TaskAgent) error {

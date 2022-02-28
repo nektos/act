@@ -1109,7 +1109,10 @@ func runJob(vssConnection *protocol.VssConnection, run *RunRunner, cancel contex
 		wrap.Value[1].Start()
 		_ = vssConnection.UpdateTimeLine(jobreq.Timeline.Id, jobreq, wrap)
 		failInitJob := func(message string) {
-			wrap.Value[1].Log = &protocol.TaskLogReference{Id: vssConnection.UploadLogFile(jobreq.Timeline.Id, jobreq, message)}
+			logid, err := vssConnection.UploadLogFile(jobreq.Timeline.Id, jobreq, message)
+			if err == nil {
+				wrap.Value[1].Log = &protocol.TaskLogReference{Id: logid}
+			}
 			wrap.Value[1].Complete("Failed")
 			wrap.Value[0].Complete("Failed")
 			_ = vssConnection.UpdateTimeLine(jobreq.Timeline.Id, jobreq, wrap)
@@ -1591,7 +1594,8 @@ func runJob(vssConnection *protocol.VssConnection, run *RunRunner, cancel contex
 				_ = vssConnection.UpdateTimeLine(jobreq.Timeline.Id, jobreq, wrap)
 			}
 			formatter.uploadLogFile = func(log string) int {
-				return vssConnection.UploadLogFile(jobreq.Timeline.Id, jobreq, log)
+				logid, _ := vssConnection.UploadLogFile(jobreq.Timeline.Id, jobreq, log)
+				return logid
 			}
 		}
 		var outputMap *map[string]protocol.VariableValue
