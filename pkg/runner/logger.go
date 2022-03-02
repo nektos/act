@@ -38,13 +38,15 @@ func init() {
 }
 
 // WithJobLogger attaches a new logger to context that is aware of steps
-func WithJobLogger(ctx context.Context, jobName string, secrets map[string]string, insecureSecrets bool) context.Context {
+func WithJobLogger(ctx context.Context, jobName string, secrets map[string]string, insecureSecrets bool, masks *[]string) context.Context {
 	mux.Lock()
 	defer mux.Unlock()
 	formatter := new(stepLogFormatter)
 	formatter.color = colors[nextColor%len(colors)]
 	formatter.secrets = secrets
 	formatter.insecureSecrets = insecureSecrets
+	formatter.masks = masks
+
 	nextColor++
 
 	logger := logrus.New()
@@ -66,6 +68,7 @@ type stepLogFormatter struct {
 	color           int
 	secrets         map[string]string
 	insecureSecrets bool
+	masks           *[]string
 }
 
 func (f *stepLogFormatter) Format(entry *logrus.Entry) ([]byte, error) {
@@ -74,6 +77,12 @@ func (f *stepLogFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	// Replace any secrets in the entry if insecure-secrets flag is not used
 	if !f.insecureSecrets {
 		for _, v := range f.secrets {
+			if v != "" {
+				entry.Message = strings.ReplaceAll(entry.Message, v, "***")
+			}
+		}
+
+		for _, v := range *f.masks {
 			if v != "" {
 				entry.Message = strings.ReplaceAll(entry.Message, v, "***")
 			}
