@@ -46,6 +46,11 @@ type RunContext struct {
 	Composite        *model.Action
 	Inputs           map[string]interface{}
 	Parent           *RunContext
+	Masks            []string
+}
+
+func (rc *RunContext) AddMask(mask string) {
+	rc.Masks = append(rc.Masks, mask)
 }
 
 func (rc *RunContext) Clone() *RunContext {
