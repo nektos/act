@@ -64,6 +64,27 @@ func WithJobLogger(ctx context.Context, jobName string, secrets map[string]strin
 	return common.WithLogger(ctx, rtn)
 }
 
+func withStepLogger(ctx context.Context, stepName string) context.Context {
+	mux.Lock()
+	defer mux.Unlock()
+
+	stepLogger := logrus.New()
+
+	parentLogger := common.Logger(ctx)
+
+	if logger, ok := parentLogger.(*logrus.Logger); ok {
+		stepLogger.SetFormatter(logger.Formatter)
+		stepLogger.SetOutput(logger.Out)
+		stepLogger.SetLevel(logger.GetLevel())
+	} else {
+		stepLogger.SetOutput(os.Stdout)
+		stepLogger.SetLevel(logrus.GetLevel())
+	}
+
+	rtn := stepLogger.WithFields(logrus.Fields{"step": stepName})
+	return common.WithLogger(ctx, rtn)
+}
+
 type stepLogFormatter struct {
 	color           int
 	secrets         map[string]string
