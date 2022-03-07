@@ -38,20 +38,20 @@ func init() {
 }
 
 // WithJobLogger attaches a new logger to context that is aware of steps
-func WithJobLogger(ctx context.Context, jobName string, secrets map[string]string, insecureSecrets bool, masks *[]string) context.Context {
+func WithJobLogger(ctx context.Context, jobName string, config *Config, masks *[]string) context.Context {
 	mux.Lock()
 	defer mux.Unlock()
 
 	var formatter logrus.Formatter
-	if isJSONFormatter(ctx) {
+	if config.JSONLogger {
 		formatter = &jobLogJSONFormatter{
 			formatter: &logrus.JSONFormatter{},
-			masker:    valueMasker(insecureSecrets, secrets, masks),
+			masker:    valueMasker(config.InsecureSecrets, config.Secrets, masks),
 		}
 	} else {
 		formatter = &jobLogFormatter{
 			color:  colors[nextColor%len(colors)],
-			masker: valueMasker(insecureSecrets, secrets, masks),
+			masker: valueMasker(config.InsecureSecrets, config.Secrets, masks),
 		}
 	}
 
@@ -70,18 +70,6 @@ func WithJobLogger(ctx context.Context, jobName string, secrets map[string]strin
 	rtn := logger.WithFields(logrus.Fields{"job": jobName, "dryrun": common.Dryrun(ctx)})
 
 	return common.WithLogger(ctx, rtn)
-}
-
-func isJSONFormatter(ctx context.Context) bool {
-	if ctxLogger := common.Logger(ctx); ctxLogger != nil {
-		if logger, ok := ctxLogger.(*logrus.Logger); ok {
-			_, ok := logger.Formatter.(*logrus.JSONFormatter)
-			return ok
-		}
-	}
-
-	_, ok := logrus.StandardLogger().Formatter.(*logrus.JSONFormatter)
-	return ok
 }
 
 type entryProcessor func(entry *logrus.Entry) *logrus.Entry

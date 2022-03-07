@@ -271,6 +271,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			Workdir:               input.Workdir(),
 			BindWorkdir:           input.bindWorkdir,
 			LogOutput:             !input.noOutput,
+			JSONLogger:            input.jsonLogger,
 			Env:                   envs,
 			Secrets:               secrets,
 			InsecureSecrets:       input.insecureSecrets,
