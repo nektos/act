@@ -305,6 +305,8 @@ func (impl *interperterImpl) compareValues(leftValue reflect.Value, rightValue r
 	}
 
 	switch leftValue.Kind() {
+	case reflect.Bool:
+		return impl.compareNumber(float64(impl.coerceToNumber(leftValue).Int()), float64(impl.coerceToNumber(rightValue).Int()), kind)
 	case reflect.String:
 		return impl.compareString(strings.ToLower(leftValue.String()), strings.ToLower(rightValue.String()), kind)
 
@@ -323,7 +325,7 @@ func (impl *interperterImpl) compareValues(leftValue reflect.Value, rightValue r
 		return impl.compareNumber(leftValue.Float(), rightValue.Float(), kind)
 
 	default:
-		return nil, fmt.Errorf("TODO: evaluateCompare not implemented %+v", reflect.TypeOf(leftValue))
+		return nil, fmt.Errorf("TODO: evaluateCompare not implemented! left: %+v, right: %+v", leftValue.Kind(), rightValue.Kind())
 	}
 }
 
