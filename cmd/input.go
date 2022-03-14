@@ -38,6 +38,7 @@ type Input struct {
 	autoRemove            bool
 	artifactServerPath    string
 	artifactServerPort    string
+	jsonLogger            bool
 }
 
 func (i *Input) resolve(path string) string {

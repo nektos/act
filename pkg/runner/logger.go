@@ -38,14 +38,22 @@ func init() {
 }
 
 // WithJobLogger attaches a new logger to context that is aware of steps
-func WithJobLogger(ctx context.Context, jobName string, secrets map[string]string, insecureSecrets bool, masks *[]string) context.Context {
+func WithJobLogger(ctx context.Context, jobName string, config *Config, masks *[]string) context.Context {
 	mux.Lock()
 	defer mux.Unlock()
-	formatter := new(stepLogFormatter)
-	formatter.color = colors[nextColor%len(colors)]
-	formatter.secrets = secrets
-	formatter.insecureSecrets = insecureSecrets
-	formatter.masks = masks
+
+	var formatter logrus.Formatter
+	if config.JSONLogger {
+		formatter = &jobLogJSONFormatter{
+			formatter: &logrus.JSONFormatter{},
+			masker:    valueMasker(config.InsecureSecrets, config.Secrets, masks),
+		}
+	} else {
+		formatter = &jobLogFormatter{
+			color:  colors[nextColor%len(colors)],
+			masker: valueMasker(config.InsecureSecrets, config.Secrets, masks),
+		}
+	}
 
 	nextColor++
 
@@ -64,30 +72,44 @@ func WithJobLogger(ctx context.Context, jobName string, secrets map[string]strin
 	return common.WithLogger(ctx, rtn)
 }
 
-type stepLogFormatter struct {
-	color           int
-	secrets         map[string]string
-	insecureSecrets bool
-	masks           *[]string
+func withStepLogger(ctx context.Context, stepName string) context.Context {
+	rtn := common.Logger(ctx).WithFields(logrus.Fields{"step": stepName})
+	return common.WithLogger(ctx, rtn)
 }
 
-func (f *stepLogFormatter) Format(entry *logrus.Entry) ([]byte, error) {
+type entryProcessor func(entry *logrus.Entry) *logrus.Entry
+
+func valueMasker(insecureSecrets bool, secrets map[string]string, masks *[]string) entryProcessor {
+	return func(entry *logrus.Entry) *logrus.Entry {
+		if insecureSecrets {
+			return entry
+		}
+
+		for _, v := range secrets {
+			if v != "" {
+				entry.Message = strings.ReplaceAll(entry.Message, v, "***")
+			}
+		}
+
+		for _, v := range *masks {
+			if v != "" {
+				entry.Message = strings.ReplaceAll(entry.Message, v, "***")
+			}
+		}
+
+		return entry
+	}
+}
+
+type jobLogFormatter struct {
+	color  int
+	masker entryProcessor
+}
+
+func (f *jobLogFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	b := &bytes.Buffer{}
 
-	// Replace any secrets in the entry if insecure-secrets flag is not used
-	if !f.insecureSecrets {
-		for _, v := range f.secrets {
-			if v != "" {
-				entry.Message = strings.ReplaceAll(entry.Message, v, "***")
-			}
-		}
-
-		for _, v := range *f.masks {
-			if v != "" {
-				entry.Message = strings.ReplaceAll(entry.Message, v, "***")
-			}
-		}
-	}
+	entry = f.masker(entry)
 
 	if f.isColored(entry) {
 		f.printColored(b, entry)
@@ -99,7 +121,7 @@ func (f *stepLogFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	return b.Bytes(), nil
 }
 
-func (f *stepLogFormatter) printColored(b *bytes.Buffer, entry *logrus.Entry) {
+func (f *jobLogFormatter) printColored(b *bytes.Buffer, entry *logrus.Entry) {
 	entry.Message = strings.TrimSuffix(entry.Message, "\n")
 	jobName := entry.Data["job"]
 
@@ -112,7 +134,7 @@ func (f *stepLogFormatter) printColored(b *bytes.Buffer, entry *logrus.Entry) {
 	}
 }
 
-func (f *stepLogFormatter) print(b *bytes.Buffer, entry *logrus.Entry) {
+func (f *jobLogFormatter) print(b *bytes.Buffer, entry *logrus.Entry) {
 	entry.Message = strings.TrimSuffix(entry.Message, "\n")
 	jobName := entry.Data["job"]
 
@@ -125,7 +147,7 @@ func (f *stepLogFormatter) print(b *bytes.Buffer, entry *logrus.Entry) {
 	}
 }
 
-func (f *stepLogFormatter) isColored(entry *logrus.Entry) bool {
+func (f *jobLogFormatter) isColored(entry *logrus.Entry) bool {
 	isColored := checkIfTerminal(entry.Logger.Out)
 
 	if force, ok := os.LookupEnv("CLICOLOR_FORCE"); ok && force != "0" {
@@ -146,4 +168,13 @@ func checkIfTerminal(w io.Writer) bool {
 	default:
 		return false
 	}
+}
+
+type jobLogJSONFormatter struct {
+	masker    entryProcessor
+	formatter *logrus.JSONFormatter
+}
+
+func (f *jobLogJSONFormatter) Format(entry *logrus.Entry) ([]byte, error) {
+	return f.formatter.Format(f.masker(entry))
 }
