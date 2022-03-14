@@ -53,7 +53,7 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 
 		stepExec := step.main()
 		steps = append(steps, func(ctx context.Context) error {
-			stepName := step.String()
+			stepName := stepModel.String()
 			return (func(ctx context.Context) error {
 				err := stepExec(ctx)
 				if err != nil {
