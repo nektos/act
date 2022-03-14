@@ -72,6 +72,11 @@ func WithJobLogger(ctx context.Context, jobName string, config *Config, masks *[
 	return common.WithLogger(ctx, rtn)
 }
 
+func withStepLogger(ctx context.Context, stepName string) context.Context {
+	rtn := common.Logger(ctx).WithFields(logrus.Fields{"step": stepName})
+	return common.WithLogger(ctx, rtn)
+}
+
 type entryProcessor func(entry *logrus.Entry) *logrus.Entry
 
 func valueMasker(insecureSecrets bool, secrets map[string]string, masks *[]string) entryProcessor {
