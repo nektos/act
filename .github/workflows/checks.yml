@@ -12,7 +12,7 @@ jobs:
     name: lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
       - uses: actions/setup-go@v2
@@ -33,7 +33,7 @@ jobs:
     name: test-linux
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 2
       - name: Set up QEMU
@@ -59,7 +59,7 @@ jobs:
     name: snapshot
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: actions/setup-go@v2
         with:
           go-version: ${{ env.GO_VERSION }}
