@@ -124,7 +124,7 @@ func readArgsFile(file string) []string {
 	}()
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
-		arg := scanner.Text()
+		arg := strings.TrimSpace(scanner.Text())
 		if strings.HasPrefix(arg, "-") {
 			args = append(args, regexp.MustCompile(`\s`).Split(arg, 2)...)
 		}

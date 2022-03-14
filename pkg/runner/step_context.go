@@ -171,13 +171,7 @@ func (sc *StepContext) interpolateEnv(exprEval ExpressionEvaluator) {
 func (sc *StepContext) isEnabled(ctx context.Context) (bool, error) {
 	runStep, err := EvalBool(sc.NewExpressionEvaluator(), sc.Step.If.Value)
 	if err != nil {
-		common.Logger(ctx).Errorf("  \u274C  Error in if: expression - %s", sc.Step)
-		exprEval, err := sc.setupEnv(ctx)
-		if err != nil {
-			return false, err
-		}
-		sc.RunContext.ExprEval = exprEval
-		return false, err
+		return false, fmt.Errorf("  \u274C  Error in if-expression: \"if: %s\" (%s)", sc.Step.If.Value, err)
 	}
 
 	return runStep, nil
@@ -677,6 +671,8 @@ func (sc *StepContext) execAsComposite(ctx context.Context, step *model.Step, _ 
 			"name": outputName,
 		}, eval.Interpolate(output.Value))
 	}
+
+	backup.Masks = append(backup.Masks, compositerc.Masks...)
 	// Test if evaluated parent env was altered by this composite step
 	// Known Issues:
 	// - you try to set an env variable to the same value as a scoped step env, will be discared

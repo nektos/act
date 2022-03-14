@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -79,14 +80,25 @@ func TestNewParallelExecutor(t *testing.T) {
 	ctx := context.Background()
 
 	count := 0
+	activeCount := 0
+	maxCount := 0
 	emptyWorkflow := NewPipelineExecutor(func(ctx context.Context) error {
 		count++
+
+		activeCount++
+		if activeCount > maxCount {
+			maxCount = activeCount
+		}
+		time.Sleep(2 * time.Second)
+		activeCount--
+
 		return nil
 	})
 
-	err := NewParallelExecutor(emptyWorkflow, emptyWorkflow)(ctx)
-	assert.Equal(2, count)
+	err := NewParallelExecutor(2, emptyWorkflow, emptyWorkflow, emptyWorkflow)(ctx)
 
+	assert.Equal(3, count, "should run all 3 executors")
+	assert.Equal(2, maxCount, "should run at most 2 executors in parallel")
 	assert.Nil(err)
 }
 
@@ -101,7 +113,7 @@ func TestNewParallelExecutorFailed(t *testing.T) {
 		count++
 		return fmt.Errorf("fake error")
 	})
-	err := NewParallelExecutor(errorWorkflow)(ctx)
+	err := NewParallelExecutor(1, errorWorkflow)(ctx)
 	assert.Equal(1, count)
 	assert.ErrorIs(context.Canceled, err)
 }
@@ -123,7 +135,7 @@ func TestNewParallelExecutorCanceled(t *testing.T) {
 		count++
 		return errExpected
 	})
-	err := NewParallelExecutor(errorWorkflow, successWorkflow, successWorkflow)(ctx)
+	err := NewParallelExecutor(3, errorWorkflow, successWorkflow, successWorkflow)(ctx)
 	assert.Equal(3, count)
 	assert.Error(errExpected, err)
 }

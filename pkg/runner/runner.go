@@ -121,8 +121,8 @@ func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 		stage := plan.Stages[i]
 		stagePipeline = append(stagePipeline, func(ctx context.Context) error {
 			pipeline := make([]common.Executor, 0)
-			stageExecutor := make([]common.Executor, 0)
 			for r, run := range stage.Runs {
+				stageExecutor := make([]common.Executor, 0)
 				job := run.Job()
 				if job.Strategy != nil {
 					strategyRc := runner.newRunContext(run, nil)
@@ -140,7 +140,6 @@ func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 					maxParallel = len(matrixes)
 				}
 
-				b := 0
 				for i, matrix := range matrixes {
 					rc := runner.newRunContext(run, matrix)
 					rc.JobName = rc.Name
@@ -165,17 +164,12 @@ func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 							}
 
 							return nil
-						})(common.WithJobErrorContainer(WithJobLogger(ctx, jobName, rc.Config.Secrets, rc.Config.InsecureSecrets)))
+						})(common.WithJobErrorContainer(WithJobLogger(ctx, jobName, rc.Config.Secrets, rc.Config.InsecureSecrets, &rc.Masks)))
 					})
-					b++
-					if b == maxParallel {
-						pipeline = append(pipeline, common.NewParallelExecutor(stageExecutor...))
-						stageExecutor = make([]common.Executor, 0)
-						b = 0
-					}
 				}
+				pipeline = append(pipeline, common.NewParallelExecutor(maxParallel, stageExecutor...))
 			}
-			return common.NewPipelineExecutor(pipeline...)(ctx)
+			return common.NewParallelExecutor(runtime.NumCPU(), pipeline...)(ctx)
 		})
 	}
 
