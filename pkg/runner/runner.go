@@ -31,6 +31,7 @@ type Config struct {
 	ForcePull             bool                         // force pulling of the image, even if already present
 	ForceRebuild          bool                         // force rebuilding local docker image action
 	LogOutput             bool                         // log the output from docker run
+	JSONLogger            bool                         // use json or text logger
 	Env                   map[string]string            // env for containers
 	Secrets               map[string]string            // list of secrets
 	InsecureSecrets       bool                         // switch hiding output when printing to terminal
@@ -164,7 +165,7 @@ func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 							}
 
 							return nil
-						})(common.WithJobErrorContainer(WithJobLogger(ctx, jobName, rc.Config.Secrets, rc.Config.InsecureSecrets, &rc.Masks)))
+						})(common.WithJobErrorContainer(WithJobLogger(ctx, jobName, rc.Config, &rc.Masks)))
 					})
 				}
 				pipeline = append(pipeline, common.NewParallelExecutor(maxParallel, stageExecutor...))
