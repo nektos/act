@@ -60,6 +60,7 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.PersistentFlags().BoolVarP(&input.noWorkflowRecurse, "no-recurse", "", false, "Flag to disable running workflows from subdirectories of specified path in '--workflows'/'-W' flag")
 	rootCmd.PersistentFlags().StringVarP(&input.workdir, "directory", "C", ".", "working directory")
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "verbose output")
+	rootCmd.PersistentFlags().BoolVar(&input.jsonLogger, "json", false, "Output logs in json format")
 	rootCmd.PersistentFlags().BoolVarP(&input.noOutput, "quiet", "q", false, "disable logging of output from steps")
 	rootCmd.PersistentFlags().BoolVarP(&input.dryrun, "dryrun", "n", false, "dryrun mode")
 	rootCmd.PersistentFlags().StringVarP(&input.secretfile, "secret-file", "", ".secrets", "file with list of secrets to read from (e.g. --secret-file .secrets)")
@@ -156,6 +157,10 @@ func readEnvs(path string, envs map[string]string) bool {
 //nolint:gocyclo
 func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, args []string) error {
+		if input.jsonLogger {
+			log.SetFormatter(&log.JSONFormatter{})
+		}
+
 		if runtime.GOOS == "darwin" && runtime.GOARCH == "arm64" && input.containerArchitecture == "" {
 			l := log.New()
 			l.SetFormatter(&log.TextFormatter{
@@ -266,6 +271,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			Workdir:               input.Workdir(),
 			BindWorkdir:           input.bindWorkdir,
 			LogOutput:             !input.noOutput,
+			JSONLogger:            input.jsonLogger,
 			Env:                   envs,
 			Secrets:               secrets,
 			InsecureSecrets:       input.insecureSecrets,
