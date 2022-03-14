@@ -53,15 +53,14 @@ func newJobExecutor(info jobInfo) common.Executor {
 	}
 
 	steps = append(steps, func(ctx context.Context) error {
-		err := info.stopContainer()(ctx)
-		if err != nil {
-			return err
-		}
-
 		jobError := common.JobError(ctx)
 		if jobError != nil {
 			info.result("failure")
 		} else {
+			err := info.stopContainer()(ctx)
+			if err != nil {
+				return err
+			}
 			info.result("success")
 		}
 
