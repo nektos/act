@@ -130,7 +130,6 @@ func TestNewJobExecutor(t *testing.T) {
 			executedSteps: []string{
 				"startContainer",
 				"step1",
-				"stopContainer",
 				"interpolateOutputs",
 				"closeContainer",
 			},
