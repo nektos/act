@@ -57,6 +57,30 @@ jobs:
           files: coverage.txt
           fail_ci_if_error: true # optional (default = false)
 
+  test-linux-podman:
+    name: test-linux-podman
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 2
+      - run: |
+          podman system service --time=0 unix://$HOME/podman.sock
+          echo "DOCKER_HOST=unix://$HOME/podman.sock" >> $GITHUB_ENV
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+      - uses: actions/setup-go@v2
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - uses: actions/cache@v2
+        if: ${{ !env.ACT }}
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+      - run: go test -v -cover ./...
+
   snapshot:
     name: snapshot
     runs-on: ubuntu-latest
