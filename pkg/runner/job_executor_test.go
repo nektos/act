@@ -220,6 +220,15 @@ func TestNewJobExecutor(t *testing.T) {
 		},
 	}
 
+	contains := func(needle string, haystack []string) bool {
+		for _, item := range haystack {
+			if item == needle {
+				return true
+			}
+		}
+		return false
+	}
+
 	for _, tt := range table {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := common.WithJobErrorContainer(context.Background())
@@ -278,10 +287,12 @@ func TestNewJobExecutor(t *testing.T) {
 					return nil
 				})
 
-				jim.On("stopContainer").Return(func(ctx context.Context) error {
-					executorOrder = append(executorOrder, "stopContainer")
-					return nil
-				})
+				if contains("stopContainer", tt.executedSteps) {
+					jim.On("stopContainer").Return(func(ctx context.Context) error {
+						executorOrder = append(executorOrder, "stopContainer")
+						return nil
+					})
+				}
 
 				jim.On("result", tt.result)
 
