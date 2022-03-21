@@ -3,6 +3,7 @@ package cmd
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -19,6 +20,7 @@ import (
 
 	"github.com/nektos/act/pkg/artifacts"
 	"github.com/nektos/act/pkg/common"
+	"github.com/nektos/act/pkg/container"
 	"github.com/nektos/act/pkg/model"
 	"github.com/nektos/act/pkg/runner"
 )
@@ -39,6 +41,8 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.Flags().BoolP("list", "l", false, "list workflows")
 	rootCmd.Flags().BoolP("graph", "g", false, "draw workflows")
 	rootCmd.Flags().StringP("job", "j", "", "run job")
+	rootCmd.Flags().BoolP("bug-report", "", false, "Display system information for bug report")
+
 	rootCmd.Flags().StringArrayVarP(&input.secrets, "secret", "s", []string{}, "secret to make available to actions with optional value (e.g. -s mysecret=foo or -s mysecret)")
 	rootCmd.Flags().StringArrayVarP(&input.envs, "env", "", []string{}, "env to make available to actions with optional value (e.g. --env myenv=foo or --env myenv)")
 	rootCmd.Flags().StringArrayVarP(&input.platforms, "platform", "P", []string{}, "custom image to use per platform (e.g. -P ubuntu-18.04=nektos/act-environments-ubuntu:18.04)")
@@ -111,6 +115,75 @@ func args() []string {
 	return args
 }
 
+func bugReport(ctx context.Context, version string) error {
+	var commonSocketPaths = []string{
+		"/var/run/docker.sock",
+		"/var/run/podman/podman.sock",
+		"$HOME/.colima/docker.sock",
+		"$XDG_RUNTIME_DIR/docker.sock",
+		`\\.\pipe\docker_engine`,
+	}
+
+	sprintf := func(key, val string) string {
+		return fmt.Sprintf("%-24s%s\n", key, val)
+	}
+
+	report := sprintf("act version:", version)
+	report += sprintf("GOOS:", runtime.GOOS)
+	report += sprintf("GOARCH:", runtime.GOARCH)
+	report += sprintf("NumCPU:", fmt.Sprint(runtime.NumCPU()))
+
+	var dockerHost string
+	if dockerHost = os.Getenv("DOCKER_HOST"); dockerHost == "" {
+		dockerHost = "DOCKER_HOST environment variable is unset/empty."
+	}
+
+	report += sprintf("Docker host:", dockerHost)
+	report += fmt.Sprintln("Sockets found:")
+	for _, p := range commonSocketPaths {
+		if strings.HasPrefix(p, `$`) {
+			v := strings.Split(p, `/`)[0]
+			p = strings.Replace(p, v, os.Getenv(strings.TrimPrefix(v, `$`)), 1)
+		}
+		if _, err := os.Stat(p); err != nil {
+			continue
+		} else {
+			report += fmt.Sprintf("\t%s\n", p)
+		}
+	}
+
+	info, err := container.GetHostInfo(ctx)
+	if err != nil {
+		fmt.Println(report)
+		return err
+	}
+
+	report += fmt.Sprintln("Docker Engine:")
+
+	report += sprintf("\tEngine version:", info.ServerVersion)
+	report += sprintf("\tEngine runtime:", info.DefaultRuntime)
+	report += sprintf("\tCgroup version:", info.CgroupVersion)
+	report += sprintf("\tCgroup driver:", info.CgroupDriver)
+	report += sprintf("\tStorage driver:", info.Driver)
+	report += sprintf("\tRegistry URI:", info.IndexServerAddress)
+
+	report += sprintf("\tOS:", info.OperatingSystem)
+	report += sprintf("\tOS type:", info.OSType)
+	report += sprintf("\tOS version:", info.OSVersion)
+	report += sprintf("\tOS arch:", info.Architecture)
+	report += sprintf("\tOS kernel:", info.KernelVersion)
+	report += sprintf("\tOS CPU:", fmt.Sprint(info.NCPU))
+	report += sprintf("\tOS memory:", fmt.Sprintf("%d MB", info.MemTotal/1024/1024))
+
+	report += fmt.Sprintln("\tSecurity options:")
+	for _, secopt := range info.SecurityOptions {
+		report += fmt.Sprintf("\t\t%s\n", secopt)
+	}
+
+	fmt.Println(report)
+	return nil
+}
+
 func readArgsFile(file string) []string {
 	args := make([]string, 0)
 	f, err := os.Open(file)
@@ -159,6 +232,10 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 	return func(cmd *cobra.Command, args []string) error {
 		if input.jsonLogger {
 			log.SetFormatter(&log.JSONFormatter{})
+		}
+
+		if ok, _ := cmd.Flags().GetBool("bug-report"); ok {
+			return bugReport(ctx, cmd.Version)
 		}
 
 		if runtime.GOOS == "darwin" && runtime.GOARCH == "arm64" && input.containerArchitecture == "" {
