@@ -71,6 +71,7 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.PersistentFlags().StringVarP(&input.githubInstance, "github-instance", "", "github.com", "GitHub instance to use. Don't use this if you are not using GitHub Enterprise Server.")
 	rootCmd.PersistentFlags().StringVarP(&input.artifactServerPath, "artifact-server-path", "", "", "Defines the path where the artifact server stores uploads and retrieves downloads from. If not specified the artifact server will not start.")
 	rootCmd.PersistentFlags().StringVarP(&input.artifactServerPort, "artifact-server-port", "", "34567", "Defines the port where the artifact server listens (will only bind to localhost).")
+	rootCmd.PersistentFlags().BoolVarP(&input.noSkipCheckout, "no-skip-checkout", "", false, "Do not skip actions/checkout")
 	rootCmd.SetArgs(args())
 
 	if err := rootCmd.Execute(); err != nil {
@@ -287,6 +288,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			AutoRemove:            input.autoRemove,
 			ArtifactServerPath:    input.artifactServerPath,
 			ArtifactServerPort:    input.artifactServerPort,
+			NoSkipCheckout:        input.noSkipCheckout,
 		}
 		r, err := runner.New(config)
 		if err != nil {
