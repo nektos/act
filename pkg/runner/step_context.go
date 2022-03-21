@@ -92,7 +92,7 @@ func (sc *StepContext) Executor(ctx context.Context) common.Executor {
 		remoteAction.URL = rc.Config.GitHubInstance
 
 		github := rc.getGithubContext()
-		if remoteAction.IsCheckout() && isLocalCheckout(github, step) {
+		if remoteAction.IsCheckout() && isLocalCheckout(github, step) && !rc.Config.NoSkipCheckout {
 			return func(ctx context.Context) error {
 				common.Logger(ctx).Debugf("Skipping local actions/checkout because workdir was already copied")
 				return nil

@@ -39,6 +39,7 @@ type Input struct {
 	artifactServerPath    string
 	artifactServerPort    string
 	jsonLogger            bool
+	noSkipCheckout        bool
 }
 
 func (i *Input) resolve(path string) string {
