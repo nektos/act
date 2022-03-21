@@ -170,6 +170,9 @@ func (impl *interperterImpl) evaluateIndexAccess(indexAccessNode *actionlint.Ind
 	case reflect.Int:
 		switch leftValue.Kind() {
 		case reflect.Slice:
+			if int64(leftValue.Len()) >= rightValue.Int() {
+				return nil, nil
+			}
 			return leftValue.Index(int(rightValue.Int())).Interface(), nil
 		default:
 			return nil, fmt.Errorf("Unable to index on non-slice value: %s", leftValue.Kind())
