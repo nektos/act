@@ -108,7 +108,7 @@ func args() []string {
 
 	args := make([]string, 0)
 	for _, f := range actrc {
-		args = append(args, readArgsFile(f)...)
+		args = append(args, readArgsFile(f, true)...)
 	}
 
 	args = append(args, os.Args[1:]...)
@@ -158,6 +158,17 @@ func bugReport(ctx context.Context, version string) error {
 		return err
 	}
 
+	report += sprintf("Config files:", "")
+	for _, c := range configLocations() {
+		args := readArgsFile(c, false)
+		if len(args) > 0 {
+			report += fmt.Sprintf("\t%s:\n", c)
+			for _, l := range args {
+				report += fmt.Sprintf("\t\t%s\n", l)
+			}
+		}
+	}
+
 	report += fmt.Sprintln("Docker Engine:")
 
 	report += sprintf("\tEngine version:", info.ServerVersion)
@@ -184,7 +195,7 @@ func bugReport(ctx context.Context, version string) error {
 	return nil
 }
 
-func readArgsFile(file string) []string {
+func readArgsFile(file string, split bool) []string {
 	args := make([]string, 0)
 	f, err := os.Open(file)
 	if err != nil {
@@ -199,8 +210,10 @@ func readArgsFile(file string) []string {
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
 		arg := strings.TrimSpace(scanner.Text())
-		if strings.HasPrefix(arg, "-") {
+		if strings.HasPrefix(arg, "-") && split {
 			args = append(args, regexp.MustCompile(`\s`).Split(arg, 2)...)
+		} else if !split {
+			args = append(args, arg)
 		}
 	}
 	return args
@@ -332,7 +345,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 				if err := defaultImageSurvey(cfgLocations[0]); err != nil {
 					log.Fatal(err)
 				}
-				input.platforms = readArgsFile(cfgLocations[0])
+				input.platforms = readArgsFile(cfgLocations[0], true)
 			}
 		}
 
