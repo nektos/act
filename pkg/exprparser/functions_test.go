@@ -137,6 +137,7 @@ func TestFunctionToJSON(t *testing.T) {
 		name     string
 	}{
 		{"toJSON(env) }}", "{\n  \"key\": \"value\"\n}", "toJSON"},
+		{"toJSON(null)", "null", "toJSON-null"},
 	}
 
 	env := &EvaluationEnvironment{
