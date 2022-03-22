@@ -198,7 +198,7 @@ func (impl *interperterImpl) evaluateArrayDeref(arrayDerefNode *actionlint.Array
 		return nil, err
 	}
 
-	return reflect.ValueOf(left).Interface(), nil
+	return impl.getSafeValue(reflect.ValueOf(left)), nil
 }
 
 func (impl *interperterImpl) getPropertyValue(left reflect.Value, property string) (value interface{}, err error) {
