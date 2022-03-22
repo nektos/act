@@ -287,7 +287,7 @@ func (rc *RunContext) Executor() common.Executor {
 		}
 
 		if isEnabled {
-			return newJobExecutor(rc)(ctx)
+			return newJobExecutor(rc, &stepFactoryImpl{}, rc)(ctx)
 		}
 
 		return nil
@@ -298,12 +298,23 @@ func (rc *RunContext) Executor() common.Executor {
 func (rc *RunContext) CompositeExecutor() common.Executor {
 	steps := make([]common.Executor, 0)
 
+	sf := &stepFactoryImpl{}
+
 	for i, step := range rc.Composite.Runs.Steps {
 		if step.ID == "" {
 			step.ID = fmt.Sprintf("%d", i)
 		}
+
+		// create a copy of the step, since this composite action could
+		// run multiple times and we might modify the instance
 		stepcopy := step
-		stepExec := rc.newStepExecutor(&stepcopy)
+
+		step, err := sf.newStep(&stepcopy, rc)
+		if err != nil {
+			return common.NewErrorExecutor(err)
+		}
+		stepExec := common.NewPipelineExecutor(step.pre(), step.main(), step.post())
+
 		steps = append(steps, func(ctx context.Context) error {
 			err := stepExec(ctx)
 			if err != nil {
@@ -320,59 +331,6 @@ func (rc *RunContext) CompositeExecutor() common.Executor {
 	steps = append(steps, common.JobError)
 	return func(ctx context.Context) error {
 		return common.NewPipelineExecutor(steps...)(common.WithJobErrorContainer(ctx))
-	}
-}
-
-func (rc *RunContext) newStepExecutor(step *model.Step) common.Executor {
-	sc := &StepContext{
-		RunContext: rc,
-		Step:       step,
-	}
-	return func(ctx context.Context) error {
-		rc.CurrentStep = sc.Step.ID
-		rc.StepResults[rc.CurrentStep] = &model.StepResult{
-			Outcome:    model.StepStatusSuccess,
-			Conclusion: model.StepStatusSuccess,
-			Outputs:    make(map[string]string),
-		}
-
-		runStep, err := sc.isEnabled(ctx)
-		if err != nil {
-			rc.StepResults[rc.CurrentStep].Conclusion = model.StepStatusFailure
-			rc.StepResults[rc.CurrentStep].Outcome = model.StepStatusFailure
-			return err
-		}
-
-		if !runStep {
-			log.Debugf("Skipping step '%s' due to '%s'", sc.Step.String(), sc.Step.If.Value)
-			rc.StepResults[rc.CurrentStep].Conclusion = model.StepStatusSkipped
-			rc.StepResults[rc.CurrentStep].Outcome = model.StepStatusSkipped
-			return nil
-		}
-
-		exprEval, err := sc.setupEnv(ctx)
-		if err != nil {
-			return err
-		}
-		rc.ExprEval = exprEval
-
-		common.Logger(ctx).Infof("\u2B50  Run %s", sc.Step)
-		err = sc.Executor(ctx)(ctx)
-		if err == nil {
-			common.Logger(ctx).Infof("  \u2705  Success - %s", sc.Step)
-		} else {
-			common.Logger(ctx).Errorf("  \u274C  Failure - %s", sc.Step)
-
-			rc.StepResults[rc.CurrentStep].Outcome = model.StepStatusFailure
-			if sc.Step.ContinueOnError {
-				common.Logger(ctx).Infof("Failed but continue next step")
-				err = nil
-				rc.StepResults[rc.CurrentStep].Conclusion = model.StepStatusSuccess
-			} else {
-				rc.StepResults[rc.CurrentStep].Conclusion = model.StepStatusFailure
-			}
-		}
-		return err
 	}
 }
 

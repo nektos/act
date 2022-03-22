@@ -14,13 +14,14 @@ type jobInfo interface {
 	startContainer() common.Executor
 	stopContainer() common.Executor
 	closeContainer() common.Executor
-	newStepExecutor(step *model.Step) common.Executor
 	interpolateOutputs() common.Executor
 	result(result string)
 }
 
-func newJobExecutor(info jobInfo) common.Executor {
+func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executor {
 	steps := make([]common.Executor, 0)
+	preSteps := make([]common.Executor, 0)
+	postSteps := make([]common.Executor, 0)
 
 	steps = append(steps, func(ctx context.Context) error {
 		if len(info.matrix()) > 0 {
@@ -29,15 +30,30 @@ func newJobExecutor(info jobInfo) common.Executor {
 		return nil
 	})
 
-	steps = append(steps, info.startContainer())
+	infoSteps := info.steps()
 
-	for i, step := range info.steps() {
-		if step.ID == "" {
-			step.ID = fmt.Sprintf("%d", i)
+	if len(infoSteps) == 0 {
+		return common.NewDebugExecutor("No steps found")
+	}
+
+	preSteps = append(preSteps, info.startContainer())
+
+	for i, stepModel := range infoSteps {
+		if stepModel.ID == "" {
+			stepModel.ID = fmt.Sprintf("%d", i)
 		}
-		stepExec := info.newStepExecutor(step)
+
+		step, err := sf.newStep(stepModel, rc)
+
+		if err != nil {
+			return common.NewErrorExecutor(err)
+		}
+
+		preSteps = append(preSteps, step.pre())
+
+		stepExec := step.main()
 		steps = append(steps, func(ctx context.Context) error {
-			stepName := step.String()
+			stepName := stepModel.String()
 			return (func(ctx context.Context) error {
 				err := stepExec(ctx)
 				if err != nil {
@@ -50,9 +66,11 @@ func newJobExecutor(info jobInfo) common.Executor {
 				return nil
 			})(withStepLogger(ctx, stepName))
 		})
+
+		postSteps = append([]common.Executor{step.post()}, postSteps...)
 	}
 
-	steps = append(steps, func(ctx context.Context) error {
+	postSteps = append(postSteps, func(ctx context.Context) error {
 		jobError := common.JobError(ctx)
 		if jobError != nil {
 			info.result("failure")
@@ -67,5 +85,10 @@ func newJobExecutor(info jobInfo) common.Executor {
 		return nil
 	})
 
-	return common.NewPipelineExecutor(steps...).Finally(info.interpolateOutputs()).Finally(info.closeContainer())
+	pipeline := make([]common.Executor, 0)
+	pipeline = append(pipeline, preSteps...)
+	pipeline = append(pipeline, steps...)
+	pipeline = append(pipeline, postSteps...)
+
+	return common.NewPipelineExecutor(pipeline...).Finally(info.interpolateOutputs()).Finally(info.closeContainer())
 }
