@@ -201,10 +201,7 @@ type containerReference struct {
 	input *NewContainerInput
 }
 
-func GetDockerClient(ctx context.Context) (*client.Client, error) {
-	var err error
-	var cli *client.Client
-
+func GetDockerClient(ctx context.Context) (cli *client.Client, err error) {
 	// TODO: this should maybe need to be a global option, not hidden in here?
 	//       though i'm not sure how that works out when there's another Executor :D
 	//		 I really would like something that works on OSX native for eg
@@ -230,6 +227,22 @@ func GetDockerClient(ctx context.Context) (*client.Client, error) {
 	cli.NegotiateAPIVersion(ctx)
 
 	return cli, err
+}
+
+func GetHostInfo(ctx context.Context) (info types.Info, err error) {
+	var cli *client.Client
+	cli, err = GetDockerClient(ctx)
+	if err != nil {
+		return info, err
+	}
+	defer cli.Close()
+
+	info, err = cli.Info(ctx)
+	if err != nil {
+		return info, err
+	}
+
+	return info, nil
 }
 
 func (cr *containerReference) connect() common.Executor {

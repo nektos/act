@@ -9,9 +9,11 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/nektos/act/pkg/common"
-	"github.com/nektos/act/pkg/model"
 	log "github.com/sirupsen/logrus"
+
+	"github.com/nektos/act/pkg/common"
+	"github.com/nektos/act/pkg/container"
+	"github.com/nektos/act/pkg/model"
 )
 
 // Runner provides capabilities to run GitHub actions
@@ -48,6 +50,7 @@ type Config struct {
 	ArtifactServerPath    string                       // the path where the artifact server stores uploads
 	ArtifactServerPort    string                       // the port the artifact server binds to
 	CompositeRestrictions *model.CompositeRestrictions // describes which features are available in composite actions
+	NoSkipCheckout        bool                         // do not skip actions/checkout
 }
 
 // Resolves the equivalent host path inside the container
@@ -170,7 +173,15 @@ func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 				}
 				pipeline = append(pipeline, common.NewParallelExecutor(maxParallel, stageExecutor...))
 			}
-			return common.NewParallelExecutor(runtime.NumCPU(), pipeline...)(ctx)
+			var ncpu int
+			info, err := container.GetHostInfo(ctx)
+			if err != nil {
+				log.Errorf("failed to obtain container engine info: %s", err)
+				ncpu = 1 // sane default?
+			} else {
+				ncpu = info.NCPU
+			}
+			return common.NewParallelExecutor(ncpu, pipeline...)(ctx)
 		})
 	}
 

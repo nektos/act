@@ -170,6 +170,9 @@ func (impl *interperterImpl) evaluateIndexAccess(indexAccessNode *actionlint.Ind
 	case reflect.Int:
 		switch leftValue.Kind() {
 		case reflect.Slice:
+			if rightValue.Int() < 0 || rightValue.Int() >= int64(leftValue.Len()) {
+				return nil, nil
+			}
 			return leftValue.Index(int(rightValue.Int())).Interface(), nil
 		default:
 			return nil, fmt.Errorf("Unable to index on non-slice value: %s", leftValue.Kind())
@@ -195,7 +198,7 @@ func (impl *interperterImpl) evaluateArrayDeref(arrayDerefNode *actionlint.Array
 		return nil, err
 	}
 
-	return reflect.ValueOf(left).Interface(), nil
+	return impl.getSafeValue(reflect.ValueOf(left)), nil
 }
 
 func (impl *interperterImpl) getPropertyValue(left reflect.Value, property string) (value interface{}, err error) {

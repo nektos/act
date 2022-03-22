@@ -666,6 +666,10 @@ func setActionRuntimeVars(rc *RunContext, env map[string]string) {
 }
 
 func (rc *RunContext) localCheckoutPath() (string, bool) {
+	if rc.Config.NoSkipCheckout {
+		return "", false
+	}
+
 	ghContext := rc.getGithubContext()
 	for _, step := range rc.Run.Job().Steps {
 		if isLocalCheckout(ghContext, step) {
