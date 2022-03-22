@@ -50,6 +50,7 @@ type Config struct {
 	ArtifactServerPath    string                       // the path where the artifact server stores uploads
 	ArtifactServerPort    string                       // the port the artifact server binds to
 	CompositeRestrictions *model.CompositeRestrictions // describes which features are available in composite actions
+	NoSkipCheckout        bool                         // do not skip actions/checkout
 }
 
 // Resolves the equivalent host path inside the container

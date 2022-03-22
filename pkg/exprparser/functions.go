@@ -151,7 +151,7 @@ func (impl *interperterImpl) join(array reflect.Value, sep reflect.Value) (strin
 
 func (impl *interperterImpl) toJSON(value reflect.Value) (string, error) {
 	if value.Kind() == reflect.Invalid {
-		return "", nil
+		return "null", nil
 	}
 
 	json, err := json.MarshalIndent(value.Interface(), "", "  ")
