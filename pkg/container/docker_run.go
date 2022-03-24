@@ -633,6 +633,8 @@ func (cr *containerReference) copyDir(dstPath string, srcPath string, useGitIgno
 							if err != nil || len(ms) == 0 {
 								return filepath.SkipDir
 							}
+						} else {
+							return filepath.SkipDir
 						}
 					} else {
 						return nil
