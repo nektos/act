@@ -7,8 +7,10 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/fs"
 	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -16,7 +18,10 @@ import (
 
 	"github.com/go-git/go-billy/v5/helper/polyfill"
 	"github.com/go-git/go-billy/v5/osfs"
+	git "github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing/filemode"
 	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
+	"github.com/go-git/go-git/v5/plumbing/format/index"
 	"github.com/joho/godotenv"
 
 	"github.com/docker/cli/cli/connhelper"
@@ -599,69 +604,96 @@ func (cr *containerReference) copyDir(dstPath string, srcPath string, useGitIgno
 			ignorer = gitignore.NewMatcher(ps)
 		}
 
-		err = filepath.Walk(srcPath, func(file string, fi os.FileInfo, err error) error {
-			if err != nil {
-				return err
+		var getCallback func(submodulePath []string) func(file string, fi fs.FileInfo, err error) error
+		getCallback = func(submodulePath []string) func(file string, fi os.FileInfo, err error) error {
+			var i *index.Index
+			if r, err := git.PlainOpen(path.Join(srcPath, path.Join(submodulePath...))); err == nil {
+				i, err = r.Storer.Index()
+				if err != nil {
+					i = nil
+				}
 			}
+			return func(file string, fi os.FileInfo, err error) error {
+				if err != nil {
+					return err
+				}
 
-			sansPrefix := strings.TrimPrefix(file, srcPrefix)
-			split := strings.Split(sansPrefix, string(filepath.Separator))
-			if ignorer != nil && ignorer.Match(split, fi.IsDir()) {
-				if fi.IsDir() {
+				sansPrefix := strings.TrimPrefix(file, srcPrefix)
+				split := strings.Split(sansPrefix, string(filepath.Separator))
+				var entry *index.Entry
+				if i != nil {
+					entry, err = i.Entry(strings.Join(split[len(submodulePath):], "/"))
+				} else {
+					err = index.ErrEntryNotFound
+				}
+				if err != nil && ignorer != nil && ignorer.Match(split, fi.IsDir()) {
+					if fi.IsDir() {
+						if i != nil {
+							ms, err := i.Glob(strings.Join(append(split[len(submodulePath):], "**"), "/"))
+							if err != nil || len(ms) == 0 {
+								return filepath.SkipDir
+							}
+						}
+					} else {
+						return nil
+					}
+				}
+				if err == nil && entry.Mode == filemode.Submodule {
+					err = filepath.Walk(fi.Name(), getCallback(split))
+					if err != nil {
+						return err
+					}
 					return filepath.SkipDir
 				}
-				return nil
-			}
 
-			// return on non-regular files (thanks to [kumo](https://medium.com/@komuw/just-like-you-did-fbdd7df829d3) for this suggested update)
-			linkName := fi.Name()
-			if fi.Mode()&os.ModeSymlink == os.ModeSymlink {
-				linkName, err = os.Readlink(file)
-				if err != nil {
-					return errors.WithMessagef(err, "unable to readlink %s", file)
+				// return on non-regular files (thanks to [kumo](https://medium.com/@komuw/just-like-you-did-fbdd7df829d3) for this suggested update)
+				linkName := fi.Name()
+				if fi.Mode()&os.ModeSymlink == os.ModeSymlink {
+					linkName, err = os.Readlink(file)
+					if err != nil {
+						return errors.WithMessagef(err, "unable to readlink %s", file)
+					}
+				} else if !fi.Mode().IsRegular() {
+					return nil
 				}
-			} else if !fi.Mode().IsRegular() {
+
+				// create a new dir/file header
+				header, err := tar.FileInfoHeader(fi, linkName)
+				if err != nil {
+					return err
+				}
+
+				// update the name to correctly reflect the desired destination when untaring
+				header.Name = filepath.ToSlash(sansPrefix)
+				header.Mode = int64(fi.Mode())
+				header.ModTime = fi.ModTime()
+
+				// write the header
+				if err := tw.WriteHeader(header); err != nil {
+					return err
+				}
+
+				// symlinks don't need to be copied
+				if fi.Mode()&os.ModeSymlink == os.ModeSymlink {
+					return nil
+				}
+
+				// open files for taring
+				f, err := os.Open(file)
+				if err != nil {
+					return err
+				}
+				defer f.Close()
+
+				// copy file data into tar writer
+				if _, err := io.Copy(tw, f); err != nil {
+					return err
+				}
 				return nil
 			}
+		}
 
-			// create a new dir/file header
-			header, err := tar.FileInfoHeader(fi, linkName)
-			if err != nil {
-				return err
-			}
-
-			// update the name to correctly reflect the desired destination when untaring
-			header.Name = filepath.ToSlash(sansPrefix)
-			header.Mode = int64(fi.Mode())
-			header.ModTime = fi.ModTime()
-
-			// write the header
-			if err := tw.WriteHeader(header); err != nil {
-				return err
-			}
-
-			// symlinks don't need to be copied
-			if fi.Mode()&os.ModeSymlink == os.ModeSymlink {
-				return nil
-			}
-
-			// open files for taring
-			f, err := os.Open(file)
-			if err != nil {
-				return err
-			}
-
-			// copy file data into tar writer
-			if _, err := io.Copy(tw, f); err != nil {
-				return err
-			}
-
-			// manually close here after each file operation; deferring would cause each file close
-			// to wait until all operations have completed.
-			f.Close()
-
-			return nil
-		})
+		err = filepath.Walk(srcPath, getCallback([]string{}))
 		if err != nil {
 			return err
 		}
