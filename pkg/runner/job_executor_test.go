@@ -28,7 +28,7 @@ func TestJobExecutor(t *testing.T) {
 	// These tests are sufficient to only check syntax.
 	ctx := common.WithDryrun(context.Background(), true)
 	for _, table := range tables {
-		runTestJobFile(ctx, t, table)
+		runTestJobFile(ctx, t, table, false)
 	}
 }
 
