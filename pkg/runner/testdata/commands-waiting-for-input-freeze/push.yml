@@ -10,4 +10,4 @@ jobs:
     - run: git clone https://github.com/nektos/act2 # This repo doesn't exist, trigger password prompt
       continue-on-error: true
       id: checkout
-    - run: exit ${{ needs.checkout.outcome != 'failure' && '1' || '0' }} # check if git actually failed
+    - run: exit ${{ steps.checkout.outcome != 'failure' && '1' || '0' }} # check if git actually failed
