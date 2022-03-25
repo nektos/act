@@ -51,7 +51,7 @@ type TestJobFileInfo struct {
 	containerArchitecture string
 }
 
-func runTestJobFile(ctx context.Context, t *testing.T, tjfi TestJobFileInfo) {
+func runTestJobFile(ctx context.Context, t *testing.T, tjfi TestJobFileInfo, tty bool) {
 	t.Run(tjfi.workflowPath, func(t *testing.T) {
 		workdir, err := filepath.Abs(tjfi.workdir)
 		assert.Nil(t, err, workdir)
@@ -64,7 +64,7 @@ func runTestJobFile(ctx context.Context, t *testing.T, tjfi TestJobFileInfo) {
 			ReuseContainers:       false,
 			ContainerArchitecture: tjfi.containerArchitecture,
 			GitHubInstance:        "github.com",
-			Tty:                   true,
+			Tty:                   tty,
 		}
 
 		runner, err := New(runnerConfig)
@@ -141,17 +141,23 @@ func TestRunEvent(t *testing.T) {
 		{"testdata", "evalmatrix-merge-array", "push", "", platforms, ""},
 		{"../model/testdata", "strategy", "push", "", platforms, ""}, // TODO: move all testdata into pkg so we can validate it with planner and runner
 		// {"testdata", "issue-228", "push", "", platforms, ""}, // TODO [igni]: Remove this once everything passes
-		{"testdata", "commands-waiting-for-input-freeze", "push", "", map[string]string{"ubuntu-latest": "ghcr.io/catthehacker/ubuntu:act-latest"}, ""}, // Need larger image for git freeze test
 
 		// single test for different architecture: linux/arm64
 		{"testdata", "basic", "push", "", platforms, "linux/arm64"},
+	}
+	// 5 of the above tests seem to have problems running on github on a tty
+	tablesTty := []TestJobFileInfo{
+		{"testdata", "commands-waiting-for-input-freeze", "push", "", map[string]string{"ubuntu-latest": "ghcr.io/catthehacker/ubuntu:act-latest"}, ""}, // Need larger image for git freeze test
 	}
 	log.SetLevel(log.DebugLevel)
 
 	ctx := context.Background()
 
 	for _, table := range tables {
-		runTestJobFile(ctx, t, table)
+		runTestJobFile(ctx, t, table, false)
+	}
+	for _, table := range tablesTty {
+		runTestJobFile(ctx, t, table, true)
 	}
 }
 
