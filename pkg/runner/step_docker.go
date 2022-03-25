@@ -116,6 +116,7 @@ func (sd *stepDocker) newStepContainer(ctx context.Context, image string, cmd []
 		Privileged:  rc.Config.Privileged,
 		UsernsMode:  rc.Config.UsernsMode,
 		Platform:    rc.Config.ContainerArchitecture,
+		Tty:         rc.Config.Tty,
 	})
 	return stepContainer
 }

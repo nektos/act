@@ -17,6 +17,7 @@ import (
 	gitignore "github.com/sabhiram/go-gitignore"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 
 	"github.com/nektos/act/pkg/artifacts"
 	"github.com/nektos/act/pkg/common"
@@ -379,6 +380,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			ArtifactServerPath:    input.artifactServerPath,
 			ArtifactServerPort:    input.artifactServerPort,
 			NoSkipCheckout:        input.noSkipCheckout,
+			Tty:                   term.IsTerminal(int(os.Stdout.Fd())),
 		}
 		r, err := runner.New(config)
 		if err != nil {

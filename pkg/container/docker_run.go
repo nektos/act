@@ -13,6 +13,7 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/go-git/go-billy/v5/helper/polyfill"
 	"github.com/go-git/go-billy/v5/osfs"
@@ -54,6 +55,7 @@ type NewContainerInput struct {
 	UsernsMode  string
 	Platform    string
 	Hostname    string
+	Tty         bool
 }
 
 // FileEntry is a file to copy to a container
@@ -322,7 +324,6 @@ func (cr *containerReference) create(capAdd []string, capDrop []string) common.E
 			return nil
 		}
 		logger := common.Logger(ctx)
-		isTerminal := term.IsTerminal(int(os.Stdout.Fd()))
 		input := cr.input
 
 		config := &container.Config{
@@ -331,7 +332,7 @@ func (cr *containerReference) create(capAdd []string, capDrop []string) common.E
 			Entrypoint: input.Entrypoint,
 			WorkingDir: input.WorkingDir,
 			Env:        input.Env,
-			Tty:        isTerminal,
+			Tty:        cr.input.Tty,
 			Hostname:   input.Hostname,
 		}
 
@@ -486,87 +487,125 @@ func (cr *containerReference) extractPath(env *map[string]string) common.Executo
 	}
 }
 
+func (cr *containerReference) getWorkdir(workdir string) string {
+	if workdir != "" {
+		if strings.HasPrefix(workdir, "/") {
+			return workdir
+		}
+		return fmt.Sprintf("%s/%s", cr.input.WorkingDir, workdir)
+	}
+	return cr.input.WorkingDir
+}
+
+func getEnvListFromMap(env map[string]string) []string {
+	envList := make([]string, 0)
+	for k, v := range env {
+		envList = append(envList, fmt.Sprintf("%s=%s", k, v))
+	}
+	return envList
+}
+
+func (cr *containerReference) exec2(ctx context.Context, cmd []string, env map[string]string, user, workdir string) error {
+	logger := common.Logger(ctx)
+	// Fix slashes when running on Windows
+	if runtime.GOOS == "windows" {
+		var newCmd []string
+		for _, v := range cmd {
+			newCmd = append(newCmd, strings.ReplaceAll(v, `\`, `/`))
+		}
+		cmd = newCmd
+	}
+
+	logger.Debugf("Exec command '%s'", cmd)
+	envList := getEnvListFromMap(env)
+	wd := cr.getWorkdir(workdir)
+	logger.Debugf("Working directory '%s'", wd)
+	idResp, err := cr.cli.ContainerExecCreate(ctx, cr.id, types.ExecConfig{
+		User:         user,
+		Cmd:          cmd,
+		WorkingDir:   wd,
+		Env:          envList,
+		Tty:          cr.input.Tty,
+		AttachStderr: true,
+		AttachStdout: true,
+		AttachStdin:  cr.input.Tty,
+	})
+	if err != nil {
+		return errors.WithStack(err)
+	}
+
+	resp, err := cr.cli.ContainerExecAttach(ctx, idResp.ID, types.ExecStartCheck{
+		Tty: cr.input.Tty,
+	})
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	defer resp.Close()
+
+	var outWriter io.Writer
+	outWriter = cr.input.Stdout
+	if outWriter == nil {
+		outWriter = os.Stdout
+	}
+	errWriter := cr.input.Stderr
+	if errWriter == nil {
+		errWriter = os.Stderr
+	}
+
+	if cr.input.Tty {
+		// Avoid a freeze of programs expecting input like git asking for password and node
+		go func() {
+			c := 1
+			var err error
+			for c == 1 && err == nil {
+				c, err = resp.Conn.Write([]byte{4})
+				<-time.After(time.Second)
+			}
+		}()
+	}
+
+	if !cr.input.Tty || os.Getenv("NORAW") != "" {
+		_, err = stdcopy.StdCopy(outWriter, errWriter, resp.Reader)
+	} else {
+		_, err = io.Copy(outWriter, resp.Reader)
+	}
+	if err != nil {
+		logger.Error(err)
+	}
+
+	inspectResp, err := cr.cli.ContainerExecInspect(ctx, idResp.ID)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+
+	if inspectResp.ExitCode == 0 {
+		return nil
+	}
+
+	return fmt.Errorf("exit with `FAILURE`: %v", inspectResp.ExitCode)
+}
+
 func (cr *containerReference) exec(cmd []string, env map[string]string, user, workdir string) common.Executor {
 	return func(ctx context.Context) error {
 		logger := common.Logger(ctx)
-		// Fix slashes when running on Windows
-		if runtime.GOOS == "windows" {
-			var newCmd []string
-			for _, v := range cmd {
-				newCmd = append(newCmd, strings.ReplaceAll(v, `\`, `/`))
+		done := make(chan error)
+		go func() {
+			defer func() {
+				done <- errors.New("Invalid Operation")
+			}()
+			done <- cr.exec2(ctx, cmd, env, user, workdir)
+		}()
+		select {
+		case <-ctx.Done():
+			err := cr.cli.ContainerKill(context.Background(), cr.id, "kill")
+			if err != nil {
+				logger.Error(err)
 			}
-			cmd = newCmd
+			logger.Info("This step was cancelled")
+			return errors.New("This step was cancelled")
+		case ret := <-done:
+			return ret
 		}
-
-		logger.Debugf("Exec command '%s'", cmd)
-		isTerminal := term.IsTerminal(int(os.Stdout.Fd()))
-		envList := make([]string, 0)
-		for k, v := range env {
-			envList = append(envList, fmt.Sprintf("%s=%s", k, v))
-		}
-
-		var wd string
-		if workdir != "" {
-			if strings.HasPrefix(workdir, "/") {
-				wd = workdir
-			} else {
-				wd = fmt.Sprintf("%s/%s", cr.input.WorkingDir, workdir)
-			}
-		} else {
-			wd = cr.input.WorkingDir
-		}
-		logger.Debugf("Working directory '%s'", wd)
-
-		idResp, err := cr.cli.ContainerExecCreate(ctx, cr.id, types.ExecConfig{
-			User:         user,
-			Cmd:          cmd,
-			WorkingDir:   wd,
-			Env:          envList,
-			Tty:          isTerminal,
-			AttachStderr: true,
-			AttachStdout: true,
-		})
-		if err != nil {
-			return errors.WithStack(err)
-		}
-
-		resp, err := cr.cli.ContainerExecAttach(ctx, idResp.ID, types.ExecStartCheck{
-			Tty: isTerminal,
-		})
-		if err != nil {
-			return errors.WithStack(err)
-		}
-		defer resp.Close()
-
-		var outWriter io.Writer
-		outWriter = cr.input.Stdout
-		if outWriter == nil {
-			outWriter = os.Stdout
-		}
-		errWriter := cr.input.Stderr
-		if errWriter == nil {
-			errWriter = os.Stderr
-		}
-
-		if !isTerminal || os.Getenv("NORAW") != "" {
-			_, err = stdcopy.StdCopy(outWriter, errWriter, resp.Reader)
-		} else {
-			_, err = io.Copy(outWriter, resp.Reader)
-		}
-		if err != nil {
-			logger.Error(err)
-		}
-
-		inspectResp, err := cr.cli.ContainerExecInspect(ctx, idResp.ID)
-		if err != nil {
-			return errors.WithStack(err)
-		}
-
-		if inspectResp.ExitCode == 0 {
-			return nil
-		}
-
-		return fmt.Errorf("exit with `FAILURE`: %v", inspectResp.ExitCode)
 	}
 }
 

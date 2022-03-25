@@ -167,6 +167,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			UsernsMode:  rc.Config.UsernsMode,
 			Platform:    rc.Config.ContainerArchitecture,
 			Hostname:    hostname,
+			Tty:         rc.Config.Tty,
 		})
 
 		var copyWorkspace bool
