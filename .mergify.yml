@@ -67,6 +67,7 @@ pull_request_rules:
       - '#changes-requested-reviews-by=0'
       - or:
           - 'approved-reviews-by=@nektos/act-committers'
+          - 'author~=^dependabot(|-preview)\[bot\]$'
           - and:
               - 'approved-reviews-by=@nektos/act-maintainers'
               - '#approved-reviews-by>=3'
