@@ -101,11 +101,13 @@ func readActionImpl(step *model.Step, actionDir string, actionPath string, readF
 func runActionImpl(step actionStep, actionDir string, remoteAction *remoteAction) common.Executor {
 	rc := step.getRunContext()
 	stepModel := step.getStepModel()
+
 	return func(ctx context.Context) error {
 		actionPath := ""
 		if remoteAction != nil && remoteAction.Path != "" {
 			actionPath = remoteAction.Path
 		}
+
 		action := step.getActionModel()
 		log.Debugf("About to run action %v", action)
 
@@ -434,7 +436,7 @@ func execAsComposite(step actionStep, containerActionDir string) common.Executor
 			rc.JobContainer.ReplaceLogWriter(oldout, olderr)
 		})()
 
-		err := compositerc.compositeExecutor(action)(ctx)
+		err := runCompositeSteps(ctx, action, compositerc)
 
 		// Map outputs from composite RunContext to job RunContext
 		eval = compositerc.NewExpressionEvaluator()
@@ -452,8 +454,10 @@ func execAsComposite(step actionStep, containerActionDir string) common.Executor
 }
 
 // Executor returns a pipeline executor for all the steps in the job
-func (rc *RunContext) compositeExecutor(action *model.Action) common.Executor {
+func (rc *RunContext) compositeExecutor(action *model.Action) *compositeSteps {
 	steps := make([]common.Executor, 0)
+	preSteps := make([]common.Executor, 0)
+	postSteps := make([]common.Executor, 0)
 
 	sf := &stepFactoryImpl{}
 
@@ -468,12 +472,15 @@ func (rc *RunContext) compositeExecutor(action *model.Action) common.Executor {
 
 		step, err := sf.newStep(&stepcopy, rc)
 		if err != nil {
-			return common.NewErrorExecutor(err)
+			return &compositeSteps{
+				main: common.NewErrorExecutor(err),
+			}
 		}
-		stepExec := common.NewPipelineExecutor(step.pre(), step.main(), step.post())
+
+		preSteps = append(preSteps, step.pre())
 
 		steps = append(steps, func(ctx context.Context) error {
-			err := stepExec(ctx)
+			err := step.main()(ctx)
 			if err != nil {
 				common.Logger(ctx).Errorf("%v", err)
 				common.SetJobError(ctx, err)
@@ -483,12 +490,33 @@ func (rc *RunContext) compositeExecutor(action *model.Action) common.Executor {
 			}
 			return nil
 		})
+
+		postSteps = append([]common.Executor{step.post()}, postSteps...)
 	}
 
 	steps = append(steps, common.JobError)
-	return func(ctx context.Context) error {
-		return common.NewPipelineExecutor(steps...)(common.WithJobErrorContainer(ctx))
+	return &compositeSteps{
+		pre: common.NewPipelineExecutor(preSteps...),
+		main: func(ctx context.Context) error {
+			return common.NewPipelineExecutor(steps...)(common.WithJobErrorContainer(ctx))
+		},
+		post: common.NewPipelineExecutor(postSteps...),
 	}
+}
+
+func runCompositeSteps(ctx context.Context, action *model.Action, compositerc *RunContext) error {
+	steps := compositerc.compositeExecutor(action)
+	var err error
+	if steps.pre != nil {
+		err = steps.pre(ctx)
+	}
+	if err == nil {
+		err = steps.main(ctx)
+	}
+	if err == nil && steps.post != nil {
+		err = steps.post(ctx)
+	}
+	return err
 }
 
 func populateEnvsFromSavedState(env *map[string]string, step actionStep, rc *RunContext) {
