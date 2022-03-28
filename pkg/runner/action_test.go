@@ -146,7 +146,7 @@ func TestActionRunner(t *testing.T) {
 			name: "with-input",
 			step: &stepActionRemote{
 				Step: &model.Step{
-					Uses: "repo@ref",
+					Uses: "org/repo/path@ref",
 				},
 				RunContext: &RunContext{
 					Config: &Config{},
@@ -180,10 +180,10 @@ func TestActionRunner(t *testing.T) {
 			step: &stepActionRemote{
 				Step: &model.Step{
 					ID:   "step",
-					Uses: "repo@ref",
+					Uses: "org/repo/path@ref",
 				},
 				RunContext: &RunContext{
-					ActionRepository: "repo",
+					ActionRepository: "org/repo",
 					ActionPath:       "path",
 					ActionRef:        "ref",
 					Config:           &Config{},
