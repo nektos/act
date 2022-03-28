@@ -101,6 +101,7 @@ func readActionImpl(step *model.Step, actionDir string, actionPath string, readF
 func runActionImpl(step actionStep, actionDir string, remoteAction *remoteAction) common.Executor {
 	rc := step.getRunContext()
 	stepModel := step.getStepModel()
+
 	return func(ctx context.Context) error {
 		// Backup the parent composite action path and restore it on continue
 		parentActionPath := rc.ActionPath
@@ -123,6 +124,7 @@ func runActionImpl(step actionStep, actionDir string, remoteAction *remoteAction
 			rc.ActionRef = ""
 			rc.ActionRepository = ""
 		}
+
 		action := step.getActionModel()
 		log.Debugf("About to run action %v", action)
 
@@ -410,7 +412,7 @@ func execAsComposite(step actionStep) common.Executor {
 		compositerc.Inputs = inputs
 		compositerc.ExprEval = compositerc.NewExpressionEvaluator()
 
-		err := compositerc.compositeExecutor()(ctx)
+		err := runCompositeSteps(ctx, compositerc)
 
 		// Map outputs to parent rc
 		eval = compositerc.NewStepExpressionEvaluator(step)
@@ -431,6 +433,21 @@ func execAsComposite(step actionStep) common.Executor {
 		}
 		return err
 	}
+}
+
+func runCompositeSteps(ctx context.Context, compositerc *RunContext) error {
+	steps := compositerc.compositeExecutor()
+	var err error
+	if steps.pre != nil {
+		err = steps.pre(ctx)
+	}
+	if err == nil {
+		err = steps.main(ctx)
+	}
+	if err == nil && steps.post != nil {
+		err = steps.post(ctx)
+	}
+	return err
 }
 
 func populateEnvsFromSavedState(env *map[string]string, step actionStep, rc *RunContext) {

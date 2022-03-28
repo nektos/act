@@ -295,8 +295,10 @@ func (rc *RunContext) Executor() common.Executor {
 }
 
 // Executor returns a pipeline executor for all the steps in the job
-func (rc *RunContext) compositeExecutor() common.Executor {
+func (rc *RunContext) compositeExecutor() *compositeSteps {
 	steps := make([]common.Executor, 0)
+	preSteps := make([]common.Executor, 0)
+	postSteps := make([]common.Executor, 0)
 
 	sf := &stepFactoryImpl{}
 
@@ -311,12 +313,15 @@ func (rc *RunContext) compositeExecutor() common.Executor {
 
 		step, err := sf.newStep(&stepcopy, rc)
 		if err != nil {
-			return common.NewErrorExecutor(err)
+			return &compositeSteps{
+				main: common.NewErrorExecutor(err),
+			}
 		}
-		stepExec := common.NewPipelineExecutor(step.pre(), step.main(), step.post())
+
+		preSteps = append(preSteps, step.pre())
 
 		steps = append(steps, func(ctx context.Context) error {
-			err := stepExec(ctx)
+			err := step.main()(ctx)
 			if err != nil {
 				common.Logger(ctx).Errorf("%v", err)
 				common.SetJobError(ctx, err)
@@ -326,11 +331,17 @@ func (rc *RunContext) compositeExecutor() common.Executor {
 			}
 			return nil
 		})
+
+		postSteps = append([]common.Executor{step.post()}, postSteps...)
 	}
 
 	steps = append(steps, common.JobError)
-	return func(ctx context.Context) error {
-		return common.NewPipelineExecutor(steps...)(common.WithJobErrorContainer(ctx))
+	return &compositeSteps{
+		pre: common.NewPipelineExecutor(preSteps...),
+		main: func(ctx context.Context) error {
+			return common.NewPipelineExecutor(steps...)(common.WithJobErrorContainer(ctx))
+		},
+		post: common.NewPipelineExecutor(postSteps...),
 	}
 }
 
