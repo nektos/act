@@ -10,7 +10,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/google/shlex"
+	"github.com/kballard/go-shellquote"
 	"github.com/spf13/pflag"
 
 	"github.com/mitchellh/go-homedir"
@@ -366,7 +366,7 @@ func (rc *RunContext) hostname() string {
 
 	optionsFlags := pflag.NewFlagSet("container_options", pflag.ContinueOnError)
 	hostname := optionsFlags.StringP("hostname", "h", "", "")
-	optionsArgs, err := shlex.Split(c.Options)
+	optionsArgs, err := shellquote.Split(c.Options)
 	if err != nil {
 		log.Warnf("Cannot parse container options: %s", c.Options)
 		return ""

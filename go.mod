@@ -3,17 +3,16 @@ module github.com/nektos/act
 go 1.16
 
 require (
-	github.com/AlecAivazis/survey/v2 v2.3.2
+	github.com/AlecAivazis/survey/v2 v2.3.4
 	github.com/Masterminds/semver v1.5.0
 	github.com/ProtonMail/go-crypto v0.0.0-20210920160938-87db9fbc61c7 // indirect
 	github.com/andreaskoch/go-fswatch v1.0.0
-	github.com/docker/cli v20.10.13+incompatible
+	github.com/docker/cli v20.10.14+incompatible
 	github.com/docker/distribution v2.8.1+incompatible
-	github.com/docker/docker v20.10.13+incompatible
+	github.com/docker/docker v20.10.14+incompatible
 	github.com/go-git/go-billy/v5 v5.3.1
 	github.com/go-git/go-git/v5 v5.4.2
 	github.com/go-ini/ini v1.66.4
-	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/joho/godotenv v1.4.0
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
