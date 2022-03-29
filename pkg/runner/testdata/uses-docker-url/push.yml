@@ -9,3 +9,15 @@ jobs:
         with:
           somekey: somevalue
           args: echo ${INPUT_SOMEKEY} | grep somevalue
+      - uses: docker://node:16-buster-slim
+        with:
+          args: -v
+      - uses: docker://node:16-buster-slim
+        with:
+          entrypoint: /bin/sh
+          args: -c -- uname -a
+      - uses: docker://node:16-buster-slim
+        with:
+          entrypoint: /bin/sh
+          args: -c 'uname -a'
+
