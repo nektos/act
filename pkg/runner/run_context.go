@@ -43,7 +43,6 @@ type RunContext struct {
 	ActionPath       string
 	ActionRef        string
 	ActionRepository string
-	Composite        *model.Action
 	Inputs           map[string]interface{}
 	Parent           *RunContext
 	Masks            []string
@@ -51,16 +50,6 @@ type RunContext struct {
 
 func (rc *RunContext) AddMask(mask string) {
 	rc.Masks = append(rc.Masks, mask)
-}
-
-func (rc *RunContext) Clone() *RunContext {
-	clone := *rc
-	clone.CurrentStep = ""
-	clone.Composite = nil
-	clone.Inputs = nil
-	clone.StepResults = make(map[string]*model.StepResult)
-	clone.Parent = rc
-	return &clone
 }
 
 type MappableOutput struct {
@@ -306,46 +295,6 @@ func (rc *RunContext) Executor() common.Executor {
 		}
 
 		return nil
-	}
-}
-
-// Executor returns a pipeline executor for all the steps in the job
-func (rc *RunContext) compositeExecutor() common.Executor {
-	steps := make([]common.Executor, 0)
-
-	sf := &stepFactoryImpl{}
-
-	for i, step := range rc.Composite.Runs.Steps {
-		if step.ID == "" {
-			step.ID = fmt.Sprintf("%d", i)
-		}
-
-		// create a copy of the step, since this composite action could
-		// run multiple times and we might modify the instance
-		stepcopy := step
-
-		step, err := sf.newStep(&stepcopy, rc)
-		if err != nil {
-			return common.NewErrorExecutor(err)
-		}
-		stepExec := common.NewPipelineExecutor(step.pre(), step.main(), step.post())
-
-		steps = append(steps, func(ctx context.Context) error {
-			err := stepExec(ctx)
-			if err != nil {
-				common.Logger(ctx).Errorf("%v", err)
-				common.SetJobError(ctx, err)
-			} else if ctx.Err() != nil {
-				common.Logger(ctx).Errorf("%v", ctx.Err())
-				common.SetJobError(ctx, ctx.Err())
-			}
-			return nil
-		})
-	}
-
-	steps = append(steps, common.JobError)
-	return func(ctx context.Context) error {
-		return common.NewPipelineExecutor(steps...)(common.WithJobErrorContainer(ctx))
 	}
 }
 
@@ -628,8 +577,6 @@ func (rc *RunContext) withGithubEnv(env map[string]string) map[string]string {
 	env["GITHUB_SERVER_URL"] = "https://github.com"
 	env["GITHUB_API_URL"] = "https://api.github.com"
 	env["GITHUB_GRAPHQL_URL"] = "https://api.github.com/graphql"
-	env["GITHUB_ACTION_REF"] = github.ActionRef
-	env["GITHUB_ACTION_REPOSITORY"] = github.ActionRepository
 	env["GITHUB_BASE_REF"] = github.BaseRef
 	env["GITHUB_HEAD_REF"] = github.HeadRef
 	env["GITHUB_JOB"] = rc.JobName

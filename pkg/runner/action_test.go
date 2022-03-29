@@ -136,16 +136,6 @@ runs:
 	}
 }
 
-type exprEvalMock struct {
-	ExpressionEvaluator
-	mock.Mock
-}
-
-func (e *exprEvalMock) Interpolate(expr string) string {
-	args := e.Called(expr)
-	return args.String(0)
-}
-
 func TestActionRunner(t *testing.T) {
 	table := []struct {
 		name string
@@ -158,10 +148,7 @@ func TestActionRunner(t *testing.T) {
 					Uses: "repo@ref",
 				},
 				RunContext: &RunContext{
-					ActionRepository: "repo",
-					ActionPath:       "path",
-					ActionRef:        "ref",
-					Config:           &Config{},
+					Config: &Config{},
 					Run: &model.Run{
 						JobID: "job",
 						Workflow: &model.Workflow{
@@ -197,14 +184,9 @@ func TestActionRunner(t *testing.T) {
 			cm.On("Exec", []string{"node", "/var/run/act/actions/dir/path"}, map[string]string{"INPUT_KEY": "default value"}, "", "").Return(func(ctx context.Context) error { return nil })
 			tt.step.getRunContext().JobContainer = cm
 
-			ee := &exprEvalMock{}
-			ee.On("Interpolate", "default value").Return("default value")
-			tt.step.getRunContext().ExprEval = ee
-
 			err := runActionImpl(tt.step, "dir", newRemoteAction("org/repo/path@ref"))(ctx)
 
 			assert.Nil(t, err)
-			ee.AssertExpectations(t)
 			cm.AssertExpectations(t)
 		})
 	}
