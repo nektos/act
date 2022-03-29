@@ -59,12 +59,11 @@ type fileCollector struct {
 	Ignorer   gitignore.Matcher
 	SrcPath   string
 	SrcPrefix string
-	Context   context.Context
 	Handler   fileCollectorHandler
 }
 
 // nolint: gocyclo
-func (fc *fileCollector) collectFiles(submodulePath []string) func(file string, fi os.FileInfo, err error) error {
+func (fc *fileCollector) collectFiles(ctx context.Context, submodulePath []string) func(file string, fi os.FileInfo, err error) error {
 	var i *index.Index
 	if r, err := git.PlainOpen(path.Join(fc.SrcPath, path.Join(submodulePath...))); err == nil {
 		i, err = r.Storer.Index()
@@ -76,9 +75,9 @@ func (fc *fileCollector) collectFiles(submodulePath []string) func(file string, 
 		if err != nil {
 			return err
 		}
-		if fc.Context != nil {
+		if ctx != nil {
 			select {
-			case <-fc.Context.Done():
+			case <-ctx.Done():
 				return fmt.Errorf("copy cancelled")
 			default:
 			}
@@ -111,7 +110,7 @@ func (fc *fileCollector) collectFiles(submodulePath []string) func(file string, 
 			}
 		}
 		if err == nil && entry.Mode == filemode.Submodule {
-			err = filepath.Walk(fi.Name(), fc.collectFiles(split))
+			err = filepath.Walk(fi.Name(), fc.collectFiles(ctx, split))
 			if err != nil {
 				return err
 			}
@@ -137,14 +136,14 @@ func (fc *fileCollector) collectFiles(submodulePath []string) func(file string, 
 		}
 		defer f.Close()
 
-		if fc.Context != nil {
+		if ctx != nil {
 			// make io.Copy cancellable by closing the file
-			cpctx, cpfinish := context.WithCancel(fc.Context)
+			cpctx, cpfinish := context.WithCancel(ctx)
 			defer cpfinish()
 			go func() {
 				select {
 				case <-cpctx.Done():
-				case <-fc.Context.Done():
+				case <-ctx.Done():
 					f.Close()
 				}
 			}()

@@ -602,13 +602,12 @@ func (cr *containerReference) copyDir(dstPath string, srcPath string, useGitIgno
 			Ignorer:   ignorer,
 			SrcPath:   srcPath,
 			SrcPrefix: srcPrefix,
-			Context:   ctx,
 			Handler: &tarCollector{
 				TarWriter: tw,
 			},
 		}
 
-		err = filepath.Walk(srcPath, fc.collectFiles([]string{}))
+		err = filepath.Walk(srcPath, fc.collectFiles(ctx, []string{}))
 		if err != nil {
 			return err
 		}
