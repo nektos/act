@@ -5,7 +5,7 @@ on:
       - v*
 
 env:
-  GO_VERSION: 1.17
+  GO_VERSION: 1.18
 
 jobs:
   release:

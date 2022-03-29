@@ -4,7 +4,7 @@ on: [pull_request, workflow_dispatch]
 env:
   ACT_OWNER: ${{ github.repository_owner }}
   ACT_REPOSITORY: ${{ github.repository }}
-  GO_VERSION: 1.17
+  GO_VERSION: 1.18
   CGO_ENABLED: 0
 
 jobs:
