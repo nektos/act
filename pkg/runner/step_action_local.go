@@ -58,7 +58,7 @@ func (sal *stepActionLocal) main() common.Executor {
 		sal.action = actionModel
 		log.Debugf("Read action %v from '%s'", sal.action, "Unknown")
 
-		return sal.runAction(sal, actionDir, "", "", "", true)(ctx)
+		return sal.runAction(sal, actionDir, nil)(ctx)
 	})
 }
 
