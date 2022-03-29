@@ -570,7 +570,6 @@ func (cr *containerReference) exec(cmd []string, env map[string]string, user, wo
 	}
 }
 
-// nolint: gocyclo
 func (cr *containerReference) copyDir(dstPath string, srcPath string, useGitIgnore bool) common.Executor {
 	return func(ctx context.Context) error {
 		logger := common.Logger(ctx)

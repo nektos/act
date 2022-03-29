@@ -63,6 +63,7 @@ type fileCollector struct {
 	Handler   fileCollectorHandler
 }
 
+// nolint: gocyclo
 func (fc *fileCollector) collectFiles(submodulePath []string) func(file string, fi os.FileInfo, err error) error {
 	var i *index.Index
 	if r, err := git.PlainOpen(path.Join(fc.SrcPath, path.Join(submodulePath...))); err == nil {
