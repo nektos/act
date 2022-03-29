@@ -201,9 +201,7 @@ func TestActionRunner(t *testing.T) {
 			ee.On("Interpolate", "default value").Return("default value")
 			tt.step.getRunContext().ExprEval = ee
 
-			_, localAction := tt.step.(*stepActionRemote)
-
-			err := runActionImpl(tt.step, "dir", "path", "repo", "ref", localAction)(ctx)
+			err := runActionImpl(tt.step, "dir", newRemoteAction("org/repo/path@ref"))(ctx)
 
 			assert.Nil(t, err)
 			ee.AssertExpectations(t)

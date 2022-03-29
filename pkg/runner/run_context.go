@@ -295,7 +295,7 @@ func (rc *RunContext) Executor() common.Executor {
 }
 
 // Executor returns a pipeline executor for all the steps in the job
-func (rc *RunContext) CompositeExecutor() common.Executor {
+func (rc *RunContext) compositeExecutor() common.Executor {
 	steps := make([]common.Executor, 0)
 
 	sf := &stepFactoryImpl{}
