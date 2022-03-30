@@ -123,6 +123,7 @@ func TestRunEvent(t *testing.T) {
 		{"testdata", "uses-composite", "push", "", platforms, ""},
 		{"testdata", "uses-composite-with-error", "push", "Job 'failing-composite-action' failed", platforms, ""},
 		{"testdata", "uses-nested-composite", "push", "", platforms, ""},
+		{"testdata", "uses-workflow", "push", "reusable workflows are currently not supported (see https://github.com/nektos/act/issues/826 for updates)", platforms, ""},
 		{"testdata", "composite-fail-with-output", "push", "", platforms, ""},
 		{"testdata", "issue-597", "push", "", platforms, ""},
 		{"testdata", "issue-598", "push", "", platforms, ""},
