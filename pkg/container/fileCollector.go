@@ -59,18 +59,47 @@ type fileCollector struct {
 	Ignorer   gitignore.Matcher
 	SrcPath   string
 	SrcPrefix string
+	Fs        fileCollectorFs
 	Handler   fileCollectorHandler
 }
 
-// nolint: gocyclo
-func (fc *fileCollector) collectFiles(ctx context.Context, submodulePath []string) func(file string, fi os.FileInfo, err error) error {
-	var i *index.Index
-	if r, err := git.PlainOpen(path.Join(fc.SrcPath, path.Join(submodulePath...))); err == nil {
-		i, err = r.Storer.Index()
-		if err != nil {
-			i = nil
-		}
+type fileCollectorFs interface {
+	Walk(root string, fn filepath.WalkFunc) error
+	OpenGitIndex(path string) (*index.Index, error)
+	Open(path string) (io.ReadCloser, error)
+	Readlink(path string) (string, error)
+}
+
+type defaultFs struct {
+}
+
+func (*defaultFs) Walk(root string, fn filepath.WalkFunc) error {
+	return filepath.Walk(root, fn)
+}
+
+func (*defaultFs) OpenGitIndex(path string) (*index.Index, error) {
+	r, err := git.PlainOpen(path)
+	if err != nil {
+		return nil, err
 	}
+	i, err := r.Storer.Index()
+	if err != nil {
+		return nil, err
+	}
+	return i, nil
+}
+
+func (*defaultFs) Open(path string) (io.ReadCloser, error) {
+	return os.Open(path)
+}
+
+func (*defaultFs) Readlink(path string) (string, error) {
+	return os.Readlink(path)
+}
+
+// nolint: gocyclo
+func (fc *fileCollector) collectFiles(ctx context.Context, submodulePath []string) filepath.WalkFunc {
+	i, _ := fc.Fs.OpenGitIndex(path.Join(fc.SrcPath, path.Join(submodulePath...)))
 	return func(file string, fi os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -120,7 +149,7 @@ func (fc *fileCollector) collectFiles(ctx context.Context, submodulePath []strin
 
 		// return on non-regular files (thanks to [kumo](https://medium.com/@komuw/just-like-you-did-fbdd7df829d3) for this suggested update)
 		if fi.Mode()&os.ModeSymlink == os.ModeSymlink {
-			linkName, err := os.Readlink(file)
+			linkName, err := fc.Fs.Readlink(file)
 			if err != nil {
 				return errors.WithMessagef(err, "unable to readlink %s", file)
 			}
@@ -130,7 +159,7 @@ func (fc *fileCollector) collectFiles(ctx context.Context, submodulePath []strin
 		}
 
 		// open file
-		f, err := os.Open(file)
+		f, err := fc.Fs.Open(file)
 		if err != nil {
 			return err
 		}

@@ -599,6 +599,7 @@ func (cr *containerReference) copyDir(dstPath string, srcPath string, useGitIgno
 		}
 
 		fc := &fileCollector{
+			Fs:        &defaultFs{},
 			Ignorer:   ignorer,
 			SrcPath:   srcPath,
 			SrcPrefix: srcPrefix,
