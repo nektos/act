@@ -74,17 +74,22 @@ func (mfs *memoryFs) Readlink(path string) (string, error) {
 	return mfs.Filesystem.Readlink(path)
 }
 
-func TestGitIgnoreDotStar(t *testing.T) {
+func TestIgnoredTrackedfile(t *testing.T) {
 	fs := memfs.New()
 	_ = fs.MkdirAll("mygitrepo/.git", 0777)
 	dotgit, _ := fs.Chroot("mygitrepo/.git")
 	worktree, _ := fs.Chroot("mygitrepo")
 	repo, _ := git.Init(filesystem.NewStorage(dotgit, cache.NewObjectLRUDefault()), worktree)
 	f, _ := worktree.Create(".gitignore")
-	f.Write([]byte(".*\n"))
+	_, _ = f.Write([]byte(".*\n"))
+	f.Close()
+	// This file shouldn't be in the tar
+	f, _ = worktree.Create(".env")
+	_, _ = f.Write([]byte("test=val1\n"))
 	f.Close()
 	w, _ := repo.Worktree()
-	w.Add(".gitignore")
+	// .gitignore is in the tar after adding it to the index
+	_, _ = w.Add(".gitignore")
 
 	tmpTar, _ := fs.Create("temp.tar")
 	tw := tar.NewWriter(tmpTar)
