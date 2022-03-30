@@ -181,7 +181,12 @@ func TestActionRunner(t *testing.T) {
 
 			cm := &containerMock{}
 			cm.On("CopyDir", "/var/run/act/actions/dir/", "dir/", false).Return(func(ctx context.Context) error { return nil })
-			cm.On("Exec", []string{"node", "/var/run/act/actions/dir/path"}, map[string]string{"INPUT_KEY": "default value"}, "", "").Return(func(ctx context.Context) error { return nil })
+
+			envMatcher := mock.MatchedBy(func(env map[string]string) bool {
+				return env["INPUT_KEY"] == "default value"
+			})
+			cm.On("Exec", []string{"node", "/var/run/act/actions/dir/path"}, envMatcher, "", "").Return(func(ctx context.Context) error { return nil })
+
 			tt.step.getRunContext().JobContainer = cm
 
 			err := runActionImpl(tt.step, "dir", newRemoteAction("org/repo/path@ref"))(ctx)
