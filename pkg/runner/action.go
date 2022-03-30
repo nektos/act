@@ -109,6 +109,24 @@ func runActionImpl(step actionStep, actionDir string, remoteAction *remoteAction
 		action := step.getActionModel()
 		log.Debugf("About to run action %v", action)
 
+		if remoteAction != nil {
+			rc.ActionRepository = fmt.Sprintf("%s/%s", remoteAction.Org, remoteAction.Repo)
+			rc.ActionRef = remoteAction.Ref
+		} else {
+			rc.ActionRepository = ""
+			rc.ActionRef = ""
+		}
+		defer (func() {
+			// cleanup after the action is done, to avoid side-effects in
+			// the next step/action
+			rc.ActionRepository = ""
+			rc.ActionRef = ""
+		})()
+
+		// we need to merge with github-env again, since at the step setup
+		// time, we don't have all environment prepared
+		mergeIntoMap(step.getEnv(), rc.withGithubEnv(map[string]string{}))
+
 		populateEnvsFromInput(step.getEnv(), action, rc)
 
 		actionLocation := path.Join(actionDir, actionPath)
