@@ -388,20 +388,6 @@ func execAsComposite(step actionStep, containerActionDir string) common.Executor
 			env[k] = eval.Interpolate(v)
 		}
 
-		var actionPath string
-		var actionRepository string
-		var actionRef string
-		if step.getStepModel().Type() == model.StepTypeUsesActionRemote {
-			ra := newRemoteAction(step.getStepModel().Uses)
-			actionPath = containerActionDir
-			actionRepository = ra.Repo
-			actionRef = ra.Ref
-		} else {
-			actionPath = containerActionDir
-			actionRepository = ""
-			actionRef = ""
-		}
-
 		// run with the global config but without secrets
 		configCopy := *rc.Config
 		configCopy.Secrets = nil
@@ -422,9 +408,9 @@ func execAsComposite(step actionStep, containerActionDir string) common.Executor
 			StepResults:      map[string]*model.StepResult{},
 			JobContainer:     rc.JobContainer,
 			Inputs:           inputs,
-			ActionPath:       actionPath,
-			ActionRepository: actionRepository,
-			ActionRef:        actionRef,
+			ActionPath:       containerActionDir,
+			ActionRepository: rc.ActionRepository,
+			ActionRef:        rc.ActionRef,
 			Env:              env,
 		}
 
