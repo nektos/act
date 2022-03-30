@@ -418,7 +418,15 @@ func execAsComposite(step actionStep, containerActionDir string) common.Executor
 		// handler into the current running job container
 		// We need this, to support scoping commands to the composite action
 		// executing.
-		logWriter := common.NewLineWriter(compositerc.commandHandler(ctx))
+		rawLogger := common.Logger(ctx).WithField("raw_output", true)
+		logWriter := common.NewLineWriter(compositerc.commandHandler(ctx), func(s string) bool {
+			if rc.Config.LogOutput {
+				rawLogger.Infof("%s", s)
+			} else {
+				rawLogger.Debugf("%s", s)
+			}
+			return true
+		})
 		oldout, olderr := compositerc.JobContainer.ReplaceLogWriter(logWriter, logWriter)
 		defer (func() {
 			rc.JobContainer.ReplaceLogWriter(oldout, olderr)
