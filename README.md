@@ -102,7 +102,7 @@ nix-shell -p act
 
 ### [Go](https://golang.org) (Linux/Windows/macOS/any other platform supported by Go)
 
-If you have Go 1.16+, you can install latest released version of `act` directly from source by running:
+If you have Go 1.18+, you can install latest released version of `act` directly from source by running:
 
 ```sh
 go install github.com/nektos/act@latest
@@ -394,7 +394,7 @@ Want to contribute to act? Awesome! Check out the [contributing guidelines](CONT
 
 ## Manually building from source
 
-- Install Go tools 1.16+ - (<https://golang.org/doc/install>)
+- Install Go tools 1.18+ - (<https://golang.org/doc/install>)
 - Clone this repo `git clone git@github.com:nektos/act.git`
 - Run unit tests with `make test`
 - Build and install: `make install`
