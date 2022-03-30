@@ -12,6 +12,6 @@ indent_size = 4
 indent_style = unset
 indent_size = unset
 
-[*.{yml,yaml,js{,on}}]
+[*.{yml,yaml,js,json}]
 indent_style = space
 indent_size = 2
