@@ -9,3 +9,5 @@ jobs:
       - uses: actions/checkout@v3
       - uses: './actions-environment-and-context-tests/js'
       - uses: './actions-environment-and-context-tests/docker'
+      - uses: 'KnisterPeter/act-test-actions/js@main'
+      - uses: 'KnisterPeter/act-test-actions/docker@main'
