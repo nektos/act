@@ -394,7 +394,8 @@ func execAsComposite(step actionStep, containerActionDir string) common.Executor
 
 		// create a run context for the composite action to run in
 		compositerc := &RunContext{
-			Name: rc.Name,
+			Name:    rc.Name,
+			JobName: rc.JobName,
 			Run: &model.Run{
 				JobID: "composite-job",
 				Workflow: &model.Workflow{
