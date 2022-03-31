@@ -8,6 +8,76 @@ import (
 	"github.com/nektos/act/pkg/model"
 )
 
+func evaluteCompositeInputAndEnv(parent *RunContext, step actionStep) (inputs map[string]interface{}, env map[string]string) {
+	eval := parent.NewExpressionEvaluator()
+
+	inputs = make(map[string]interface{})
+	for k, input := range step.getActionModel().Inputs {
+		inputs[k] = eval.Interpolate(input.Default)
+	}
+	if step.getStepModel().With != nil {
+		for k, v := range step.getStepModel().With {
+			inputs[k] = eval.Interpolate(v)
+		}
+	}
+
+	env = make(map[string]string)
+	for k, v := range parent.Env {
+		env[k] = eval.Interpolate(v)
+	}
+	for k, v := range step.getStepModel().Environment() {
+		env[k] = eval.Interpolate(v)
+	}
+
+	return inputs, env
+}
+
+func newCompositeRunContext(parent *RunContext, step actionStep, containerActionDir string) *RunContext {
+	inputs, env := evaluteCompositeInputAndEnv(parent, step)
+
+	// run with the global config but without secrets
+	configCopy := *(parent.Config)
+	configCopy.Secrets = nil
+
+	// create a run context for the composite action to run in
+	compositerc := &RunContext{
+		Name:    parent.Name,
+		JobName: parent.JobName,
+		Run: &model.Run{
+			JobID: "composite-job",
+			Workflow: &model.Workflow{
+				Name: parent.Run.Workflow.Name,
+				Jobs: map[string]*model.Job{
+					"composite-job": {},
+				},
+			},
+		},
+		Config:           &configCopy,
+		StepResults:      map[string]*model.StepResult{},
+		JobContainer:     parent.JobContainer,
+		Inputs:           inputs,
+		ActionPath:       containerActionDir,
+		ActionRepository: parent.ActionRepository,
+		ActionRef:        parent.ActionRef,
+		Env:              env,
+		Masks:            parent.Masks,
+		ExtraPath:        parent.ExtraPath,
+	}
+
+	return compositerc
+}
+
+// This updates a composite context inputs, env and masks.
+// This is needed to re-evalute/update that context between pre/main/post steps.
+// Some of the inputs/env may requires the results of in-between steps.
+func (rc *RunContext) updateCompositeRunContext(parent *RunContext, step actionStep) {
+	inputs, env := evaluteCompositeInputAndEnv(parent, step)
+
+	rc.Inputs = inputs
+	rc.Env = env
+	rc.Masks = append(rc.Masks, parent.Masks...)
+}
+
 func execAsComposite(step actionStep, containerActionDir string) common.Executor {
 	rc := step.getRunContext()
 	action := step.getActionModel()
@@ -20,79 +90,15 @@ func execAsComposite(step actionStep, containerActionDir string) common.Executor
 			}
 		}
 
-		eval := rc.NewExpressionEvaluator()
-
-		inputs := make(map[string]interface{})
-		for k, input := range action.Inputs {
-			inputs[k] = eval.Interpolate(input.Default)
-		}
-		if step.getStepModel().With != nil {
-			for k, v := range step.getStepModel().With {
-				inputs[k] = eval.Interpolate(v)
-			}
-		}
-
-		env := make(map[string]string)
-		for k, v := range rc.Env {
-			env[k] = eval.Interpolate(v)
-		}
-		for k, v := range step.getStepModel().Environment() {
-			env[k] = eval.Interpolate(v)
-		}
-
-		// run with the global config but without secrets
-		configCopy := *rc.Config
-		configCopy.Secrets = nil
-
-		// create a run context for the composite action to run in
-		compositerc := &RunContext{
-			Name:    rc.Name,
-			JobName: rc.JobName,
-			Run: &model.Run{
-				JobID: "composite-job",
-				Workflow: &model.Workflow{
-					Name: rc.Run.Workflow.Name,
-					Jobs: map[string]*model.Job{
-						"composite-job": {},
-					},
-				},
-			},
-			Config:           &configCopy,
-			StepResults:      map[string]*model.StepResult{},
-			JobContainer:     rc.JobContainer,
-			Inputs:           inputs,
-			ActionPath:       containerActionDir,
-			ActionRepository: rc.ActionRepository,
-			ActionRef:        rc.ActionRef,
-			Env:              env,
-			Masks:            rc.Masks,
-			ExtraPath:        rc.ExtraPath,
-		}
+		compositerc := newCompositeRunContext(rc, step, containerActionDir)
+		compositerc.updateCompositeRunContext(rc, step)
 
 		ctx = WithCompositeLogger(ctx, &compositerc.Masks)
-
-		// We need to inject a composite RunContext related command
-		// handler into the current running job container
-		// We need this, to support scoping commands to the composite action
-		// executing.
-		rawLogger := common.Logger(ctx).WithField("raw_output", true)
-		logWriter := common.NewLineWriter(compositerc.commandHandler(ctx), func(s string) bool {
-			if rc.Config.LogOutput {
-				rawLogger.Infof("%s", s)
-			} else {
-				rawLogger.Debugf("%s", s)
-			}
-			return true
-		})
-		oldout, olderr := compositerc.JobContainer.ReplaceLogWriter(logWriter, logWriter)
-		defer (func() {
-			rc.JobContainer.ReplaceLogWriter(oldout, olderr)
-		})()
 
 		err := runCompositeSteps(ctx, action, compositerc)
 
 		// Map outputs from composite RunContext to job RunContext
-		eval = compositerc.NewExpressionEvaluator()
+		eval := compositerc.NewExpressionEvaluator()
 		for outputName, output := range action.Outputs {
 			rc.setOutput(ctx, map[string]string{
 				"name": outputName,
@@ -155,11 +161,34 @@ func (rc *RunContext) compositeExecutor(action *model.Action) *compositeSteps {
 
 	steps = append(steps, common.JobError)
 	return &compositeSteps{
-		pre: common.NewPipelineExecutor(preSteps...),
-		main: func(ctx context.Context) error {
+		pre: rc.newCompositeCommandExecutor(common.NewPipelineExecutor(preSteps...)),
+		main: rc.newCompositeCommandExecutor(func(ctx context.Context) error {
 			return common.NewPipelineExecutor(steps...)(common.WithJobErrorContainer(ctx))
-		},
-		post: common.NewPipelineExecutor(postSteps...),
+		}),
+		post: rc.newCompositeCommandExecutor(common.NewPipelineExecutor(postSteps...)),
+	}
+}
+
+func (rc *RunContext) newCompositeCommandExecutor(executor common.Executor) common.Executor {
+	return func(ctx context.Context) error {
+		// We need to inject a composite RunContext related command
+		// handler into the current running job container
+		// We need this, to support scoping commands to the composite action
+		// executing.
+		rawLogger := common.Logger(ctx).WithField("raw_output", true)
+		logWriter := common.NewLineWriter(rc.commandHandler(ctx), func(s string) bool {
+			if rc.Config.LogOutput {
+				rawLogger.Infof("%s", s)
+			} else {
+				rawLogger.Debugf("%s", s)
+			}
+			return true
+		})
+
+		oldout, olderr := rc.JobContainer.ReplaceLogWriter(logWriter, logWriter)
+		defer rc.JobContainer.ReplaceLogWriter(oldout, olderr)
+
+		return executor(ctx)
 	}
 }
 
