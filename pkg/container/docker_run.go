@@ -578,8 +578,17 @@ func (cr *containerReference) copyDir(dstPath string, srcPath string, useGitIgno
 			return err
 		}
 		log.Debugf("Writing tarball %s from %s", tarFile.Name(), srcPath)
-		defer os.Remove(tarFile.Name())
-		defer tarFile.Close()
+		defer func(tarFile *os.File) {
+			name := tarFile.Name()
+			err := tarFile.Close()
+			if err != nil {
+				logger.Error(err)
+			}
+			err = os.Remove(name)
+			if err != nil {
+				logger.Error(err)
+			}
+		}(tarFile)
 		tw := tar.NewWriter(tarFile)
 
 		srcPrefix := filepath.Dir(srcPath)
