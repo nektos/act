@@ -32,7 +32,7 @@ func evaluteCompositeInputAndEnv(parent *RunContext, step actionStep) (inputs ma
 	return inputs, env
 }
 
-func newCompositeRunContext(parent *RunContext, step actionStep, containerActionDir string) *RunContext {
+func newCompositeRunContext(parent *RunContext, step actionStep, actionPath string) *RunContext {
 	inputs, env := evaluteCompositeInputAndEnv(parent, step)
 
 	// run with the global config but without secrets
@@ -56,7 +56,7 @@ func newCompositeRunContext(parent *RunContext, step actionStep, containerAction
 		StepResults:      map[string]*model.StepResult{},
 		JobContainer:     parent.JobContainer,
 		Inputs:           inputs,
-		ActionPath:       containerActionDir,
+		ActionPath:       actionPath,
 		ActionRepository: parent.ActionRepository,
 		ActionRef:        parent.ActionRef,
 		Env:              env,
@@ -78,24 +78,25 @@ func (rc *RunContext) updateCompositeRunContext(parent *RunContext, step actionS
 	rc.Masks = append(rc.Masks, parent.Masks...)
 }
 
-func execAsComposite(step actionStep, containerActionDir string) common.Executor {
+func execAsComposite(step actionStep) common.Executor {
 	rc := step.getRunContext()
 	action := step.getActionModel()
 
 	return func(ctx context.Context) error {
-		// Disable some features of composite actions, only for feature parity with github
-		for _, compositeStep := range action.Runs.Steps {
-			if err := compositeStep.Validate(rc.Config.CompositeRestrictions); err != nil {
-				return err
-			}
-		}
+		compositerc := step.getCompositeRunContext()
 
-		compositerc := newCompositeRunContext(rc, step, containerActionDir)
+		var err error
+		steps := step.getCompositeSteps()
 		compositerc.updateCompositeRunContext(rc, step)
 
 		ctx = WithCompositeLogger(ctx, &compositerc.Masks)
 
-		err := runCompositeSteps(ctx, action, compositerc)
+		// todo: pre should be run in the pre step
+		err = steps.pre(ctx)
+		if err == nil {
+			compositerc.updateCompositeRunContext(rc, step)
+			err = steps.main(ctx)
+		}
 
 		// Map outputs from composite RunContext to job RunContext
 		eval := compositerc.NewExpressionEvaluator()
@@ -190,19 +191,4 @@ func (rc *RunContext) newCompositeCommandExecutor(executor common.Executor) comm
 
 		return executor(ctx)
 	}
-}
-
-func runCompositeSteps(ctx context.Context, action *model.Action, compositerc *RunContext) error {
-	steps := compositerc.compositeExecutor(action)
-	var err error
-	if steps.pre != nil {
-		err = steps.pre(ctx)
-	}
-	if err == nil {
-		err = steps.main(ctx)
-	}
-	if err == nil && steps.post != nil {
-		err = steps.post(ctx)
-	}
-	return err
 }
