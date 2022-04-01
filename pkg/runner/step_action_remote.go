@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -17,12 +18,14 @@ import (
 )
 
 type stepActionRemote struct {
-	Step       *model.Step
-	RunContext *RunContext
-	readAction readAction
-	runAction  runAction
-	action     *model.Action
-	env        map[string]string
+	Step                *model.Step
+	RunContext          *RunContext
+	compositeRunContext *RunContext
+	compositeSteps      *compositeSteps
+	readAction          readAction
+	runAction           runAction
+	action              *model.Action
+	env                 map[string]string
 }
 
 func (sar *stepActionRemote) pre() common.Executor {
@@ -121,6 +124,22 @@ func (sar *stepActionRemote) getIfExpression(stage stepStage) string {
 
 func (sar *stepActionRemote) getActionModel() *model.Action {
 	return sar.action
+}
+
+func (sar *stepActionRemote) getCompositeRunContext() *RunContext {
+	if sar.compositeRunContext == nil {
+		actionDir := fmt.Sprintf("%s/%s", sar.RunContext.ActionCacheDir(), strings.ReplaceAll(sar.Step.Uses, "/", "-"))
+		actionLocation := path.Join(actionDir, newRemoteAction(sar.Step.Uses).Path)
+		_, containerActionDir := getContainerActionPaths(sar.getStepModel(), actionLocation, sar.RunContext)
+
+		sar.compositeRunContext = newCompositeRunContext(sar.RunContext, sar, containerActionDir)
+		sar.compositeSteps = sar.compositeRunContext.compositeExecutor(sar.action)
+	}
+	return sar.compositeRunContext
+}
+
+func (sar *stepActionRemote) getCompositeSteps() *compositeSteps {
+	return sar.compositeSteps
 }
 
 type remoteAction struct {

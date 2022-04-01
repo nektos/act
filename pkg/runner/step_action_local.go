@@ -15,12 +15,14 @@ import (
 )
 
 type stepActionLocal struct {
-	Step       *model.Step
-	RunContext *RunContext
-	runAction  runAction
-	readAction readAction
-	env        map[string]string
-	action     *model.Action
+	Step                *model.Step
+	RunContext          *RunContext
+	compositeRunContext *RunContext
+	compositeSteps      *compositeSteps
+	runAction           runAction
+	readAction          readAction
+	env                 map[string]string
+	action              *model.Action
 }
 
 func (sal *stepActionLocal) pre() common.Executor {
@@ -90,4 +92,19 @@ func (sal *stepActionLocal) getIfExpression(stage stepStage) string {
 
 func (sal *stepActionLocal) getActionModel() *model.Action {
 	return sal.action
+}
+
+func (sal *stepActionLocal) getCompositeRunContext() *RunContext {
+	if sal.compositeRunContext == nil {
+		actionDir := filepath.Join(sal.RunContext.Config.Workdir, sal.Step.Uses)
+		_, containerActionDir := getContainerActionPaths(sal.getStepModel(), actionDir, sal.RunContext)
+
+		sal.compositeRunContext = newCompositeRunContext(sal.RunContext, sal, containerActionDir)
+		sal.compositeSteps = sal.compositeRunContext.compositeExecutor(sal.action)
+	}
+	return sal.compositeRunContext
+}
+
+func (sal *stepActionLocal) getCompositeSteps() *compositeSteps {
+	return sal.compositeSteps
 }

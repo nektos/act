@@ -24,6 +24,8 @@ type actionStep interface {
 	step
 
 	getActionModel() *model.Action
+	getCompositeRunContext() *RunContext
+	getCompositeSteps() *compositeSteps
 }
 
 type readAction func(step *model.Step, actionDir string, actionPath string, readFile actionYamlReader, writeFile fileWriter) (*model.Action, error)
@@ -173,7 +175,15 @@ func runActionImpl(step actionStep, actionDir string, remoteAction *remoteAction
 			if err := maybeCopyToActionDir(); err != nil {
 				return err
 			}
-			return execAsComposite(step, containerActionDir)(ctx)
+
+			// Disable some features of composite actions, only for feature parity with github
+			for _, compositeStep := range action.Runs.Steps {
+				if err := compositeStep.Validate(rc.Config.CompositeRestrictions); err != nil {
+					return err
+				}
+			}
+
+			return execAsComposite(step)(ctx)
 		default:
 			return fmt.Errorf(fmt.Sprintf("The runs.using key must be one of: %v, got %s", []string{
 				model.ActionRunsUsingDocker,
@@ -450,6 +460,7 @@ func runPostStep(step actionStep) common.Executor {
 
 			populateEnvsFromSavedState(step.getEnv(), step, rc)
 
+			// todo: refactor into step
 			var actionDir string
 			var actionPath string
 			if _, ok := step.(*stepActionRemote); ok {
@@ -473,6 +484,11 @@ func runPostStep(step actionStep) common.Executor {
 			log.Debugf("executing remote job container: %s", containerArgs)
 
 			return rc.execJobContainer(containerArgs, *step.getEnv(), "", "")(ctx)
+
+		case model.ActionRunsUsingComposite:
+			step.getCompositeRunContext().updateCompositeRunContext(step.getRunContext(), step)
+			return step.getCompositeSteps().post(ctx)
+
 		default:
 			return nil
 		}
