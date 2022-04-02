@@ -109,7 +109,7 @@ func (rc *RunContext) GetBindsAndMounts() ([]string, map[string]string) {
 			continue
 		}
 
-		paths := strings.Split(v, ":")
+		paths := strings.SplitN(v, ":", 2)
 		mounts[paths[0]] = paths[1]
 	}
 
