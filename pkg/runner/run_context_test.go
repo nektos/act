@@ -485,3 +485,54 @@ if: always()`, ""),
 	rc.Run.JobID = "job2"
 	assertObject.True(rc.isEnabled(context.Background()))
 }
+
+func TestRunContextGetEnv(t *testing.T) {
+	tests := []struct {
+		description string
+		rc          *RunContext
+		targetEnv   string
+		want        string
+	}{
+		{
+			description: "Env from Config should overwrite",
+			rc: &RunContext{
+				Config: &Config{
+					Env: map[string]string{"OVERWRITTEN": "true"},
+				},
+				Run: &model.Run{
+					Workflow: &model.Workflow{
+						Jobs: map[string]*model.Job{"test": {Name: "test"}},
+						Env:  map[string]string{"OVERWRITTEN": "false"},
+					},
+					JobID: "test",
+				},
+			},
+			targetEnv: "OVERWRITTEN",
+			want:      "true",
+		},
+		{
+			description: "No overwrite occurs",
+			rc: &RunContext{
+				Config: &Config{
+					Env: map[string]string{"SOME_OTHER_VAR": "true"},
+				},
+				Run: &model.Run{
+					Workflow: &model.Workflow{
+						Jobs: map[string]*model.Job{"test": {Name: "test"}},
+						Env:  map[string]string{"OVERWRITTEN": "false"},
+					},
+					JobID: "test",
+				},
+			},
+			targetEnv: "OVERWRITTEN",
+			want:      "false",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.description, func(t *testing.T) {
+			envMap := test.rc.GetEnv()
+			assert.EqualValues(t, test.want, envMap[test.targetEnv])
+		})
+	}
+}
