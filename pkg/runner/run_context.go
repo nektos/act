@@ -102,6 +102,17 @@ func (rc *RunContext) GetBindsAndMounts() ([]string, map[string]string) {
 		name + "-env":   ActPath,
 	}
 
+	for _, v := range rc.Run.Job().Container().Volumes {
+		if !strings.Contains(v, ":") || filepath.IsAbs(v) {
+			// Bind anonymous volume or host file
+			binds = append(binds, v)
+			continue
+		}
+
+		paths := strings.Split(v, ":")
+		mounts[paths[0]] = paths[1]
+	}
+
 	if rc.Config.BindWorkdir {
 		bindModifiers := ""
 		if runtime.GOOS == "darwin" {
