@@ -330,19 +330,6 @@ func TestRunContext_GetBindsAndMounts(t *testing.T) {
 				}
 			})
 		}
-
-		// {false, "/BindAnonymousVolume", (func() *RunContext {
-		// 	job := &model.Job{}
-		// 	err := job.RawContainer.Encode(map[string][]interface{}{
-		// 		"volumes": {"/anonymous-volume"},
-		// 	})
-		// 	assert.NoError(t, err)
-
-		// 	rc := rctemplate.Clone()
-		// 	rc.Run.JobID = "job1"
-		// 	rc.Run.Workflow.Jobs = map[string]*model.Job{"job1": job}
-		// 	return rc
-		// })(), "/anonymous-volume", "/BindAnonymousVolume"},
 	})
 }
 
