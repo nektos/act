@@ -293,6 +293,57 @@ func TestRunContext_GetBindsAndMounts(t *testing.T) {
 			}
 		}
 	}
+
+	t.Run("ContainerVolumeMountTest", func(t *testing.T) {
+		tests := []struct {
+			name      string
+			volumes   []string
+			wantbind  string
+			wantmount map[string]string
+		}{
+			{"BindAnonymousVolume", []string{"/volume"}, "/volume", map[string]string{}},
+			{"BindHostFile", []string{"/path/to/file/on/host:/volume"}, "/path/to/file/on/host:/volume", map[string]string{}},
+			{"MountExistingVolume", []string{"volume-id:/volume"}, "", map[string]string{"volume-id": "/volume"}},
+		}
+
+		for _, testcase := range tests {
+			t.Run(testcase.name, func(t *testing.T) {
+				job := &model.Job{}
+				err := job.RawContainer.Encode(map[string][]string{
+					"volumes": testcase.volumes,
+				})
+				assert.NoError(t, err)
+
+				rc := rctemplate.Clone()
+				rc.Run.JobID = "job1"
+				rc.Run.Workflow.Jobs = map[string]*model.Job{"job1": job}
+
+				gotbind, gotmount := rc.GetBindsAndMounts()
+
+				if len(testcase.wantbind) > 0 {
+					assert.Contains(t, gotbind, testcase.wantbind)
+				}
+
+				for k, v := range testcase.wantmount {
+					assert.Contains(t, gotmount, k)
+					assert.Equal(t, gotmount[k], v)
+				}
+			})
+		}
+
+		// {false, "/BindAnonymousVolume", (func() *RunContext {
+		// 	job := &model.Job{}
+		// 	err := job.RawContainer.Encode(map[string][]interface{}{
+		// 		"volumes": {"/anonymous-volume"},
+		// 	})
+		// 	assert.NoError(t, err)
+
+		// 	rc := rctemplate.Clone()
+		// 	rc.Run.JobID = "job1"
+		// 	rc.Run.Workflow.Jobs = map[string]*model.Job{"job1": job}
+		// 	return rc
+		// })(), "/anonymous-volume", "/BindAnonymousVolume"},
+	})
 }
 
 func TestGetGitHubContext(t *testing.T) {
