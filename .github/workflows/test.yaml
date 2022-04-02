@@ -1,0 +1,15 @@
+name: 'Close stale issues'
+on:
+  schedule:
+    - cron: '0 0 * * *'
+
+jobs:
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    env:
+      TEST_VAR: "not overwrriten"
+    steps:
+      - name: test
+        run: |-
+          echo $TEST_VAR

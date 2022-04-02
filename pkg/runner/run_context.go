@@ -410,7 +410,9 @@ func mergeMaps(maps ...map[string]string) map[string]string {
 	rtnMap := make(map[string]string)
 	for _, m := range maps {
 		for k, v := range m {
-			rtnMap[k] = v
+			if _, found := rtnMap[k]; !found {
+				rtnMap[k] = v
+			}
 		}
 	}
 	return rtnMap
