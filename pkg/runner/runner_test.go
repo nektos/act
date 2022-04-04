@@ -141,6 +141,7 @@ func TestRunEvent(t *testing.T) {
 		{"testdata", "evalmatrix-merge-array", "push", "", platforms, ""},
 		{"../model/testdata", "strategy", "push", "", platforms, ""}, // TODO: move all testdata into pkg so we can validate it with planner and runner
 		// {"testdata", "issue-228", "push", "", platforms, ""}, // TODO [igni]: Remove this once everything passes
+		{"../model/testdata", "container-volumes", "push", "", platforms, ""},
 
 		// single test for different architecture: linux/arm64
 		{"testdata", "basic", "push", "", platforms, "linux/arm64"},
