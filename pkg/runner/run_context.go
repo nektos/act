@@ -109,10 +109,10 @@ func (rc *RunContext) GetBindsAndMounts() ([]string, map[string]string) {
 					// Bind anonymous volume or host file
 					binds = append(binds, v)
 					continue
+				} else {
+					paths := strings.SplitN(v, ":", 2)
+					mounts[paths[0]] = paths[1]
 				}
-
-				paths := strings.SplitN(v, ":", 2)
-				mounts[paths[0]] = paths[1]
 			}
 		}
 	}
