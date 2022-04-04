@@ -31,7 +31,7 @@ type readAction func(step *model.Step, actionDir string, actionPath string, read
 type actionYamlReader func(filename string) (io.Reader, io.Closer, error)
 type fileWriter func(filename string, data []byte, perm fs.FileMode) error
 
-type runAction func(step actionStep, actionDir string, actionPath string, actionRepository string, actionRef string, localAction bool) common.Executor
+type runAction func(step actionStep, actionDir string, remoteAction *remoteAction) common.Executor
 
 //go:embed res/trampoline.js
 var trampoline embed.FS
@@ -98,7 +98,7 @@ func readActionImpl(step *model.Step, actionDir string, actionPath string, readF
 	return action, err
 }
 
-func runActionImpl(step actionStep, actionDir string, actionPath string, actionRepository string, actionRef string, localAction bool) common.Executor {
+func runActionImpl(step actionStep, actionDir string, remoteAction *remoteAction) common.Executor {
 	rc := step.getRunContext()
 	stepModel := step.getStepModel()
 	return func(ctx context.Context) error {
@@ -111,19 +111,24 @@ func runActionImpl(step actionStep, actionDir string, actionPath string, actionR
 			rc.ActionRef = parentActionRef
 			rc.ActionRepository = parentActionRepository
 		}()
-		rc.ActionRef = actionRef
-		rc.ActionRepository = actionRepository
+
+		actionPath := ""
+		if remoteAction != nil {
+			rc.ActionRef = remoteAction.Ref
+			rc.ActionRepository = remoteAction.Repo
+			if remoteAction.Path != "" {
+				actionPath = remoteAction.Path
+			}
+		} else {
+			rc.ActionRef = ""
+			rc.ActionRepository = ""
+		}
 		action := step.getActionModel()
 		log.Debugf("About to run action %v", action)
 
 		populateEnvsFromInput(step.getEnv(), action, rc)
 
-		actionLocation := ""
-		if actionPath != "" {
-			actionLocation = path.Join(actionDir, actionPath)
-		} else {
-			actionLocation = actionDir
-		}
+		actionLocation := path.Join(actionDir, actionPath)
 		actionName, containerActionDir := getContainerActionPaths(stepModel, actionLocation, rc)
 
 		log.Debugf("type=%v actionDir=%s actionPath=%s workdir=%s actionCacheDir=%s actionName=%s containerActionDir=%s", stepModel.Type(), actionDir, actionPath, rc.Config.Workdir, rc.ActionCacheDir(), actionName, containerActionDir)
@@ -156,9 +161,16 @@ func runActionImpl(step actionStep, actionDir string, actionPath string, actionR
 			log.Debugf("executing remote job container: %s", containerArgs)
 			return rc.execJobContainer(containerArgs, *step.getEnv(), "", "")(ctx)
 		case model.ActionRunsUsingDocker:
-			return execAsDocker(ctx, action, actionName, containerActionDir, actionLocation, rc, step, localAction)
+			location := actionLocation
+			if remoteAction == nil {
+				location = containerActionDir
+			}
+			return execAsDocker(ctx, step, actionName, location, remoteAction == nil)
 		case model.ActionRunsUsingComposite:
-			return execAsComposite(ctx, step, actionDir, rc, containerActionDir, actionName, actionPath, action, maybeCopyToActionDir)
+			if err := maybeCopyToActionDir(); err != nil {
+				return err
+			}
+			return execAsComposite(step)(ctx)
 		default:
 			return fmt.Errorf(fmt.Sprintf("The runs.using key must be one of: %v, got %s", []string{
 				model.ActionRunsUsingDocker,
@@ -189,7 +201,10 @@ func removeGitIgnore(directory string) error {
 
 // TODO: break out parts of function to reduce complexicity
 // nolint:gocyclo
-func execAsDocker(ctx context.Context, action *model.Action, actionName string, containerLocation string, actionLocation string, rc *RunContext, step step, localAction bool) error {
+func execAsDocker(ctx context.Context, step actionStep, actionName string, basedir string, localAction bool) error {
+	rc := step.getRunContext()
+	action := step.getActionModel()
+
 	var prepImage common.Executor
 	var image string
 	if strings.HasPrefix(action.Runs.Image, "docker://") {
@@ -199,10 +214,6 @@ func execAsDocker(ctx context.Context, action *model.Action, actionName string, 
 		image = fmt.Sprintf("%s-dockeraction:%s", regexp.MustCompile("[^a-zA-Z0-9]").ReplaceAllString(actionName, "-"), "latest")
 		image = fmt.Sprintf("act-%s", strings.TrimLeft(image, "-"))
 		image = strings.ToLower(image)
-		basedir := actionLocation
-		if localAction {
-			basedir = containerLocation
-		}
 		contextDir := filepath.Join(basedir, action.Runs.Main)
 
 		anyArchExists, err := container.ImageExistsLocally(ctx, image, "any")
@@ -229,7 +240,7 @@ func execAsDocker(ctx context.Context, action *model.Action, actionName string, 
 			log.Debugf("image '%s' for architecture '%s' will be built from context '%s", image, rc.Config.ContainerArchitecture, contextDir)
 			var actionContainer container.Container
 			if localAction {
-				actionContainer = step.getRunContext().JobContainer
+				actionContainer = rc.JobContainer
 			}
 			prepImage = container.NewDockerBuildExecutor(container.NewDockerBuildExecutorInput{
 				ContextDir: contextDir,
@@ -241,7 +252,7 @@ func execAsDocker(ctx context.Context, action *model.Action, actionName string, 
 			log.Debugf("image '%s' for architecture '%s' already exists", image, rc.Config.ContainerArchitecture)
 		}
 	}
-	eval := step.getRunContext().NewStepExpressionEvaluator(step)
+	eval := rc.NewStepExpressionEvaluator(step)
 	cmd, err := shellquote.Split(eval.Interpolate(step.getStepModel().With["args"]))
 	if err != nil {
 		return err
@@ -348,76 +359,77 @@ func newStepContainer(ctx context.Context, step step, image string, cmd []string
 	return stepContainer
 }
 
-func execAsComposite(ctx context.Context, step step, _ string, rc *RunContext, containerActionDir string, actionName string, _ string, action *model.Action, maybeCopyToActionDir func() error) error {
-	err := maybeCopyToActionDir()
+func execAsComposite(step actionStep) common.Executor {
+	rc := step.getRunContext()
+	action := step.getActionModel()
 
-	if err != nil {
+	return func(ctx context.Context) error {
+		// Disable some features of composite actions, only for feature parity with github
+		for _, compositeStep := range action.Runs.Steps {
+			if err := compositeStep.Validate(rc.Config.CompositeRestrictions); err != nil {
+				return err
+			}
+		}
+		inputs := make(map[string]interface{})
+		eval := step.getRunContext().NewExpressionEvaluator()
+		// Set Defaults
+		for k, input := range action.Inputs {
+			inputs[k] = eval.Interpolate(input.Default)
+		}
+		if step.getStepModel().With != nil {
+			for k, v := range step.getStepModel().With {
+				inputs[k] = eval.Interpolate(v)
+			}
+		}
+		// Doesn't work with the command processor has a pointer to the original rc
+		// compositerc := rc.Clone()
+		// Workaround start
+		backup := *rc
+		defer func() { *rc = backup }()
+		*rc = *rc.Clone()
+		scriptName := backup.CurrentStep
+		for rcs := &backup; rcs.Parent != nil; rcs = rcs.Parent {
+			scriptName = fmt.Sprintf("%s-composite-%s", rcs.Parent.CurrentStep, scriptName)
+		}
+		compositerc := rc
+		compositerc.Parent = &RunContext{
+			CurrentStep: scriptName,
+		}
+		// Workaround end
+		compositerc.Composite = action
+		envToEvaluate := mergeMaps(compositerc.Env, step.getStepModel().Environment())
+		compositerc.Env = make(map[string]string)
+		// origEnvMap: is used to pass env changes back to parent runcontext
+		origEnvMap := make(map[string]string)
+		for k, v := range envToEvaluate {
+			ev := eval.Interpolate(v)
+			origEnvMap[k] = ev
+			compositerc.Env[k] = ev
+		}
+		compositerc.Inputs = inputs
+		compositerc.ExprEval = compositerc.NewExpressionEvaluator()
+
+		err := compositerc.compositeExecutor()(ctx)
+
+		// Map outputs to parent rc
+		eval = compositerc.NewStepExpressionEvaluator(step)
+		for outputName, output := range action.Outputs {
+			backup.setOutput(ctx, map[string]string{
+				"name": outputName,
+			}, eval.Interpolate(output.Value))
+		}
+
+		backup.Masks = append(backup.Masks, compositerc.Masks...)
+		// Test if evaluated parent env was altered by this composite step
+		// Known Issues:
+		// - you try to set an env variable to the same value as a scoped step env, will be discared
+		for k, v := range compositerc.Env {
+			if ov, ok := origEnvMap[k]; !ok || ov != v {
+				backup.Env[k] = v
+			}
+		}
 		return err
 	}
-	// Disable some features of composite actions, only for feature parity with github
-	for _, compositeStep := range action.Runs.Steps {
-		if err := compositeStep.Validate(rc.Config.CompositeRestrictions); err != nil {
-			return err
-		}
-	}
-	inputs := make(map[string]interface{})
-	eval := step.getRunContext().NewExpressionEvaluator()
-	// Set Defaults
-	for k, input := range action.Inputs {
-		inputs[k] = eval.Interpolate(input.Default)
-	}
-	if step.getStepModel().With != nil {
-		for k, v := range step.getStepModel().With {
-			inputs[k] = eval.Interpolate(v)
-		}
-	}
-	// Doesn't work with the command processor has a pointer to the original rc
-	// compositerc := rc.Clone()
-	// Workaround start
-	backup := *rc
-	defer func() { *rc = backup }()
-	*rc = *rc.Clone()
-	scriptName := backup.CurrentStep
-	for rcs := &backup; rcs.Parent != nil; rcs = rcs.Parent {
-		scriptName = fmt.Sprintf("%s-composite-%s", rcs.Parent.CurrentStep, scriptName)
-	}
-	compositerc := rc
-	compositerc.Parent = &RunContext{
-		CurrentStep: scriptName,
-	}
-	// Workaround end
-	compositerc.Composite = action
-	envToEvaluate := mergeMaps(compositerc.Env, step.getStepModel().Environment())
-	compositerc.Env = make(map[string]string)
-	// origEnvMap: is used to pass env changes back to parent runcontext
-	origEnvMap := make(map[string]string)
-	for k, v := range envToEvaluate {
-		ev := eval.Interpolate(v)
-		origEnvMap[k] = ev
-		compositerc.Env[k] = ev
-	}
-	compositerc.Inputs = inputs
-	compositerc.ExprEval = compositerc.NewExpressionEvaluator()
-	err = compositerc.CompositeExecutor()(ctx)
-
-	// Map outputs to parent rc
-	eval = compositerc.NewStepExpressionEvaluator(step)
-	for outputName, output := range action.Outputs {
-		backup.setOutput(ctx, map[string]string{
-			"name": outputName,
-		}, eval.Interpolate(output.Value))
-	}
-
-	backup.Masks = append(backup.Masks, compositerc.Masks...)
-	// Test if evaluated parent env was altered by this composite step
-	// Known Issues:
-	// - you try to set an env variable to the same value as a scoped step env, will be discared
-	for k, v := range compositerc.Env {
-		if ov, ok := origEnvMap[k]; !ok || ov != v {
-			backup.Env[k] = v
-		}
-	}
-	return err
 }
 
 func populateEnvsFromInput(env *map[string]string, action *model.Action, rc *RunContext) {

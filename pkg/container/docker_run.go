@@ -327,12 +327,18 @@ func (cr *containerReference) create(capAdd []string, capDrop []string) common.E
 
 		config := &container.Config{
 			Image:      input.Image,
-			Cmd:        input.Cmd,
-			Entrypoint: input.Entrypoint,
 			WorkingDir: input.WorkingDir,
 			Env:        input.Env,
 			Tty:        isTerminal,
 			Hostname:   input.Hostname,
+		}
+
+		if len(input.Cmd) != 0 {
+			config.Cmd = input.Cmd
+		}
+
+		if len(input.Entrypoint) != 0 {
+			config.Entrypoint = input.Entrypoint
 		}
 
 		mounts := make([]mount.Mount, 0)

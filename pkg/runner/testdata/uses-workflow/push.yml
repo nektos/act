@@ -1,0 +1,9 @@
+on: push
+
+jobs:
+  reusable-workflow:
+    uses: nektos/act-tests/.github/workflows/reusable-workflow.yml@master
+    with:
+      username: mona
+    secrets:
+      envPATH: ${{ secrets.envPAT }}

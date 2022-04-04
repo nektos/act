@@ -86,7 +86,7 @@ func (sar *stepActionRemote) main() common.Executor {
 				log.Debugf("Read action %v from '%s'", sar.action, "Unknown")
 				return err
 			},
-			sar.runAction(sar, actionDir, remoteAction.Path, remoteAction.Repo, remoteAction.Ref, false),
+			sar.runAction(sar, actionDir, remoteAction),
 		)(ctx)
 	})
 }

@@ -8,7 +8,7 @@ import (
 	"github.com/nektos/act/cmd"
 )
 
-var version string
+var version = "v0.2.27-dev" // Manually bump after tagging next release
 
 func main() {
 	ctx := context.Background()
