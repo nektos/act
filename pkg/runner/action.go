@@ -426,13 +426,16 @@ func getOsSafeRelativePath(s, prefix string) string {
 
 func shouldRunPostStep(step actionStep) common.Conditional {
 	return func(ctx context.Context) bool {
+		log := common.Logger(ctx)
 		stepResults := step.getRunContext().getStepsContext()
 
 		if stepResults[step.getStepModel().ID].Conclusion == model.StepStatusSkipped {
+			log.Debugf("skip post step for '%s'; main step was skipped", step.getStepModel())
 			return false
 		}
 
 		if step.getActionModel() == nil {
+			log.Debugf("skip post step for '%s': no action model available", step.getStepModel())
 			return false
 		}
 
@@ -443,14 +446,17 @@ func shouldRunPostStep(step actionStep) common.Conditional {
 func hasPostStep(step actionStep) common.Conditional {
 	return func(ctx context.Context) bool {
 		action := step.getActionModel()
-		return (action.Runs.Using == model.ActionRunsUsingNode12 ||
-			action.Runs.Using == model.ActionRunsUsingNode16) &&
-			action.Runs.Post != ""
+		return action.Runs.Using == model.ActionRunsUsingComposite ||
+			((action.Runs.Using == model.ActionRunsUsingNode12 ||
+				action.Runs.Using == model.ActionRunsUsingNode16) &&
+				action.Runs.Post != "")
 	}
 }
 
 func runPostStep(step actionStep) common.Executor {
 	return func(ctx context.Context) error {
+		common.Logger(ctx).Debugf("run post step for '%s'", step.getStepModel())
+
 		rc := step.getRunContext()
 		stepModel := step.getStepModel()
 		action := step.getActionModel()
