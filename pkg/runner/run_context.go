@@ -75,7 +75,7 @@ func (rc *RunContext) String() string {
 // GetEnv returns the env for the context
 func (rc *RunContext) GetEnv() map[string]string {
 	if rc.Env == nil {
-		rc.Env = mergeMaps(rc.Config.Env, rc.Run.Workflow.Env, rc.Run.Job().Environment())
+		rc.Env = mergeMaps(rc.Run.Workflow.Env, rc.Run.Job().Environment(), rc.Config.Env)
 	}
 	rc.Env["ACT"] = "true"
 	return rc.Env
@@ -525,7 +525,7 @@ func (rc *RunContext) getGithubContext() *model.GithubContext {
 	}
 
 	repoPath := rc.Config.Workdir
-	repo, err := common.FindGithubRepo(repoPath, rc.Config.GitHubInstance)
+	repo, err := common.FindGithubRepo(repoPath, rc.Config.GitHubInstance, rc.Config.RemoteName)
 	if err != nil {
 		log.Warningf("unable to get git repo: %v", err)
 	} else {

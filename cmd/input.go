@@ -40,6 +40,7 @@ type Input struct {
 	artifactServerPort    string
 	jsonLogger            bool
 	noSkipCheckout        bool
+	remoteName            string
 }
 
 func (i *Input) resolve(path string) string {
