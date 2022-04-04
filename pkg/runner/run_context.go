@@ -510,7 +510,7 @@ func (rc *RunContext) getGithubContext() *model.GithubContext {
 	}
 
 	repoPath := rc.Config.Workdir
-	repo, err := common.FindGithubRepo(repoPath, rc.Config.GitHubInstance)
+	repo, err := common.FindGithubRepo(repoPath, rc.Config.GitHubInstance, rc.Config.RemoteName)
 	if err != nil {
 		log.Warningf("unable to get git repo: %v", err)
 	} else {

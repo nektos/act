@@ -142,8 +142,12 @@ func findGitPrettyRef(head, root, sub string) (string, error) {
 }
 
 // FindGithubRepo get the repo
-func FindGithubRepo(file string, githubInstance string) (string, error) {
-	url, err := findGitRemoteURL(file)
+func FindGithubRepo(file, githubInstance, remoteName string) (string, error) {
+	if remoteName == "" {
+		remoteName = "origin"
+	}
+
+	url, err := findGitRemoteURL(file, remoteName)
 	if err != nil {
 		return "", err
 	}
@@ -151,7 +155,7 @@ func FindGithubRepo(file string, githubInstance string) (string, error) {
 	return slug, err
 }
 
-func findGitRemoteURL(file string) (string, error) {
+func findGitRemoteURL(file, remoteName string) (string, error) {
 	gitDir, err := findGitDirectory(file)
 	if err != nil {
 		return "", err
@@ -162,7 +166,7 @@ func findGitRemoteURL(file string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	remote, err := gitconfig.GetSection("remote \"origin\"")
+	remote, err := gitconfig.GetSection(fmt.Sprintf(`remote "%s"`, remoteName))
 	if err != nil {
 		return "", err
 	}
