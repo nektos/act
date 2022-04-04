@@ -14,7 +14,6 @@ import (
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/model"
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 )
 
 type stepActionRemote struct {
@@ -86,7 +85,6 @@ func (sar *stepActionRemote) main() common.Executor {
 			func(ctx context.Context) error {
 				actionModel, err := sar.readAction(sar.Step, actionDir, remoteAction.Path, remoteReader(ctx), ioutil.WriteFile)
 				sar.action = actionModel
-				log.Debugf("Read action %v from '%s'", sar.action, "Unknown")
 				return err
 			},
 			sar.runAction(sar, actionDir, remoteAction),
