@@ -11,7 +11,6 @@ import (
 
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/model"
-	log "github.com/sirupsen/logrus"
 )
 
 type stepActionLocal struct {
@@ -58,7 +57,6 @@ func (sal *stepActionLocal) main() common.Executor {
 		}
 
 		sal.action = actionModel
-		log.Debugf("Read action %v from '%s'", sal.action, "Unknown")
 
 		return sal.runAction(sal, actionDir, nil)(ctx)
 	})
