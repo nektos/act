@@ -47,7 +47,7 @@ func TestFindGitSlug(t *testing.T) {
 func testDir(t *testing.T) string {
 	basedir, err := ioutil.TempDir("", "act-test")
 	require.NoError(t, err)
-	t.Cleanup(func() { os.RemoveAll(basedir) })
+	t.Cleanup(func() { _ = os.RemoveAll(basedir) })
 	return basedir
 }
 
@@ -86,7 +86,7 @@ func TestFindGitRemoteURL(t *testing.T) {
 	err = gitCmd("config", "-f", fmt.Sprintf("%s/.git/config", basedir), "--add", "remote.origin.url", remoteURL)
 	assert.NoError(err)
 
-	u, err := findGitRemoteURL(basedir)
+	u, err := findGitRemoteURL(basedir, "origin")
 	assert.NoError(err)
 	assert.Equal(remoteURL, u)
 }

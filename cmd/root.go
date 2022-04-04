@@ -43,6 +43,7 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.Flags().StringP("job", "j", "", "run job")
 	rootCmd.Flags().BoolP("bug-report", "", false, "Display system information for bug report")
 
+	rootCmd.Flags().StringVar(&input.remoteName, "remote-name", "origin", "git remote name that will be used to retrieve url of git repo")
 	rootCmd.Flags().StringArrayVarP(&input.secrets, "secret", "s", []string{}, "secret to make available to actions with optional value (e.g. -s mysecret=foo or -s mysecret)")
 	rootCmd.Flags().StringArrayVarP(&input.envs, "env", "", []string{}, "env to make available to actions with optional value (e.g. --env myenv=foo or --env myenv)")
 	rootCmd.Flags().StringArrayVarP(&input.platforms, "platform", "P", []string{}, "custom image to use per platform (e.g. -P ubuntu-18.04=nektos/act-environments-ubuntu:18.04)")
@@ -379,6 +380,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			ArtifactServerPath:    input.artifactServerPath,
 			ArtifactServerPort:    input.artifactServerPort,
 			NoSkipCheckout:        input.noSkipCheckout,
+			RemoteName:            input.remoteName,
 		}
 		r, err := runner.New(config)
 		if err != nil {
