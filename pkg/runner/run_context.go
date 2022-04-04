@@ -75,7 +75,7 @@ func (rc *RunContext) String() string {
 // GetEnv returns the env for the context
 func (rc *RunContext) GetEnv() map[string]string {
 	if rc.Env == nil {
-		rc.Env = mergeMaps(rc.Config.Env, rc.Run.Workflow.Env, rc.Run.Job().Environment())
+		rc.Env = mergeMaps(rc.Run.Workflow.Env, rc.Run.Job().Environment(), rc.Config.Env)
 	}
 	rc.Env["ACT"] = "true"
 	return rc.Env
@@ -410,9 +410,7 @@ func mergeMaps(maps ...map[string]string) map[string]string {
 	rtnMap := make(map[string]string)
 	for _, m := range maps {
 		for k, v := range m {
-			if _, found := rtnMap[k]; !found {
-				rtnMap[k] = v
-			}
+			rtnMap[k] = v
 		}
 	}
 	return rtnMap
