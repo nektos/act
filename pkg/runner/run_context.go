@@ -106,10 +106,10 @@ func (rc *RunContext) GetBindsAndMounts() ([]string, map[string]string) {
 		if container := job.Container(); container != nil {
 			for _, v := range container.Volumes {
 				if !strings.Contains(v, ":") || filepath.IsAbs(v) {
-					// Bind anonymous volume or host file
+					// Bind anonymous volume or host file.
 					binds = append(binds, v)
-					continue
 				} else {
+					// Mount existing volume.
 					paths := strings.SplitN(v, ":", 2)
 					mounts[paths[0]] = paths[1]
 				}
