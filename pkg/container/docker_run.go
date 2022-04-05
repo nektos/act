@@ -595,8 +595,12 @@ func (cr *containerReference) exec(cmd []string, env map[string]string, user, wo
 		}()
 		select {
 		case <-ctx.Done():
-			//nolint:contextcheck
-			err := cr.cli.ContainerKill(context.Background(), cr.id, "kill")
+			backgroundContext := context.Background()
+			err := cr.cli.ContainerKill(backgroundContext, cr.id, "kill")
+			if err != nil {
+				logger.Error(err)
+			}
+			err = cr.cli.ContainerStart(backgroundContext, cr.id, types.ContainerStartOptions{})
 			if err != nil {
 				logger.Error(err)
 			}
