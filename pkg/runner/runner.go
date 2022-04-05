@@ -51,6 +51,7 @@ type Config struct {
 	ArtifactServerPort    string                       // the port the artifact server binds to
 	CompositeRestrictions *model.CompositeRestrictions // describes which features are available in composite actions
 	NoSkipCheckout        bool                         // do not skip actions/checkout
+	RemoteName            string                       // remote name in local git repo config
 	Tty                   bool                         // allocate a pseudo tty
 }
 
@@ -117,6 +118,8 @@ func New(runnerConfig *Config) (Runner, error) {
 	return runner, nil
 }
 
+// NewPlanExecutor ...
+//nolint:gocyclo
 func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 	maxJobNameLen := 0
 
@@ -129,6 +132,11 @@ func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 			for r, run := range stage.Runs {
 				stageExecutor := make([]common.Executor, 0)
 				job := run.Job()
+
+				if job.Uses != "" {
+					return fmt.Errorf("reusable workflows are currently not supported (see https://github.com/nektos/act/issues/826 for updates)")
+				}
+
 				if job.Strategy != nil {
 					strategyRc := runner.newRunContext(run, nil)
 					if err := strategyRc.NewExpressionEvaluator().EvaluateYamlNode(&job.Strategy.RawMatrix); err != nil {

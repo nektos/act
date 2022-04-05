@@ -10,7 +10,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/google/shlex"
+	"github.com/kballard/go-shellquote"
 	"github.com/spf13/pflag"
 
 	"github.com/mitchellh/go-homedir"
@@ -75,7 +75,7 @@ func (rc *RunContext) String() string {
 // GetEnv returns the env for the context
 func (rc *RunContext) GetEnv() map[string]string {
 	if rc.Env == nil {
-		rc.Env = mergeMaps(rc.Config.Env, rc.Run.Workflow.Env, rc.Run.Job().Environment())
+		rc.Env = mergeMaps(rc.Run.Workflow.Env, rc.Run.Job().Environment(), rc.Config.Env)
 	}
 	rc.Env["ACT"] = "true"
 	return rc.Env
@@ -100,6 +100,21 @@ func (rc *RunContext) GetBindsAndMounts() ([]string, map[string]string) {
 	mounts := map[string]string{
 		"act-toolcache": "/toolcache",
 		name + "-env":   ActPath,
+	}
+
+	if job := rc.Run.Job(); job != nil {
+		if container := job.Container(); container != nil {
+			for _, v := range container.Volumes {
+				if !strings.Contains(v, ":") || filepath.IsAbs(v) {
+					// Bind anonymous volume or host file.
+					binds = append(binds, v)
+				} else {
+					// Mount existing volume.
+					paths := strings.SplitN(v, ":", 2)
+					mounts[paths[0]] = paths[1]
+				}
+			}
+		}
 	}
 
 	if rc.Config.BindWorkdir {
@@ -296,7 +311,7 @@ func (rc *RunContext) Executor() common.Executor {
 }
 
 // Executor returns a pipeline executor for all the steps in the job
-func (rc *RunContext) CompositeExecutor() common.Executor {
+func (rc *RunContext) compositeExecutor() common.Executor {
 	steps := make([]common.Executor, 0)
 
 	sf := &stepFactoryImpl{}
@@ -367,7 +382,7 @@ func (rc *RunContext) hostname() string {
 
 	optionsFlags := pflag.NewFlagSet("container_options", pflag.ContinueOnError)
 	hostname := optionsFlags.StringP("hostname", "h", "", "")
-	optionsArgs, err := shlex.Split(c.Options)
+	optionsArgs, err := shellquote.Split(c.Options)
 	if err != nil {
 		log.Warnf("Cannot parse container options: %s", c.Options)
 		return ""
@@ -511,7 +526,7 @@ func (rc *RunContext) getGithubContext() *model.GithubContext {
 	}
 
 	repoPath := rc.Config.Workdir
-	repo, err := common.FindGithubRepo(repoPath, rc.Config.GitHubInstance)
+	repo, err := common.FindGithubRepo(repoPath, rc.Config.GitHubInstance, rc.Config.RemoteName)
 	if err != nil {
 		log.Warningf("unable to get git repo: %v", err)
 	} else {

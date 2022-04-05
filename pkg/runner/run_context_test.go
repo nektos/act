@@ -13,7 +13,6 @@ import (
 	"github.com/nektos/act/pkg/model"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/sirupsen/logrus/hooks/test"
 	assert "github.com/stretchr/testify/assert"
 	yaml "gopkg.in/yaml.v3"
 )
@@ -26,7 +25,6 @@ func TestRunContext_EvalBool(t *testing.T) {
 	})
 	assert.NoError(t, err)
 
-	hook := test.NewGlobal()
 	rc := &RunContext{
 		Config: &Config{
 			Workdir: ".",
@@ -157,14 +155,12 @@ func TestRunContext_EvalBool(t *testing.T) {
 		table := table
 		t.Run(table.in, func(t *testing.T) {
 			assertObject := assert.New(t)
-			defer hook.Reset()
 			b, err := EvalBool(rc.ExprEval, table.in)
 			if table.wantErr {
 				assertObject.Error(err)
 			}
 
 			assertObject.Equal(table.out, b, fmt.Sprintf("Expected %s to be %v, was %v", table.in, table.out, b))
-			assertObject.Empty(hook.LastEntry(), table.in)
 		})
 	}
 }
@@ -293,6 +289,44 @@ func TestRunContext_GetBindsAndMounts(t *testing.T) {
 			}
 		}
 	}
+
+	t.Run("ContainerVolumeMountTest", func(t *testing.T) {
+		tests := []struct {
+			name      string
+			volumes   []string
+			wantbind  string
+			wantmount map[string]string
+		}{
+			{"BindAnonymousVolume", []string{"/volume"}, "/volume", map[string]string{}},
+			{"BindHostFile", []string{"/path/to/file/on/host:/volume"}, "/path/to/file/on/host:/volume", map[string]string{}},
+			{"MountExistingVolume", []string{"volume-id:/volume"}, "", map[string]string{"volume-id": "/volume"}},
+		}
+
+		for _, testcase := range tests {
+			t.Run(testcase.name, func(t *testing.T) {
+				job := &model.Job{}
+				err := job.RawContainer.Encode(map[string][]string{
+					"volumes": testcase.volumes,
+				})
+				assert.NoError(t, err)
+
+				rc := rctemplate.Clone()
+				rc.Run.JobID = "job1"
+				rc.Run.Workflow.Jobs = map[string]*model.Job{"job1": job}
+
+				gotbind, gotmount := rc.GetBindsAndMounts()
+
+				if len(testcase.wantbind) > 0 {
+					assert.Contains(t, gotbind, testcase.wantbind)
+				}
+
+				for k, v := range testcase.wantmount {
+					assert.Contains(t, gotmount, k)
+					assert.Equal(t, gotmount[k], v)
+				}
+			})
+		}
+	})
 }
 
 func TestGetGitHubContext(t *testing.T) {
@@ -484,4 +518,55 @@ if: always()`, ""),
 	})
 	rc.Run.JobID = "job2"
 	assertObject.True(rc.isEnabled(context.Background()))
+}
+
+func TestRunContextGetEnv(t *testing.T) {
+	tests := []struct {
+		description string
+		rc          *RunContext
+		targetEnv   string
+		want        string
+	}{
+		{
+			description: "Env from Config should overwrite",
+			rc: &RunContext{
+				Config: &Config{
+					Env: map[string]string{"OVERWRITTEN": "true"},
+				},
+				Run: &model.Run{
+					Workflow: &model.Workflow{
+						Jobs: map[string]*model.Job{"test": {Name: "test"}},
+						Env:  map[string]string{"OVERWRITTEN": "false"},
+					},
+					JobID: "test",
+				},
+			},
+			targetEnv: "OVERWRITTEN",
+			want:      "true",
+		},
+		{
+			description: "No overwrite occurs",
+			rc: &RunContext{
+				Config: &Config{
+					Env: map[string]string{"SOME_OTHER_VAR": "true"},
+				},
+				Run: &model.Run{
+					Workflow: &model.Workflow{
+						Jobs: map[string]*model.Job{"test": {Name: "test"}},
+						Env:  map[string]string{"OVERWRITTEN": "false"},
+					},
+					JobID: "test",
+				},
+			},
+			targetEnv: "OVERWRITTEN",
+			want:      "false",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.description, func(t *testing.T) {
+			envMap := test.rc.GetEnv()
+			assert.EqualValues(t, test.want, envMap[test.targetEnv])
+		})
+	}
 }

@@ -58,7 +58,12 @@ func (sd *stepDocker) runUsesContainer() common.Executor {
 		if err != nil {
 			return err
 		}
-		entrypoint := strings.Fields(eval.Interpolate(step.With["entrypoint"]))
+
+		var entrypoint []string
+		if entry := eval.Interpolate(step.With["entrypoint"]); entry != "" {
+			entrypoint = []string{entry}
+		}
+
 		stepContainer := sd.newStepContainer(ctx, image, cmd, entrypoint)
 
 		return common.NewPipelineExecutor(

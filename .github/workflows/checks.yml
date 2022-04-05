@@ -4,7 +4,7 @@ on: [pull_request, workflow_dispatch]
 env:
   ACT_OWNER: ${{ github.repository_owner }}
   ACT_REPOSITORY: ${{ github.repository }}
-  GO_VERSION: 1.17
+  GO_VERSION: 1.18
   CGO_ENABLED: 0
 
 jobs:
@@ -41,7 +41,7 @@ jobs:
       - uses: actions/setup-go@v2
         with:
           go-version: ${{ env.GO_VERSION }}
-      - uses: actions/cache@v2
+      - uses: actions/cache@v3
         if: ${{ !env.ACT }}
         with:
           path: ~/go/pkg/mod
@@ -63,7 +63,7 @@ jobs:
       - uses: actions/setup-go@v2
         with:
           go-version: ${{ env.GO_VERSION }}
-      - uses: actions/cache@v2
+      - uses: actions/cache@v3
         if: ${{ !env.ACT }}
         with:
           path: ~/go/pkg/mod

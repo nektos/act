@@ -328,12 +328,18 @@ func (cr *containerReference) create(capAdd []string, capDrop []string) common.E
 
 		config := &container.Config{
 			Image:      input.Image,
-			Cmd:        input.Cmd,
-			Entrypoint: input.Entrypoint,
 			WorkingDir: input.WorkingDir,
 			Env:        input.Env,
 			Tty:        cr.input.Tty,
 			Hostname:   input.Hostname,
+		}
+
+		if len(input.Cmd) != 0 {
+			config.Cmd = input.Cmd
+		}
+
+		if len(input.Entrypoint) != 0 {
+			config.Entrypoint = input.Entrypoint
 		}
 
 		mounts := make([]mount.Mount, 0)
@@ -610,7 +616,6 @@ func (cr *containerReference) exec(cmd []string, env map[string]string, user, wo
 	}
 }
 
-// nolint: gocyclo
 func (cr *containerReference) copyDir(dstPath string, srcPath string, useGitIgnore bool) common.Executor {
 	return func(ctx context.Context) error {
 		logger := common.Logger(ctx)
@@ -619,8 +624,17 @@ func (cr *containerReference) copyDir(dstPath string, srcPath string, useGitIgno
 			return err
 		}
 		log.Debugf("Writing tarball %s from %s", tarFile.Name(), srcPath)
-		defer tarFile.Close()
-		defer os.Remove(tarFile.Name())
+		defer func(tarFile *os.File) {
+			name := tarFile.Name()
+			err := tarFile.Close()
+			if err != nil {
+				logger.Error(err)
+			}
+			err = os.Remove(name)
+			if err != nil {
+				logger.Error(err)
+			}
+		}(tarFile)
 		tw := tar.NewWriter(tarFile)
 
 		srcPrefix := filepath.Dir(srcPath)
@@ -639,69 +653,17 @@ func (cr *containerReference) copyDir(dstPath string, srcPath string, useGitIgno
 			ignorer = gitignore.NewMatcher(ps)
 		}
 
-		err = filepath.Walk(srcPath, func(file string, fi os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
+		fc := &fileCollector{
+			Fs:        &defaultFs{},
+			Ignorer:   ignorer,
+			SrcPath:   srcPath,
+			SrcPrefix: srcPrefix,
+			Handler: &tarCollector{
+				TarWriter: tw,
+			},
+		}
 
-			sansPrefix := strings.TrimPrefix(file, srcPrefix)
-			split := strings.Split(sansPrefix, string(filepath.Separator))
-			if ignorer != nil && ignorer.Match(split, fi.IsDir()) {
-				if fi.IsDir() {
-					return filepath.SkipDir
-				}
-				return nil
-			}
-
-			// return on non-regular files (thanks to [kumo](https://medium.com/@komuw/just-like-you-did-fbdd7df829d3) for this suggested update)
-			linkName := fi.Name()
-			if fi.Mode()&os.ModeSymlink == os.ModeSymlink {
-				linkName, err = os.Readlink(file)
-				if err != nil {
-					return errors.WithMessagef(err, "unable to readlink %s", file)
-				}
-			} else if !fi.Mode().IsRegular() {
-				return nil
-			}
-
-			// create a new dir/file header
-			header, err := tar.FileInfoHeader(fi, linkName)
-			if err != nil {
-				return err
-			}
-
-			// update the name to correctly reflect the desired destination when untaring
-			header.Name = filepath.ToSlash(sansPrefix)
-			header.Mode = int64(fi.Mode())
-			header.ModTime = fi.ModTime()
-
-			// write the header
-			if err := tw.WriteHeader(header); err != nil {
-				return err
-			}
-
-			// symlinks don't need to be copied
-			if fi.Mode()&os.ModeSymlink == os.ModeSymlink {
-				return nil
-			}
-
-			// open files for taring
-			f, err := os.Open(file)
-			if err != nil {
-				return err
-			}
-
-			// copy file data into tar writer
-			if _, err := io.Copy(tw, f); err != nil {
-				return err
-			}
-
-			// manually close here after each file operation; deferring would cause each file close
-			// to wait until all operations have completed.
-			f.Close()
-
-			return nil
-		})
+		err = filepath.Walk(srcPath, fc.collectFiles(ctx, []string{}))
 		if err != nil {
 			return err
 		}

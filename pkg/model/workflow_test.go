@@ -112,6 +112,10 @@ jobs:
         password: registry-password
       env:
         HOME: /home/user
+      volumes:
+        - my_docker_volume:/volume_mount
+        - /data/my_data
+        - /source/directory:/destination/directory
     runs-on: ubuntu-latest
     steps:
     - uses: ./actions/docker-url
@@ -127,6 +131,11 @@ jobs:
 	assert.Contains(t, container.Env["HOME"], "/home/user")
 	assert.Contains(t, container.Credentials["username"], "registry-username")
 	assert.Contains(t, container.Credentials["password"], "registry-password")
+	assert.ElementsMatch(t, container.Volumes, []string{
+		"my_docker_volume:/volume_mount",
+		"/data/my_data",
+		"/source/directory:/destination/directory",
+	})
 }
 
 func TestReadWorkflow_StepsTypes(t *testing.T) {
