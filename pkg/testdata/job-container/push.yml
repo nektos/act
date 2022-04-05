@@ -1,6 +1,13 @@
 name: job-container
 on: push
 
+<<<<<<< HEAD
+=======
+defaults:
+  run:
+    shell: bash
+
+>>>>>>> 4f77159 (refactor: move testdata up)
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -24,6 +31,7 @@ jobs:
     container:
       image: node:16-buster-slim
       options: "--hostname my.host.local"
+<<<<<<< HEAD
     steps:
       - run: |
           [[ $(uname -n) == "my.host.local" ]]
@@ -39,13 +47,30 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: node:16-buster-slim
+=======
+>>>>>>> 4f77159 (refactor: move testdata up)
       volumes:
         - my_docker_volume:/path/to/volume
         - /path/to/nonexist/directory
         - /proc/sys/kernel/random/boot_id:/current/boot_id
     steps:
       - run: |
+<<<<<<< HEAD
+=======
+          [[ $(uname -n) == "my.host.local" ]]
+      - run: |
+>>>>>>> 4f77159 (refactor: move testdata up)
           set -e
           test -d /path/to/volume
           test "$(cat /proc/sys/kernel/random/boot_id)" = "$(cat /current/boot_id)"
           test -d /path/to/nonexist/directory
+<<<<<<< HEAD
+=======
+
+  default-hostname:
+    runs-on: ubuntu-latest
+    container: node:16-buster-slim
+    steps:
+      - run: |
+          [[ $(uname -n) ]] && [[ $(uname -n) != "my.host.local" ]]
+>>>>>>> 4f77159 (refactor: move testdata up)

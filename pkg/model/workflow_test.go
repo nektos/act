@@ -3,7 +3,6 @@ package model
 import (
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -59,34 +58,6 @@ func TestReadWorkflow_Event(t *testing.T) {
 	})
 }
 
-func TestReadWorkflow_StringContainer(t *testing.T) {
-	yaml := `
-name: local-action-docker-url
-
-jobs:
-  test:
-    container: nginx:latest
-    runs-on: ubuntu-latest
-    steps:
-    - uses: ./actions/docker-url
-  test2:
-    container:
-      image: nginx:latest
-      env:
-        foo: bar
-    runs-on: ubuntu-latest
-    steps:
-    - uses: ./actions/docker-url
-`
-
-	workflow, err := ReadWorkflow(strings.NewReader(yaml))
-	assert.NoError(t, err, "read workflow should succeed")
-	assert.Len(t, workflow.Jobs, 2)
-	assert.Contains(t, workflow.Jobs["test"].Container().Image, "nginx:latest")
-	assert.Contains(t, workflow.Jobs["test2"].Container().Image, "nginx:latest")
-	assert.Contains(t, workflow.Jobs["test2"].Container().Env["foo"], "bar")
-}
-
 func TestReadWorkflow_ObjectContainer(t *testing.T) {
 	t.Run("fake", func(t *testing.T) {
 		w := readWorkflow(t, "job-container/fake.yml")
@@ -119,35 +90,32 @@ func TestReadWorkflow_ObjectContainer(t *testing.T) {
 }
 
 func TestReadWorkflow_StepsTypes(t *testing.T) {
-	yaml := `
-name: invalid step definition
+	w := readWorkflow(t, "matrix/push.yml")
+	assert.Equal(t, StepTypeRun, w.Jobs["test"].Steps[0].Type())
 
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - name: test1
-        uses: actions/checkout@v2
-        run: echo
-      - name: test2
-        run: echo
-      - name: test3
-        uses: actions/checkout@v2
-      - name: test4
-        uses: docker://nginx:latest
-      - name: test5
-        uses: ./local-action
-`
+	w = readWorkflow(t, "step-uses-and-run/push.yml")
+	assert.Equal(t, StepTypeInvalid, w.Jobs["test"].Steps[0].Type())
 
-	workflow, err := ReadWorkflow(strings.NewReader(yaml))
-	assert.NoError(t, err, "read workflow should succeed")
-	assert.Len(t, workflow.Jobs, 1)
-	assert.Len(t, workflow.Jobs["test"].Steps, 5)
-	assert.Equal(t, workflow.Jobs["test"].Steps[0].Type(), StepTypeInvalid)
-	assert.Equal(t, workflow.Jobs["test"].Steps[1].Type(), StepTypeRun)
-	assert.Equal(t, workflow.Jobs["test"].Steps[2].Type(), StepTypeUsesActionRemote)
-	assert.Equal(t, workflow.Jobs["test"].Steps[3].Type(), StepTypeUsesDockerURL)
-	assert.Equal(t, workflow.Jobs["test"].Steps[4].Type(), StepTypeUsesActionLocal)
+	w = readWorkflow(t, "remote-action-docker/push.yml")
+	assert.Equal(t, StepTypeUsesActionRemote, w.Jobs["test"].Steps[0].Type())
+
+	w = readWorkflow(t, "remote-action-js/push.yml")
+	assert.Equal(t, StepTypeUsesActionRemote, w.Jobs["test"].Steps[0].Type())
+
+	w = readWorkflow(t, "uses-docker-url/push.yml")
+	assert.Equal(t, StepTypeUsesDockerURL, w.Jobs["test"].Steps[0].Type())
+
+	w = readWorkflow(t, "step-local-action-docker-url/push.yml")
+	assert.Equal(t, StepTypeUsesActionLocal, w.Jobs["test"].Steps[1].Type())
+
+	w = readWorkflow(t, "step-local-action-dockerfile/push.yml")
+	assert.Equal(t, StepTypeUsesActionLocal, w.Jobs["test"].Steps[1].Type())
+
+	w = readWorkflow(t, "step-local-action-js/push.yml")
+	assert.Equal(t, StepTypeUsesActionLocal, w.Jobs["test-node16"].Steps[1].Type())
+
+	w = readWorkflow(t, "step-local-action-via-composite-dockerfile/push.yml")
+	assert.Equal(t, StepTypeUsesActionLocal, w.Jobs["test"].Steps[1].Type())
 }
 
 // See: https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#jobsjob_idoutputs
@@ -173,7 +141,7 @@ func TestReadWorkflow_JobOutputs(t *testing.T) {
 }
 
 func TestReadWorkflow_Strategy(t *testing.T) {
-	w, err := NewWorkflowPlanner("../testdata/strategy/push.yml", true)
+	w, err := NewWorkflowPlanner(filepath.Join(workdir, "strategy/push.yml"), true)
 	assert.NoError(t, err)
 
 	p := w.PlanJob("strategy-only-max-parallel")

@@ -3,6 +3,7 @@ package runner
 import (
 	"context"
 	"fmt"
+	"github.com/nektos/act/pkg/artifacts"
 	"os"
 	"path"
 	"path/filepath"
@@ -89,6 +90,8 @@ func (j *TestJobFileInfo) runTest(ctx context.Context, t *testing.T, cfg *Config
 		Secrets:               cfg.Secrets,
 		GitHubInstance:        "github.com",
 		ContainerArchitecture: cfg.ContainerArchitecture,
+		ArtifactServerPath:    cfg.ArtifactServerPath,
+		ArtifactServerPort:    cfg.ArtifactServerPort,
 	}
 
 	runner, err := New(runnerConfig)
@@ -126,10 +129,10 @@ func TestRunEvent(t *testing.T) {
 		{workdir, "shells/sh", "push", "", platforms},
 
 		// Local action
-		{workdir, "local-action-docker-url", "push", "", platforms},
-		{workdir, "local-action-dockerfile", "push", "", platforms},
-		{workdir, "local-action-via-composite-dockerfile", "push", "", platforms},
-		{workdir, "local-action-js", "push", "", platforms},
+		{workdir, "step-local-action-docker-url", "push", "", platforms},
+		{workdir, "step-local-action-dockerfile", "push", "", platforms},
+		{workdir, "step-local-action-via-composite-dockerfile", "push", "", platforms},
+		{workdir, "step-local-action-js", "push", "", platforms},
 
 		// Uses
 		{workdir, "uses-composite", "push", "", platforms},
@@ -151,6 +154,7 @@ func TestRunEvent(t *testing.T) {
 		{workdir, "checkout", "push", "", platforms},
 		{workdir, "job-container", "push", "", platforms},
 		{workdir, "job-container-non-root", "push", "", platforms},
+		{workdir, "container", "push", "", platforms},
 		{workdir, "remote-action-docker", "push", "", platforms},
 		{workdir, "remote-action-js", "push", "", platforms},
 		{workdir, "matrix", "push", "", platforms},
@@ -170,7 +174,6 @@ func TestRunEvent(t *testing.T) {
 		{workdir, "job-status-check", "push", "job 'fail' failed", platforms},
 		{workdir, "if-expressions", "push", "Job 'mytest' failed", platforms},
 		{workdir, "strategy", "push", "", platforms}, // TODO: move all testdata into pkg so we can validate it with planner and runner
-		// {workdir, "issue-228", "push", "", platforms, }, // TODO [igni]: Remove this once everything passes
 	}
 
 	for _, table := range tables {

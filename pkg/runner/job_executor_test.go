@@ -14,7 +14,7 @@ import (
 
 func TestJobExecutor(t *testing.T) {
 	tables := []TestJobFileInfo{
-		{workdir, "uses-and-run-in-one-step", "push", "Invalid run/uses syntax for job:test step:Test", platforms},
+		{workdir, "step-uses-and-run", "push", "Invalid run/uses syntax for job:test step:Test", platforms},
 		{workdir, "uses-github-empty", "push", "Expected format {org}/{repo}[/path]@ref", platforms},
 		{workdir, "uses-github-noref", "push", "Expected format {org}/{repo}[/path]@ref", platforms},
 		{workdir, "uses-github-root", "push", "", platforms},
