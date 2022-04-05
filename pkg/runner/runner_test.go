@@ -16,11 +16,30 @@ import (
 	"github.com/nektos/act/pkg/model"
 )
 
-var baseImage = "node:16-buster-slim"
+var (
+	baseImage = "node:16-buster-slim"
+	platforms map[string]string
+	logLevel  = log.DebugLevel
+	workdir   = "testdata"
+)
 
 func init() {
 	if p := os.Getenv("ACT_TEST_IMAGE"); p != "" {
 		baseImage = p
+	}
+
+	platforms = map[string]string{
+		"ubuntu-latest": baseImage,
+	}
+
+	if l := os.Getenv("ACT_TEST_LOG_LEVEL"); l != "" {
+		if lvl, err := log.ParseLevel(l); err == nil {
+			logLevel = lvl
+		}
+	}
+
+	if wd, err := filepath.Abs(workdir); err == nil {
+		workdir = wd
 	}
 }
 
@@ -43,43 +62,52 @@ func TestGraphEvent(t *testing.T) {
 }
 
 type TestJobFileInfo struct {
-	workdir               string
-	workflowPath          string
-	eventName             string
-	errorMessage          string
-	platforms             map[string]string
-	containerArchitecture string
+	workdir      string
+	workflowPath string
+	eventName    string
+	errorMessage string
+	platforms    map[string]string
 }
 
-func runTestJobFile(ctx context.Context, t *testing.T, tjfi TestJobFileInfo) {
-	t.Run(tjfi.workflowPath, func(t *testing.T) {
-		workdir, err := filepath.Abs(tjfi.workdir)
-		assert.Nil(t, err, workdir)
-		fullWorkflowPath := filepath.Join(workdir, tjfi.workflowPath)
-		runnerConfig := &Config{
-			Workdir:               workdir,
-			BindWorkdir:           false,
-			EventName:             tjfi.eventName,
-			Platforms:             tjfi.platforms,
-			ReuseContainers:       false,
-			ContainerArchitecture: tjfi.containerArchitecture,
-			GitHubInstance:        "github.com",
-		}
+func (j *TestJobFileInfo) runTest(ctx context.Context, t *testing.T, cfg *Config) {
+	log.SetLevel(logLevel)
 
-		runner, err := New(runnerConfig)
-		assert.Nil(t, err, tjfi.workflowPath)
+	workdir, err := filepath.Abs(j.workdir)
+	assert.Nil(t, err, workdir)
 
-		planner, err := model.NewWorkflowPlanner(fullWorkflowPath, true)
+	fullWorkflowPath := filepath.Join(workdir, j.workflowPath)
+	runnerConfig := &Config{
+		Workdir:               workdir,
+		BindWorkdir:           false,
+		EventName:             j.eventName,
+		EventPath:             cfg.EventPath,
+		Platforms:             j.platforms,
+		ReuseContainers:       false,
+		Env:                   cfg.Env,
+		Secrets:               cfg.Secrets,
+		GitHubInstance:        "github.com",
+		ContainerArchitecture: cfg.ContainerArchitecture,
+	}
+
+	runner, err := New(runnerConfig)
+	assert.Nil(t, err, j.workflowPath)
+
+	planner, err := model.NewWorkflowPlanner(fullWorkflowPath, true)
+	assert.Nil(t, err, fullWorkflowPath)
+
+	plan := planner.PlanEvent(j.eventName)
+
+	err = runner.NewPlanExecutor(plan)(ctx)
+	if j.errorMessage == "" {
 		assert.Nil(t, err, fullWorkflowPath)
+	} else {
+		assert.Error(t, err, j.errorMessage)
+	}
+}
 
-		plan := planner.PlanEvent(tjfi.eventName)
-
-		err = runner.NewPlanExecutor(plan)(ctx)
-		if tjfi.errorMessage == "" {
-			assert.Nil(t, err, fullWorkflowPath)
-		} else {
-			assert.Error(t, err, tjfi.errorMessage)
-		}
+func runTestJobFile(ctx context.Context, t *testing.T, j TestJobFileInfo) {
+	t.Run(j.workflowPath, func(t *testing.T) {
+		j.runTest(ctx, t, &Config{})
 	})
 }
 
@@ -88,112 +116,109 @@ func TestRunEvent(t *testing.T) {
 		t.Skip("skipping integration test")
 	}
 
-	platforms := map[string]string{
-		"ubuntu-latest": baseImage,
-	}
+	ctx := context.Background()
 
 	tables := []TestJobFileInfo{
-		{"testdata", "basic", "push", "", platforms, ""},
-		{"testdata", "fail", "push", "exit with `FAILURE`: 1", platforms, ""},
-		{"testdata", "runs-on", "push", "", platforms, ""},
-		{"testdata", "checkout", "push", "", platforms, ""},
-		{"testdata", "non-existent-action", "push", "Job 'nopanic' failed", platforms, ""},
-		{"testdata", "shells/defaults", "push", "", platforms, ""},
+		// Shells
+		{workdir, "shells/defaults", "push", "", platforms},
 		// TODO: figure out why it fails
-		// {"testdata", "shells/custom", "push", "", map[string]string{"ubuntu-latest": "ghcr.io/justingrote/act-pwsh:latest"}, ""}, // custom image with pwsh
-		{"testdata", "shells/pwsh", "push", "", map[string]string{"ubuntu-latest": "ghcr.io/justingrote/act-pwsh:latest"}, ""}, // custom image with pwsh
-		{"testdata", "shells/bash", "push", "", platforms, ""},
-		{"testdata", "shells/python", "push", "", map[string]string{"ubuntu-latest": "node:16-buster"}, ""}, // slim doesn't have python
-		{"testdata", "shells/sh", "push", "", platforms, ""},
-		{"testdata", "job-container", "push", "", platforms, ""},
-		{"testdata", "job-container-non-root", "push", "", platforms, ""},
-		{"testdata", "container-hostname", "push", "", platforms, ""},
-		{"testdata", "uses-docker-url", "push", "", platforms, ""},
-		{"testdata", "remote-action-docker", "push", "", platforms, ""},
-		{"testdata", "remote-action-js", "push", "", platforms, ""},
-		{"testdata", "local-action-docker-url", "push", "", platforms, ""},
-		{"testdata", "local-action-dockerfile", "push", "", platforms, ""},
-		{"testdata", "local-action-via-composite-dockerfile", "push", "", platforms, ""},
-		{"testdata", "local-action-js", "push", "", platforms, ""},
-		{"testdata", "matrix", "push", "", platforms, ""},
-		{"testdata", "matrix-include-exclude", "push", "", platforms, ""},
-		{"testdata", "commands", "push", "", platforms, ""},
-		{"testdata", "workdir", "push", "", platforms, ""},
-		{"testdata", "defaults-run", "push", "", platforms, ""},
-		{"testdata", "uses-composite", "push", "", platforms, ""},
-		{"testdata", "uses-composite-with-error", "push", "Job 'failing-composite-action' failed", platforms, ""},
-		{"testdata", "uses-nested-composite", "push", "", platforms, ""},
-		{"testdata", "uses-workflow", "push", "reusable workflows are currently not supported (see https://github.com/nektos/act/issues/826 for updates)", platforms, ""},
-		{"testdata", "composite-fail-with-output", "push", "", platforms, ""},
-		{"testdata", "issue-597", "push", "", platforms, ""},
-		{"testdata", "issue-598", "push", "", platforms, ""},
-		{"testdata", "if-env-act", "push", "", platforms, ""},
-		{"testdata", "env-and-path", "push", "", platforms, ""},
-		{"testdata", "outputs", "push", "", platforms, ""},
-		{"testdata", "steps-context/conclusion", "push", "", platforms, ""},
-		{"testdata", "steps-context/outcome", "push", "", platforms, ""},
-		{"testdata", "job-status-check", "push", "job 'fail' failed", platforms, ""},
-		{"testdata", "if-expressions", "push", "Job 'mytest' failed", platforms, ""},
-		{"testdata", "evalmatrix", "push", "", platforms, ""},
-		{"testdata", "evalmatrixneeds", "push", "", platforms, ""},
-		{"testdata", "evalmatrixneeds2", "push", "", platforms, ""},
-		{"testdata", "evalmatrix-merge-map", "push", "", platforms, ""},
-		{"testdata", "evalmatrix-merge-array", "push", "", platforms, ""},
-		{"../model/testdata", "strategy", "push", "", platforms, ""}, // TODO: move all testdata into pkg so we can validate it with planner and runner
-		// {"testdata", "issue-228", "push", "", platforms, ""}, // TODO [igni]: Remove this once everything passes
-		{"../model/testdata", "container-volumes", "push", "", platforms, ""},
+		// {workdir, "shells/custom", "push", "", map[string]string{"ubuntu-latest": "ghcr.io/justingrote/act-pwsh:latest"}, }, // custom image with pwsh
+		{workdir, "shells/pwsh", "push", "", map[string]string{"ubuntu-latest": "ghcr.io/justingrote/act-pwsh:latest"}}, // custom image with pwsh
+		{workdir, "shells/bash", "push", "", platforms},
+		{workdir, "shells/python", "push", "", map[string]string{"ubuntu-latest": "node:16-buster"}}, // slim doesn't have python
+		{workdir, "shells/sh", "push", "", platforms},
 
-		// single test for different architecture: linux/arm64
-		{"testdata", "basic", "push", "", platforms, "linux/arm64"},
+		// Local action
+		{workdir, "local-action-docker-url", "push", "", platforms},
+		{workdir, "local-action-dockerfile", "push", "", platforms},
+		{workdir, "local-action-via-composite-dockerfile", "push", "", platforms},
+		{workdir, "local-action-js", "push", "", platforms},
+
+		// Uses
+		{workdir, "uses-composite", "push", "", platforms},
+		{workdir, "uses-composite-with-error", "push", "Job 'failing-composite-action' failed", platforms},
+		{workdir, "uses-nested-composite", "push", "", platforms},
+		{workdir, "uses-workflow", "push", "reusable workflows are currently not supported (see https://github.com/nektos/act/issues/826 for updates)", platforms},
+		{workdir, "uses-docker-url", "push", "", platforms},
+
+		// Eval
+		{workdir, "evalmatrix", "push", "", platforms},
+		{workdir, "evalmatrixneeds", "push", "", platforms},
+		{workdir, "evalmatrixneeds2", "push", "", platforms},
+		{workdir, "evalmatrix-merge-map", "push", "", platforms},
+		{workdir, "evalmatrix-merge-array", "push", "", platforms},
+
+		{workdir, "basic", "push", "", platforms},
+		{workdir, "fail", "push", "exit with `FAILURE`: 1", platforms},
+		{workdir, "runs-on", "push", "", platforms},
+		{workdir, "checkout", "push", "", platforms},
+		{workdir, "job-container", "push", "", platforms},
+		{workdir, "job-container-non-root", "push", "", platforms},
+		{workdir, "container-hostname", "push", "", platforms},
+		{workdir, "remote-action-docker", "push", "", platforms},
+		{workdir, "remote-action-js", "push", "", platforms},
+		{workdir, "matrix", "push", "", platforms},
+		{workdir, "matrix-include-exclude", "push", "", platforms},
+		{workdir, "commands", "push", "", platforms},
+		{workdir, "workdir", "push", "", platforms},
+		{workdir, "defaults-run", "push", "", platforms},
+		{workdir, "composite-fail-with-output", "push", "", platforms},
+		{workdir, "issue-597", "push", "", platforms},
+		{workdir, "issue-598", "push", "", platforms},
+		{workdir, "if-env-act", "push", "", platforms},
+		{workdir, "env-and-path", "push", "", platforms},
+		{workdir, "non-existent-action", "push", "Job 'nopanic' failed", platforms},
+		{workdir, "outputs", "push", "", platforms},
+		{workdir, "steps-context/conclusion", "push", "", platforms},
+		{workdir, "steps-context/outcome", "push", "", platforms},
+		{workdir, "job-status-check", "push", "job 'fail' failed", platforms},
+		{workdir, "if-expressions", "push", "Job 'mytest' failed", platforms},
+		{"../model/testdata", "strategy", "push", "", platforms}, // TODO: move all testdata into pkg so we can validate it with planner and runner
+		// {"testdata", "issue-228", "push", "", platforms, }, // TODO [igni]: Remove this once everything passes
+		{"../model/testdata", "container-volumes", "push", "", platforms},
 	}
-	log.SetLevel(log.DebugLevel)
-
-	ctx := context.Background()
 
 	for _, table := range tables {
 		runTestJobFile(ctx, t, table)
 	}
 }
 
-func TestRunEventSecrets(t *testing.T) {
+func TestRunDifferentArchitecture(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}
 
-	log.SetLevel(log.DebugLevel)
-	ctx := context.Background()
-
-	platforms := map[string]string{
-		"ubuntu-latest": baseImage,
+	tjfi := TestJobFileInfo{
+		workdir:      workdir,
+		workflowPath: "basic",
+		eventName:    "push",
+		errorMessage: "",
+		platforms:    platforms,
 	}
 
+	tjfi.runTest(context.Background(), t, &Config{ContainerArchitecture: "linux/arm64"})
+}
+
+func TestRunEventSecrets(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
 	workflowPath := "secrets"
-	eventName := "push"
 
-	workdir, err := filepath.Abs("testdata")
-	assert.Nil(t, err, workflowPath)
-
-	env, _ := godotenv.Read(filepath.Join(workdir, workflowPath, ".env"))
-	secrets, _ := godotenv.Read(filepath.Join(workdir, workflowPath, ".secrets"))
-
-	runnerConfig := &Config{
-		Workdir:         workdir,
-		EventName:       eventName,
-		Platforms:       platforms,
-		ReuseContainers: false,
-		Secrets:         secrets,
-		Env:             env,
+	tjfi := TestJobFileInfo{
+		workdir:      workdir,
+		workflowPath: workflowPath,
+		eventName:    "push",
+		errorMessage: "",
+		platforms:    platforms,
 	}
-	runner, err := New(runnerConfig)
-	assert.Nil(t, err, workflowPath)
 
-	planner, err := model.NewWorkflowPlanner(fmt.Sprintf("testdata/%s", workflowPath), true)
-	assert.Nil(t, err, workflowPath)
+	env, err := godotenv.Read(filepath.Join(workdir, workflowPath, ".env"))
+	assert.NoError(t, err, "Failed to read .env")
+	secrets, _ := godotenv.Read(filepath.Join(workdir, workflowPath, ".secrets"))
+	assert.NoError(t, err, "Failed to read .secrets")
 
-	plan := planner.PlanEvent(eventName)
-
-	err = runner.NewPlanExecutor(plan)(ctx)
-	assert.Nil(t, err, workflowPath)
+	tjfi.runTest(context.Background(), t, &Config{Secrets: secrets, Env: env})
 }
 
 func TestRunEventPullRequest(t *testing.T) {
@@ -201,36 +226,17 @@ func TestRunEventPullRequest(t *testing.T) {
 		t.Skip("skipping integration test")
 	}
 
-	log.SetLevel(log.DebugLevel)
-	ctx := context.Background()
-
-	platforms := map[string]string{
-		"ubuntu-latest": baseImage,
-	}
-
 	workflowPath := "pull-request"
-	eventName := "pull_request"
 
-	workdir, err := filepath.Abs("testdata")
-	assert.Nil(t, err, workflowPath)
-
-	runnerConfig := &Config{
-		Workdir:         workdir,
-		EventName:       eventName,
-		EventPath:       filepath.Join(workdir, workflowPath, "event.json"),
-		Platforms:       platforms,
-		ReuseContainers: false,
+	tjfi := TestJobFileInfo{
+		workdir:      workdir,
+		workflowPath: workflowPath,
+		eventName:    "pull_request",
+		errorMessage: "",
+		platforms:    platforms,
 	}
-	runner, err := New(runnerConfig)
-	assert.Nil(t, err, workflowPath)
 
-	planner, err := model.NewWorkflowPlanner(fmt.Sprintf("testdata/%s", workflowPath), true)
-	assert.Nil(t, err, workflowPath)
-
-	plan := planner.PlanEvent(eventName)
-
-	err = runner.NewPlanExecutor(plan)(ctx)
-	assert.Nil(t, err, workflowPath)
+	tjfi.runTest(context.Background(), t, &Config{EventPath: filepath.Join(workdir, workflowPath, "event.json")})
 }
 
 func TestContainerPath(t *testing.T) {

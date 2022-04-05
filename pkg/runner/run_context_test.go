@@ -13,7 +13,6 @@ import (
 	"github.com/nektos/act/pkg/model"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/sirupsen/logrus/hooks/test"
 	assert "github.com/stretchr/testify/assert"
 	yaml "gopkg.in/yaml.v3"
 )
@@ -26,7 +25,6 @@ func TestRunContext_EvalBool(t *testing.T) {
 	})
 	assert.NoError(t, err)
 
-	hook := test.NewGlobal()
 	rc := &RunContext{
 		Config: &Config{
 			Workdir: ".",
@@ -157,14 +155,12 @@ func TestRunContext_EvalBool(t *testing.T) {
 		table := table
 		t.Run(table.in, func(t *testing.T) {
 			assertObject := assert.New(t)
-			defer hook.Reset()
 			b, err := EvalBool(rc.ExprEval, table.in)
 			if table.wantErr {
 				assertObject.Error(err)
 			}
 
 			assertObject.Equal(table.out, b, fmt.Sprintf("Expected %s to be %v, was %v", table.in, table.out, b))
-			assertObject.Empty(hook.LastEntry(), table.in)
 		})
 	}
 }
