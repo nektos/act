@@ -31,7 +31,6 @@ import (
 	"github.com/Masterminds/semver"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
-	"golang.org/x/term"
 
 	"github.com/nektos/act/pkg/common"
 )
@@ -722,7 +721,6 @@ func (cr *containerReference) attach() common.Executor {
 		if err != nil {
 			return errors.WithStack(err)
 		}
-		isTerminal := term.IsTerminal(int(os.Stdout.Fd()))
 
 		var outWriter io.Writer
 		outWriter = cr.input.Stdout
@@ -734,7 +732,7 @@ func (cr *containerReference) attach() common.Executor {
 			errWriter = os.Stderr
 		}
 		go func() {
-			if !isTerminal || os.Getenv("NORAW") != "" {
+			if !cr.input.Tty || os.Getenv("NORAW") != "" {
 				_, err = stdcopy.StdCopy(outWriter, errWriter, out.Reader)
 			} else {
 				_, err = io.Copy(outWriter, out.Reader)
