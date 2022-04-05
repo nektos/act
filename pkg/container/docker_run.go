@@ -503,14 +503,6 @@ func (cr *containerReference) getWorkdir(workdir string) string {
 	return cr.input.WorkingDir
 }
 
-func getEnvListFromMap(env map[string]string) []string {
-	envList := make([]string, 0)
-	for k, v := range env {
-		envList = append(envList, fmt.Sprintf("%s=%s", k, v))
-	}
-	return envList
-}
-
 func (cr *containerReference) exec2(ctx context.Context, cmd []string, env map[string]string, user, workdir string) error {
 	logger := common.Logger(ctx)
 	// Fix slashes when running on Windows
