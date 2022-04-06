@@ -9,7 +9,6 @@ import (
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/container"
 	"github.com/nektos/act/pkg/model"
-	log "github.com/sirupsen/logrus"
 )
 
 type stepRun struct {
@@ -56,7 +55,7 @@ func (sr *stepRun) getEnv() *map[string]string {
 
 func (sr *stepRun) setupShellCommandExecutor() common.Executor {
 	return func(ctx context.Context) error {
-		scriptName, script, err := sr.setupShellCommand()
+		scriptName, script, err := sr.setupShellCommand(ctx)
 		if err != nil {
 			return err
 		}
@@ -82,7 +81,7 @@ func getScriptName(rc *RunContext, step *model.Step) string {
 // so we return proper errors before any execution or spawning containers
 // it will error anyway with:
 // OCI runtime exec failed: exec failed: container_linux.go:380: starting container process caused: exec: "${{": executable file not found in $PATH: unknown
-func (sr *stepRun) setupShellCommand() (name, script string, err error) {
+func (sr *stepRun) setupShellCommand(ctx context.Context) (name, script string, err error) {
 	sr.setupShell()
 	sr.setupWorkingDirectory()
 
@@ -114,7 +113,11 @@ func (sr *stepRun) setupShellCommand() (name, script string, err error) {
 
 	script = fmt.Sprintf("%s\n%s\n%s", runPrepend, script, runAppend)
 
-	log.Debugf("Wrote command \n%s\n to '%s'", script, name)
+	if !strings.Contains(script, "::add-mask::") && !sr.RunContext.Config.InsecureSecrets {
+		common.Logger(ctx).Debugf("Wrote command \n%s\n to '%s'", script, name)
+	} else {
+		common.Logger(ctx).Debugf("Wrote add-mask command to '%s'", name)
+	}
 
 	scriptPath := fmt.Sprintf("%s/%s", ActPath, name)
 	sr.cmd, err = shellquote.Split(strings.Replace(scCmd, `{0}`, scriptPath, 1))

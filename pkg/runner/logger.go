@@ -37,31 +37,40 @@ func init() {
 	}
 }
 
+type JobLoggerParams struct {
+	jobName   string
+	config    *Config
+	masks     *[]string
+	keepColor bool
+}
+
 // WithJobLogger attaches a new logger to context that is aware of steps
-func WithJobLogger(ctx context.Context, jobName string, config *Config, masks *[]string) context.Context {
+func WithJobLogger(ctx context.Context, params JobLoggerParams) context.Context {
 	mux.Lock()
 	defer mux.Unlock()
 
 	var formatter logrus.Formatter
-	if config.JSONLogger {
+	if params.config.JSONLogger {
 		formatter = &jobLogJSONFormatter{
 			formatter: &logrus.JSONFormatter{},
-			masker:    valueMasker(config.InsecureSecrets, config.Secrets, masks),
+			masker:    valueMasker(params.config.InsecureSecrets, params.config.Secrets, params.masks),
 		}
 	} else {
 		formatter = &jobLogFormatter{
 			color:  colors[nextColor%len(colors)],
-			masker: valueMasker(config.InsecureSecrets, config.Secrets, masks),
+			masker: valueMasker(params.config.InsecureSecrets, params.config.Secrets, params.masks),
 		}
 	}
 
-	nextColor++
+	if !params.keepColor {
+		nextColor++
+	}
 
 	logger := logrus.New()
 	logger.SetFormatter(formatter)
 	logger.SetOutput(os.Stdout)
 	logger.SetLevel(logrus.GetLevel())
-	rtn := logger.WithFields(logrus.Fields{"job": jobName, "dryrun": common.Dryrun(ctx)})
+	rtn := logger.WithFields(logrus.Fields{"job": params.jobName, "dryrun": common.Dryrun(ctx)})
 
 	return common.WithLogger(ctx, rtn)
 }

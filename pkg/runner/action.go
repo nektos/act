@@ -413,7 +413,15 @@ func execAsComposite(step actionStep, containerActionDir string) common.Executor
 			ActionRepository: rc.ActionRepository,
 			ActionRef:        rc.ActionRef,
 			Env:              env,
+			Masks:            rc.Masks,
 		}
+
+		ctx = WithJobLogger(ctx, JobLoggerParams{
+			jobName:   compositerc.String(),
+			config:    compositerc.Config,
+			masks:     &compositerc.Masks,
+			keepColor: false,
+		})
 
 		// We need to inject a composite RunContext related command
 		// handler into the current running job container
@@ -443,7 +451,7 @@ func execAsComposite(step actionStep, containerActionDir string) common.Executor
 			}, eval.Interpolate(output.Value))
 		}
 
-		rc.Masks = append(rc.Masks, compositerc.Masks...)
+		rc.Masks = compositerc.Masks
 
 		return err
 	}
