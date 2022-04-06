@@ -172,6 +172,8 @@ func (rc *RunContext) compositeExecutor(action *model.Action) *compositeSteps {
 
 func (rc *RunContext) newCompositeCommandExecutor(executor common.Executor) common.Executor {
 	return func(ctx context.Context) error {
+		ctx = WithCompositeLogger(ctx, &rc.Masks)
+
 		// We need to inject a composite RunContext related command
 		// handler into the current running job container
 		// We need this, to support scoping commands to the composite action
