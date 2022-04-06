@@ -34,7 +34,7 @@ func (s stepStage) String() string {
 	case stepStagePre:
 		return "Pre"
 	case stepStageMain:
-		return "Run"
+		return "Main"
 	case stepStagePost:
 		return "Post"
 	}
@@ -90,14 +90,14 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 		if strings.Contains(stepString, "::add-mask::") {
 			stepString = "add-mask command"
 		}
-		common.Logger(ctx).Infof("\u2B50  %s %s", stage, stepString)
+		common.Logger(ctx).Infof("\u2B50 Run %s %s", stage, stepString)
 
 		err = executor(ctx)
 
 		if err == nil {
-			common.Logger(ctx).Infof("  \u2705  Success - %s", stepString)
+			common.Logger(ctx).Infof("  \u2705  Success - %s %s", stage, stepString)
 		} else {
-			common.Logger(ctx).Errorf("  \u274C  Failure - %s", stepString)
+			common.Logger(ctx).Errorf("  \u274C  Failure - %s %s", stage, stepString)
 
 			rc.StepResults[rc.CurrentStep].Outcome = model.StepStatusFailure
 			if stepModel.ContinueOnError {
