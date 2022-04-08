@@ -37,42 +37,58 @@ func init() {
 	}
 }
 
-type JobLoggerParams struct {
-	jobName   string
-	config    *Config
-	masks     *[]string
-	keepColor bool
+type masksContextKey string
+
+const masksContextKeyVal = masksContextKey("logrus.FieldLogger")
+
+// Logger returns the appropriate logger for current context
+func Masks(ctx context.Context) *[]string {
+	val := ctx.Value(masksContextKeyVal)
+	if val != nil {
+		if masks, ok := val.(*[]string); ok {
+			return masks
+		}
+	}
+	return &[]string{}
+}
+
+// WithLogger adds a value to the context for the logger
+func WithMasks(ctx context.Context, masks *[]string) context.Context {
+	return context.WithValue(ctx, masksContextKeyVal, masks)
 }
 
 // WithJobLogger attaches a new logger to context that is aware of steps
-func WithJobLogger(ctx context.Context, params JobLoggerParams) context.Context {
+func WithJobLogger(ctx context.Context, jobName string, config *Config, masks *[]string) context.Context {
 	mux.Lock()
 	defer mux.Unlock()
 
 	var formatter logrus.Formatter
-	if params.config.JSONLogger {
+	if config.JSONLogger {
 		formatter = &jobLogJSONFormatter{
 			formatter: &logrus.JSONFormatter{},
-			masker:    valueMasker(params.config.InsecureSecrets, params.config.Secrets, params.masks),
+			masker:    valueMasker(config.InsecureSecrets, config.Secrets),
 		}
 	} else {
 		formatter = &jobLogFormatter{
 			color:  colors[nextColor%len(colors)],
-			masker: valueMasker(params.config.InsecureSecrets, params.config.Secrets, params.masks),
+			masker: valueMasker(config.InsecureSecrets, config.Secrets),
 		}
 	}
 
-	if !params.keepColor {
-		nextColor++
-	}
+	ctx = WithMasks(ctx, masks)
 
 	logger := logrus.New()
 	logger.SetFormatter(formatter)
 	logger.SetOutput(os.Stdout)
 	logger.SetLevel(logrus.GetLevel())
-	rtn := logger.WithFields(logrus.Fields{"job": params.jobName, "dryrun": common.Dryrun(ctx)})
+	rtn := logger.WithFields(logrus.Fields{"job": jobName, "dryrun": common.Dryrun(ctx)}).WithContext(ctx)
 
 	return common.WithLogger(ctx, rtn)
+}
+
+func WithCompositeLogger(ctx context.Context, masks *[]string) context.Context {
+	ctx = WithMasks(ctx, masks)
+	return common.WithLogger(ctx, common.Logger(ctx).WithFields(logrus.Fields{}).WithContext(ctx))
 }
 
 func withStepLogger(ctx context.Context, stepName string) context.Context {
@@ -82,11 +98,13 @@ func withStepLogger(ctx context.Context, stepName string) context.Context {
 
 type entryProcessor func(entry *logrus.Entry) *logrus.Entry
 
-func valueMasker(insecureSecrets bool, secrets map[string]string, masks *[]string) entryProcessor {
+func valueMasker(insecureSecrets bool, secrets map[string]string) entryProcessor {
 	return func(entry *logrus.Entry) *logrus.Entry {
 		if insecureSecrets {
 			return entry
 		}
+
+		masks := Masks(entry.Context)
 
 		for _, v := range secrets {
 			if v != "" {

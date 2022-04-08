@@ -163,12 +163,6 @@ func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 					}
 					stageExecutor = append(stageExecutor, func(ctx context.Context) error {
 						jobName := fmt.Sprintf("%-*s", maxJobNameLen, rc.String())
-						jobLoggerCtx := WithJobLogger(ctx, JobLoggerParams{
-							jobName:   jobName,
-							config:    rc.Config,
-							masks:     &rc.Masks,
-							keepColor: true,
-						})
 						return rc.Executor().Finally(func(ctx context.Context) error {
 							isLastRunningContainer := func(currentStage int, currentRun int) bool {
 								return currentStage == len(plan.Stages)-1 && currentRun == len(stage.Runs)-1
@@ -182,7 +176,7 @@ func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 							}
 
 							return nil
-						})(common.WithJobErrorContainer(jobLoggerCtx))
+						})(common.WithJobErrorContainer(WithJobLogger(ctx, jobName, rc.Config, &rc.Masks)))
 					})
 				}
 				pipeline = append(pipeline, common.NewParallelExecutor(maxParallel, stageExecutor...))
