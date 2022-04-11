@@ -414,6 +414,7 @@ func execAsComposite(step actionStep, containerActionDir string) common.Executor
 			ActionRef:        rc.ActionRef,
 			Env:              env,
 			Masks:            rc.Masks,
+			ExtraPath:        rc.ExtraPath,
 		}
 
 		ctx = WithCompositeLogger(ctx, &compositerc.Masks)
@@ -447,6 +448,7 @@ func execAsComposite(step actionStep, containerActionDir string) common.Executor
 		}
 
 		rc.Masks = compositerc.Masks
+		rc.ExtraPath = compositerc.ExtraPath
 
 		return err
 	}
