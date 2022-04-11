@@ -50,7 +50,7 @@ jobs:
             ${{ runner.os }}-go-
       - run: go test -v -cover -coverprofile=coverage.txt -covermode=atomic ./...
       - name: Upload Codecov report
-        uses: codecov/codecov-action@v2.1.0
+        uses: codecov/codecov-action@v3.0.0
         with:
           files: coverage.txt
           fail_ci_if_error: true # optional (default = false)
