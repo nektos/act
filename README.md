@@ -100,6 +100,12 @@ or through `nix-shell`:
 nix-shell -p act
 ```
 
+Using the latest [Nix command](https://nixos.wiki/wiki/Nix_command), you can run directly :
+
+```sh
+nix run nixpkgs#act
+```
+
 ### [Go](https://golang.org) (Linux/Windows/macOS/any other platform supported by Go)
 
 If you have Go 1.18+, you can install latest released version of `act` directly from source by running:
