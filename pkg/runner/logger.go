@@ -75,6 +75,7 @@ func WithJobLogger(ctx context.Context, jobName string, config *Config, masks *[
 		}
 	}
 
+	nextColor++
 	ctx = WithMasks(ctx, masks)
 
 	logger := logrus.New()
