@@ -384,6 +384,9 @@ func execAsComposite(step actionStep, containerActionDir string) common.Executor
 		}
 
 		env := make(map[string]string)
+		for k, v := range rc.Env {
+			env[k] = eval.Interpolate(v)
+		}
 		for k, v := range step.getStepModel().Environment() {
 			env[k] = eval.Interpolate(v)
 		}

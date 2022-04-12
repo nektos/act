@@ -1,0 +1,13 @@
+on: push
+env:
+  GLOBAL: "1"
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      JOB: "1"
+    steps:
+    - uses: actions/checkout@v2
+    - uses: ./act-composite-env-test/action1
+      env:
+        COMPOSITE_OVERRIDE: "1"

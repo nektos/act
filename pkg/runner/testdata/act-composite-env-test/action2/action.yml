@@ -1,0 +1,21 @@
+name: action2
+description: actions2
+runs:
+  using: composite
+  steps:
+  - name: env.COMPOSITE_OVERRIDE != '2'
+    run: exit 1
+    if: env.COMPOSITE_OVERRIDE != '2'
+    shell: bash
+  - name: env.COMPOSITE != '1'
+    run: exit 1
+    if: env.COMPOSITE != '1'
+    shell: bash
+  - name: env.JOB != '1'
+    run: exit 1
+    if: env.JOB != '1'
+    shell: bash
+  - name: env.GLOBAL != '1'
+    run: exit 1
+    if: env.GLOBAL != '1'
+    shell: bash
