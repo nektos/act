@@ -169,7 +169,7 @@ func isStepEnabled(ctx context.Context, expr string, step step) (bool, error) {
 
 	runStep, err := EvalBool(rc.NewStepExpressionEvaluator(step), expr)
 	if err != nil {
-		return false, fmt.Errorf("  \u274C  Error in if-expression: \"if: %s\" (%s)", step.getStepModel().If.Value, err)
+		return false, fmt.Errorf("  \u274C  Error in if-expression: \"if: %s\" (%s)", expr, err)
 	}
 
 	return runStep, nil

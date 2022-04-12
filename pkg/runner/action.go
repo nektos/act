@@ -100,6 +100,27 @@ func readActionImpl(step *model.Step, actionDir string, actionPath string, readF
 	return action, err
 }
 
+func maybeCopyToActionDir(ctx context.Context, step actionStep, actionDir string, actionPath string, containerActionDir string) error {
+	rc := step.getRunContext()
+	stepModel := step.getStepModel()
+
+	if stepModel.Type() != model.StepTypeUsesActionRemote {
+		return nil
+	}
+	if err := removeGitIgnore(actionDir); err != nil {
+		return err
+	}
+
+	var containerActionDirCopy string
+	containerActionDirCopy = strings.TrimSuffix(containerActionDir, actionPath)
+	log.Debug(containerActionDirCopy)
+
+	if !strings.HasSuffix(containerActionDirCopy, `/`) {
+		containerActionDirCopy += `/`
+	}
+	return rc.JobContainer.CopyDir(containerActionDirCopy, actionDir+"/", rc.Config.UseGitIgnore)(ctx)
+}
+
 func runActionImpl(step actionStep, actionDir string, remoteAction *remoteAction) common.Executor {
 	rc := step.getRunContext()
 	stepModel := step.getStepModel()
@@ -139,27 +160,9 @@ func runActionImpl(step actionStep, actionDir string, remoteAction *remoteAction
 
 		log.Debugf("type=%v actionDir=%s actionPath=%s workdir=%s actionCacheDir=%s actionName=%s containerActionDir=%s", stepModel.Type(), actionDir, actionPath, rc.Config.Workdir, rc.ActionCacheDir(), actionName, containerActionDir)
 
-		maybeCopyToActionDir := func() error {
-			if stepModel.Type() != model.StepTypeUsesActionRemote {
-				return nil
-			}
-			if err := removeGitIgnore(actionDir); err != nil {
-				return err
-			}
-
-			var containerActionDirCopy string
-			containerActionDirCopy = strings.TrimSuffix(containerActionDir, actionPath)
-			log.Debug(containerActionDirCopy)
-
-			if !strings.HasSuffix(containerActionDirCopy, `/`) {
-				containerActionDirCopy += `/`
-			}
-			return rc.JobContainer.CopyDir(containerActionDirCopy, actionDir+"/", rc.Config.UseGitIgnore)(ctx)
-		}
-
 		switch action.Runs.Using {
 		case model.ActionRunsUsingNode12, model.ActionRunsUsingNode16:
-			if err := maybeCopyToActionDir(); err != nil {
+			if err := maybeCopyToActionDir(ctx, step, actionDir, actionPath, containerActionDir); err != nil {
 				return err
 			}
 			containerArgs := []string{"node", path.Join(containerActionDir, action.Runs.Main)}
@@ -172,7 +175,7 @@ func runActionImpl(step actionStep, actionDir string, remoteAction *remoteAction
 			}
 			return execAsDocker(ctx, step, actionName, location, remoteAction == nil)
 		case model.ActionRunsUsingComposite:
-			if err := maybeCopyToActionDir(); err != nil {
+			if err := maybeCopyToActionDir(ctx, step, actionDir, actionPath, containerActionDir); err != nil {
 				return err
 			}
 
@@ -372,6 +375,29 @@ func newStepContainer(ctx context.Context, step step, image string, cmd []string
 	return stepContainer
 }
 
+func (rc *RunContext) setupActionInputs(step actionStep) {
+	if step.getActionModel() == nil {
+		// e.g. local checkout skip has no action model
+		return
+	}
+
+	stepModel := step.getStepModel()
+	action := step.getActionModel()
+
+	eval := rc.NewExpressionEvaluator()
+	inputs := make(map[string]interface{})
+	for k, input := range action.Inputs {
+		inputs[k] = eval.Interpolate(input.Default)
+	}
+	if stepModel.With != nil {
+		for k, v := range stepModel.With {
+			inputs[k] = eval.Interpolate(v)
+		}
+	}
+
+	rc.Inputs = inputs
+}
+
 func populateEnvsFromSavedState(env *map[string]string, step actionStep, rc *RunContext) {
 	stepResult := rc.StepResults[step.getStepModel().ID]
 	if stepResult != nil {
@@ -424,6 +450,78 @@ func getOsSafeRelativePath(s, prefix string) string {
 	return actionName
 }
 
+func shouldRunPreStep(step actionStep) common.Conditional {
+	return func(ctx context.Context) bool {
+		log := common.Logger(ctx)
+
+		if step.getActionModel() == nil {
+			log.Debugf("skip pre step for '%s': no action model available", step.getStepModel())
+			return false
+		}
+
+		return true
+	}
+}
+
+func hasPreStep(step actionStep) common.Conditional {
+	return func(ctx context.Context) bool {
+		action := step.getActionModel()
+		return action.Runs.Using == model.ActionRunsUsingComposite ||
+			((action.Runs.Using == model.ActionRunsUsingNode12 ||
+				action.Runs.Using == model.ActionRunsUsingNode16) &&
+				action.Runs.Pre != "")
+	}
+}
+
+func runPreStep(step actionStep) common.Executor {
+	return func(ctx context.Context) error {
+		common.Logger(ctx).Debugf("run pre step for '%s'", step.getStepModel())
+
+		rc := step.getRunContext()
+		stepModel := step.getStepModel()
+		action := step.getActionModel()
+
+		switch action.Runs.Using {
+		case model.ActionRunsUsingNode12, model.ActionRunsUsingNode16:
+			// todo: refactor into step
+			var actionDir string
+			var actionPath string
+			if _, ok := step.(*stepActionRemote); ok {
+				actionPath = newRemoteAction(stepModel.Uses).Path
+				actionDir = fmt.Sprintf("%s/%s", rc.ActionCacheDir(), strings.ReplaceAll(stepModel.Uses, "/", "-"))
+			} else {
+				actionDir = filepath.Join(rc.Config.Workdir, stepModel.Uses)
+				actionPath = ""
+			}
+
+			actionLocation := ""
+			if actionPath != "" {
+				actionLocation = path.Join(actionDir, actionPath)
+			} else {
+				actionLocation = actionDir
+			}
+
+			_, containerActionDir := getContainerActionPaths(stepModel, actionLocation, rc)
+
+			if err := maybeCopyToActionDir(ctx, step, actionDir, actionPath, containerActionDir); err != nil {
+				return err
+			}
+
+			containerArgs := []string{"node", path.Join(containerActionDir, action.Runs.Pre)}
+			log.Debugf("executing remote job container: %s", containerArgs)
+
+			return rc.execJobContainer(containerArgs, *step.getEnv(), "", "")(ctx)
+
+		case model.ActionRunsUsingComposite:
+			step.getCompositeRunContext().updateCompositeRunContext(step.getRunContext(), step)
+			return step.getCompositeSteps().pre(ctx)
+
+		default:
+			return nil
+		}
+	}
+}
+
 func shouldRunPostStep(step actionStep) common.Conditional {
 	return func(ctx context.Context) bool {
 		log := common.Logger(ctx)
@@ -467,30 +565,30 @@ func runPostStep(step actionStep) common.Executor {
 		stepModel := step.getStepModel()
 		action := step.getActionModel()
 
+		// todo: refactor into step
+		var actionDir string
+		var actionPath string
+		if _, ok := step.(*stepActionRemote); ok {
+			actionPath = newRemoteAction(stepModel.Uses).Path
+			actionDir = fmt.Sprintf("%s/%s", rc.ActionCacheDir(), strings.ReplaceAll(stepModel.Uses, "/", "-"))
+		} else {
+			actionDir = filepath.Join(rc.Config.Workdir, stepModel.Uses)
+			actionPath = ""
+		}
+
+		actionLocation := ""
+		if actionPath != "" {
+			actionLocation = path.Join(actionDir, actionPath)
+		} else {
+			actionLocation = actionDir
+		}
+
+		_, containerActionDir := getContainerActionPaths(stepModel, actionLocation, rc)
+
 		switch action.Runs.Using {
 		case model.ActionRunsUsingNode12, model.ActionRunsUsingNode16:
 
 			populateEnvsFromSavedState(step.getEnv(), step, rc)
-
-			// todo: refactor into step
-			var actionDir string
-			var actionPath string
-			if _, ok := step.(*stepActionRemote); ok {
-				actionPath = newRemoteAction(stepModel.Uses).Path
-				actionDir = fmt.Sprintf("%s/%s", rc.ActionCacheDir(), strings.ReplaceAll(stepModel.Uses, "/", "-"))
-			} else {
-				actionDir = filepath.Join(rc.Config.Workdir, stepModel.Uses)
-				actionPath = ""
-			}
-
-			actionLocation := ""
-			if actionPath != "" {
-				actionLocation = path.Join(actionDir, actionPath)
-			} else {
-				actionLocation = actionDir
-			}
-
-			_, containerActionDir := getContainerActionPaths(stepModel, actionLocation, rc)
 
 			containerArgs := []string{"node", path.Join(containerActionDir, action.Runs.Post)}
 			log.Debugf("executing remote job container: %s", containerArgs)
@@ -498,6 +596,10 @@ func runPostStep(step actionStep) common.Executor {
 			return rc.execJobContainer(containerArgs, *step.getEnv(), "", "")(ctx)
 
 		case model.ActionRunsUsingComposite:
+			if err := maybeCopyToActionDir(ctx, step, actionDir, actionPath, containerActionDir); err != nil {
+				return err
+			}
+
 			step.getCompositeRunContext().updateCompositeRunContext(step.getRunContext(), step)
 			return step.getCompositeSteps().post(ctx)
 
