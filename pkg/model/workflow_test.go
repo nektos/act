@@ -94,7 +94,7 @@ func TestReadWorkflow_StepsTypes(t *testing.T) {
 	assert.Equal(t, StepTypeRun, w.Jobs["test"].Steps[0].Type())
 
 	w = readWorkflow(t, "step-uses-and-run/push.yml")
-	assert.Equal(t, StepTypeInvalid, w.Jobs["test"].Steps[0].Type())
+	assert.Equal(t, StepTypeMissingRun, w.Jobs["test"].Steps[0].Type())
 
 	w = readWorkflow(t, "remote-action-docker/push.yml")
 	assert.Equal(t, StepTypeUsesActionRemote, w.Jobs["test"].Steps[0].Type())

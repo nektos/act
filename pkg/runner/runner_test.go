@@ -3,13 +3,13 @@ package runner
 import (
 	"context"
 	"fmt"
-	"github.com/nektos/act/pkg/artifacts"
 	"os"
 	"path"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
+
 
 	"github.com/joho/godotenv"
 	log "github.com/sirupsen/logrus"
