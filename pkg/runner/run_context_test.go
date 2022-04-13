@@ -203,7 +203,7 @@ func TestRunContext_GetBindsAndMounts(t *testing.T) {
 
 			// Only run windows path tests on windows and non-windows on non-windows
 			if (isWindows && testcase.windowsPath) || (!isWindows && !testcase.windowsPath) {
-				t.Run((testcase.name + testBindSuffix), func(t *testing.T) {
+				t.Run(testcase.name+testBindSuffix, func(t *testing.T) {
 					config := testcase.rc.Config
 					config.Workdir = testcase.name
 					config.BindWorkdir = bindWorkDir
