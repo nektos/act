@@ -5,9 +5,10 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/nektos/act/pkg/exprparser"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
+
+	"github.com/nektos/act/pkg/exprparser"
 )
 
 // ExpressionEvaluator is the interface for evaluating expressions

@@ -10,8 +10,8 @@ import (
 	"github.com/nektos/act/pkg/model"
 
 	log "github.com/sirupsen/logrus"
-	assert "github.com/stretchr/testify/assert"
-	yaml "gopkg.in/yaml.v3"
+	"github.com/stretchr/testify/assert"
+	"gopkg.in/yaml.v3"
 )
 
 func TestRunContext_EvalBool(t *testing.T) {

@@ -3,9 +3,10 @@ package runner
 import (
 	"context"
 
+	"github.com/stretchr/testify/mock"
+
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/container"
-	"github.com/stretchr/testify/mock"
 )
 
 type containerMock struct {

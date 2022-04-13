@@ -14,10 +14,11 @@ import (
 	"strings"
 
 	"github.com/kballard/go-shellquote"
+	log "github.com/sirupsen/logrus"
+
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/container"
 	"github.com/nektos/act/pkg/model"
-	log "github.com/sirupsen/logrus"
 )
 
 type actionStep interface {

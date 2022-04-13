@@ -7,9 +7,10 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"gopkg.in/yaml.v3"
+
 	"github.com/nektos/act/pkg/model"
-	assert "github.com/stretchr/testify/assert"
-	yaml "gopkg.in/yaml.v3"
 )
 
 func createRunContext(t *testing.T) *RunContext {
