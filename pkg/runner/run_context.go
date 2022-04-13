@@ -441,7 +441,7 @@ func (rc *RunContext) getGithubContext() *model.GithubContext {
 		EventName:        rc.Config.EventName,
 		Workspace:        rc.Config.ContainerWorkdir(),
 		Action:           rc.CurrentStep,
-		Token:            rc.Config.Secrets["GITHUB_TOKEN"],
+		Token:            rc.Config.Token,
 		ActionPath:       rc.ActionPath,
 		ActionRef:        rc.ActionRef,
 		ActionRepository: rc.ActionRepository,
