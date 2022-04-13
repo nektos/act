@@ -117,7 +117,8 @@ func TestRunEvent(t *testing.T) {
 
 	ctx := context.Background()
 
-	pwsh := map[string]string{"ubuntu-latest": "ghcr.io/justingrote/act-pwsh:latest"} // custom image with pwsh
+	// custom image with pwsh
+	pwsh := map[string]string{"ubuntu-latest": "ghcr.io/justingrote/act-pwsh:latest"}
 
 	tables := []TestJobFileInfo{
 		// Shells
