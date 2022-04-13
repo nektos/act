@@ -4,10 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"regexp"
 	"runtime"
-	"sort"
-	"strings"
 	"testing"
 
 	"github.com/nektos/act/pkg/model"
@@ -150,7 +147,6 @@ func TestRunContext_EvalBool(t *testing.T) {
 		{in: "INVALID_EXPRESSION", wantErr: true},
 	}
 
-	updateTestIfWorkflow(t, tables, rc)
 	for _, table := range tables {
 		table := table
 		t.Run(table.in, func(t *testing.T) {
@@ -162,67 +158,6 @@ func TestRunContext_EvalBool(t *testing.T) {
 
 			assertObject.Equal(table.out, b, fmt.Sprintf("Expected %s to be %v, was %v", table.in, table.out, b))
 		})
-	}
-}
-
-func updateTestIfWorkflow(t *testing.T, tables []struct {
-	in      string
-	out     bool
-	wantErr bool
-}, rc *RunContext) {
-	var envs string
-	keys := make([]string, 0, len(rc.Env))
-	for k := range rc.Env {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	for _, k := range keys {
-		envs += fmt.Sprintf("  %s: %s\n", k, rc.Env[k])
-	}
-	// editorconfig-checker-disable
-	workflow := fmt.Sprintf(`
-name: "Test what expressions result in true and false on GitHub"
-on: push
-
-env:
-%s
-
-jobs:
-  test-ifs-and-buts:
-    runs-on: ubuntu-latest
-    steps:
-`, envs)
-	// editorconfig-checker-enable
-
-	for i, table := range tables {
-		if table.wantErr || strings.HasPrefix(table.in, "github.actor") {
-			continue
-		}
-		expressionPattern := regexp.MustCompile(`\${{\s*(.+?)\s*}}`)
-
-		expr := expressionPattern.ReplaceAllStringFunc(table.in, func(match string) string {
-			return fmt.Sprintf("€{{ %s }}", expressionPattern.ReplaceAllString(match, "$1"))
-		})
-		echo := fmt.Sprintf(`run: echo "%s should be false, but was evaluated to true;" exit 1;`, table.in)
-		name := fmt.Sprintf(`"❌ I should not run, expr: %s"`, expr)
-		if table.out {
-			echo = `run: echo OK`
-			name = fmt.Sprintf(`"✅ I should run, expr: %s"`, expr)
-		}
-		workflow += fmt.Sprintf("\n      - name: %s\n        id: step%d\n        if: %s\n        %s\n", name, i, table.in, echo)
-		if table.out {
-			workflow += fmt.Sprintf("\n      - name: \"Double checking expr: %s\"\n        if: steps.step%d.conclusion == 'skipped'\n        run: echo \"%s should have been true, but wasn't\"\n", expr, i, table.in)
-		}
-	}
-
-	file, err := os.Create("../../.github/workflows/test-if.yml")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	_, err = file.WriteString(workflow)
-	if err != nil {
-		t.Fatal(err)
 	}
 }
 
