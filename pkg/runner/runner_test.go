@@ -138,6 +138,7 @@ func TestRunEvent(t *testing.T) {
 		{workdir, "uses-nested-composite", "push", "", platforms},
 		{workdir, "uses-workflow", "push", "reusable workflows are currently not supported (see https://github.com/nektos/act/issues/826 for updates)", platforms},
 		{workdir, "uses-docker-url", "push", "", platforms},
+		{workdir, "act-composite-env-test", "push", "", platforms},
 
 		// Eval
 		{workdir, "evalmatrix", "push", "", platforms},
