@@ -148,7 +148,6 @@ func TestRunEvent(t *testing.T) {
 		{workdir, "checkout", "push", "", platforms},
 		{workdir, "job-container", "push", "", platforms},
 		{workdir, "job-container-non-root", "push", "", platforms},
-		{workdir, "container-hostname", "push", "", platforms},
 		{workdir, "remote-action-docker", "push", "", platforms},
 		{workdir, "remote-action-js", "push", "", platforms},
 		{workdir, "matrix", "push", "", platforms},
