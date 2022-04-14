@@ -189,7 +189,6 @@ func TestRunDifferentArchitecture(t *testing.T) {
 		workdir:      workdir,
 		workflowPath: "basic",
 		eventName:    "push",
-		errorMessage: "",
 		platforms:    platforms,
 	}
 
@@ -206,7 +205,6 @@ func TestRunEventSecrets(t *testing.T) {
 		workdir:      workdir,
 		workflowPath: workflowPath,
 		eventName:    "push",
-		errorMessage: "",
 		platforms:    platforms,
 	}
 
@@ -229,7 +227,6 @@ func TestRunEventPullRequest(t *testing.T) {
 		workdir:      workdir,
 		workflowPath: workflowPath,
 		eventName:    "pull_request",
-		errorMessage: "",
 		platforms:    platforms,
 	}
 
