@@ -112,12 +112,13 @@ func TestRunEvent(t *testing.T) {
 
 	ctx := context.Background()
 
+	pwsh := map[string]string{"ubuntu-latest": "ghcr.io/justingrote/act-pwsh:latest"} // custom image with pwsh
+
 	tables := []TestJobFileInfo{
 		// Shells
 		{workdir, "shells/defaults", "push", "", platforms},
-		// TODO: figure out why it fails
-		// {workdir, "shells/custom", "push", "", map[string]string{"ubuntu-latest": "ghcr.io/justingrote/act-pwsh:latest"}, }, // custom image with pwsh
-		{workdir, "shells/pwsh", "push", "", map[string]string{"ubuntu-latest": "ghcr.io/justingrote/act-pwsh:latest"}}, // custom image with pwsh
+		{workdir, "shells/custom", "push", "", pwsh},
+		{workdir, "shells/pwsh", "push", "", pwsh},
 		{workdir, "shells/bash", "push", "", platforms},
 		{workdir, "shells/python", "push", "", map[string]string{"ubuntu-latest": "node:16-buster"}}, // slim doesn't have python
 		{workdir, "shells/sh", "push", "", platforms},
