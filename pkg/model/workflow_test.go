@@ -80,7 +80,7 @@ func TestReadWorkflow_ObjectContainer(t *testing.T) {
 	t.Run("real", func(t *testing.T) {
 		w := readWorkflow(t, "job-container/push.yml")
 
-		assert.Len(t, w.Jobs, 4)
+		assert.Len(t, w.Jobs, 5)
 		assert.Contains(t, w.Jobs["test"].Container().Image, "node:16-buster-slim")
 		assert.Contains(t, w.Jobs["test"].Container().Env["TEST_ENV"], "test-value")
 
