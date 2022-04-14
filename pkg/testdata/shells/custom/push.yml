@@ -5,10 +5,10 @@ jobs:
     steps:
       # prints version and exits, it's not valid (for github) if {0} is not included
       - shell: pwsh -v '. {0}'
-        run: ''
+        run: $PSVersionTable
   check-container:
     runs-on: ubuntu-latest
     container: ghcr.io/justingrote/act-pwsh:latest
     steps:
       - shell: pwsh -v '. {0}'
-        run: ''
+        run: $PSVersionTable
