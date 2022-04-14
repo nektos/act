@@ -49,8 +49,6 @@ jobs:
         - /proc/sys/kernel/random/boot_id:/current/boot_id
     steps:
       - run: |
-          [[ $(uname -n) == "my.host.local" ]]
-      - run: |
           set -e
           test -d /path/to/volume
           test "$(cat /proc/sys/kernel/random/boot_id)" = "$(cat /current/boot_id)"
