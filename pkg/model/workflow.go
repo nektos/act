@@ -330,7 +330,7 @@ type Step struct {
 	If               yaml.Node         `yaml:"if"`
 	Name             string            `yaml:"name"`
 	Uses             string            `yaml:"uses"`
-	Run              string            `yaml:"run"`
+	RawRun           yaml.Node         `yaml:"run"`
 	WorkingDirectory string            `yaml:"working-directory"`
 	Shell            string            `yaml:"shell"`
 	Env              yaml.Node         `yaml:"env"`
@@ -345,10 +345,23 @@ func (s *Step) String() string {
 		return s.Name
 	} else if s.Uses != "" {
 		return s.Uses
-	} else if s.Run != "" {
-		return s.Run
+	} else if run := s.Run(); run != nil {
+		return *run
 	}
 	return s.ID
+}
+
+func (s *Step) Run() *string {
+	switch s.RawRun.Kind {
+	case yaml.ScalarNode:
+		var val string
+		err := s.RawRun.Decode(&val)
+		if err != nil {
+			log.Fatal(err)
+		}
+		return &val
+	}
+	return nil
 }
 
 // Environments returns string-based key=value map for a step
@@ -408,16 +421,20 @@ const (
 	// StepTypeUsesActionRemote is all steps that have a `uses` that is a reference to a github repo
 	StepTypeUsesActionRemote
 
-	// StepTypeInvalid is for steps that have invalid step action
-	StepTypeInvalid
+	// StepTypeUsesAndRun is for invalid ste[s that have both `uses` and `run` keys
+	StepTypeUsesAndRun
+
+	// StepTypeMissingRun is for invalid steps that specify `shell` key but not `run`
+	StepTypeMissingRun
 )
 
 // Type returns the type of the step
 func (s *Step) Type() StepType {
-	if s.Run != "" {
-		if s.Uses != "" {
-			return StepTypeInvalid
-		}
+	if s.Run() != nil && s.Uses != "" {
+		return StepTypeUsesAndRun
+	} else if s.Run() == nil && s.Shell != "" {
+		return StepTypeMissingRun
+	} else if s.Run() != nil && s.Shell != "" {
 		return StepTypeRun
 	} else if strings.HasPrefix(s.Uses, "docker://") {
 		return StepTypeUsesDockerURL

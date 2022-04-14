@@ -553,7 +553,7 @@ func (rc *RunContext) getGithubContext() *model.GithubContext {
 }
 
 func isLocalCheckout(ghc *model.GithubContext, step *model.Step) bool {
-	if step.Type() == model.StepTypeInvalid {
+	if step.Type() == model.StepTypeUsesAndRun || step.Type() == model.StepTypeMissingRun {
 		// This will be errored out by the executor later, we need this here to avoid a null panic though
 		return false
 	}

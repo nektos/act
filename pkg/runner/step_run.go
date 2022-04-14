@@ -88,7 +88,13 @@ func (sr *stepRun) setupShellCommand() (name, script string, err error) {
 
 	step := sr.Step
 
-	script = sr.RunContext.NewStepExpressionEvaluator(sr).Interpolate(step.Run)
+	run := step.Run()
+	if run == nil {
+		err = fmt.Errorf("missing `run` key")
+		return
+	}
+
+	script = sr.RunContext.NewStepExpressionEvaluator(sr).Interpolate(*run)
 
 	scCmd := step.ShellCommand()
 
