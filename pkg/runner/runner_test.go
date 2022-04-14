@@ -168,7 +168,6 @@ func TestRunEvent(t *testing.T) {
 		{workdir, "if-expressions", "push", "Job 'mytest' failed", platforms},
 		{workdir, "strategy", "push", "", platforms}, // TODO: move all testdata into pkg so we can validate it with planner and runner
 		// {workdir, "issue-228", "push", "", platforms, }, // TODO [igni]: Remove this once everything passes
-		{workdir, "container-volumes", "push", "", platforms},
 	}
 
 	for _, table := range tables {
