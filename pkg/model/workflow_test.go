@@ -33,68 +33,30 @@ func readWorkflow(t *testing.T, name string) (w *Workflow) {
 	return w
 }
 
-func TestReadWorkflow_StringEvent(t *testing.T) {
-	yaml := `
-name: local-action-docker-url
-on: push
+func TestReadWorkflow_Event(t *testing.T) {
+	t.Run("on-string", func(t *testing.T) {
+		w := readWorkflow(t, "event/string.yml")
 
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: ./actions/docker-url
-`
+		assert.Len(t, w.On(), 1)
+		assert.Contains(t, w.On(), "push")
+	})
 
-	workflow, err := ReadWorkflow(strings.NewReader(yaml))
-	assert.NoError(t, err, "read workflow should succeed")
+	t.Run("on-list", func(t *testing.T) {
+		w := readWorkflow(t, "event/list.yml")
 
-	assert.Len(t, workflow.On(), 1)
-	assert.Contains(t, workflow.On(), "push")
-}
+		assert.Len(t, w.On(), 3)
+		assert.Contains(t, w.On(), "push")
+		assert.Contains(t, w.On(), "pull_request")
+		assert.Contains(t, w.On(), "workflow_dispatch")
+	})
 
-func TestReadWorkflow_ListEvent(t *testing.T) {
-	yaml := `
-name: local-action-docker-url
-on: [push, pull_request]
+	t.Run("on-map", func(t *testing.T) {
+		w := readWorkflow(t, "event/map.yml")
 
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: ./actions/docker-url
-`
-
-	workflow, err := ReadWorkflow(strings.NewReader(yaml))
-	assert.NoError(t, err, "read workflow should succeed")
-
-	assert.Len(t, workflow.On(), 2)
-	assert.Contains(t, workflow.On(), "push")
-	assert.Contains(t, workflow.On(), "pull_request")
-}
-
-func TestReadWorkflow_MapEvent(t *testing.T) {
-	yaml := `
-name: local-action-docker-url
-on:
-  push:
-    branches:
-    - master
-  pull_request:
-    branches:
-    - master
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: ./actions/docker-url
-`
-
-	workflow, err := ReadWorkflow(strings.NewReader(yaml))
-	assert.NoError(t, err, "read workflow should succeed")
-	assert.Len(t, workflow.On(), 2)
-	assert.Contains(t, workflow.On(), "push")
-	assert.Contains(t, workflow.On(), "pull_request")
+		assert.Len(t, w.On(), 2)
+		assert.Contains(t, w.On(), "push")
+		assert.Contains(t, w.On(), "pull_request")
+	})
 }
 
 func TestReadWorkflow_StringContainer(t *testing.T) {
