@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/nektos/act/pkg/common"
-	"github.com/nektos/act/pkg/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+
+	"github.com/nektos/act/pkg/common"
+	"github.com/nektos/act/pkg/model"
 )
 
 func TestJobExecutor(t *testing.T) {

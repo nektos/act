@@ -160,44 +160,24 @@ jobs:
 
 // See: https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#jobsjob_idoutputs
 func TestReadWorkflow_JobOutputs(t *testing.T) {
-	yaml := `
-name: job outputs definition
+	w := readWorkflow(t, "outputs/push.yml")
 
-jobs:
-  test1:
-    runs-on: ubuntu-latest
-    steps:
-      - id: test1_1
-        run: |
-          echo "::set-output name=a_key::some-a_value"
-          echo "::set-output name=b-key::some-b-value"
-    outputs:
-      some_a_key: ${{ steps.test1_1.outputs.a_key }}
-      some-b-key: ${{ steps.test1_1.outputs.b-key }}
+	assert.Len(t, w.Jobs, 2)
 
-  test2:
-    runs-on: ubuntu-latest
-    needs:
-      - test1
-    steps:
-      - name: test2_1
-        run: |
-          echo "${{ needs.test1.outputs.some_a_key }}"
-          echo "${{ needs.test1.outputs.some-b-key }}"
-`
+	j := w.Jobs["build_output"]
+	assert.Len(t, j.Steps, 3)
+	assert.Equal(t, StepTypeRun, j.Steps[0].Type())
+	assert.Equal(t, "set_1", j.Steps[0].ID)
+	assert.Equal(t, "set_2", j.Steps[1].ID)
+	assert.Equal(t, "set_3", j.Steps[2].ID)
 
-	workflow, err := ReadWorkflow(strings.NewReader(yaml))
-	assert.NoError(t, err, "read workflow should succeed")
-	assert.Len(t, workflow.Jobs, 2)
-
-	assert.Len(t, workflow.Jobs["test1"].Steps, 1)
-	assert.Equal(t, StepTypeRun, workflow.Jobs["test1"].Steps[0].Type())
-	assert.Equal(t, "test1_1", workflow.Jobs["test1"].Steps[0].ID)
-	assert.Len(t, workflow.Jobs["test1"].Outputs, 2)
-	assert.Contains(t, workflow.Jobs["test1"].Outputs, "some_a_key")
-	assert.Contains(t, workflow.Jobs["test1"].Outputs, "some-b-key")
-	assert.Equal(t, "${{ steps.test1_1.outputs.a_key }}", workflow.Jobs["test1"].Outputs["some_a_key"])
-	assert.Equal(t, "${{ steps.test1_1.outputs.b-key }}", workflow.Jobs["test1"].Outputs["some-b-key"])
+	assert.Len(t, j.Outputs, 4)
+	assert.Equal(t, map[string]string{
+		"variable_1": "${{ steps.set_1.outputs.var_1 }}",
+		"variable_2": "${{ steps.set_1.outputs.var_2 }}",
+		"variable_3": "${{ steps.set_2.outputs.var_3 }}",
+		"variable_4": "${{ steps.set_3.outputs.var_4 }}",
+	}, j.Outputs)
 }
 
 func TestReadWorkflow_Strategy(t *testing.T) {
