@@ -16,8 +16,6 @@ func (sf *stepFactoryImpl) newStep(stepModel *model.Step, rc *RunContext) (step,
 	switch stepModel.Type() {
 	case model.StepTypeUsesAndRun:
 		return nil, fmt.Errorf("Invalid run/uses syntax for job:%s step:%+v", rc.Run, stepModel)
-	case model.StepTypeMissingRun:
-		return nil, fmt.Errorf("Required property is missing: run")
 	case model.StepTypeRun:
 		return &stepRun{
 			Step:       stepModel,

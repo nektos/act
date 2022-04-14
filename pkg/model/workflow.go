@@ -421,19 +421,19 @@ const (
 	// StepTypeUsesActionRemote is all steps that have a `uses` that is a reference to a github repo
 	StepTypeUsesActionRemote
 
-	// StepTypeUsesAndRun is for invalid ste[s that have both `uses` and `run` keys
+	// StepTypeUsesAndRun is for invalid steps that have both `uses` and `run` keys
 	StepTypeUsesAndRun
 
-	// StepTypeMissingRun is for invalid steps that specify `shell` key but not `run`
-	StepTypeMissingRun
+	//// StepTypeMissingRun is for invalid steps that specify `shell` key but not `run`
+	//StepTypeMissingRun
 )
 
 // Type returns the type of the step
 func (s *Step) Type() StepType {
 	if s.Run != "" && s.Uses != "" {
 		return StepTypeUsesAndRun
-	} else if s.Run != "" && s.Shell != "" {
-		return StepTypeRun // TODO: fix step type
+	} else if s.Run != "" || s.Shell != "" { // TODO: fix step type
+		return StepTypeRun
 	} else if strings.HasPrefix(s.Uses, "docker://") {
 		return StepTypeUsesDockerURL
 	} else if strings.HasPrefix(s.Uses, "./") {
