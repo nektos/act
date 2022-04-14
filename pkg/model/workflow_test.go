@@ -88,41 +88,33 @@ jobs:
 }
 
 func TestReadWorkflow_ObjectContainer(t *testing.T) {
-	yaml := `
-name: local-action-docker-url
+	t.Run("fake", func(t *testing.T) {
+		w := readWorkflow(t, "job-container/fake.yml")
 
-jobs:
-  test:
-    container:
-      image: r.example.org/something:latest
-      credentials:
-        username: registry-username
-        password: registry-password
-      env:
-        HOME: /home/user
-      volumes:
-        - my_docker_volume:/volume_mount
-        - /data/my_data
-        - /source/directory:/destination/directory
-    runs-on: ubuntu-latest
-    steps:
-    - uses: ./actions/docker-url
-`
+		assert.Len(t, w.Jobs, 1)
 
-	workflow, err := ReadWorkflow(strings.NewReader(yaml))
-	assert.NoError(t, err, "read workflow should succeed")
-	assert.Len(t, workflow.Jobs, 1)
+		c := w.GetJob("test").Container()
 
-	container := workflow.GetJob("test").Container()
+		assert.Contains(t, c.Image, "r.example.org/something:latest")
+		assert.Contains(t, c.Env["HOME"], "/home/user")
+		assert.Contains(t, c.Credentials["username"], "registry-username")
+		assert.Contains(t, c.Credentials["password"], "registry-password")
+		assert.ElementsMatch(t, c.Volumes, []string{
+			"my_docker_volume:/volume_mount",
+			"/data/my_data",
+			"/source/directory:/destination/directory",
+		})
+	})
 
-	assert.Contains(t, container.Image, "r.example.org/something:latest")
-	assert.Contains(t, container.Env["HOME"], "/home/user")
-	assert.Contains(t, container.Credentials["username"], "registry-username")
-	assert.Contains(t, container.Credentials["password"], "registry-password")
-	assert.ElementsMatch(t, container.Volumes, []string{
-		"my_docker_volume:/volume_mount",
-		"/data/my_data",
-		"/source/directory:/destination/directory",
+	t.Run("real", func(t *testing.T) {
+		w := readWorkflow(t, "job-container/push.yml")
+
+		assert.Len(t, w.Jobs, 4)
+		assert.Contains(t, w.Jobs["test"].Container().Image, "node:16-buster-slim")
+		assert.Contains(t, w.Jobs["test"].Container().Env["TEST_ENV"], "test-value")
+
+		assert.Contains(t, w.Jobs["test2"].Container().Image, "node:16-buster-slim")
+		assert.Contains(t, w.Jobs["test2"].Steps[0].Environment()["TEST_ENV"], "test-value")
 	})
 }
 

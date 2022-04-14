@@ -1,0 +1,18 @@
+on: workflow_dispatch
+
+jobs:
+  test:
+    container:
+      image: r.example.org/something:latest
+      credentials:
+        username: registry-username
+        password: registry-password
+      env:
+        HOME: /home/user
+      volumes:
+        - my_docker_volume:/volume_mount
+        - /data/my_data
+        - /source/directory:/destination/directory
+    runs-on: ubuntu-latest
+    steps:
+      - run: uname -a
