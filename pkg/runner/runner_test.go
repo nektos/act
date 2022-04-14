@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -13,6 +14,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/nektos/act/pkg/artifacts"
 	"github.com/nektos/act/pkg/model"
 )
 
@@ -232,6 +234,29 @@ func TestRunEventPullRequest(t *testing.T) {
 	}
 
 	tjfi.runTest(context.Background(), t, &Config{EventPath: filepath.Join(workdir, workflowPath, "event.json")})
+}
+
+func TestArtifactFlow(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	ctx := context.Background()
+
+	artifactsPath := path.Join(os.TempDir(), "test-artifacts")
+	artifactsPort := "12345"
+
+	defer artifacts.Serve(ctx, artifactsPath, artifactsPort)()
+	defer os.RemoveAll(artifactsPath)
+
+	tjfi := TestJobFileInfo{
+		workdir:      workdir,
+		workflowPath: "upload-and-download",
+		eventName:    "push",
+		platforms:    platforms,
+	}
+
+	tjfi.runTest(ctx, t, &Config{ArtifactServerPath: artifactsPath, ArtifactServerPort: artifactsPort})
 }
 
 func TestContainerPath(t *testing.T) {

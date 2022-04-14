@@ -1,23 +1,16 @@
 package artifacts
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io/fs"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"path"
-	"path/filepath"
 	"strings"
 	"testing"
 	"testing/fstest"
 
 	"github.com/julienschmidt/httprouter"
-	"github.com/nektos/act/pkg/model"
-	"github.com/nektos/act/pkg/runner"
-	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -219,78 +212,4 @@ func TestDownloadArtifactFile(t *testing.T) {
 	data := rr.Body.Bytes()
 
 	assert.Equal("content", string(data))
-}
-
-type TestJobFileInfo struct {
-	workdir               string
-	workflowPath          string
-	eventName             string
-	errorMessage          string
-	platforms             map[string]string
-	containerArchitecture string
-}
-
-var aritfactsPath = path.Join(os.TempDir(), "test-artifacts")
-var artifactsPort = "12345"
-
-func TestArtifactFlow(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping integration test")
-	}
-
-	ctx := context.Background()
-
-	cancel := Serve(ctx, aritfactsPath, artifactsPort)
-	defer cancel()
-
-	platforms := map[string]string{
-		"ubuntu-latest": "node:16-buster-slim",
-	}
-
-	tables := []TestJobFileInfo{
-		{"../testdata", "upload-and-download", "push", "", platforms, ""},
-	}
-	log.SetLevel(log.DebugLevel)
-
-	for _, table := range tables {
-		runTestJobFile(ctx, t, table)
-	}
-}
-
-func runTestJobFile(ctx context.Context, t *testing.T, tjfi TestJobFileInfo) {
-	t.Run(tjfi.workflowPath, func(t *testing.T) {
-		if err := os.RemoveAll(aritfactsPath); err != nil {
-			panic(err)
-		}
-
-		workdir, err := filepath.Abs(tjfi.workdir)
-		assert.Nil(t, err, workdir)
-		fullWorkflowPath := filepath.Join(workdir, tjfi.workflowPath)
-		runnerConfig := &runner.Config{
-			Workdir:               workdir,
-			BindWorkdir:           false,
-			EventName:             tjfi.eventName,
-			Platforms:             tjfi.platforms,
-			ReuseContainers:       false,
-			ContainerArchitecture: tjfi.containerArchitecture,
-			GitHubInstance:        "github.com",
-			ArtifactServerPath:    aritfactsPath,
-			ArtifactServerPort:    artifactsPort,
-		}
-
-		runner, err := runner.New(runnerConfig)
-		assert.Nil(t, err, tjfi.workflowPath)
-
-		planner, err := model.NewWorkflowPlanner(fullWorkflowPath, true)
-		assert.Nil(t, err, fullWorkflowPath)
-
-		plan := planner.PlanEvent(tjfi.eventName)
-
-		err = runner.NewPlanExecutor(plan)(ctx)
-		if tjfi.errorMessage == "" {
-			assert.Nil(t, err, fullWorkflowPath)
-		} else {
-			assert.Error(t, err, tjfi.errorMessage)
-		}
-	})
 }
