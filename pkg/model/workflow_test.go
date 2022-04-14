@@ -18,6 +18,20 @@ func init() {
 	}
 }
 
+func readWorkflow(t *testing.T, name string) (w *Workflow) {
+	f, err := os.OpenFile(filepath.Join(workdir, name), os.O_RDONLY, 0)
+	if err != nil {
+		assert.NoError(t, err, "file open should succeed")
+	}
+
+	w, err = ReadWorkflow(f)
+	if err != nil {
+		assert.NoError(t, err, "read workflow should succeed")
+	}
+
+	return w
+}
+
 func TestReadWorkflow_StringEvent(t *testing.T) {
 	yaml := `
 name: local-action-docker-url
