@@ -2,10 +2,21 @@ package model
 
 import (
 	"strings"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
+
+var (
+	workdir = "../testdata"
+)
+
+func init() {
+	if wd, err := filepath.Abs(workdir); err == nil {
+		workdir = wd
+	}
+}
 
 func TestReadWorkflow_StringEvent(t *testing.T) {
 	yaml := `
