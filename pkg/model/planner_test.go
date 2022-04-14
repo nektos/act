@@ -27,7 +27,7 @@ func TestPlanner(t *testing.T) {
 		{"nested", "", true},
 	}
 
-	workdir, err := filepath.Abs("testdata")
+	workdir, err := filepath.Abs("../testdata")
 	assert.NoError(t, err, workdir)
 	for _, table := range tables {
 		fullWorkflowPath := filepath.Join(workdir, table.workflowPath)

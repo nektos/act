@@ -248,7 +248,7 @@ func TestArtifactFlow(t *testing.T) {
 	}
 
 	tables := []TestJobFileInfo{
-		{"testdata", "upload-and-download", "push", "", platforms, ""},
+		{"../testdata", "upload-and-download", "push", "", platforms, ""},
 	}
 	log.SetLevel(log.DebugLevel)
 

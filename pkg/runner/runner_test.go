@@ -44,7 +44,7 @@ func init() {
 }
 
 func TestGraphEvent(t *testing.T) {
-	planner, err := model.NewWorkflowPlanner("testdata/basic", true)
+	planner, err := model.NewWorkflowPlanner(filepath.Join(workdir, "basic"), true)
 	assert.Nil(t, err)
 
 	plan := planner.PlanEvent("push")
