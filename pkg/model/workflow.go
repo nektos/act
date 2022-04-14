@@ -330,7 +330,7 @@ type Step struct {
 	If               yaml.Node         `yaml:"if"`
 	Name             string            `yaml:"name"`
 	Uses             string            `yaml:"uses"`
-	RawRun           yaml.Node         `yaml:"run"`
+	Run              string            `yaml:"run"`
 	WorkingDirectory string            `yaml:"working-directory"`
 	Shell            string            `yaml:"shell"`
 	Env              yaml.Node         `yaml:"env"`
@@ -345,24 +345,24 @@ func (s *Step) String() string {
 		return s.Name
 	} else if s.Uses != "" {
 		return s.Uses
-	} else if run := s.Run(); run != nil {
-		return *run
+	} else if s.Run != "" {
+		return s.Run
 	}
 	return s.ID
 }
 
-func (s *Step) Run() *string {
-	switch s.RawRun.Kind {
-	case yaml.ScalarNode:
-		var val string
-		err := s.RawRun.Decode(&val)
-		if err != nil {
-			log.Fatal(err)
-		}
-		return &val
-	}
-	return nil
-}
+// func (s *Step) Run() *string {
+	// switch s.RawRun.Kind {
+	// case yaml.ScalarNode:
+		// var val string
+		// err := s.RawRun.Decode(&val)
+		// if err != nil {
+			// log.Fatal(err)
+		// }
+		// return &val
+	// }
+	// return nil
+// }
 
 // Environments returns string-based key=value map for a step
 func (s *Step) Environment() map[string]string {
@@ -430,12 +430,10 @@ const (
 
 // Type returns the type of the step
 func (s *Step) Type() StepType {
-	if s.Run() != nil && s.Uses != "" {
+	if s.Run != "" && s.Uses != "" {
 		return StepTypeUsesAndRun
-	} else if s.Run() == nil && s.Shell != "" {
-		return StepTypeMissingRun
-	} else if s.Run() != nil && s.Shell != "" {
-		return StepTypeRun
+	} else if s.Run != "" && s.Shell != "" {
+		return StepTypeRun // TODO: fix step type
 	} else if strings.HasPrefix(s.Uses, "docker://") {
 		return StepTypeUsesDockerURL
 	} else if strings.HasPrefix(s.Uses, "./") {
