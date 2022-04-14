@@ -11,7 +11,7 @@ import (
 
 	"github.com/joho/godotenv"
 	log "github.com/sirupsen/logrus"
-	assert "github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/nektos/act/pkg/model"
 )
@@ -20,7 +20,7 @@ var (
 	baseImage = "node:16-buster-slim"
 	platforms map[string]string
 	logLevel  = log.DebugLevel
-	workdir   = "testdata"
+	workdir   = "../testdata"
 )
 
 func init() {
@@ -173,9 +173,9 @@ func TestRunEvent(t *testing.T) {
 		{workdir, "steps-context/outcome", "push", "", platforms},
 		{workdir, "job-status-check", "push", "job 'fail' failed", platforms},
 		{workdir, "if-expressions", "push", "Job 'mytest' failed", platforms},
-		{"../model/testdata", "strategy", "push", "", platforms}, // TODO: move all testdata into pkg so we can validate it with planner and runner
-		// {"testdata", "issue-228", "push", "", platforms, }, // TODO [igni]: Remove this once everything passes
-		{"../model/testdata", "container-volumes", "push", "", platforms},
+		{workdir, "strategy", "push", "", platforms}, // TODO: move all testdata into pkg so we can validate it with planner and runner
+		// {workdir, "issue-228", "push", "", platforms, }, // TODO [igni]: Remove this once everything passes
+		{workdir, "container-volumes", "push", "", platforms},
 	}
 
 	for _, table := range tables {
