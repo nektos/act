@@ -4,6 +4,8 @@ import (
 	"context"
 	"io"
 	"io/fs"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -23,12 +25,9 @@ func (m *closerMock) Close() error {
 }
 
 func TestActionReader(t *testing.T) {
-	yaml := strings.ReplaceAll(`
-name: 'name'
-runs:
-  using: 'node16'
-  main: 'main.js'
-`, "\t", "  ")
+	b, err := os.ReadFile(filepath.Join(workdir, "actions/node16-template/action.yml"))
+	assert.Nil(t, err)
+	yml := string(b)
 
 	table := []struct {
 		name        string
@@ -41,7 +40,7 @@ runs:
 			name:        "readActionYml",
 			step:        &model.Step{},
 			filename:    "action.yml",
-			fileContent: yaml,
+			fileContent: yml,
 			expected: &model.Action{
 				Name: "name",
 				Runs: model.ActionRuns{
@@ -54,7 +53,7 @@ runs:
 			name:        "readActionYaml",
 			step:        &model.Step{},
 			filename:    "action.yaml",
-			fileContent: yaml,
+			fileContent: yml,
 			expected: &model.Action{
 				Name: "name",
 				Runs: model.ActionRuns{
