@@ -425,7 +425,7 @@ const (
 	StepTypeUsesAndRun
 
 	//// StepTypeMissingRun is for invalid steps that specify `shell` key but not `run`
-	//StepTypeMissingRun
+	// StepTypeMissingRun
 )
 
 // Type returns the type of the step
