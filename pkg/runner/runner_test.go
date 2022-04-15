@@ -10,7 +10,6 @@ import (
 	"strings"
 	"testing"
 
-
 	"github.com/joho/godotenv"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
