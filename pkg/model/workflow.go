@@ -352,16 +352,16 @@ func (s *Step) String() string {
 }
 
 // func (s *Step) Run() *string {
-	// switch s.RawRun.Kind {
-	// case yaml.ScalarNode:
-		// var val string
-		// err := s.RawRun.Decode(&val)
-		// if err != nil {
-			// log.Fatal(err)
-		// }
-		// return &val
-	// }
-	// return nil
+// switch s.RawRun.Kind {
+// case yaml.ScalarNode:
+// var val string
+// err := s.RawRun.Decode(&val)
+// if err != nil {
+// log.Fatal(err)
+// }
+// return &val
+// }
+// return nil
 // }
 
 // Environments returns string-based key=value map for a step
