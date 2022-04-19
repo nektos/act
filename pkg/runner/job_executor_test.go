@@ -25,7 +25,9 @@ func TestJobExecutor(t *testing.T) {
 	// These tests are sufficient to only check syntax.
 	ctx := common.WithDryrun(context.Background(), true)
 	for _, table := range tables {
-		runTestJobFile(ctx, t, table)
+		t.Run(table.workflowPath, func(t *testing.T) {
+			table.runTest(ctx, t, &Config{})
+		})
 	}
 }
 
