@@ -8,7 +8,7 @@ trim_trailing_whitespace = true
 indent_style = tab
 indent_size = 4
 
-[{Dockerfile,*.md,*_test.go,install.sh,act-cli.nuspec}]
+[{Dockerfile,*.md,*_test.go,install.sh,.github/actions/choco/entrypoint.sh,act-cli.nuspec}]
 indent_style = unset
 indent_size = unset
 
