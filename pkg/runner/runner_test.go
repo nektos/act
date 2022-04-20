@@ -70,6 +70,8 @@ type TestJobFileInfo struct {
 }
 
 func (j *TestJobFileInfo) runTest(ctx context.Context, t *testing.T, cfg *Config) {
+	fmt.Printf("::group::%s\n", j.workflowPath)
+
 	log.SetLevel(logLevel)
 
 	workdir, err := filepath.Abs(j.workdir)
@@ -103,6 +105,8 @@ func (j *TestJobFileInfo) runTest(ctx context.Context, t *testing.T, cfg *Config
 	} else {
 		assert.Error(t, err, j.errorMessage)
 	}
+
+	fmt.Println("::endgroup::")
 }
 
 func TestRunEvent(t *testing.T) {

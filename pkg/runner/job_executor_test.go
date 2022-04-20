@@ -230,6 +230,8 @@ func TestNewJobExecutor(t *testing.T) {
 
 	for _, tt := range table {
 		t.Run(tt.name, func(t *testing.T) {
+			fmt.Printf("::group::%s\n", tt.name)
+
 			ctx := common.WithJobErrorContainer(context.Background())
 			jim := &jobInfoMock{}
 			sfm := &stepFactoryMock{}
@@ -308,6 +310,8 @@ func TestNewJobExecutor(t *testing.T) {
 
 			jim.AssertExpectations(t)
 			sfm.AssertExpectations(t)
+
+			fmt.Println("::endgroup::")
 		})
 	}
 }
