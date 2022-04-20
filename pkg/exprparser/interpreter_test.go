@@ -527,6 +527,22 @@ func TestContexts(t *testing.T) {
 		{"env.TEST", "value", "env-context"},
 		{"job.status", "success", "job-context"},
 		{"steps.step-id.outputs.name", "value", "steps-context"},
+		{"steps.step-id.conclusion", "success", "steps-context-conclusion"},
+		{"steps.step-id.conclusion && true", true, "steps-context-conclusion"},
+		{"steps.step-id2.conclusion", "skipped", "steps-context-conclusion"},
+		{"steps.step-id2.conclusion && true", true, "steps-context-conclusion"},
+		{"steps.step-id.outcome", "success", "steps-context-outcome"},
+		{"steps.step-id['outcome']", "success", "steps-context-outcome"},
+		{"steps.step-id.outcome == 'success'", true, "steps-context-outcome"},
+		{"steps.step-id['outcome'] == 'success'", true, "steps-context-outcome"},
+		{"steps.step-id.outcome && true", true, "steps-context-outcome"},
+		{"steps['step-id']['outcome'] && true", true, "steps-context-outcome"},
+		{"steps.step-id2.outcome", "failure", "steps-context-outcome"},
+		{"steps.step-id2.outcome && true", true, "steps-context-outcome"},
+		// Disabled, since the interpreter is still too broken
+		// {"contains(steps.*.outcome, 'success')", true, "steps-context-array-outcome"},
+		// {"contains(steps.*.outcome, 'failure')", true, "steps-context-array-outcome"},
+		// {"contains(steps.*.outputs.name, 'value')", true, "steps-context-array-outputs"},
 		{"runner.os", "Linux", "runner-context"},
 		{"secrets.name", "value", "secrets-context"},
 		{"strategy.fail-fast", true, "strategy-context"},
@@ -550,6 +566,10 @@ func TestContexts(t *testing.T) {
 				Outputs: map[string]string{
 					"name": "value",
 				},
+			},
+			"step-id2": {
+				Outcome:    model.StepStatusFailure,
+				Conclusion: model.StepStatusSkipped,
 			},
 		},
 		Runner: map[string]interface{}{

@@ -1,6 +1,7 @@
 package exprparser
 
 import (
+	"encoding"
 	"fmt"
 	"math"
 	"reflect"
@@ -224,7 +225,16 @@ func (impl *interperterImpl) getPropertyValue(left reflect.Value, property strin
 			return "", nil
 		}
 
-		return fieldValue.Interface(), nil
+		i := fieldValue.Interface()
+		// The type stepStatus int is an integer, but should be treated as string
+		if m, ok := i.(encoding.TextMarshaler); ok {
+			text, err := m.MarshalText()
+			if err != nil {
+				return nil, err
+			}
+			return string(text), nil
+		}
+		return i, nil
 
 	case reflect.Map:
 		iter := left.MapRange()
