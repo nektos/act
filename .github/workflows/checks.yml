@@ -18,6 +18,7 @@ jobs:
       - uses: actions/setup-go@v3
         with:
           go-version: ${{ env.GO_VERSION }}
+          check-latest: true
       - uses: golangci/golangci-lint-action@v3.1.0
         with:
           version: latest
@@ -41,6 +42,7 @@ jobs:
       - uses: actions/setup-go@v3
         with:
           go-version: ${{ env.GO_VERSION }}
+          check-latest: true
       - uses: actions/cache@v3
         if: ${{ !env.ACT }}
         with:
@@ -63,6 +65,7 @@ jobs:
       - uses: actions/setup-go@v3
         with:
           go-version: ${{ env.GO_VERSION }}
+          check-latest: true
       - uses: actions/cache@v3
         if: ${{ !env.ACT }}
         with:
@@ -80,7 +83,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: act-linux-amd64
-          path: dist/act_linux_amd64/act
+          path: dist/act_linux_amd64_v1/act
       - name: Capture i386 (32-bit) Linux binary
         if: ${{ !env.ACT }}
         uses: actions/upload-artifact@v3
@@ -110,7 +113,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: act-windows-amd64
-          path: dist/act_windows_amd64/act.exe
+          path: dist/act_windows_amd64_v1/act.exe
       - name: Capture i386 (32-bit) Windows binary
         if: ${{ !env.ACT }}
         uses: actions/upload-artifact@v3
@@ -134,7 +137,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: act-macos-amd64
-          path: dist/act_darwin_amd64/act
+          path: dist/act_darwin_amd64_v1/act
       - name: Capture arm64 (64-bit) MacOS binary
         if: ${{ !env.ACT }}
         uses: actions/upload-artifact@v3

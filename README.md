@@ -49,6 +49,8 @@ brew install act --HEAD
 
 ### [MacPorts](https://www.macports.org) (macOS)
 
+[![MacPorts package](https://repology.org/badge/version-for-repo/macports/act-run-github-actions.svg)](https://repology.org/project/act-run-github-actions/versions)
+
 ```shell
 sudo port install act
 ```
@@ -104,26 +106,6 @@ Using the latest [Nix command](https://nixos.wiki/wiki/Nix_command), you can run
 
 ```sh
 nix run nixpkgs#act
-```
-
-### [Go](https://golang.org) (Linux/Windows/macOS/any other platform supported by Go)
-
-If you have Go 1.18+, you can install latest released version of `act` directly from source by running:
-
-```sh
-go install github.com/nektos/act@latest
-```
-
-or if you want to install latest unreleased version:
-
-```sh
-go install github.com/nektos/act@master
-```
-
-If you want a smaller binary size, run above commands with `-ldflags="-s -w"`
-
-```sh
-go install -ldflags="-s -w" github.com/nektos/act@...
 ```
 
 ## Other install options

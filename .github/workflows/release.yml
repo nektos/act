@@ -18,6 +18,7 @@ jobs:
       - uses: actions/setup-go@v3
         with:
           go-version: ${{ env.GO_VERSION }}
+          check-latest: true
       - uses: actions/cache@v3
         if: ${{ !env.ACT }}
         with:
