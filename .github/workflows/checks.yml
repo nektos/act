@@ -15,9 +15,10 @@ jobs:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      - uses: actions/setup-go@v2
+      - uses: actions/setup-go@v3
         with:
           go-version: ${{ env.GO_VERSION }}
+          check-latest: true
       - uses: golangci/golangci-lint-action@v3.1.0
         with:
           version: latest
@@ -38,9 +39,10 @@ jobs:
           fetch-depth: 2
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v1
-      - uses: actions/setup-go@v2
+      - uses: actions/setup-go@v3
         with:
           go-version: ${{ env.GO_VERSION }}
+          check-latest: true
       - uses: actions/cache@v3
         if: ${{ !env.ACT }}
         with:
@@ -50,7 +52,7 @@ jobs:
             ${{ runner.os }}-go-
       - run: go test -v -cover -coverprofile=coverage.txt -covermode=atomic ./...
       - name: Upload Codecov report
-        uses: codecov/codecov-action@v2.1.0
+        uses: codecov/codecov-action@v3.0.0
         with:
           files: coverage.txt
           fail_ci_if_error: true # optional (default = false)
@@ -60,9 +62,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/setup-go@v2
+      - uses: actions/setup-go@v3
         with:
           go-version: ${{ env.GO_VERSION }}
+          check-latest: true
       - uses: actions/cache@v3
         if: ${{ !env.ACT }}
         with:
@@ -77,67 +80,67 @@ jobs:
           args: release --snapshot --rm-dist
       - name: Capture x86_64 (64-bit) Linux binary
         if: ${{ !env.ACT }}
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: act-linux-amd64
-          path: dist/act_linux_amd64/act
+          path: dist/act_linux_amd64_v1/act
       - name: Capture i386 (32-bit) Linux binary
         if: ${{ !env.ACT }}
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: act-linux-i386
           path: dist/act_linux_386/act
       - name: Capture arm64 (64-bit) Linux binary
         if: ${{ !env.ACT }}
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: act-linux-arm64
           path: dist/act_linux_arm64/act
       - name: Capture armv6 (32-bit) Linux binary
         if: ${{ !env.ACT }}
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: act-linux-armv6
           path: dist/act_linux_arm_6/act
       - name: Capture armv7 (32-bit) Linux binary
         if: ${{ !env.ACT }}
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: act-linux-armv7
           path: dist/act_linux_arm_7/act
       - name: Capture x86_64 (64-bit) Windows binary
         if: ${{ !env.ACT }}
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: act-windows-amd64
-          path: dist/act_windows_amd64/act.exe
+          path: dist/act_windows_amd64_v1/act.exe
       - name: Capture i386 (32-bit) Windows binary
         if: ${{ !env.ACT }}
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: act-windows-i386
           path: dist/act_windows_386/act.exe
       - name: Capture arm64 (64-bit) Windows binary
         if: ${{ !env.ACT }}
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: act-windows-arm64
           path: dist/act_windows_arm64/act.exe
       - name: Capture armv7 (32-bit) Windows binary
         if: ${{ !env.ACT }}
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: act-windows-armv7
           path: dist/act_windows_arm_7/act.exe
       - name: Capture x86_64 (64-bit) MacOS binary
         if: ${{ !env.ACT }}
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: act-macos-amd64
-          path: dist/act_darwin_amd64/act
+          path: dist/act_darwin_amd64_v1/act
       - name: Capture arm64 (64-bit) MacOS binary
         if: ${{ !env.ACT }}
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: act-macos-arm64
           path: dist/act_darwin_arm64/act

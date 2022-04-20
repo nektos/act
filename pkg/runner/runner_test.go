@@ -109,12 +109,6 @@ func (j *TestJobFileInfo) runTest(ctx context.Context, t *testing.T, cfg *Config
 	fmt.Println("::endgroup::")
 }
 
-func runTestJobFile(ctx context.Context, t *testing.T, j TestJobFileInfo) {
-	t.Run(j.workflowPath, func(t *testing.T) {
-		j.runTest(ctx, t, &Config{})
-	})
-}
-
 func TestRunEvent(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
@@ -183,7 +177,9 @@ func TestRunEvent(t *testing.T) {
 	}
 
 	for _, table := range tables {
-		runTestJobFile(ctx, t, table)
+		t.Run(table.workflowPath, func(t *testing.T) {
+			table.runTest(ctx, t, &Config{})
+		})
 	}
 }
 
