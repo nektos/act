@@ -102,6 +102,12 @@ or through `nix-shell`:
 nix-shell -p act
 ```
 
+Using the latest [Nix command](https://nixos.wiki/wiki/Nix_command), you can run directly :
+
+```sh
+nix run nixpkgs#act
+```
+
 ## Other install options
 
 ### Bash script
