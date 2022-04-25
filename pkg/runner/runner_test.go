@@ -214,15 +214,18 @@ func TestMaskValues(t *testing.T) {
 		t.Skip("skipping integration test")
 	}
 
-	platforms := map[string]string{
-		"ubuntu-latest": baseImage,
-	}
 	log.SetLevel(log.DebugLevel)
 
-	ctx := context.Background()
+	tjfi := TestJobFileInfo{
+		workdir:      workdir,
+		workflowPath: "mask-values",
+		eventName:    "push",
+		errorMessage: "",
+		platforms:    platforms,
+	}
 
 	output := captureOutput(t, func() {
-		runTestJobFile(ctx, t, TestJobFileInfo{workdir, "mask-values", "push", "", platforms})
+		tjfi.runTest(context.Background(), t, &Config{})
 	})
 
 	assertNoSecret(output, "secret value")
