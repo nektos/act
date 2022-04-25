@@ -25,8 +25,8 @@ func TestActionReader(t *testing.T) {
 	yaml := strings.ReplaceAll(`
 name: 'name'
 runs:
-  using: 'node16'
-  main: 'main.js'
+	using: 'node16'
+	main: 'main.js'
 `, "\t", "  ")
 
 	table := []struct {
