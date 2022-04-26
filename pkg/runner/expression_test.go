@@ -160,14 +160,14 @@ func TestEvaluateStep(t *testing.T) {
 		out     interface{}
 		errMesg string
 	}{
-		{"steps.idwithnothing.conclusion", model.StepStatusSuccess, ""},
-		{"steps.idwithnothing.outcome", model.StepStatusFailure, ""},
+		{"steps.idwithnothing.conclusion", model.StepStatusSuccess.String(), ""},
+		{"steps.idwithnothing.outcome", model.StepStatusFailure.String(), ""},
 		{"steps.idwithnothing.outputs.foowithnothing", "barwithnothing", ""},
-		{"steps.id-with-hyphens.conclusion", model.StepStatusSuccess, ""},
-		{"steps.id-with-hyphens.outcome", model.StepStatusFailure, ""},
+		{"steps.id-with-hyphens.conclusion", model.StepStatusSuccess.String(), ""},
+		{"steps.id-with-hyphens.outcome", model.StepStatusFailure.String(), ""},
 		{"steps.id-with-hyphens.outputs.foo-with-hyphens", "bar-with-hyphens", ""},
-		{"steps.id_with_underscores.conclusion", model.StepStatusSuccess, ""},
-		{"steps.id_with_underscores.outcome", model.StepStatusFailure, ""},
+		{"steps.id_with_underscores.conclusion", model.StepStatusSuccess.String(), ""},
+		{"steps.id_with_underscores.outcome", model.StepStatusFailure.String(), ""},
 		{"steps.id_with_underscores.outputs.foo_with_underscores", "bar_with_underscores", ""},
 	}
 
