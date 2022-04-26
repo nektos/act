@@ -47,8 +47,12 @@ func TestOperators(t *testing.T) {
 		{"(false || (false || true))", true, "logical-grouping", ""},
 		{"github.action", "push", "property-dereference", ""},
 		{"github['action']", "push", "property-index", ""},
-		{"github.action[0]", nil, "string-index", "Unable to index on non-slice value: string"},
+		{"github.action[0]", nil, "string-index", ""},
+		{"github.action['0']", nil, "string-index", ""},
 		{"fromJSON('[0,1]')[1]", 1.0, "array-index", ""},
+		{"fromJSON('[0,1]')[1.1]", nil, "array-index", ""},
+		// Disabled weird things are happening
+		// {"fromJSON('[0,1]')['1.1']", nil, "array-index", ""},
 		{"(github.event.commits.*.author.username)[0]", "someone", "array-index-0", ""},
 		{"fromJSON('[0,1]')[2]", nil, "array-index-out-of-bounds-0", ""},
 		{"fromJSON('[0,1]')[34553]", nil, "array-index-out-of-bounds-1", ""},
@@ -524,6 +528,9 @@ func TestContexts(t *testing.T) {
 		name     string
 	}{
 		{"github.action", "push", "github-context"},
+		{"github.event.commits[0].message", nil, "github-context-noexist-prop"},
+		{"fromjson('{\"commits\":[]}').commits[0].message", nil, "github-context-noexist-prop"},
+		{"github.event.pull_request.labels.*.name", nil, "github-context-noexist-prop"},
 		{"env.TEST", "value", "env-context"},
 		{"job.status", "success", "job-context"},
 		{"steps.step-id.outputs.name", "value", "steps-context"},
