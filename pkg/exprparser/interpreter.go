@@ -175,11 +175,11 @@ func (impl *interperterImpl) evaluateIndexAccess(indexAccessNode *actionlint.Ind
 			}
 			return leftValue.Index(int(rightValue.Int())).Interface(), nil
 		default:
-			return nil, fmt.Errorf("Unable to index on non-slice value: %s", leftValue.Kind())
+			return nil, nil
 		}
 
 	default:
-		return nil, fmt.Errorf("Unknown index type: %s", rightValue.Kind())
+		return nil, nil
 	}
 }
 
@@ -260,7 +260,7 @@ func (impl *interperterImpl) getPropertyValue(left reflect.Value, property strin
 		return values, nil
 	}
 
-	return nil, fmt.Errorf("Unable to dereference '%s' on non-struct '%s'", property, left.Kind())
+	return nil, nil
 }
 
 func (impl *interperterImpl) getMapValue(value reflect.Value) (interface{}, error) {
