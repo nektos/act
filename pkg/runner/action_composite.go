@@ -123,7 +123,7 @@ type compositeSteps struct {
 func (rc *RunContext) compositeExecutor(action *model.Action) *compositeSteps {
 	steps := make([]common.Executor, 0)
 	preSteps := make([]common.Executor, 0)
-	postSteps := make([]common.Executor, 0)
+	var postExecutor common.Executor
 
 	sf := &stepFactoryImpl{}
 
@@ -157,7 +157,12 @@ func (rc *RunContext) compositeExecutor(action *model.Action) *compositeSteps {
 			return nil
 		})
 
-		postSteps = append([]common.Executor{step.post()}, postSteps...)
+		// run the post executor in reverse order
+		if postExecutor != nil {
+			postExecutor = step.post().Finally(postExecutor)
+		} else {
+			postExecutor = step.post()
+		}
 	}
 
 	steps = append(steps, common.JobError)
@@ -166,7 +171,7 @@ func (rc *RunContext) compositeExecutor(action *model.Action) *compositeSteps {
 		main: rc.newCompositeCommandExecutor(func(ctx context.Context) error {
 			return common.NewPipelineExecutor(steps...)(common.WithJobErrorContainer(ctx))
 		}),
-		post: rc.newCompositeCommandExecutor(common.NewPipelineExecutor(postSteps...)),
+		post: rc.newCompositeCommandExecutor(postExecutor),
 	}
 }
 
