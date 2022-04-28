@@ -177,6 +177,8 @@ func TestSetupEnv(t *testing.T) {
 		"GITHUB_HEAD_REF":          "",
 		"GITHUB_JOB":               "",
 		"GITHUB_PATH":              "/var/run/act/workflow/paths.txt",
+		"GITHUB_REF_NAME":          "",
+		"GITHUB_REF_TYPE":          "",
 		"GITHUB_RETENTION_DAYS":    "0",
 		"GITHUB_RUN_ID":            "runId",
 		"GITHUB_RUN_NUMBER":        "1",
