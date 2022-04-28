@@ -547,6 +547,8 @@ func (rc *RunContext) getGithubContext() *model.GithubContext {
 		ghc.HeadRef = asString(nestedMapLookup(ghc.Event, "pull_request", "head", "ref"))
 	}
 
+	ghc.SetRefAndSha(rc.Config.DefaultBranch, repoPath)
+
 	// https://docs.github.com/en/actions/learn-github-actions/environment-variables
 	if strings.HasPrefix(ghc.Ref, "refs/tags/") {
 		ghc.RefType = "tag"
@@ -555,8 +557,6 @@ func (rc *RunContext) getGithubContext() *model.GithubContext {
 		ghc.RefType = "branch"
 		ghc.RefName = ghc.Ref[len("refs/heads/"):]
 	}
-
-	ghc.SetRefAndSha(rc.Config.DefaultBranch, repoPath)
 
 	return ghc
 }
