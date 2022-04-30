@@ -2,6 +2,7 @@ package runner
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -10,7 +11,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/nektos/act/pkg/common"
@@ -63,9 +63,9 @@ func (sar *stepActionRemote) main() common.Executor {
 		})
 		var ntErr common.Executor
 		if err := gitClone(ctx); err != nil {
-			if err.Error() == "short SHA references are not supported" {
-				err = errors.Cause(err)
-				return fmt.Errorf("Unable to resolve action `%s`, the provided ref `%s` is the shortened version of a commit SHA, which is not supported. Please use the full commit SHA `%s` instead", sar.Step.Uses, remoteAction.Ref, err.Error())
+			if errors.Is(err, git.ErrShortRef) {
+				return fmt.Errorf("unable to resolve action `%s`, the provided ref `%s` is the shortened version of a commit SHA, which is not supported. Please use the full commit SHA `%s` instead",
+					sar.Step.Uses, remoteAction.Ref, err.(*git.Error).Commit())
 			} else if err.Error() != "some refs were not updated" {
 				return err
 			} else {

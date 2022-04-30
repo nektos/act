@@ -2,6 +2,7 @@ package git
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -20,7 +21,6 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-ini/ini"
 	"github.com/mattn/go-isatty"
-	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -31,7 +31,27 @@ var (
 	githubSSHRegex      = regexp.MustCompile(`github.com[:/](.+)/(.+?)(?:.git)?$`)
 
 	cloneLock sync.Mutex
+
+	ErrShortRef = errors.New("short SHA references are not supported")
+	ErrNoRepo   = errors.New("unable to find git repo")
 )
+
+type Error struct {
+	err    error
+	commit string
+}
+
+func (e *Error) Error() string {
+	return e.err.Error()
+}
+
+func (e *Error) Unwrap() error {
+	return e.err
+}
+
+func (e *Error) Commit() string {
+	return e.commit
+}
 
 // FindGitRevision get the current git revision
 func FindGitRevision(file string) (shortSha string, sha string, err error) {
@@ -224,7 +244,7 @@ func findGitDirectory(fromFile string) (string, error) {
 	if err == nil && fi.Mode().IsDir() {
 		return gitPath, nil
 	} else if dir == "/" || dir == "C:\\" || dir == "c:\\" {
-		return "", errors.New("unable to find git repo")
+		return "", &Error{err: ErrNoRepo}
 	}
 
 	return findGitDirectory(filepath.Dir(dir))
@@ -327,7 +347,10 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) common.Executor {
 		}
 
 		if hash.String() != input.Ref && strings.HasPrefix(hash.String(), input.Ref) {
-			return errors.Wrap(errors.New(hash.String()), "short SHA references are not supported")
+			return &Error{
+				err:    ErrShortRef,
+				commit: hash.String(),
+			}
 		}
 
 		// At this point we need to know if it's a tag or a branch

@@ -10,7 +10,6 @@ import (
 	"regexp"
 	"sort"
 
-	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -130,16 +129,16 @@ func NewWorkflowPlanner(path string, noWorkflowRecurse bool) (WorkflowPlanner, e
 			log.Debugf("Reading workflow '%s'", f.Name())
 			workflow, err := ReadWorkflow(f)
 			if err != nil {
-				f.Close()
+				_ = f.Close()
 				if err == io.EOF {
-					return nil, errors.WithMessagef(err, "unable to read workflow, %s file is empty", wf.workflowFileInfo.Name())
+					return nil, fmt.Errorf("unable to read workflow '%s', file is empty: %w", wf.workflowFileInfo.Name(), err)
 				}
 				return nil, err
 			}
 			_, err = f.Seek(0, 0)
 			if err != nil {
-				f.Close()
-				return nil, errors.WithMessagef(err, "error occurring when resetting io pointer, %s", wf.workflowFileInfo.Name())
+				_ = f.Close()
+				return nil, fmt.Errorf("error occurring when resetting io pointer in '%s': %w", wf.workflowFileInfo.Name(), err)
 			}
 
 			workflow.File = wf.workflowFileInfo.Name()
@@ -155,7 +154,7 @@ func NewWorkflowPlanner(path string, noWorkflowRecurse bool) (WorkflowPlanner, e
 			}
 
 			wp.workflows = append(wp.workflows, workflow)
-			f.Close()
+			_ = f.Close()
 		}
 	}
 
