@@ -12,7 +12,9 @@ import (
 	"strings"
 
 	"github.com/nektos/act/pkg/common"
+	"github.com/nektos/act/pkg/common/git"
 	"github.com/nektos/act/pkg/model"
+
 	"github.com/pkg/errors"
 )
 
@@ -29,7 +31,7 @@ type stepActionRemote struct {
 }
 
 var (
-	stepActionRemoteNewCloneExecutor = common.NewGitCloneExecutor
+	stepActionRemoteNewCloneExecutor = git.NewGitCloneExecutor
 )
 
 func (sar *stepActionRemote) pre() common.Executor {
@@ -51,7 +53,7 @@ func (sar *stepActionRemote) pre() common.Executor {
 			}
 
 			actionDir := fmt.Sprintf("%s/%s", sar.RunContext.ActionCacheDir(), strings.ReplaceAll(sar.Step.Uses, "/", "-"))
-			gitClone := stepActionRemoteNewCloneExecutor(common.NewGitCloneExecutorInput{
+			gitClone := stepActionRemoteNewCloneExecutor(git.NewGitCloneExecutorInput{
 				URL:   sar.remoteAction.CloneURL(),
 				Ref:   sar.remoteAction.Ref,
 				Dir:   actionDir,
