@@ -11,12 +11,10 @@ import (
 	"strings"
 
 	"github.com/kballard/go-shellquote"
-	"github.com/spf13/pflag"
-
 	"github.com/mitchellh/go-homedir"
+	"github.com/opencontainers/selinux/go-selinux"
 	log "github.com/sirupsen/logrus"
-
-	selinux "github.com/opencontainers/selinux/go-selinux"
+	"github.com/spf13/pflag"
 
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/common/git"
