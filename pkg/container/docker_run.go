@@ -442,9 +442,9 @@ func (cr *containerReference) extractEnv(srcPath string, env *map[string]string)
 				}
 				multiLineEnvContent += line
 			}
-			if mulitiLineEnvStart := multiLineEnvPattern.FindStringSubmatch(line); mulitiLineEnvStart != nil {
-				multiLineEnvKey = mulitiLineEnvStart[1]
-				multiLineEnvDelimiter = mulitiLineEnvStart[2]
+			if multiLineEnvStart := multiLineEnvPattern.FindStringSubmatch(line); multiLineEnvStart != nil {
+				multiLineEnvKey = multiLineEnvStart[1]
+				multiLineEnvDelimiter = multiLineEnvStart[2]
 			}
 		}
 		env = &localEnv
