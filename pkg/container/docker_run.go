@@ -399,7 +399,7 @@ func (cr *containerReference) create(capAdd []string, capDrop []string) common.E
 	}
 }
 
-var singleLineEnvPattern, mulitiLineEnvPattern *regexp.Regexp
+var singleLineEnvPattern, multiLineEnvPattern *regexp.Regexp
 
 func (cr *containerReference) extractEnv(srcPath string, env *map[string]string) common.Executor {
 	if singleLineEnvPattern == nil {
@@ -407,7 +407,7 @@ func (cr *containerReference) extractEnv(srcPath string, env *map[string]string)
 		// SOME_VAR=data=moredata
 		// SOME_VAR=datamoredata
 		singleLineEnvPattern = regexp.MustCompile(`^([^=]*)\=(.*)$`)
-		mulitiLineEnvPattern = regexp.MustCompile(`^([^<]+)<<(\w+)$`)
+		multiLineEnvPattern = regexp.MustCompile(`^([^<]+)<<(\w+)$`)
 	}
 
 	localEnv := *env
@@ -442,7 +442,7 @@ func (cr *containerReference) extractEnv(srcPath string, env *map[string]string)
 				}
 				multiLineEnvContent += line
 			}
-			if mulitiLineEnvStart := mulitiLineEnvPattern.FindStringSubmatch(line); mulitiLineEnvStart != nil {
+			if mulitiLineEnvStart := multiLineEnvPattern.FindStringSubmatch(line); mulitiLineEnvStart != nil {
 				multiLineEnvKey = mulitiLineEnvStart[1]
 				multiLineEnvDelimiter = mulitiLineEnvStart[2]
 			}
