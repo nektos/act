@@ -279,6 +279,22 @@ func CloneIfRequired(ctx context.Context, refName plumbing.ReferenceName, input 
 	return r, nil
 }
 
+func gitOptions(token string) (fetchOptions git.FetchOptions, pullOptions git.PullOptions) {
+	fetchOptions.RefSpecs = []config.RefSpec{"refs/*:refs/*", "HEAD:refs/heads/HEAD"}
+	pullOptions.Force = true
+
+	if token != "" {
+		auth := &http.BasicAuth{
+			Username: "token",
+			Password: token,
+		}
+		fetchOptions.Auth = auth
+		pullOptions.Auth = auth
+	}
+
+	return fetchOptions, pullOptions
+}
+
 // NewGitCloneExecutor creates an executor to clone git repos
 // nolint:gocyclo
 func NewGitCloneExecutor(input NewGitCloneExecutorInput) common.Executor {
@@ -297,15 +313,7 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) common.Executor {
 		}
 
 		// fetch latest changes
-		fetchOptions := git.FetchOptions{
-			RefSpecs: []config.RefSpec{"refs/*:refs/*", "HEAD:refs/heads/HEAD"},
-		}
-		if input.Token != "" {
-			fetchOptions.Auth = &http.BasicAuth{
-				Username: "token",
-				Password: input.Token,
-			}
-		}
+		fetchOptions, pullOptions := gitOptions(input.Token)
 
 		err = r.Fetch(&fetchOptions)
 		if err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
@@ -364,16 +372,6 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) common.Executor {
 			}); err != nil {
 				logger.Errorf("Unable to checkout %s: %v", sourceRef, err)
 				return err
-			}
-		}
-
-		pullOptions := git.PullOptions{
-			Force: true,
-		}
-		if input.Token != "" {
-			pullOptions.Auth = &http.BasicAuth{
-				Username: "token",
-				Password: input.Token,
 			}
 		}
 
