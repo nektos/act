@@ -19,6 +19,7 @@ import (
 	selinux "github.com/opencontainers/selinux/go-selinux"
 
 	"github.com/nektos/act/pkg/common"
+	"github.com/nektos/act/pkg/common/git"
 	"github.com/nektos/act/pkg/container"
 	"github.com/nektos/act/pkg/model"
 )
@@ -474,7 +475,7 @@ func (rc *RunContext) getGithubContext() *model.GithubContext {
 	}
 
 	repoPath := rc.Config.Workdir
-	repo, err := common.FindGithubRepo(repoPath, rc.Config.GitHubInstance, rc.Config.RemoteName)
+	repo, err := git.FindGithubRepo(repoPath, rc.Config.GitHubInstance, rc.Config.RemoteName)
 	if err != nil {
 		log.Warningf("unable to get git repo: %v", err)
 	} else {

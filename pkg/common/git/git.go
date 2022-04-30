@@ -1,4 +1,4 @@
-package common
+package git
 
 import (
 	"context"
@@ -12,7 +12,9 @@ import (
 	"strings"
 	"sync"
 
-	git "github.com/go-git/go-git/v5"
+	"github.com/nektos/act/pkg/common"
+
+	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
@@ -279,9 +281,9 @@ func CloneIfRequired(ctx context.Context, refName plumbing.ReferenceName, input 
 
 // NewGitCloneExecutor creates an executor to clone git repos
 // nolint:gocyclo
-func NewGitCloneExecutor(input NewGitCloneExecutorInput) Executor {
+func NewGitCloneExecutor(input NewGitCloneExecutorInput) common.Executor {
 	return func(ctx context.Context) error {
-		logger := Logger(ctx)
+		logger := common.Logger(ctx)
 		logger.Infof("  \u2601  git clone '%s' # ref=%s", input.URL, input.Ref)
 		logger.Debugf("  cloning %s to %s", input.URL, input.Dir)
 

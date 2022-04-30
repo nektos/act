@@ -5,10 +5,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/nektos/act/pkg/common"
-	"github.com/nektos/act/pkg/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+
+	"github.com/nektos/act/pkg/common"
+	"github.com/nektos/act/pkg/common/git"
+	"github.com/nektos/act/pkg/model"
 )
 
 type stepActionRemoteMocks struct {
@@ -35,7 +37,7 @@ func TestStepActionRemoteTest(t *testing.T) {
 	clonedAction := false
 
 	origStepAtionRemoteNewCloneExecutor := stepActionRemoteNewCloneExecutor
-	stepActionRemoteNewCloneExecutor = func(input common.NewGitCloneExecutorInput) common.Executor {
+	stepActionRemoteNewCloneExecutor = func(input git.NewGitCloneExecutorInput) common.Executor {
 		return func(ctx context.Context) error {
 			clonedAction = true
 			return nil
