@@ -41,8 +41,7 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 	for i, stepModel := range infoSteps {
 		if stepModel == nil {
 			return func(ctx context.Context) error {
-				common.Logger(ctx).Errorf("Invalid Step %v: missing run or uses key", i)
-				return fmt.Errorf("Invalid Step %v: missing run or uses key", i)
+				return fmt.Errorf("invalid Step %v: missing run or uses key", i)
 			}
 		}
 		if stepModel.ID == "" {
