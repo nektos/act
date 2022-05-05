@@ -424,9 +424,9 @@ func defaultImageSurvey(actrc string) error {
 	case "Large":
 		option = "-P ubuntu-latest=ghcr.io/catthehacker/ubuntu:full-latest\n-P ubuntu-latest=ghcr.io/catthehacker/ubuntu:full-20.04\n-P ubuntu-18.04=ghcr.io/catthehacker/ubuntu:full-18.04\n"
 	case "Medium":
-		option = "-P ubuntu-latest=ghcr.io/catthehacker/ubuntu:act-latest\n-P ubuntu-20.04=ghcr.io/catthehacker/ubuntu:act-20.04\n-P ubuntu-18.04=ghcr.io/catthehacker/ubuntu:act-18.04\n"
+		option = "-P ubuntu-latest=ghcr.io/catthehacker/ubuntu:act-latest\n-P ubuntu-22.04=ghcr.io/catthehacker/ubuntu:act-22.04\n-P ubuntu-20.04=ghcr.io/catthehacker/ubuntu:act-20.04\n-P ubuntu-18.04=ghcr.io/catthehacker/ubuntu:act-18.04\n"
 	case "Micro":
-		option = "-P ubuntu-latest=node:16-buster-slim\n-P ubuntu-20.04=node:16-buster-slim\n-P ubuntu-18.04=node:16-buster-slim\n"
+		option = "-P ubuntu-latest=node:16-buster-slim\n-P -P ubuntu-22.04=node:16-bullseye-slim\n ubuntu-20.04=node:16-buster-slim\n-P ubuntu-18.04=node:16-buster-slim\n"
 	}
 
 	f, err := os.Create(actrc)
