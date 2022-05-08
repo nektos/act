@@ -549,6 +549,15 @@ func (rc *RunContext) getGithubContext() *model.GithubContext {
 
 	ghc.SetRefAndSha(rc.Config.DefaultBranch, repoPath)
 
+	// https://docs.github.com/en/actions/learn-github-actions/environment-variables
+	if strings.HasPrefix(ghc.Ref, "refs/tags/") {
+		ghc.RefType = "tag"
+		ghc.RefName = ghc.Ref[len("refs/tags/"):]
+	} else if strings.HasPrefix(ghc.Ref, "refs/heads/") {
+		ghc.RefType = "branch"
+		ghc.RefName = ghc.Ref[len("refs/heads/"):]
+	}
+
 	return ghc
 }
 
@@ -624,6 +633,8 @@ func (rc *RunContext) withGithubEnv(env map[string]string) map[string]string {
 	env["GITHUB_WORKSPACE"] = github.Workspace
 	env["GITHUB_SHA"] = github.Sha
 	env["GITHUB_REF"] = github.Ref
+	env["GITHUB_REF_NAME"] = github.RefName
+	env["GITHUB_REF_TYPE"] = github.RefType
 	env["GITHUB_TOKEN"] = github.Token
 	env["GITHUB_SERVER_URL"] = "https://github.com"
 	env["GITHUB_API_URL"] = "https://api.github.com"
