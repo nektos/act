@@ -539,8 +539,8 @@ github.com/mitchellh/go-homedir v1.1.0 h1:lukF9ziXFxDFPkA1vsr5zpc1XuPDn/wFntq5mG
 github.com/mitchellh/go-homedir v1.1.0/go.mod h1:SfyaCUpYCn1Vlf4IUYiD9fPX4A5wJrkLzIz1N1q0pr0=
 github.com/mitchellh/mapstructure v1.1.2/go.mod h1:FVVH3fgwuzCH5S8UJGiWEs2h04kUh9fWfEaFds41c1Y=
 github.com/mitchellh/osext v0.0.0-20151018003038-5e2d6d41470f/go.mod h1:OkQIRizQZAeMln+1tSwduZz7+Af5oFlKirV/MSYes2A=
-github.com/moby/buildkit v0.10.1 h1:jB0xuJU0ehDxDnzKal6R7BUHxXZ/EOA1CCuD+24fBvU=
-github.com/moby/buildkit v0.10.1/go.mod h1:jxeOuly98l9gWHai0Ojrbnczrk/rf+o9/JqNhY+UCSo=
+github.com/moby/buildkit v0.10.2 h1:jywa+mPPtsfCQqpIbt72RUKf49hTTCirTqIs4LG0n+8=
+github.com/moby/buildkit v0.10.2/go.mod h1:jxeOuly98l9gWHai0Ojrbnczrk/rf+o9/JqNhY+UCSo=
 github.com/moby/locker v1.0.1/go.mod h1:S7SDdo5zpBK84bzzVlKr2V0hz+7x9hWbYC/kq7oQppc=
 github.com/moby/sys/mount v0.3.1 h1:RX1K0x95oR8j5P1YefKDt7tE1C2kCCixV0H8Aza3GaI=
 github.com/moby/sys/mount v0.3.1/go.mod h1:6IZknFQiqjLpwuYJD5Zk0qYEuJiws36M88MIXnZHya0=
