@@ -414,6 +414,10 @@ const (
 
 // Type returns the type of the step
 func (s *Step) Type() StepType {
+	if s.Run == "" && s.Uses == "" {
+		return StepTypeInvalid
+	}
+
 	if s.Run != "" {
 		if s.Uses != "" {
 			return StepTypeInvalid
