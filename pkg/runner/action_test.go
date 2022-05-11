@@ -44,8 +44,10 @@ runs:
 			expected: &model.Action{
 				Name: "name",
 				Runs: model.ActionRuns{
-					Using: "node16",
-					Main:  "main.js",
+					Using:  "node16",
+					Main:   "main.js",
+					PreIf:  "always()",
+					PostIf: "always()",
 				},
 			},
 		},
@@ -57,8 +59,10 @@ runs:
 			expected: &model.Action{
 				Name: "name",
 				Runs: model.ActionRuns{
-					Using: "node16",
-					Main:  "main.js",
+					Using:  "node16",
+					Main:   "main.js",
+					PreIf:  "always()",
+					PostIf: "always()",
 				},
 			},
 		},
