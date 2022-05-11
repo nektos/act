@@ -1,6 +1,7 @@
 package exprparser
 
 import (
+	"encoding"
 	"fmt"
 	"math"
 	"reflect"
@@ -175,11 +176,11 @@ func (impl *interperterImpl) evaluateIndexAccess(indexAccessNode *actionlint.Ind
 			}
 			return leftValue.Index(int(rightValue.Int())).Interface(), nil
 		default:
-			return nil, fmt.Errorf("Unable to index on non-slice value: %s", leftValue.Kind())
+			return nil, nil
 		}
 
 	default:
-		return nil, fmt.Errorf("Unknown index type: %s", rightValue.Kind())
+		return nil, nil
 	}
 }
 
@@ -224,7 +225,16 @@ func (impl *interperterImpl) getPropertyValue(left reflect.Value, property strin
 			return "", nil
 		}
 
-		return fieldValue.Interface(), nil
+		i := fieldValue.Interface()
+		// The type stepStatus int is an integer, but should be treated as string
+		if m, ok := i.(encoding.TextMarshaler); ok {
+			text, err := m.MarshalText()
+			if err != nil {
+				return nil, err
+			}
+			return string(text), nil
+		}
+		return i, nil
 
 	case reflect.Map:
 		iter := left.MapRange()
@@ -260,7 +270,7 @@ func (impl *interperterImpl) getPropertyValue(left reflect.Value, property strin
 		return values, nil
 	}
 
-	return nil, fmt.Errorf("Unable to dereference '%s' on non-struct '%s'", property, left.Kind())
+	return nil, nil
 }
 
 func (impl *interperterImpl) getMapValue(value reflect.Value) (interface{}, error) {
