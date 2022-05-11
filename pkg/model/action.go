@@ -95,10 +95,10 @@ func ReadAction(in io.Reader) (*Action, error) {
 	}
 
 	// set defaults
-	if a.Runs.Pre != "" && a.Runs.PreIf == "" {
+	if a.Runs.PreIf == "" {
 		a.Runs.PreIf = "always()"
 	}
-	if a.Runs.Post != "" && a.Runs.PostIf == "" {
+	if a.Runs.PostIf == "" {
 		a.Runs.PostIf = "always()"
 	}
 
