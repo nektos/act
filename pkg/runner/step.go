@@ -80,7 +80,7 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 		}
 
 		if !runStep {
-			log.Debugf("Skipping step '%s' due to '%s'", stepModel, stepModel.If.Value)
+			log.Debugf("Skipping step '%s' due to '%s'", stepModel, ifExpression)
 			rc.StepResults[rc.CurrentStep].Conclusion = model.StepStatusSkipped
 			rc.StepResults[rc.CurrentStep].Outcome = model.StepStatusSkipped
 			return nil
