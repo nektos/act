@@ -1,0 +1,12 @@
+name: mask-values
+on: push
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - run: echo "::add-mask::secret value"
+      - run: echo "secret value"
+      - uses: ./mask-values/composite
+      - run: echo "composite secret"

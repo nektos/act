@@ -102,29 +102,30 @@ func runActionImpl(step actionStep, actionDir string, remoteAction *remoteAction
 	rc := step.getRunContext()
 	stepModel := step.getStepModel()
 	return func(ctx context.Context) error {
-		// Backup the parent composite action path and restore it on continue
-		parentActionPath := rc.ActionPath
-		parentActionRepository := rc.ActionRepository
-		parentActionRef := rc.ActionRef
-		defer func() {
-			rc.ActionPath = parentActionPath
-			rc.ActionRef = parentActionRef
-			rc.ActionRepository = parentActionRepository
-		}()
-
 		actionPath := ""
-		if remoteAction != nil {
-			rc.ActionRef = remoteAction.Ref
-			rc.ActionRepository = remoteAction.Repo
-			if remoteAction.Path != "" {
-				actionPath = remoteAction.Path
-			}
-		} else {
-			rc.ActionRef = ""
-			rc.ActionRepository = ""
+		if remoteAction != nil && remoteAction.Path != "" {
+			actionPath = remoteAction.Path
 		}
 		action := step.getActionModel()
 		log.Debugf("About to run action %v", action)
+
+		if remoteAction != nil {
+			rc.ActionRepository = fmt.Sprintf("%s/%s", remoteAction.Org, remoteAction.Repo)
+			rc.ActionRef = remoteAction.Ref
+		} else {
+			rc.ActionRepository = ""
+			rc.ActionRef = ""
+		}
+		defer (func() {
+			// cleanup after the action is done, to avoid side-effects in
+			// the next step/action
+			rc.ActionRepository = ""
+			rc.ActionRef = ""
+		})()
+
+		// we need to merge with github-env again, since at the step setup
+		// time, we don't have all environment prepared
+		mergeIntoMap(step.getEnv(), rc.withGithubEnv(map[string]string{}))
 
 		populateEnvsFromInput(step.getEnv(), action, rc)
 
@@ -134,7 +135,6 @@ func runActionImpl(step actionStep, actionDir string, remoteAction *remoteAction
 		log.Debugf("type=%v actionDir=%s actionPath=%s workdir=%s actionCacheDir=%s actionName=%s containerActionDir=%s", stepModel.Type(), actionDir, actionPath, rc.Config.Workdir, rc.ActionCacheDir(), actionName, containerActionDir)
 
 		maybeCopyToActionDir := func() error {
-			rc.ActionPath = containerActionDir
 			if stepModel.Type() != model.StepTypeUsesActionRemote {
 				return nil
 			}
@@ -170,7 +170,7 @@ func runActionImpl(step actionStep, actionDir string, remoteAction *remoteAction
 			if err := maybeCopyToActionDir(); err != nil {
 				return err
 			}
-			return execAsComposite(step)(ctx)
+			return execAsComposite(step, containerActionDir)(ctx)
 		default:
 			return fmt.Errorf(fmt.Sprintf("The runs.using key must be one of: %v, got %s", []string{
 				model.ActionRunsUsingDocker,
@@ -359,7 +359,7 @@ func newStepContainer(ctx context.Context, step step, image string, cmd []string
 	return stepContainer
 }
 
-func execAsComposite(step actionStep) common.Executor {
+func execAsComposite(step actionStep, containerActionDir string) common.Executor {
 	rc := step.getRunContext()
 	action := step.getActionModel()
 
@@ -370,9 +370,10 @@ func execAsComposite(step actionStep) common.Executor {
 				return err
 			}
 		}
+
+		eval := rc.NewExpressionEvaluator()
+
 		inputs := make(map[string]interface{})
-		eval := step.getRunContext().NewExpressionEvaluator()
-		// Set Defaults
 		for k, input := range action.Inputs {
 			inputs[k] = eval.Interpolate(input.Default)
 		}
@@ -381,63 +382,128 @@ func execAsComposite(step actionStep) common.Executor {
 				inputs[k] = eval.Interpolate(v)
 			}
 		}
-		// Doesn't work with the command processor has a pointer to the original rc
-		// compositerc := rc.Clone()
-		// Workaround start
-		backup := *rc
-		defer func() { *rc = backup }()
-		*rc = *rc.Clone()
-		scriptName := backup.CurrentStep
-		for rcs := &backup; rcs.Parent != nil; rcs = rcs.Parent {
-			scriptName = fmt.Sprintf("%s-composite-%s", rcs.Parent.CurrentStep, scriptName)
-		}
-		compositerc := rc
-		compositerc.Parent = &RunContext{
-			CurrentStep: scriptName,
-		}
-		// Workaround end
-		compositerc.Composite = action
-		envToEvaluate := mergeMaps(compositerc.Env, step.getStepModel().Environment())
-		compositerc.Env = make(map[string]string)
-		// origEnvMap: is used to pass env changes back to parent runcontext
-		origEnvMap := make(map[string]string)
-		for k, v := range envToEvaluate {
-			ev := eval.Interpolate(v)
-			origEnvMap[k] = ev
-			compositerc.Env[k] = ev
-		}
-		compositerc.Inputs = inputs
-		compositerc.ExprEval = compositerc.NewExpressionEvaluator()
 
-		err := compositerc.compositeExecutor()(ctx)
+		env := make(map[string]string)
+		for k, v := range rc.Env {
+			env[k] = eval.Interpolate(v)
+		}
+		for k, v := range step.getStepModel().Environment() {
+			env[k] = eval.Interpolate(v)
+		}
 
-		// Map outputs to parent rc
-		eval = compositerc.NewStepExpressionEvaluator(step)
+		// run with the global config but without secrets
+		configCopy := *rc.Config
+		configCopy.Secrets = nil
+
+		// create a run context for the composite action to run in
+		compositerc := &RunContext{
+			Name:    rc.Name,
+			JobName: rc.JobName,
+			Run: &model.Run{
+				JobID: "composite-job",
+				Workflow: &model.Workflow{
+					Name: rc.Run.Workflow.Name,
+					Jobs: map[string]*model.Job{
+						"composite-job": {},
+					},
+				},
+			},
+			Config:           &configCopy,
+			StepResults:      map[string]*model.StepResult{},
+			JobContainer:     rc.JobContainer,
+			Inputs:           inputs,
+			ActionPath:       containerActionDir,
+			ActionRepository: rc.ActionRepository,
+			ActionRef:        rc.ActionRef,
+			Env:              env,
+			Masks:            rc.Masks,
+			ExtraPath:        rc.ExtraPath,
+		}
+
+		ctx = WithCompositeLogger(ctx, &compositerc.Masks)
+
+		// We need to inject a composite RunContext related command
+		// handler into the current running job container
+		// We need this, to support scoping commands to the composite action
+		// executing.
+		rawLogger := common.Logger(ctx).WithField("raw_output", true)
+		logWriter := common.NewLineWriter(compositerc.commandHandler(ctx), func(s string) bool {
+			if rc.Config.LogOutput {
+				rawLogger.Infof("%s", s)
+			} else {
+				rawLogger.Debugf("%s", s)
+			}
+			return true
+		})
+		oldout, olderr := compositerc.JobContainer.ReplaceLogWriter(logWriter, logWriter)
+		defer (func() {
+			rc.JobContainer.ReplaceLogWriter(oldout, olderr)
+		})()
+
+		err := compositerc.compositeExecutor(action)(ctx)
+
+		// Map outputs from composite RunContext to job RunContext
+		eval = compositerc.NewExpressionEvaluator()
 		for outputName, output := range action.Outputs {
-			backup.setOutput(ctx, map[string]string{
+			rc.setOutput(ctx, map[string]string{
 				"name": outputName,
 			}, eval.Interpolate(output.Value))
 		}
 
-		backup.Masks = append(backup.Masks, compositerc.Masks...)
-		// Test if evaluated parent env was altered by this composite step
-		// Known Issues:
-		// - you try to set an env variable to the same value as a scoped step env, will be discared
-		for k, v := range compositerc.Env {
-			if ov, ok := origEnvMap[k]; !ok || ov != v {
-				backup.Env[k] = v
-			}
-		}
+		rc.Masks = compositerc.Masks
+		rc.ExtraPath = compositerc.ExtraPath
+
 		return err
 	}
 }
 
+// Executor returns a pipeline executor for all the steps in the job
+func (rc *RunContext) compositeExecutor(action *model.Action) common.Executor {
+	steps := make([]common.Executor, 0)
+
+	sf := &stepFactoryImpl{}
+
+	for i, step := range action.Runs.Steps {
+		if step.ID == "" {
+			step.ID = fmt.Sprintf("%d", i)
+		}
+
+		// create a copy of the step, since this composite action could
+		// run multiple times and we might modify the instance
+		stepcopy := step
+
+		step, err := sf.newStep(&stepcopy, rc)
+		if err != nil {
+			return common.NewErrorExecutor(err)
+		}
+		stepExec := common.NewPipelineExecutor(step.pre(), step.main(), step.post())
+
+		steps = append(steps, func(ctx context.Context) error {
+			err := stepExec(ctx)
+			if err != nil {
+				common.Logger(ctx).Errorf("%v", err)
+				common.SetJobError(ctx, err)
+			} else if ctx.Err() != nil {
+				common.Logger(ctx).Errorf("%v", ctx.Err())
+				common.SetJobError(ctx, ctx.Err())
+			}
+			return nil
+		})
+	}
+
+	steps = append(steps, common.JobError)
+	return func(ctx context.Context) error {
+		return common.NewPipelineExecutor(steps...)(common.WithJobErrorContainer(ctx))
+	}
+}
+
 func populateEnvsFromInput(env *map[string]string, action *model.Action, rc *RunContext) {
+	eval := rc.NewExpressionEvaluator()
 	for inputID, input := range action.Inputs {
 		envKey := regexp.MustCompile("[^A-Z0-9-]").ReplaceAllString(strings.ToUpper(inputID), "_")
 		envKey = fmt.Sprintf("INPUT_%s", envKey)
 		if _, ok := (*env)[envKey]; !ok {
-			(*env)[envKey] = rc.ExprEval.Interpolate(input.Default)
+			(*env)[envKey] = eval.Interpolate(input.Default)
 		}
 	}
 }
