@@ -77,6 +77,7 @@ type Container interface {
 	UpdateFromPath(env *map[string]string) common.Executor
 	Remove() common.Executor
 	Close() common.Executor
+	ReplaceLogWriter(io.Writer, io.Writer) (io.Writer, io.Writer)
 }
 
 // NewContainer creates a reference to a container
@@ -196,6 +197,16 @@ func (cr *containerReference) Remove() common.Executor {
 	).Finally(
 		cr.remove(),
 	).IfNot(common.Dryrun)
+}
+
+func (cr *containerReference) ReplaceLogWriter(stdout io.Writer, stderr io.Writer) (io.Writer, io.Writer) {
+	out := cr.input.Stdout
+	err := cr.input.Stderr
+
+	cr.input.Stdout = stdout
+	cr.input.Stderr = stderr
+
+	return out, err
 }
 
 type containerReference struct {

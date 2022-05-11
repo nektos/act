@@ -366,6 +366,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			JSONLogger:            input.jsonLogger,
 			Env:                   envs,
 			Secrets:               secrets,
+			Token:                 secrets["GITHUB_TOKEN"],
 			InsecureSecrets:       input.insecureSecrets,
 			Platforms:             input.newPlatforms(),
 			Privileged:            input.privileged,
