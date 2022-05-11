@@ -428,8 +428,14 @@ func shouldRunPostStep(step actionStep) common.Conditional {
 	return func(ctx context.Context) bool {
 		log := common.Logger(ctx)
 		stepResults := step.getRunContext().getStepsContext()
+		stepResult := stepResults[step.getStepModel().ID]
 
-		if stepResults[step.getStepModel().ID].Conclusion == model.StepStatusSkipped {
+		if stepResult == nil {
+			log.Debugf("skip post step for '%s'; step was not executed", step.getStepModel())
+			return false
+		}
+
+		if stepResult.Conclusion == model.StepStatusSkipped {
 			log.Debugf("skip post step for '%s'; main step was skipped", step.getStepModel())
 			return false
 		}
