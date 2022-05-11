@@ -162,6 +162,9 @@ func (cr *containerReference) CopyDir(destPath string, srcPath string, useGitIgn
 }
 
 func (cr *containerReference) GetContainerArchive(ctx context.Context, srcPath string) (io.ReadCloser, error) {
+	if common.Dryrun(ctx) {
+		return nil, fmt.Errorf("DRYRUN is not supported in GetContainerArchive")
+	}
 	a, _, err := cr.cli.CopyFromContainer(ctx, cr.id, srcPath)
 	return a, err
 }
