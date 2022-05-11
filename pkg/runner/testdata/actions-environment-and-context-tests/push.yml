@@ -1,0 +1,13 @@
+name: actions-with-environment-and-context-tests
+description: "Actions with environment (env vars) and context (expression) tests"
+on: push
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: './actions-environment-and-context-tests/js'
+      - uses: './actions-environment-and-context-tests/docker'
+      - uses: 'nektos/act-test-actions/js@main'
+      - uses: 'nektos/act-test-actions/docker@main'

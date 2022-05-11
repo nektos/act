@@ -51,14 +51,18 @@ func runStepExecutor(step step, executor common.Executor) common.Executor {
 			return nil
 		}
 
-		common.Logger(ctx).Infof("\u2B50  Run %s", stepModel)
+		stepString := stepModel.String()
+		if strings.Contains(stepString, "::add-mask::") {
+			stepString = "add-mask command"
+		}
+		common.Logger(ctx).Infof("\u2B50  Run %s", stepString)
 
 		err = executor(ctx)
 
 		if err == nil {
-			common.Logger(ctx).Infof("  \u2705  Success - %s", stepModel)
+			common.Logger(ctx).Infof("  \u2705  Success - %s", stepString)
 		} else {
-			common.Logger(ctx).Errorf("  \u274C  Failure - %s", stepModel)
+			common.Logger(ctx).Errorf("  \u274C  Failure - %s", stepString)
 
 			rc.StepResults[rc.CurrentStep].Outcome = model.StepStatusFailure
 			if stepModel.ContinueOnError {

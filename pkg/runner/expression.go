@@ -37,11 +37,6 @@ func (rc *RunContext) NewExpressionEvaluator() ExpressionEvaluator {
 		}
 	}
 
-	secrets := rc.Config.Secrets
-	if rc.Composite != nil {
-		secrets = nil
-	}
-
 	ee := &exprparser.EvaluationEnvironment{
 		Github: rc.getGithubContext(),
 		Env:    rc.GetEnv(),
@@ -54,7 +49,7 @@ func (rc *RunContext) NewExpressionEvaluator() ExpressionEvaluator {
 			"temp":       "/tmp",
 			"tool_cache": "/opt/hostedtoolcache",
 		},
-		Secrets:  secrets,
+		Secrets:  rc.Config.Secrets,
 		Strategy: strategy,
 		Matrix:   rc.Matrix,
 		Needs:    using,
@@ -89,11 +84,6 @@ func (rc *RunContext) NewStepExpressionEvaluator(step step) ExpressionEvaluator 
 		}
 	}
 
-	secrets := rc.Config.Secrets
-	if rc.Composite != nil {
-		secrets = nil
-	}
-
 	ee := &exprparser.EvaluationEnvironment{
 		Github: rc.getGithubContext(),
 		Env:    *step.getEnv(),
@@ -104,7 +94,7 @@ func (rc *RunContext) NewStepExpressionEvaluator(step step) ExpressionEvaluator 
 			"temp":       "/tmp",
 			"tool_cache": "/opt/hostedtoolcache",
 		},
-		Secrets:  secrets,
+		Secrets:  rc.Config.Secrets,
 		Strategy: strategy,
 		Matrix:   rc.Matrix,
 		Needs:    using,

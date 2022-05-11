@@ -1,0 +1,21 @@
+name: action1
+description: action1
+runs:
+  using: composite
+  steps:
+  - name: env.COMPOSITE_OVERRIDE != '1'
+    run: exit 1
+    if: env.COMPOSITE_OVERRIDE != '1'
+    shell: bash
+  - name: env.JOB != '1'
+    run: exit 1
+    if: env.JOB != '1'
+    shell: bash
+  - name: env.GLOBAL != '1'
+    run: exit 1
+    if: env.GLOBAL != '1'
+    shell: bash
+  - uses: ./act-composite-env-test/action2
+    env:
+      COMPOSITE_OVERRIDE: "2"
+      COMPOSITE: "1"
