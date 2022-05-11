@@ -36,6 +36,7 @@ type Config struct {
 	JSONLogger            bool                         // use json or text logger
 	Env                   map[string]string            // env for containers
 	Secrets               map[string]string            // list of secrets
+	Token                 string                       // GitHub token
 	InsecureSecrets       bool                         // switch hiding output when printing to terminal
 	Platforms             map[string]string            // list of platforms
 	Privileged            bool                         // use privileged mode

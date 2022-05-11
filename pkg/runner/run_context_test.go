@@ -310,7 +310,17 @@ func TestRunContext_GetBindsAndMounts(t *testing.T) {
 				})
 				assert.NoError(t, err)
 
-				rc := rctemplate.Clone()
+				rc := &RunContext{
+					Name: "TestRCName",
+					Run: &model.Run{
+						Workflow: &model.Workflow{
+							Name: "TestWorkflowName",
+						},
+					},
+					Config: &Config{
+						BindWorkdir: false,
+					},
+				}
 				rc.Run.JobID = "job1"
 				rc.Run.Workflow.Jobs = map[string]*model.Job{"job1": job}
 
