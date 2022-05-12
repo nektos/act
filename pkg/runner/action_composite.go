@@ -85,18 +85,12 @@ func execAsComposite(step actionStep) common.Executor {
 	return func(ctx context.Context) error {
 		compositerc := step.getCompositeRunContext()
 
-		var err error
 		steps := step.getCompositeSteps()
-		compositerc.updateCompositeRunContext(rc, step)
 
 		ctx = WithCompositeLogger(ctx, &compositerc.Masks)
 
-		// todo: pre should be run in the pre step
-		err = steps.pre(ctx)
-		if err == nil {
-			compositerc.updateCompositeRunContext(rc, step)
-			err = steps.main(ctx)
-		}
+		compositerc.updateCompositeRunContext(rc, step)
+		err := steps.main(ctx)
 
 		// Map outputs from composite RunContext to job RunContext
 		eval := compositerc.NewExpressionEvaluator()

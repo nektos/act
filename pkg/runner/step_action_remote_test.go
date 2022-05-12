@@ -82,8 +82,8 @@ func TestStepActionRemote(t *testing.T) {
 				run    bool
 			}{
 				env:    true,
-				cloned: false,
-				read:   false,
+				cloned: true,
+				read:   true,
 				run:    false,
 			},
 		},
@@ -172,7 +172,10 @@ func TestStepActionRemote(t *testing.T) {
 				sarm.On("runAction", sar, suffixMatcher("act/remote-action@v1"), newRemoteAction(sar.Step.Uses)).Return(func(ctx context.Context) error { return tt.runError })
 			}
 
-			err := sar.main()(ctx)
+			err := sar.pre()(ctx)
+			if err == nil {
+				err = sar.main()(ctx)
+			}
 
 			assert.Equal(t, tt.runError, err)
 			assert.Equal(t, tt.mocks.cloned, clonedAction)
@@ -185,12 +188,70 @@ func TestStepActionRemote(t *testing.T) {
 }
 
 func TestStepActionRemotePre(t *testing.T) {
-	ctx := context.Background()
+	table := []struct {
+		name      string
+		stepModel *model.Step
+	}{
+		{
+			name: "run-pre",
+			stepModel: &model.Step{
+				Uses: "org/repo/path@ref",
+			},
+		},
+	}
 
-	sar := &stepActionRemote{}
+	for _, tt := range table {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
 
-	err := sar.pre()(ctx)
-	assert.Nil(t, err)
+			clonedAction := false
+			sarm := &stepActionRemoteMocks{}
+
+			origStepAtionRemoteNewCloneExecutor := stepActionRemoteNewCloneExecutor
+			stepActionRemoteNewCloneExecutor = func(input common.NewGitCloneExecutorInput) common.Executor {
+				return func(ctx context.Context) error {
+					clonedAction = true
+					return nil
+				}
+			}
+			defer (func() {
+				stepActionRemoteNewCloneExecutor = origStepAtionRemoteNewCloneExecutor
+			})()
+
+			sar := &stepActionRemote{
+				Step: tt.stepModel,
+				RunContext: &RunContext{
+					Config: &Config{
+						GitHubInstance: "https://github.com",
+					},
+					Run: &model.Run{
+						JobID: "1",
+						Workflow: &model.Workflow{
+							Jobs: map[string]*model.Job{
+								"1": {},
+							},
+						},
+					},
+				},
+				readAction: sarm.readAction,
+			}
+
+			suffixMatcher := func(suffix string) interface{} {
+				return mock.MatchedBy(func(actionDir string) bool {
+					return strings.HasSuffix(actionDir, suffix)
+				})
+			}
+
+			sarm.On("readAction", sar.Step, suffixMatcher("org-repo-path@ref"), "path", mock.Anything, mock.Anything).Return(&model.Action{}, nil)
+
+			err := sar.pre()(ctx)
+
+			assert.Nil(t, err)
+			assert.Equal(t, true, clonedAction)
+
+			sarm.AssertExpectations(t)
+		})
+	}
 }
 
 func TestStepActionRemotePost(t *testing.T) {

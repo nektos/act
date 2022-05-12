@@ -1,0 +1,15 @@
+name: uses-action-with-pre-and-post-step
+on: push
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: ./uses-action-with-pre-and-post-step/last-action
+      - uses: nektos/act-test-actions/js-with-pre-and-post-step@main
+        with:
+          pre: true
+          post: true
+      - run: |
+          cat $GITHUB_ENV

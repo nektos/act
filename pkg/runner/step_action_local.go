@@ -25,15 +25,9 @@ type stepActionLocal struct {
 }
 
 func (sal *stepActionLocal) pre() common.Executor {
-	return func(ctx context.Context) error {
-		return nil
-	}
-}
-
-func (sal *stepActionLocal) main() common.Executor {
 	sal.env = map[string]string{}
 
-	return runStepExecutor(sal, stepStageMain, func(ctx context.Context) error {
+	return func(ctx context.Context) error {
 		actionDir := filepath.Join(sal.getRunContext().Config.Workdir, sal.Step.Uses)
 
 		localReader := func(ctx context.Context) actionYamlReader {
@@ -58,6 +52,20 @@ func (sal *stepActionLocal) main() common.Executor {
 
 		sal.action = actionModel
 
+		// run local pre step only for composite actions, to allow to run
+		// inside pre steps
+		if sal.action.Runs.Using == model.ActionRunsUsingComposite {
+			sal.RunContext.setupActionInputs(sal)
+			return runStepExecutor(sal, stepStagePre, runPreStep(sal)).If(hasPreStep(sal)).If(shouldRunPreStep(sal))(ctx)
+		}
+
+		return nil
+	}
+}
+
+func (sal *stepActionLocal) main() common.Executor {
+	return runStepExecutor(sal, stepStageMain, func(ctx context.Context) error {
+		actionDir := filepath.Join(sal.getRunContext().Config.Workdir, sal.Step.Uses)
 		return sal.runAction(sal, actionDir, nil)(ctx)
 	})
 }
