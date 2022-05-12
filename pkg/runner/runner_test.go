@@ -138,6 +138,7 @@ func TestRunEvent(t *testing.T) {
 		{workdir, "uses-nested-composite", "push", "", platforms},
 		{workdir, "uses-workflow", "push", "reusable workflows are currently not supported (see https://github.com/nektos/act/issues/826 for updates)", platforms},
 		{workdir, "uses-docker-url", "push", "", platforms},
+		{workdir, "act-composite-env-test", "push", "", platforms},
 
 		// Eval
 		{workdir, "evalmatrix", "push", "", platforms},
@@ -171,6 +172,7 @@ func TestRunEvent(t *testing.T) {
 		{workdir, "steps-context/outcome", "push", "", platforms},
 		{workdir, "job-status-check", "push", "job 'fail' failed", platforms},
 		{workdir, "if-expressions", "push", "Job 'mytest' failed", platforms},
+		{workdir, "actions-environment-and-context-tests", "push", "", platforms},
 		{"../model/testdata", "strategy", "push", "", platforms}, // TODO: move all testdata into pkg so we can validate it with planner and runner
 		// {"testdata", "issue-228", "push", "", platforms, }, // TODO [igni]: Remove this once everything passes
 		{"../model/testdata", "container-volumes", "push", "", platforms},
@@ -197,6 +199,37 @@ func TestRunDifferentArchitecture(t *testing.T) {
 	}
 
 	tjfi.runTest(context.Background(), t, &Config{ContainerArchitecture: "linux/arm64"})
+}
+
+func TestMaskValues(t *testing.T) {
+	assertNoSecret := func(text string, secret string) {
+		index := strings.Index(text, "composite secret")
+		if index > -1 {
+			fmt.Printf("\nFound Secret in the given text:\n%s\n", text)
+		}
+		assert.False(t, strings.Contains(text, "composite secret"))
+	}
+
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	log.SetLevel(log.DebugLevel)
+
+	tjfi := TestJobFileInfo{
+		workdir:      workdir,
+		workflowPath: "mask-values",
+		eventName:    "push",
+		errorMessage: "",
+		platforms:    platforms,
+	}
+
+	output := captureOutput(t, func() {
+		tjfi.runTest(context.Background(), t, &Config{})
+	})
+
+	assertNoSecret(output, "secret value")
+	assertNoSecret(output, "composite secret")
 }
 
 func TestRunEventSecrets(t *testing.T) {

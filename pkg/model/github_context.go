@@ -18,6 +18,8 @@ type GithubContext struct {
 	EventName        string                 `json:"event_name"`
 	Sha              string                 `json:"sha"`
 	Ref              string                 `json:"ref"`
+	RefName          string                 `json:"ref_name"`
+	RefType          string                 `json:"ref_type"`
 	HeadRef          string                 `json:"head_ref"`
 	BaseRef          string                 `json:"base_ref"`
 	Token            string                 `json:"token"`
