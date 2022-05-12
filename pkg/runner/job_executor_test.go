@@ -21,6 +21,7 @@ func TestJobExecutor(t *testing.T) {
 		{workdir, "uses-docker-url", "push", "", platforms},
 		{workdir, "uses-github-full-sha", "push", "", platforms},
 		{workdir, "uses-github-short-sha", "push", "Unable to resolve action `actions/hello-world-docker-action@b136eb8`, the provided ref `b136eb8` is the shortened version of a commit SHA, which is not supported. Please use the full commit SHA `b136eb8894c5cb1dd5807da824be97ccdf9b5423` instead", platforms},
+		{workdir, "job-nil-step", "push", "invalid Step 0: missing run or uses key", platforms},
 	}
 	// These tests are sufficient to only check syntax.
 	ctx := common.WithDryrun(context.Background(), true)
