@@ -54,6 +54,8 @@ type Config struct {
 	ArtifactServerPort    string            // the port the artifact server binds to
 	NoSkipCheckout        bool              // do not skip actions/checkout
 	RemoteName            string            // remote name in local git repo config
+	ThroughAction         []string          // Through actions from GitHub Enterprise instance to GitHub
+	ThroughActionToken    string            // Your through private action's GitHub token.
 }
 
 // Resolves the equivalent host path inside the container

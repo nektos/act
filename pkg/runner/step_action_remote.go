@@ -55,6 +55,14 @@ func (sar *stepActionRemote) prepareActionExecutor() common.Executor {
 			return nil
 		}
 
+		sar.remoteAction.URL = sar.RunContext.Config.GitHubInstance
+		for _, throughAction := range sar.RunContext.Config.ThroughAction {
+			if (sar.remoteAction.Org + "/" + sar.remoteAction.Repo) == throughAction {
+				sar.remoteAction.URL = "github.com"
+				github.Token = sar.RunContext.Config.ThroughActionToken
+			}
+		}
+
 		actionDir := fmt.Sprintf("%s/%s", sar.RunContext.ActionCacheDir(), strings.ReplaceAll(sar.Step.Uses, "/", "-"))
 		gitClone := stepActionRemoteNewCloneExecutor(git.NewGitCloneExecutorInput{
 			URL:   sar.remoteAction.CloneURL(),

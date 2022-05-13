@@ -41,6 +41,8 @@ type Input struct {
 	jsonLogger            bool
 	noSkipCheckout        bool
 	remoteName            string
+	throughAction         []string
+	throughActionToken    string
 }
 
 func (i *Input) resolve(path string) string {

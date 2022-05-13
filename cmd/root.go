@@ -61,6 +61,8 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.Flags().StringArrayVarP(&input.containerCapAdd, "container-cap-add", "", []string{}, "kernel capabilities to add to the workflow containers (e.g. --container-cap-add SYS_PTRACE)")
 	rootCmd.Flags().StringArrayVarP(&input.containerCapDrop, "container-cap-drop", "", []string{}, "kernel capabilities to remove from the workflow containers (e.g. --container-cap-drop SYS_PTRACE)")
 	rootCmd.Flags().BoolVar(&input.autoRemove, "rm", false, "automatically remove container(s)/volume(s) after a workflow(s) failure")
+	rootCmd.Flags().StringArrayVarP(&input.throughAction, "through-action", "", []string{}, "If you are using GitHub Enterprise Server and allow specified actions from GitHub (github.com), you can set actions on this. (e.g. --through-action=github/super-linter)")
+	rootCmd.Flags().StringVar(&input.throughActionToken, "through-action-token", "", "If you are using through-action and you want to use private actions on GitHub, you have to set personal access token")
 	rootCmd.PersistentFlags().StringVarP(&input.actor, "actor", "a", "nektos/act", "user that triggered the event")
 	rootCmd.PersistentFlags().StringVarP(&input.workflowsPath, "workflows", "W", "./.github/workflows/", "path to workflow file(s)")
 	rootCmd.PersistentFlags().BoolVarP(&input.noWorkflowRecurse, "no-recurse", "", false, "Flag to disable running workflows from subdirectories of specified path in '--workflows'/'-W' flag")
@@ -399,6 +401,8 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			ArtifactServerPort:    input.artifactServerPort,
 			NoSkipCheckout:        input.noSkipCheckout,
 			RemoteName:            input.remoteName,
+			ThroughAction:         input.throughAction,
+			ThroughActionToken:    input.throughActionToken,
 		}
 		r, err := runner.New(config)
 		if err != nil {
