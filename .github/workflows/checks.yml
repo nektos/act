@@ -65,7 +65,7 @@ jobs:
         with:
           fetch-depth: 2
       - run: |
-          podman system service --time=0 unix://$HOME/podman.sock
+          podman system service --time=0 unix://$HOME/podman.sock &
           echo "DOCKER_HOST=unix://$HOME/podman.sock" >> $GITHUB_ENV
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v1
