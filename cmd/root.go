@@ -154,12 +154,6 @@ func bugReport(ctx context.Context, version string) error {
 		}
 	}
 
-	info, err := container.GetHostInfo(ctx)
-	if err != nil {
-		fmt.Println(report)
-		return err
-	}
-
 	report += sprintf("Config files:", "")
 	for _, c := range configLocations() {
 		args := readArgsFile(c, false)
@@ -169,6 +163,12 @@ func bugReport(ctx context.Context, version string) error {
 				report += fmt.Sprintf("\t\t%s\n", l)
 			}
 		}
+	}
+
+	info, err := container.GetHostInfo(ctx)
+	if err != nil {
+		fmt.Println(report)
+		return err
 	}
 
 	report += fmt.Sprintln("Docker Engine:")
