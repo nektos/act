@@ -67,8 +67,8 @@ jobs:
       - run: |
           podman system service --time=0 unix://$HOME/podman.sock &
           echo "DOCKER_HOST=unix://$HOME/podman.sock" >> $GITHUB_ENV
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v1
+      # - name: Set up QEMU
+      #   uses: docker/setup-qemu-action@v1
       - uses: actions/setup-go@v2
         with:
           go-version: ${{ env.GO_VERSION }}
