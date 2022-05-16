@@ -54,7 +54,8 @@ func (e *Error) Commit() string {
 }
 
 // FindGitRevision get the current git revision
-func FindGitRevision(file string) (shortSha string, sha string, err error) {
+func FindGitRevision(ctx context.Context, file string) (shortSha string, sha string, err error) {
+	logger := common.Logger(ctx)
 	gitDir, err := findGitDirectory(file)
 	if err != nil {
 		return "", "", err
@@ -77,24 +78,25 @@ func FindGitRevision(file string) (shortSha string, sha string, err error) {
 		refBuf = []byte(ref)
 	}
 
-	log.Debugf("Found revision: %s", refBuf)
+	logger.Debugf("Found revision: %s", refBuf)
 	return string(refBuf[:7]), strings.TrimSpace(string(refBuf)), nil
 }
 
 // FindGitRef get the current git ref
-func FindGitRef(file string) (string, error) {
+func FindGitRef(ctx context.Context, file string) (string, error) {
+	logger := common.Logger(ctx)
 	gitDir, err := findGitDirectory(file)
 	if err != nil {
 		return "", err
 	}
-	log.Debugf("Loading revision from git directory '%s'", gitDir)
+	logger.Debugf("Loading revision from git directory '%s'", gitDir)
 
-	_, ref, err := FindGitRevision(file)
+	_, ref, err := FindGitRevision(ctx, file)
 	if err != nil {
 		return "", err
 	}
 
-	log.Debugf("HEAD points to '%s'", ref)
+	logger.Debugf("HEAD points to '%s'", ref)
 
 	// Prefer the git library to iterate over the references and find a matching tag or branch.
 	var refTag = ""
@@ -108,7 +110,7 @@ func FindGitRef(file string) (string, error) {
 				if r == nil || err != nil {
 					break
 				}
-				// log.Debugf("Reference: name=%s sha=%s", r.Name().String(), r.Hash().String())
+				// logger.Debugf("Reference: name=%s sha=%s", r.Name().String(), r.Hash().String())
 				if r.Hash().String() == ref {
 					if r.Name().IsTag() {
 						refTag = r.Name().String()
@@ -131,15 +133,15 @@ func FindGitRef(file string) (string, error) {
 	// If the above doesn't work, fall back to the old way
 
 	// try tags first
-	tag, err := findGitPrettyRef(ref, gitDir, "refs/tags")
+	tag, err := findGitPrettyRef(ctx, ref, gitDir, "refs/tags")
 	if err != nil || tag != "" {
 		return tag, err
 	}
 	// and then branches
-	return findGitPrettyRef(ref, gitDir, "refs/heads")
+	return findGitPrettyRef(ctx, ref, gitDir, "refs/heads")
 }
 
-func findGitPrettyRef(head, root, sub string) (string, error) {
+func findGitPrettyRef(ctx context.Context, head, root, sub string) (string, error) {
 	var name string
 	var err = filepath.Walk(filepath.Join(root, sub), func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -156,7 +158,7 @@ func findGitPrettyRef(head, root, sub string) (string, error) {
 		if head == pointsTo {
 			// On Windows paths are separated with backslash character so they should be replaced to provide proper git refs format
 			name = strings.TrimPrefix(strings.ReplaceAll(strings.Replace(path, root, "", 1), `\`, `/`), "/")
-			log.Debugf("HEAD matches %s", name)
+			common.Logger(ctx).Debugf("HEAD matches %s", name)
 		}
 		return nil
 	})
@@ -164,12 +166,12 @@ func findGitPrettyRef(head, root, sub string) (string, error) {
 }
 
 // FindGithubRepo get the repo
-func FindGithubRepo(file, githubInstance, remoteName string) (string, error) {
+func FindGithubRepo(ctx context.Context, file, githubInstance, remoteName string) (string, error) {
 	if remoteName == "" {
 		remoteName = "origin"
 	}
 
-	url, err := findGitRemoteURL(file, remoteName)
+	url, err := findGitRemoteURL(ctx, file, remoteName)
 	if err != nil {
 		return "", err
 	}
@@ -177,12 +179,12 @@ func FindGithubRepo(file, githubInstance, remoteName string) (string, error) {
 	return slug, err
 }
 
-func findGitRemoteURL(file, remoteName string) (string, error) {
+func findGitRemoteURL(ctx context.Context, file, remoteName string) (string, error) {
 	gitDir, err := findGitDirectory(file)
 	if err != nil {
 		return "", err
 	}
-	log.Debugf("Loading slug from git directory '%s'", gitDir)
+	common.Logger(ctx).Debugf("Loading slug from git directory '%s'", gitDir)
 
 	gitconfig, err := ini.InsensitiveLoad(fmt.Sprintf("%s/config", gitDir))
 	if err != nil {

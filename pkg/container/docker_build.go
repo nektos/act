@@ -12,7 +12,6 @@ import (
 
 	// github.com/docker/docker/builder/dockerignore is deprecated
 	"github.com/moby/buildkit/frontend/dockerfile/dockerignore"
-	log "github.com/sirupsen/logrus"
 
 	"github.com/nektos/act/pkg/common"
 )
@@ -56,7 +55,7 @@ func NewDockerBuildExecutor(input NewDockerBuildExecutorInput) common.Executor {
 		if input.Container != nil {
 			buildContext, err = input.Container.GetContainerArchive(ctx, input.ContextDir+"/.")
 		} else {
-			buildContext, err = createBuildContext(input.ContextDir, "Dockerfile")
+			buildContext, err = createBuildContext(ctx, input.ContextDir, "Dockerfile")
 		}
 		if err != nil {
 			return err
@@ -74,8 +73,8 @@ func NewDockerBuildExecutor(input NewDockerBuildExecutorInput) common.Executor {
 		return nil
 	}
 }
-func createBuildContext(contextDir string, relDockerfile string) (io.ReadCloser, error) {
-	log.Debugf("Creating archive for build context dir '%s' with relative dockerfile '%s'", contextDir, relDockerfile)
+func createBuildContext(ctx context.Context, contextDir string, relDockerfile string) (io.ReadCloser, error) {
+	common.Logger(ctx).Debugf("Creating archive for build context dir '%s' with relative dockerfile '%s'", contextDir, relDockerfile)
 
 	// And canonicalize dockerfile name to a platform-independent one
 	relDockerfile = archive.CanonicalTarNameForPath(relDockerfile)

@@ -8,7 +8,6 @@ import (
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/exprparser"
 	"github.com/nektos/act/pkg/model"
-	log "github.com/sirupsen/logrus"
 )
 
 type step interface {
@@ -19,7 +18,7 @@ type step interface {
 	getRunContext() *RunContext
 	getStepModel() *model.Step
 	getEnv() *map[string]string
-	getIfExpression(stage stepStage) string
+	getIfExpression(context context.Context, stage stepStage) string
 }
 
 type stepStage int
@@ -56,10 +55,11 @@ func (s stepStage) getStepName(stepModel *model.Step) string {
 
 func runStepExecutor(step step, stage stepStage, executor common.Executor) common.Executor {
 	return func(ctx context.Context) error {
+		logger := common.Logger(ctx)
 		rc := step.getRunContext()
 		stepModel := step.getStepModel()
 
-		ifExpression := step.getIfExpression(stage)
+		ifExpression := step.getIfExpression(ctx, stage)
 		rc.CurrentStep = stage.getStepName(stepModel)
 
 		rc.StepResults[rc.CurrentStep] = &model.StepResult{
@@ -81,7 +81,7 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 		}
 
 		if !runStep {
-			log.Debugf("Skipping step '%s' due to '%s'", stepModel, ifExpression)
+			logger.Debugf("Skipping step '%s' due to '%s'", stepModel, ifExpression)
 			rc.StepResults[rc.CurrentStep].Conclusion = model.StepStatusSkipped
 			rc.StepResults[rc.CurrentStep].Outcome = model.StepStatusSkipped
 			return nil
@@ -91,18 +91,18 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 		if strings.Contains(stepString, "::add-mask::") {
 			stepString = "add-mask command"
 		}
-		common.Logger(ctx).Infof("\u2B50 Run %s %s", stage, stepString)
+		logger.Infof("\u2B50 Run %s %s", stage, stepString)
 
 		err = executor(ctx)
 
 		if err == nil {
-			common.Logger(ctx).Infof("  \u2705  Success - %s %s", stage, stepString)
+			logger.Infof("  \u2705  Success - %s %s", stage, stepString)
 		} else {
-			common.Logger(ctx).Errorf("  \u274C  Failure - %s %s", stage, stepString)
+			logger.Errorf("  \u274C  Failure - %s %s", stage, stepString)
 
 			rc.StepResults[rc.CurrentStep].Outcome = model.StepStatusFailure
 			if stepModel.ContinueOnError {
-				common.Logger(ctx).Infof("Failed but continue next step")
+				logger.Infof("Failed but continue next step")
 				err = nil
 				rc.StepResults[rc.CurrentStep].Conclusion = model.StepStatusSuccess
 			} else {
@@ -116,7 +116,7 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 func setupEnv(ctx context.Context, step step) error {
 	rc := step.getRunContext()
 
-	mergeEnv(step)
+	mergeEnv(ctx, step)
 	err := rc.JobContainer.UpdateFromImageEnv(step.getEnv())(ctx)
 	if err != nil {
 		return err
@@ -131,9 +131,9 @@ func setupEnv(ctx context.Context, step step) error {
 	}
 	mergeIntoMap(step.getEnv(), step.getStepModel().GetEnv()) // step env should not be overwritten
 
-	exprEval := rc.NewStepExpressionEvaluator(step)
+	exprEval := rc.NewStepExpressionEvaluator(ctx, step)
 	for k, v := range *step.getEnv() {
-		(*step.getEnv())[k] = exprEval.Interpolate(v)
+		(*step.getEnv())[k] = exprEval.Interpolate(ctx, v)
 	}
 
 	common.Logger(ctx).Debugf("setupEnv => %v", *step.getEnv())
@@ -141,7 +141,7 @@ func setupEnv(ctx context.Context, step step) error {
 	return nil
 }
 
-func mergeEnv(step step) {
+func mergeEnv(ctx context.Context, step step) {
 	env := step.getEnv()
 	rc := step.getRunContext()
 	job := rc.Run.Job()
@@ -162,7 +162,7 @@ func mergeEnv(step step) {
 		(*env)["PATH"] += `:` + p
 	}
 
-	mergeIntoMap(env, rc.withGithubEnv(*env))
+	mergeIntoMap(env, rc.withGithubEnv(ctx, *env))
 }
 
 func isStepEnabled(ctx context.Context, expr string, step step, stage stepStage) (bool, error) {
@@ -175,7 +175,7 @@ func isStepEnabled(ctx context.Context, expr string, step step, stage stepStage)
 		defaultStatusCheck = exprparser.DefaultStatusCheckSuccess
 	}
 
-	runStep, err := EvalBool(rc.NewStepExpressionEvaluator(step), expr, defaultStatusCheck)
+	runStep, err := EvalBool(ctx, rc.NewStepExpressionEvaluator(ctx, step), expr, defaultStatusCheck)
 	if err != nil {
 		return false, fmt.Errorf("  \u274C  Error in if-expression: \"if: %s\" (%s)", expr, err)
 	}

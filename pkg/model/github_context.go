@@ -1,11 +1,11 @@
 package model
 
 import (
+	"context"
 	"fmt"
 
+	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/common/git"
-
-	log "github.com/sirupsen/logrus"
 )
 
 type GithubContext struct {
@@ -63,7 +63,7 @@ func nestedMapLookup(m map[string]interface{}, ks ...string) (rval interface{}) 
 	}
 }
 
-func withDefaultBranch(b string, event map[string]interface{}) map[string]interface{} {
+func withDefaultBranch(ctx context.Context, b string, event map[string]interface{}) map[string]interface{} {
 	repoI, ok := event["repository"]
 	if !ok {
 		repoI = make(map[string]interface{})
@@ -71,7 +71,7 @@ func withDefaultBranch(b string, event map[string]interface{}) map[string]interf
 
 	repo, ok := repoI.(map[string]interface{})
 	if !ok {
-		log.Warnf("unable to set default branch to %v", b)
+		common.Logger(ctx).Warnf("unable to set default branch to %v", b)
 		return event
 	}
 
@@ -89,7 +89,8 @@ func withDefaultBranch(b string, event map[string]interface{}) map[string]interf
 var findGitRef = git.FindGitRef
 var findGitRevision = git.FindGitRevision
 
-func (ghc *GithubContext) SetRefAndSha(defaultBranch string, repoPath string) {
+func (ghc *GithubContext) SetRefAndSha(ctx context.Context, defaultBranch string, repoPath string) {
+	logger := common.Logger(ctx)
 	// https://docs.github.com/en/actions/learn-github-actions/events-that-trigger-workflows
 	// https://docs.github.com/en/developers/webhooks-and-events/webhooks/webhook-events-and-payloads
 	switch ghc.EventName {
@@ -113,19 +114,19 @@ func (ghc *GithubContext) SetRefAndSha(defaultBranch string, repoPath string) {
 	}
 
 	if ghc.Ref == "" {
-		ref, err := findGitRef(repoPath)
+		ref, err := findGitRef(ctx, repoPath)
 		if err != nil {
-			log.Warningf("unable to get git ref: %v", err)
+			logger.Warningf("unable to get git ref: %v", err)
 		} else {
-			log.Debugf("using github ref: %s", ref)
+			logger.Debugf("using github ref: %s", ref)
 			ghc.Ref = ref
 		}
 
 		// set the branch in the event data
 		if defaultBranch != "" {
-			ghc.Event = withDefaultBranch(defaultBranch, ghc.Event)
+			ghc.Event = withDefaultBranch(ctx, defaultBranch, ghc.Event)
 		} else {
-			ghc.Event = withDefaultBranch("master", ghc.Event)
+			ghc.Event = withDefaultBranch(ctx, "master", ghc.Event)
 		}
 
 		if ghc.Ref == "" {
@@ -134,9 +135,9 @@ func (ghc *GithubContext) SetRefAndSha(defaultBranch string, repoPath string) {
 	}
 
 	if ghc.Sha == "" {
-		_, sha, err := findGitRevision(repoPath)
+		_, sha, err := findGitRevision(ctx, repoPath)
 		if err != nil {
-			log.Warningf("unable to get git revision: %v", err)
+			logger.Warningf("unable to get git revision: %v", err)
 		} else {
 			ghc.Sha = sha
 		}

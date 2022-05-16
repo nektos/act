@@ -25,8 +25,9 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 	var postExecutor common.Executor
 
 	steps = append(steps, func(ctx context.Context) error {
+		logger := common.Logger(ctx)
 		if len(info.matrix()) > 0 {
-			common.Logger(ctx).Infof("\U0001F9EA  Matrix: %v", info.matrix())
+			logger.Infof("\U0001F9EA  Matrix: %v", info.matrix())
 		}
 		return nil
 	})
@@ -61,12 +62,13 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 		steps = append(steps, func(ctx context.Context) error {
 			stepName := stepModel.String()
 			return (func(ctx context.Context) error {
+				logger := common.Logger(ctx)
 				err := stepExec(ctx)
 				if err != nil {
-					common.Logger(ctx).Errorf("%v", err)
+					logger.Errorf("%v", err)
 					common.SetJobError(ctx, err)
 				} else if ctx.Err() != nil {
-					common.Logger(ctx).Errorf("%v", ctx.Err())
+					logger.Errorf("%v", ctx.Err())
 					common.SetJobError(ctx, ctx.Err())
 				}
 				return nil

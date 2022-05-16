@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"regexp"
@@ -76,7 +77,7 @@ func createRunContext(t *testing.T) *RunContext {
 
 func TestEvaluateRunContext(t *testing.T) {
 	rc := createRunContext(t)
-	ee := rc.NewExpressionEvaluator()
+	ee := rc.NewExpressionEvaluator(context.Background())
 
 	tables := []struct {
 		in      string
@@ -136,7 +137,7 @@ func TestEvaluateRunContext(t *testing.T) {
 		table := table
 		t.Run(table.in, func(t *testing.T) {
 			assertObject := assert.New(t)
-			out, err := ee.evaluate(table.in, exprparser.DefaultStatusCheckNone)
+			out, err := ee.evaluate(context.Background(), table.in, exprparser.DefaultStatusCheckNone)
 			if table.errMesg == "" {
 				assertObject.NoError(err, table.in)
 				assertObject.Equal(table.out, out, table.in)
@@ -154,7 +155,7 @@ func TestEvaluateStep(t *testing.T) {
 		RunContext: rc,
 	}
 
-	ee := rc.NewStepExpressionEvaluator(step)
+	ee := rc.NewStepExpressionEvaluator(context.Background(), step)
 
 	tables := []struct {
 		in      string
@@ -176,7 +177,7 @@ func TestEvaluateStep(t *testing.T) {
 		table := table
 		t.Run(table.in, func(t *testing.T) {
 			assertObject := assert.New(t)
-			out, err := ee.evaluate(table.in, exprparser.DefaultStatusCheckNone)
+			out, err := ee.evaluate(context.Background(), table.in, exprparser.DefaultStatusCheckNone)
 			if table.errMesg == "" {
 				assertObject.NoError(err, table.in)
 				assertObject.Equal(table.out, out, table.in)
@@ -213,7 +214,7 @@ func TestInterpolate(t *testing.T) {
 			},
 		},
 	}
-	ee := rc.NewExpressionEvaluator()
+	ee := rc.NewExpressionEvaluator(context.Background())
 	tables := []struct {
 		in  string
 		out string
@@ -255,7 +256,7 @@ func TestInterpolate(t *testing.T) {
 		table := table
 		t.Run("interpolate", func(t *testing.T) {
 			assertObject := assert.New(t)
-			out := ee.Interpolate(table.in)
+			out := ee.Interpolate(context.Background(), table.in)
 			assertObject.Equal(table.out, out, table.in)
 		})
 	}
@@ -332,7 +333,7 @@ func TestRewriteSubExpression(t *testing.T) {
 	for _, table := range table {
 		t.Run("TestRewriteSubExpression", func(t *testing.T) {
 			assertObject := assert.New(t)
-			out, err := rewriteSubExpression(table.in, false)
+			out, err := rewriteSubExpression(context.Background(), table.in, false)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -356,7 +357,7 @@ func TestRewriteSubExpressionForceFormat(t *testing.T) {
 	for _, table := range table {
 		t.Run("TestRewriteSubExpressionForceFormat", func(t *testing.T) {
 			assertObject := assert.New(t)
-			out, err := rewriteSubExpression(table.in, true)
+			out, err := rewriteSubExpression(context.Background(), table.in, true)
 			if err != nil {
 				t.Fatal(err)
 			}

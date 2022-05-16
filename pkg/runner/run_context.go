@@ -123,11 +123,11 @@ func (rc *RunContext) GetBindsAndMounts() ([]string, map[string]string) {
 }
 
 func (rc *RunContext) startJobContainer() common.Executor {
-	image := rc.platformImage()
-	hostname := rc.hostname()
-
 	return func(ctx context.Context) error {
-		rawLogger := common.Logger(ctx).WithField("raw_output", true)
+		logger := common.Logger(ctx)
+		image := rc.platformImage(ctx)
+		hostname := rc.hostname(ctx)
+		rawLogger := logger.WithField("raw_output", true)
 		logWriter := common.NewLineWriter(rc.commandHandler(ctx), func(s string) bool {
 			if rc.Config.LogOutput {
 				rawLogger.Infof("%s", s)
@@ -137,12 +137,12 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			return true
 		})
 
-		username, password, err := rc.handleCredentials()
+		username, password, err := rc.handleCredentials(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to handle credentials: %s", err)
 		}
 
-		common.Logger(ctx).Infof("\U0001f680  Start image=%s", image)
+		logger.Infof("\U0001f680  Start image=%s", image)
 		name := rc.jobContainerName()
 
 		envList := make([]string, 0)
@@ -176,7 +176,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 		var copyWorkspace bool
 		var copyToPath string
 		if !rc.Config.BindWorkdir {
-			copyToPath, copyWorkspace = rc.localCheckoutPath()
+			copyToPath, copyWorkspace = rc.localCheckoutPath(ctx)
 			copyToPath = filepath.Join(rc.Config.ContainerWorkdir(), copyToPath)
 		}
 
@@ -243,9 +243,9 @@ func (rc *RunContext) ActionCacheDir() string {
 // Interpolate outputs after a job is done
 func (rc *RunContext) interpolateOutputs() common.Executor {
 	return func(ctx context.Context) error {
-		ee := rc.NewExpressionEvaluator()
+		ee := rc.NewExpressionEvaluator(ctx)
 		for k, v := range rc.Run.Job().Outputs {
-			interpolated := ee.Interpolate(v)
+			interpolated := ee.Interpolate(ctx, v)
 			if v != interpolated {
 				rc.Run.Job().Outputs[k] = interpolated
 			}
@@ -299,20 +299,20 @@ func (rc *RunContext) Executor() common.Executor {
 	}
 }
 
-func (rc *RunContext) platformImage() string {
+func (rc *RunContext) platformImage(ctx context.Context) string {
 	job := rc.Run.Job()
 
 	c := job.Container()
 	if c != nil {
-		return rc.ExprEval.Interpolate(c.Image)
+		return rc.ExprEval.Interpolate(ctx, c.Image)
 	}
 
 	if job.RunsOn() == nil {
-		log.Errorf("'runs-on' key not defined in %s", rc.String())
+		common.Logger(ctx).Errorf("'runs-on' key not defined in %s", rc.String())
 	}
 
 	for _, runnerLabel := range job.RunsOn() {
-		platformName := rc.ExprEval.Interpolate(runnerLabel)
+		platformName := rc.ExprEval.Interpolate(ctx, runnerLabel)
 		image := rc.Config.Platforms[strings.ToLower(platformName)]
 		if image != "" {
 			return image
@@ -322,7 +322,8 @@ func (rc *RunContext) platformImage() string {
 	return ""
 }
 
-func (rc *RunContext) hostname() string {
+func (rc *RunContext) hostname(ctx context.Context) string {
+	logger := common.Logger(ctx)
 	job := rc.Run.Job()
 	c := job.Container()
 	if c == nil {
@@ -333,12 +334,12 @@ func (rc *RunContext) hostname() string {
 	hostname := optionsFlags.StringP("hostname", "h", "", "")
 	optionsArgs, err := shellquote.Split(c.Options)
 	if err != nil {
-		log.Warnf("Cannot parse container options: %s", c.Options)
+		logger.Warnf("Cannot parse container options: %s", c.Options)
 		return ""
 	}
 	err = optionsFlags.Parse(optionsArgs)
 	if err != nil {
-		log.Warnf("Cannot parse container options: %s", c.Options)
+		logger.Warnf("Cannot parse container options: %s", c.Options)
 		return ""
 	}
 	return *hostname
@@ -347,7 +348,7 @@ func (rc *RunContext) hostname() string {
 func (rc *RunContext) isEnabled(ctx context.Context) (bool, error) {
 	job := rc.Run.Job()
 	l := common.Logger(ctx)
-	runJob, err := EvalBool(rc.ExprEval, job.If.Value, exprparser.DefaultStatusCheckSuccess)
+	runJob, err := EvalBool(ctx, rc.ExprEval, job.If.Value, exprparser.DefaultStatusCheckSuccess)
 	if err != nil {
 		return false, fmt.Errorf("  \u274C  Error in if-expression: \"if: %s\" (%s)", job.If.Value, err)
 	}
@@ -356,14 +357,14 @@ func (rc *RunContext) isEnabled(ctx context.Context) (bool, error) {
 		return false, nil
 	}
 
-	img := rc.platformImage()
+	img := rc.platformImage(ctx)
 	if img == "" {
 		if job.RunsOn() == nil {
-			log.Errorf("'runs-on' key not defined in %s", rc.String())
+			l.Errorf("'runs-on' key not defined in %s", rc.String())
 		}
 
 		for _, runnerLabel := range job.RunsOn() {
-			platformName := rc.ExprEval.Interpolate(runnerLabel)
+			platformName := rc.ExprEval.Interpolate(ctx, runnerLabel)
 			l.Infof("\U0001F6A7  Skipping unsupported platform -- Try running with `-P %+v=...`", platformName)
 		}
 		return false, nil
@@ -431,7 +432,8 @@ func (rc *RunContext) getStepsContext() map[string]*model.StepResult {
 	return rc.StepResults
 }
 
-func (rc *RunContext) getGithubContext() *model.GithubContext {
+func (rc *RunContext) getGithubContext(ctx context.Context) *model.GithubContext {
+	logger := common.Logger(ctx)
 	ghc := &model.GithubContext{
 		Event:            make(map[string]interface{}),
 		EventPath:        ActPath + "/workflow/event.json",
@@ -475,9 +477,9 @@ func (rc *RunContext) getGithubContext() *model.GithubContext {
 	}
 
 	repoPath := rc.Config.Workdir
-	repo, err := git.FindGithubRepo(repoPath, rc.Config.GitHubInstance, rc.Config.RemoteName)
+	repo, err := git.FindGithubRepo(ctx, repoPath, rc.Config.GitHubInstance, rc.Config.RemoteName)
 	if err != nil {
-		log.Warningf("unable to get git repo: %v", err)
+		logger.Warningf("unable to get git repo: %v", err)
 	} else {
 		ghc.Repository = repo
 		if ghc.RepositoryOwner == "" {
@@ -488,7 +490,7 @@ func (rc *RunContext) getGithubContext() *model.GithubContext {
 	if rc.EventJSON != "" {
 		err = json.Unmarshal([]byte(rc.EventJSON), &ghc.Event)
 		if err != nil {
-			log.Errorf("Unable to Unmarshal event '%s': %v", rc.EventJSON, err)
+			logger.Errorf("Unable to Unmarshal event '%s': %v", rc.EventJSON, err)
 		}
 	}
 
@@ -497,7 +499,7 @@ func (rc *RunContext) getGithubContext() *model.GithubContext {
 		ghc.HeadRef = asString(nestedMapLookup(ghc.Event, "pull_request", "head", "ref"))
 	}
 
-	ghc.SetRefAndSha(rc.Config.DefaultBranch, repoPath)
+	ghc.SetRefAndSha(ctx, rc.Config.DefaultBranch, repoPath)
 
 	// https://docs.github.com/en/actions/learn-github-actions/environment-variables
 	if strings.HasPrefix(ghc.Ref, "refs/tags/") {
@@ -563,8 +565,8 @@ func nestedMapLookup(m map[string]interface{}, ks ...string) (rval interface{}) 
 	}
 }
 
-func (rc *RunContext) withGithubEnv(env map[string]string) map[string]string {
-	github := rc.getGithubContext()
+func (rc *RunContext) withGithubEnv(ctx context.Context, env map[string]string) map[string]string {
+	github := rc.getGithubContext(ctx)
 	env["CI"] = "true"
 	env["GITHUB_ENV"] = ActPath + "/workflow/envs.txt"
 	env["GITHUB_PATH"] = ActPath + "/workflow/paths.txt"
@@ -609,7 +611,7 @@ func (rc *RunContext) withGithubEnv(env map[string]string) map[string]string {
 	job := rc.Run.Job()
 	if job.RunsOn() != nil {
 		for _, runnerLabel := range job.RunsOn() {
-			platformName := rc.ExprEval.Interpolate(runnerLabel)
+			platformName := rc.ExprEval.Interpolate(ctx, runnerLabel)
 			if platformName != "" {
 				if platformName == "ubuntu-latest" {
 					// hardcode current ubuntu-latest since we have no way to check that 'on the fly'
@@ -639,12 +641,12 @@ func setActionRuntimeVars(rc *RunContext, env map[string]string) {
 	env["ACTIONS_RUNTIME_TOKEN"] = actionsRuntimeToken
 }
 
-func (rc *RunContext) localCheckoutPath() (string, bool) {
+func (rc *RunContext) localCheckoutPath(ctx context.Context) (string, bool) {
 	if rc.Config.NoSkipCheckout {
 		return "", false
 	}
 
-	ghContext := rc.getGithubContext()
+	ghContext := rc.getGithubContext(ctx)
 	for _, step := range rc.Run.Job().Steps {
 		if isLocalCheckout(ghContext, step) {
 			return step.With["path"], true
@@ -653,7 +655,7 @@ func (rc *RunContext) localCheckoutPath() (string, bool) {
 	return "", false
 }
 
-func (rc *RunContext) handleCredentials() (username, password string, err error) {
+func (rc *RunContext) handleCredentials(ctx context.Context) (username, password string, err error) {
 	// TODO: remove below 2 lines when we can release act with breaking changes
 	username = rc.Config.Secrets["DOCKER_USERNAME"]
 	password = rc.Config.Secrets["DOCKER_PASSWORD"]
@@ -668,12 +670,12 @@ func (rc *RunContext) handleCredentials() (username, password string, err error)
 		return
 	}
 
-	ee := rc.NewExpressionEvaluator()
-	if username = ee.Interpolate(container.Credentials["username"]); username == "" {
+	ee := rc.NewExpressionEvaluator(ctx)
+	if username = ee.Interpolate(ctx, container.Credentials["username"]); username == "" {
 		err = fmt.Errorf("failed to interpolate container.credentials.username")
 		return
 	}
-	if password = ee.Interpolate(container.Credentials["password"]); password == "" {
+	if password = ee.Interpolate(ctx, container.Credentials["password"]); password == "" {
 		err = fmt.Errorf("failed to interpolate container.credentials.password")
 		return
 	}

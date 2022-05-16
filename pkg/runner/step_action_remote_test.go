@@ -19,7 +19,7 @@ type stepActionRemoteMocks struct {
 	mock.Mock
 }
 
-func (sarm *stepActionRemoteMocks) readAction(step *model.Step, actionDir string, actionPath string, readFile actionYamlReader, writeFile fileWriter) (*model.Action, error) {
+func (sarm *stepActionRemoteMocks) readAction(ctx context.Context, step *model.Step, actionDir string, actionPath string, readFile actionYamlReader, writeFile fileWriter) (*model.Action, error) {
 	args := sarm.Called(step, actionDir, actionPath, readFile, writeFile)
 	return args.Get(0).(*model.Action), args.Error(1)
 }
