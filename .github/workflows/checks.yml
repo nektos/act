@@ -19,7 +19,7 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
           check-latest: true
-      - uses: golangci/golangci-lint-action@v3.1.0
+      - uses: golangci/golangci-lint-action@v3.2.0
         with:
           version: latest
       - uses: megalinter/megalinter/flavors/go@v5
