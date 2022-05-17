@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"runtime/debug"
 	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
@@ -154,12 +155,6 @@ func bugReport(ctx context.Context, version string) error {
 		}
 	}
 
-	info, err := container.GetHostInfo(ctx)
-	if err != nil {
-		fmt.Println(report)
-		return err
-	}
-
 	report += sprintf("Config files:", "")
 	for _, c := range configLocations() {
 		args := readArgsFile(c, false)
@@ -169,6 +164,28 @@ func bugReport(ctx context.Context, version string) error {
 				report += fmt.Sprintf("\t\t%s\n", l)
 			}
 		}
+	}
+
+	vcs, ok := debug.ReadBuildInfo()
+	if ok && vcs != nil {
+		report += fmt.Sprintln("Build info:")
+		vcs := *vcs
+		report += sprintf("\tGo version:", vcs.GoVersion)
+		report += sprintf("\tModule path:", vcs.Path)
+		report += sprintf("\tMain version:", vcs.Main.Version)
+		report += sprintf("\tMain path:", vcs.Main.Path)
+		report += sprintf("\tMain checksum:", vcs.Main.Sum)
+
+		report += fmt.Sprintln("\tBuild settings:")
+		for _, set := range vcs.Settings {
+			report += sprintf(fmt.Sprintf("\t\t%s:", set.Key), set.Value)
+		}
+	}
+
+	info, err := container.GetHostInfo(ctx)
+	if err != nil {
+		fmt.Println(report)
+		return err
 	}
 
 	report += fmt.Sprintln("Docker Engine:")
