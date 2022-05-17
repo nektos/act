@@ -81,9 +81,9 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 		}
 
 		if !runStep {
-			logger.Debugf("Skipping step '%s' due to '%s'", stepModel, ifExpression)
 			rc.StepResults[rc.CurrentStep].Conclusion = model.StepStatusSkipped
 			rc.StepResults[rc.CurrentStep].Outcome = model.StepStatusSkipped
+			logger.Debugf("Skipping step '%s' due to '%s'", stepModel, ifExpression)
 			return nil
 		}
 
@@ -96,10 +96,8 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 		err = executor(ctx)
 
 		if err == nil {
-			logger.Infof("  \u2705  Success - %s %s", stage, stepString)
+			logger.WithField("stepResult", rc.StepResults[rc.CurrentStep].Outcome).Infof("  \u2705  Success - %s %s", stage, stepString)
 		} else {
-			logger.Errorf("  \u274C  Failure - %s %s", stage, stepString)
-
 			rc.StepResults[rc.CurrentStep].Outcome = model.StepStatusFailure
 			if stepModel.ContinueOnError {
 				logger.Infof("Failed but continue next step")
@@ -108,6 +106,8 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 			} else {
 				rc.StepResults[rc.CurrentStep].Conclusion = model.StepStatusFailure
 			}
+
+			logger.WithField("stepResult", rc.StepResults[rc.CurrentStep].Outcome).Errorf("  \u274C  Failure - %s %s", stage, stepString)
 		}
 		return err
 	}

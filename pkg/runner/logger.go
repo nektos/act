@@ -58,7 +58,7 @@ func WithMasks(ctx context.Context, masks *[]string) context.Context {
 }
 
 // WithJobLogger attaches a new logger to context that is aware of steps
-func WithJobLogger(ctx context.Context, jobName string, config *Config, masks *[]string) context.Context {
+func WithJobLogger(ctx context.Context, jobID string, jobName string, config *Config, masks *[]string) context.Context {
 	mux.Lock()
 	defer mux.Unlock()
 
@@ -82,7 +82,11 @@ func WithJobLogger(ctx context.Context, jobName string, config *Config, masks *[
 	logger.SetFormatter(formatter)
 	logger.SetOutput(os.Stdout)
 	logger.SetLevel(logrus.GetLevel())
-	rtn := logger.WithFields(logrus.Fields{"job": jobName, "dryrun": common.Dryrun(ctx)}).WithContext(ctx)
+	rtn := logger.WithFields(logrus.Fields{
+		"job":    jobName,
+		"jobID":  jobID,
+		"dryrun": common.Dryrun(ctx),
+	}).WithContext(ctx)
 
 	return common.WithLogger(ctx, rtn)
 }
@@ -92,8 +96,11 @@ func WithCompositeLogger(ctx context.Context, masks *[]string) context.Context {
 	return common.WithLogger(ctx, common.Logger(ctx).WithFields(logrus.Fields{}).WithContext(ctx))
 }
 
-func withStepLogger(ctx context.Context, stepName string) context.Context {
-	rtn := common.Logger(ctx).WithFields(logrus.Fields{"step": stepName})
+func withStepLogger(ctx context.Context, stepID string, stepName string) context.Context {
+	rtn := common.Logger(ctx).WithFields(logrus.Fields{
+		"step":   stepName,
+		"stepID": stepID,
+	})
 	return common.WithLogger(ctx, rtn)
 }
 
