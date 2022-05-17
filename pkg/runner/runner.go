@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 
@@ -169,7 +170,14 @@ func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 							}
 
 							if runner.config.AutoRemove && isLastRunningContainer(s, r) {
+								var cancel context.CancelFunc
+								if ctx.Err() == context.Canceled {
+									ctx, cancel = context.WithTimeout(context.Background(), 5*time.Minute)
+									defer cancel()
+								}
+
 								log.Infof("Cleaning up container for job %s", rc.JobName)
+
 								if err := rc.stopJobContainer()(ctx); err != nil {
 									log.Errorf("Error while cleaning container: %v", err)
 								}

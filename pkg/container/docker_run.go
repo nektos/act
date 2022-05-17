@@ -558,23 +558,9 @@ func (cr *containerReference) exec(cmd []string, env map[string]string, user, wo
 		}
 		defer resp.Close()
 
-		var outWriter io.Writer
-		outWriter = cr.input.Stdout
-		if outWriter == nil {
-			outWriter = os.Stdout
-		}
-		errWriter := cr.input.Stderr
-		if errWriter == nil {
-			errWriter = os.Stderr
-		}
-
-		if !isTerminal || os.Getenv("NORAW") != "" {
-			_, err = stdcopy.StdCopy(outWriter, errWriter, resp.Reader)
-		} else {
-			_, err = io.Copy(outWriter, resp.Reader)
-		}
+		err = cr.waitForCommand(ctx, isTerminal, resp, idResp, user, workdir)
 		if err != nil {
-			logger.Error(err)
+			return err
 		}
 
 		inspectResp, err := cr.cli.ContainerExecInspect(ctx, idResp.ID)
@@ -587,6 +573,51 @@ func (cr *containerReference) exec(cmd []string, env map[string]string, user, wo
 		}
 
 		return fmt.Errorf("exit with `FAILURE`: %v", inspectResp.ExitCode)
+	}
+}
+
+func (cr *containerReference) waitForCommand(ctx context.Context, isTerminal bool, resp types.HijackedResponse, idResp types.IDResponse, user string, workdir string) error {
+	logger := common.Logger(ctx)
+
+	cmdResponse := make(chan error)
+
+	go func() {
+		var outWriter io.Writer
+		outWriter = cr.input.Stdout
+		if outWriter == nil {
+			outWriter = os.Stdout
+		}
+		errWriter := cr.input.Stderr
+		if errWriter == nil {
+			errWriter = os.Stderr
+		}
+
+		var err error
+		if !isTerminal || os.Getenv("NORAW") != "" {
+			_, err = stdcopy.StdCopy(outWriter, errWriter, resp.Reader)
+		} else {
+			_, err = io.Copy(outWriter, resp.Reader)
+		}
+		cmdResponse <- err
+	}()
+
+	select {
+	case <-ctx.Done():
+		// send ctrl + c
+		_, err := resp.Conn.Write([]byte("\x03"))
+		if err != nil {
+			logger.Warnf("Failed to send CTRL+C: %+s", err)
+		}
+
+		// we return the context canceled error to prevent other steps
+		// from executing
+		return ctx.Err()
+	case err := <-cmdResponse:
+		if err != nil {
+			logger.Error(err)
+		}
+
+		return nil
 	}
 }
 
