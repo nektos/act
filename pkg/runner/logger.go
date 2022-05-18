@@ -153,26 +153,34 @@ func (f *jobLogFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 func (f *jobLogFormatter) printColored(b *bytes.Buffer, entry *logrus.Entry) {
 	entry.Message = strings.TrimSuffix(entry.Message, "\n")
 	jobName := entry.Data["job"]
+	debugFlag := ""
+	if entry.Level == logrus.DebugLevel {
+		debugFlag = "[DEBUG] "
+	}
 
 	if entry.Data["raw_output"] == true {
 		fmt.Fprintf(b, "\x1b[%dm|\x1b[0m %s", f.color, entry.Message)
 	} else if entry.Data["dryrun"] == true {
-		fmt.Fprintf(b, "\x1b[1m\x1b[%dm\x1b[7m*DRYRUN*\x1b[0m \x1b[%dm[%s] \x1b[0m%s", gray, f.color, jobName, entry.Message)
+		fmt.Fprintf(b, "\x1b[1m\x1b[%dm\x1b[7m*DRYRUN*\x1b[0m \x1b[%dm[%s] \x1b[0m%s%s", gray, f.color, jobName, debugFlag, entry.Message)
 	} else {
-		fmt.Fprintf(b, "\x1b[%dm[%s] \x1b[0m%s", f.color, jobName, entry.Message)
+		fmt.Fprintf(b, "\x1b[%dm[%s] \x1b[0m%s%s", f.color, jobName, debugFlag, entry.Message)
 	}
 }
 
 func (f *jobLogFormatter) print(b *bytes.Buffer, entry *logrus.Entry) {
 	entry.Message = strings.TrimSuffix(entry.Message, "\n")
 	jobName := entry.Data["job"]
+	debugFlag := ""
+	if entry.Level == logrus.DebugLevel {
+		debugFlag = "[DEBUG] "
+	}
 
 	if entry.Data["raw_output"] == true {
 		fmt.Fprintf(b, "[%s]   | %s", jobName, entry.Message)
 	} else if entry.Data["dryrun"] == true {
-		fmt.Fprintf(b, "*DRYRUN* [%s] %s", jobName, entry.Message)
+		fmt.Fprintf(b, "*DRYRUN* [%s] %s%s", jobName, debugFlag, entry.Message)
 	} else {
-		fmt.Fprintf(b, "[%s] %s", jobName, entry.Message)
+		fmt.Fprintf(b, "[%s] %s%s", jobName, debugFlag, entry.Message)
 	}
 }
 
