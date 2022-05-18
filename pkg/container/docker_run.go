@@ -89,7 +89,7 @@ func NewContainer(input *NewContainerInput) Container {
 
 // supportsContainerImagePlatform returns true if the underlying Docker server
 // API version is 1.41 and beyond
-func supportsContainerImagePlatform(ctx context.Context, cli *client.Client) bool {
+func supportsContainerImagePlatform(ctx context.Context, cli client.APIClient) bool {
 	logger := common.Logger(ctx)
 	ver, err := cli.ServerVersion(ctx)
 	if err != nil {
@@ -210,12 +210,12 @@ func (cr *containerReference) ReplaceLogWriter(stdout io.Writer, stderr io.Write
 }
 
 type containerReference struct {
-	cli   *client.Client
+	cli   client.APIClient
 	id    string
 	input *NewContainerInput
 }
 
-func GetDockerClient(ctx context.Context) (cli *client.Client, err error) {
+func GetDockerClient(ctx context.Context) (cli client.APIClient, err error) {
 	// TODO: this should maybe need to be a global option, not hidden in here?
 	//       though i'm not sure how that works out when there's another Executor :D
 	//		 I really would like something that works on OSX native for eg
@@ -244,7 +244,7 @@ func GetDockerClient(ctx context.Context) (cli *client.Client, err error) {
 }
 
 func GetHostInfo(ctx context.Context) (info types.Info, err error) {
-	var cli *client.Client
+	var cli client.APIClient
 	cli, err = GetDockerClient(ctx)
 	if err != nil {
 		return info, err
@@ -604,7 +604,7 @@ func (cr *containerReference) waitForCommand(ctx context.Context, isTerminal boo
 	select {
 	case <-ctx.Done():
 		// send ctrl + c
-		_, err := resp.Conn.Write([]byte("\x03"))
+		_, err := resp.Conn.Write([]byte{3})
 		if err != nil {
 			logger.Warnf("Failed to send CTRL+C: %+s", err)
 		}
