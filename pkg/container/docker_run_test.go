@@ -5,6 +5,7 @@ import (
 	"context"
 	"io"
 	"net"
+	"strings"
 	"testing"
 	"time"
 
@@ -68,6 +69,11 @@ func (m *mockDockerClient) ContainerExecAttach(ctx context.Context, id string, o
 	return args.Get(0).(types.HijackedResponse), args.Error(1)
 }
 
+func (m *mockDockerClient) ContainerExecInspect(ctx context.Context, execID string) (types.ContainerExecInspect, error) {
+	args := m.Called(ctx, execID)
+	return args.Get(0).(types.ContainerExecInspect), args.Error(1)
+}
+
 type endlessReader struct {
 	io.Reader
 }
@@ -90,7 +96,7 @@ func (m *mockConn) Close() (err error) {
 	return nil
 }
 
-func TestDockerExec(t *testing.T) {
+func TestDockerExecAbort(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	conn := &mockConn{}
@@ -123,6 +129,36 @@ func TestDockerExec(t *testing.T) {
 
 	err := <-channel
 	assert.ErrorIs(t, err, context.Canceled)
+
+	conn.AssertExpectations(t)
+	client.AssertExpectations(t)
+}
+
+func TestDockerExecFailure(t *testing.T) {
+	ctx := context.Background()
+
+	conn := &mockConn{}
+
+	client := &mockDockerClient{}
+	client.On("ContainerExecCreate", ctx, "123", mock.AnythingOfType("types.ExecConfig")).Return(types.IDResponse{ID: "id"}, nil)
+	client.On("ContainerExecAttach", ctx, "id", mock.AnythingOfType("types.ExecStartCheck")).Return(types.HijackedResponse{
+		Conn:   conn,
+		Reader: bufio.NewReader(strings.NewReader("output")),
+	}, nil)
+	client.On("ContainerExecInspect", ctx, "id").Return(types.ContainerExecInspect{
+		ExitCode: 1,
+	}, nil)
+
+	cr := &containerReference{
+		id:  "123",
+		cli: client,
+		input: &NewContainerInput{
+			Image: "image",
+		},
+	}
+
+	err := cr.exec([]string{""}, map[string]string{}, "user", "workdir")(ctx)
+	assert.Error(t, err, "exit with `FAILURE`: 1")
 
 	conn.AssertExpectations(t)
 	client.AssertExpectations(t)
