@@ -120,7 +120,10 @@ func (ee expressionEvaluator) evaluate(ctx context.Context, in string, defaultSt
 	logger := common.Logger(ctx)
 	logger.Debugf("evaluating expression '%s'", in)
 	evaluated, err := ee.interpreter.Evaluate(in, defaultStatusCheck)
-	logger.Debugf("expression '%s' evaluated to '%t'", in, evaluated)
+
+	printable := regexp.MustCompile(`::add-mask::.*`).ReplaceAllString(fmt.Sprintf("%t", evaluated), "::add-mask::***)")
+	logger.Debugf("expression '%s' evaluated to '%s'", in, printable)
+
 	return evaluated, err
 }
 
