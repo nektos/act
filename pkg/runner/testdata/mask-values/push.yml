@@ -9,4 +9,4 @@ jobs:
       - run: echo "::add-mask::secret value"
       - run: echo "secret value"
       - uses: ./mask-values/composite
-      - run: echo "composite secret"
+      - run: echo "YWJjCg=="

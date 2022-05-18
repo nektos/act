@@ -261,7 +261,7 @@ func TestMaskValues(t *testing.T) {
 	})
 
 	assertNoSecret(output, "secret value")
-	assertNoSecret(output, "composite secret")
+	assertNoSecret(output, "YWJjCg==")
 }
 
 func TestRunEventSecrets(t *testing.T) {
