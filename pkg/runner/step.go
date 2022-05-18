@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/nektos/act/pkg/common"
+	"github.com/nektos/act/pkg/exprparser"
 	"github.com/nektos/act/pkg/model"
 	log "github.com/sirupsen/logrus"
 )
@@ -72,7 +73,7 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 			return err
 		}
 
-		runStep, err := isStepEnabled(ctx, ifExpression, step)
+		runStep, err := isStepEnabled(ctx, ifExpression, step, stage)
 		if err != nil {
 			rc.StepResults[rc.CurrentStep].Conclusion = model.StepStatusFailure
 			rc.StepResults[rc.CurrentStep].Outcome = model.StepStatusFailure
@@ -164,10 +165,17 @@ func mergeEnv(step step) {
 	mergeIntoMap(env, rc.withGithubEnv(*env))
 }
 
-func isStepEnabled(ctx context.Context, expr string, step step) (bool, error) {
+func isStepEnabled(ctx context.Context, expr string, step step, stage stepStage) (bool, error) {
 	rc := step.getRunContext()
 
-	runStep, err := EvalBool(rc.NewStepExpressionEvaluator(step), expr)
+	var defaultStatusCheck exprparser.DefaultStatusCheck
+	if stage == stepStagePost {
+		defaultStatusCheck = exprparser.DefaultStatusCheckAlways
+	} else {
+		defaultStatusCheck = exprparser.DefaultStatusCheckSuccess
+	}
+
+	runStep, err := EvalBool(rc.NewStepExpressionEvaluator(step), expr, defaultStatusCheck)
 	if err != nil {
 		return false, fmt.Errorf("  \u274C  Error in if-expression: \"if: %s\" (%s)", expr, err)
 	}

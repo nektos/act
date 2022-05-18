@@ -29,7 +29,7 @@ func TestLiterals(t *testing.T) {
 
 	for _, tt := range table {
 		t.Run(tt.name, func(t *testing.T) {
-			output, err := NewInterpeter(env, Config{}).Evaluate(tt.input, false)
+			output, err := NewInterpeter(env, Config{}).Evaluate(tt.input, DefaultStatusCheckNone)
 			assert.Nil(t, err)
 
 			assert.Equal(t, tt.expected, output)
@@ -93,7 +93,7 @@ func TestOperators(t *testing.T) {
 
 	for _, tt := range table {
 		t.Run(tt.name, func(t *testing.T) {
-			output, err := NewInterpeter(env, Config{}).Evaluate(tt.input, false)
+			output, err := NewInterpeter(env, Config{}).Evaluate(tt.input, DefaultStatusCheckNone)
 			if tt.error != "" {
 				assert.NotNil(t, err)
 				assert.Equal(t, tt.error, err.Error())
@@ -146,7 +146,7 @@ func TestOperatorsCompare(t *testing.T) {
 
 	for _, tt := range table {
 		t.Run(tt.name, func(t *testing.T) {
-			output, err := NewInterpeter(env, Config{}).Evaluate(tt.input, false)
+			output, err := NewInterpeter(env, Config{}).Evaluate(tt.input, DefaultStatusCheckNone)
 			assert.Nil(t, err)
 
 			assert.Equal(t, tt.expected, output)
@@ -509,7 +509,7 @@ func TestOperatorsBooleanEvaluation(t *testing.T) {
 
 	for _, tt := range table {
 		t.Run(tt.name, func(t *testing.T) {
-			output, err := NewInterpeter(env, Config{}).Evaluate(tt.input, false)
+			output, err := NewInterpeter(env, Config{}).Evaluate(tt.input, DefaultStatusCheckNone)
 			assert.Nil(t, err)
 
 			if expected, ok := tt.expected.(float64); ok && math.IsNaN(expected) {
@@ -607,7 +607,7 @@ func TestContexts(t *testing.T) {
 
 	for _, tt := range table {
 		t.Run(tt.name, func(t *testing.T) {
-			output, err := NewInterpeter(env, Config{}).Evaluate(tt.input, false)
+			output, err := NewInterpeter(env, Config{}).Evaluate(tt.input, DefaultStatusCheckNone)
 			assert.Nil(t, err)
 
 			assert.Equal(t, tt.expected, output)
