@@ -57,10 +57,10 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 			return common.NewErrorExecutor(err)
 		}
 
-		preSteps = append(preSteps, useStepLogger(rc, stepModel, step.pre()))
+		preSteps = append(preSteps, useStepLogger(rc, stepModel, stepStagePre, step.pre()))
 
 		stepExec := step.main()
-		steps = append(steps, useStepLogger(rc, stepModel, func(ctx context.Context) error {
+		steps = append(steps, useStepLogger(rc, stepModel, stepStageMain, func(ctx context.Context) error {
 			logger := common.Logger(ctx)
 			err := stepExec(ctx)
 			if err != nil {
@@ -73,11 +73,12 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 			return nil
 		}))
 
-		// run the post exector in reverse order
+		postExec := useStepLogger(rc, stepModel, stepStagePost, step.post())
 		if postExecutor != nil {
-			postExecutor = useStepLogger(rc, stepModel, step.post()).Finally(postExecutor)
+			// run the post exector in reverse order
+			postExecutor = postExec.Finally(postExecutor)
 		} else {
-			postExecutor = useStepLogger(rc, stepModel, step.post())
+			postExecutor = postExec
 		}
 	}
 
@@ -118,9 +119,9 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 		Finally(info.closeContainer())
 }
 
-func useStepLogger(rc *RunContext, stepModel *model.Step, executor common.Executor) common.Executor {
+func useStepLogger(rc *RunContext, stepModel *model.Step, stage stepStage, executor common.Executor) common.Executor {
 	return func(ctx context.Context) error {
-		ctx = withStepLogger(ctx, stepModel.ID, stepModel.String())
+		ctx = withStepLogger(ctx, stepModel.ID, stepModel.String(), stage.String())
 
 		rawLogger := common.Logger(ctx).WithField("raw_output", true)
 		logWriter := common.NewLineWriter(rc.commandHandler(ctx), func(s string) bool {

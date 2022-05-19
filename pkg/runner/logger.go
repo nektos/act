@@ -96,10 +96,11 @@ func WithCompositeLogger(ctx context.Context, masks *[]string) context.Context {
 	return common.WithLogger(ctx, common.Logger(ctx).WithFields(logrus.Fields{}).WithContext(ctx))
 }
 
-func withStepLogger(ctx context.Context, stepID string, stepName string) context.Context {
+func withStepLogger(ctx context.Context, stepID string, stepName string, stageName string) context.Context {
 	rtn := common.Logger(ctx).WithFields(logrus.Fields{
 		"step":   stepName,
 		"stepID": stepID,
+		"stage":  stageName,
 	})
 	return common.WithLogger(ctx, rtn)
 }
