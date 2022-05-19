@@ -57,31 +57,27 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 			return common.NewErrorExecutor(err)
 		}
 
-		preSteps = append(preSteps, func(ctx context.Context) error {
-			return step.pre()(withStepLogger(ctx, stepModel.ID, stepModel.String()))
-		})
+		preSteps = append(preSteps, useStepLogger(rc, stepModel, step.pre()))
 
 		stepExec := step.main()
-		steps = append(steps, func(ctx context.Context) error {
-			return (func(ctx context.Context) error {
-				logger := common.Logger(ctx)
-				err := stepExec(ctx)
-				if err != nil {
-					logger.Errorf("%v", err)
-					common.SetJobError(ctx, err)
-				} else if ctx.Err() != nil {
-					logger.Errorf("%v", ctx.Err())
-					common.SetJobError(ctx, ctx.Err())
-				}
-				return nil
-			})(withStepLogger(ctx, stepModel.ID, stepModel.String()))
-		})
+		steps = append(steps, useStepLogger(rc, stepModel, func(ctx context.Context) error {
+			logger := common.Logger(ctx)
+			err := stepExec(ctx)
+			if err != nil {
+				logger.Errorf("%v", err)
+				common.SetJobError(ctx, err)
+			} else if ctx.Err() != nil {
+				logger.Errorf("%v", ctx.Err())
+				common.SetJobError(ctx, ctx.Err())
+			}
+			return nil
+		}))
 
 		// run the post exector in reverse order
 		if postExecutor != nil {
-			postExecutor = step.post().Finally(postExecutor)
+			postExecutor = useStepLogger(rc, stepModel, step.post()).Finally(postExecutor)
 		} else {
-			postExecutor = step.post()
+			postExecutor = useStepLogger(rc, stepModel, step.post())
 		}
 	}
 
@@ -120,4 +116,25 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 		}).
 		Finally(info.interpolateOutputs()).
 		Finally(info.closeContainer())
+}
+
+func useStepLogger(rc *RunContext, stepModel *model.Step, executor common.Executor) common.Executor {
+	return func(ctx context.Context) error {
+		ctx = withStepLogger(ctx, stepModel.ID, stepModel.String())
+
+		rawLogger := common.Logger(ctx).WithField("raw_output", true)
+		logWriter := common.NewLineWriter(rc.commandHandler(ctx), func(s string) bool {
+			if rc.Config.LogOutput {
+				rawLogger.Infof("%s", s)
+			} else {
+				rawLogger.Debugf("%s", s)
+			}
+			return true
+		})
+
+		oldout, olderr := rc.JobContainer.ReplaceLogWriter(logWriter, logWriter)
+		defer rc.JobContainer.ReplaceLogWriter(oldout, olderr)
+
+		return executor(ctx)
+	}
 }
