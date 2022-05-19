@@ -180,6 +180,28 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			copyToPath = filepath.Join(rc.Config.ContainerWorkdir(), copyToPath)
 		}
 
+		tmpC := container.NewContainer(&container.NewContainerInput{Image: image})
+		tmpE := make(map[string]string)
+
+		if err := common.NewPipelineExecutor(
+			tmpC.Pull(rc.Config.ForcePull),
+			tmpC.Create(nil, nil),
+			tmpC.Start(false),
+			tmpC.UpdateFromImageEnv(&tmpE),
+			tmpC.UpdateFromEnv("/etc/environment", &tmpE),
+			tmpC.Remove(),
+		)(ctx); err != nil {
+			return err
+		}
+
+		for k, v := range tmpE {
+			if k == "PATH" {
+				rc.Env[k] += `:` + v
+			} else if val, ok := rc.Env[k]; !ok || val == "" {
+				rc.Env[k] = v
+			}
+		}
+
 		return common.NewPipelineExecutor(
 			rc.JobContainer.Pull(rc.Config.ForcePull),
 			rc.stopJobContainer(),

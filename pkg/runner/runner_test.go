@@ -176,6 +176,7 @@ func TestRunEvent(t *testing.T) {
 		{"../model/testdata", "strategy", "push", "", platforms}, // TODO: move all testdata into pkg so we can validate it with planner and runner
 		// {"testdata", "issue-228", "push", "", platforms, }, // TODO [igni]: Remove this once everything passes
 		{"../model/testdata", "container-volumes", "push", "", platforms},
+		{workdir, "env", "push", "", platforms},
 	}
 
 	for _, table := range tables {

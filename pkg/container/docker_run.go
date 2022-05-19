@@ -450,7 +450,6 @@ func (cr *containerReference) extractEnv(srcPath string, env *map[string]string)
 }
 
 func (cr *containerReference) extractFromImageEnv(env *map[string]string) common.Executor {
-	envMap := *env
 	return func(ctx context.Context) error {
 		logger := common.Logger(ctx)
 
@@ -459,24 +458,11 @@ func (cr *containerReference) extractFromImageEnv(env *map[string]string) common
 			logger.Error(err)
 		}
 
-		imageEnv, err := godotenv.Unmarshal(strings.Join(inspect.Config.Env, "\n"))
+		(*env), err = godotenv.Unmarshal(strings.Join(inspect.Config.Env, "\n"))
 		if err != nil {
 			logger.Error(err)
 		}
 
-		for k, v := range imageEnv {
-			if k == "PATH" {
-				if envMap[k] == "" {
-					envMap[k] = v
-				} else {
-					envMap[k] += `:` + v
-				}
-			} else if envMap[k] == "" {
-				envMap[k] = v
-			}
-		}
-
-		env = &envMap
 		return nil
 	}
 }

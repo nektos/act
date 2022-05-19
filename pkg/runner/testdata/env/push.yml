@@ -1,0 +1,16 @@
+on: push
+
+jobs:
+  job-env:
+    runs-on: ubuntu-latest
+    env:
+      PATH: '/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/sbin:/usr/local/bin:/tmp/bin'
+    steps:
+      - run: |
+          mkdir -p /tmp/bin
+          touch /tmp/bin/hello
+          printf '#!/bin/bash\n\necho "Hello World"' > /tmp/bin/hello
+          chmod +x /tmp/bin/hello
+      - run: |
+          echo "$PATH"
+          hello
