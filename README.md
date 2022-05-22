@@ -199,7 +199,7 @@ It will save that information to `~/.actrc`, please refer to [Configuration](#co
 
 ## `GITHUB_TOKEN`
 
-Github [automatically provides](https://docs.github.com/en/actions/security-guides/automatic-token-authentication#about-the-github_token-secret) a `GITHUB_TOKEN` secret when running workflows inside Github.
+Github [automatically provides](https://docs.github.com/en/actions/security-guides/automatic-token-authentication#about-the-github_token-secret) a `GITHUB_TOKEN` secret when running workflows inside Github, also available in the `github.token` context.
 
 If your workflow depends on this token, you need to create a [personal access token](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token) and pass it to `act` as a secret:
 
