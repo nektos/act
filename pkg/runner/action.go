@@ -526,17 +526,17 @@ func shouldRunPostStep(step actionStep) common.Conditional {
 		stepResult := stepResults[step.getStepModel().ID]
 
 		if stepResult == nil {
-			log.Debugf("skip post step for '%s'; step was not executed", step.getStepModel())
+			log.WithField("stepResult", model.StepStatusSkipped).Debugf("skipping post step for '%s'; step was not executed", step.getStepModel())
 			return false
 		}
 
 		if stepResult.Conclusion == model.StepStatusSkipped {
-			log.Debugf("skip post step for '%s'; main step was skipped", step.getStepModel())
+			log.WithField("stepResult", model.StepStatusSkipped).Debugf("skipping post step for '%s'; main step was skipped", step.getStepModel())
 			return false
 		}
 
 		if step.getActionModel() == nil {
-			log.Debugf("skip post step for '%s': no action model available", step.getStepModel())
+			log.WithField("stepResult", model.StepStatusSkipped).Debugf("skipping post step for '%s': no action model available", step.getStepModel())
 			return false
 		}
 
