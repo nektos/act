@@ -8,10 +8,14 @@ trim_trailing_whitespace = true
 indent_style = tab
 indent_size = 4
 
-[{Dockerfile,*.md,*_test.go,install.sh,.github/actions/choco/entrypoint.sh,act-cli.nuspec}]
+[{*.md,*_test.go}]
 indent_style = unset
 indent_size = unset
 
-[*.{yml,yaml,js,json}]
+[**/Dockerfile]
+indent_style = space
+indent_size = 2
+
+[*.{yml,yaml,js,json,sh,nuspec}]
 indent_style = space
 indent_size = 2

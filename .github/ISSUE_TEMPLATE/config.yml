@@ -1,5 +1,8 @@
 blank_issues_enabled: true
 contact_links:
+  - name: Start a discussion
+    url: https://github.com/nektos/act/discussions/new
+    about: You can ask for help here!
   - name: Ask on Gitter
     url: https://gitter.im/nektos/act
     about: You can ask for help here!

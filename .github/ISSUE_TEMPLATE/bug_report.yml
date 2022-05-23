@@ -1,0 +1,87 @@
+name: Bug report
+description: Use this template for reporting bugs/issues.
+labels:
+  - 'kind/bug'
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to fill out this bug report!
+  - type: textarea
+    id: act-debug
+    attributes:
+      label: Bug report info
+      description: |
+        Output of `act --bug-report`
+      placeholder: |
+        act --bug-report
+    validations:
+      required: true
+  - type: textarea
+    id: act-command
+    attributes:
+      label: Command used with act
+      description: |
+        Please paste your whole command
+      placeholder: |
+        act -P ubuntu-latest=node:12 -v -d ...
+      render: sh
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: Describe issue
+      description: |
+        Also tell us what did you expect to happen?
+      placeholder: |
+        Describe issue
+    validations:
+      required: true
+  - type: input
+    id: repo
+    attributes:
+      label: Link to GitHub repository
+      description: |
+        Provide link to GitHub repository, you can skip it if the repository is private or you don't have it on GitHub, otherwise please provide it as it might help us troubleshoot problem
+      placeholder: |
+        https://github.com/nektos/act
+    validations:
+      required: false
+  - type: textarea
+    id: workflow
+    attributes:
+      label: Workflow content
+      description: |
+        Please paste your **whole** workflow here
+      placeholder: |
+        name: My workflow
+        on: ['push', 'schedule']
+        jobs:
+          test:
+            runs-on: ubuntu-latest
+          env:
+            KEY: VAL
+        [...]
+      render: yml
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log output
+      description: |
+        Please copy and paste any relevant log output. This will be automatically formatted into code, so no need for backticks. Please verify that the log output doesn't contain any sensitive data.
+      render: sh
+      placeholder: |
+        Use `act -v` for verbose output
+    validations:
+      required: true
+  - type: textarea
+    id: additional-info
+    attributes:
+      label: Additional information
+      placeholder: |
+        Additional information that doesn't fit elsewhere
+    validations:
+      required: false
