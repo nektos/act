@@ -1,6 +1,6 @@
 FROM alpine:latest
 
-ARG CHOCOVERSION=0.11.3
+ARG CHOCOVERSION=1.1.0
 
 RUN apk add --no-cache bash ca-certificates git \
   && apk --no-cache --repository http://dl-cdn.alpinelinux.org/alpine/edge/testing add mono mono-dev \
