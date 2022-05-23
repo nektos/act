@@ -1,0 +1,28 @@
+name: Feature request
+description: Use this template for requesting a feature/enhancement.
+labels:
+  - 'kind/feature-request'
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please note that incompatibility with GitHub Actions should be opened as a bug report, not a new feature.
+  - type: input
+    id: act-version
+    attributes:
+      label: Act version
+      description: |
+        What version of `act` are you using? Version can be obtained via `act --version`
+        If you've built it from source, please provide commit hash
+      placeholder: |
+        act --version
+    validations:
+      required: true
+  - type: textarea
+    id: feature
+    attributes:
+      label: Feature description
+      description: Describe feature that you would like to see
+      placeholder: ...
+    validations:
+      required: true
