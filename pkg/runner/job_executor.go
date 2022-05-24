@@ -3,6 +3,7 @@ package runner
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/model"
@@ -100,7 +101,16 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 	pipeline = append(pipeline, steps...)
 
 	return common.NewPipelineExecutor(pipeline...).
-		Finally(postExecutor).
+		Finally(func(ctx context.Context) error {
+			var cancel context.CancelFunc
+			if ctx.Err() == context.Canceled {
+				// in case of an aborted run, we still should execute the
+				// post steps to allow cleanup.
+				ctx, cancel = context.WithTimeout(context.Background(), 5*time.Minute)
+				defer cancel()
+			}
+			return postExecutor(ctx)
+		}).
 		Finally(info.interpolateOutputs()).
 		Finally(info.closeContainer())
 }
