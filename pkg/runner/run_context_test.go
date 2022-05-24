@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/nektos/act/pkg/exprparser"
 	"github.com/nektos/act/pkg/model"
 
 	log "github.com/sirupsen/logrus"
@@ -155,7 +156,7 @@ func TestRunContext_EvalBool(t *testing.T) {
 		table := table
 		t.Run(table.in, func(t *testing.T) {
 			assertObject := assert.New(t)
-			b, err := EvalBool(rc.ExprEval, table.in)
+			b, err := EvalBool(rc.ExprEval, table.in, exprparser.DefaultStatusCheckSuccess)
 			if table.wantErr {
 				assertObject.Error(err)
 			}

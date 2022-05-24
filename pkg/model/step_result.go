@@ -42,4 +42,5 @@ type StepResult struct {
 	Outputs    map[string]string `json:"outputs"`
 	Conclusion stepStatus        `json:"conclusion"`
 	Outcome    stepStatus        `json:"outcome"`
+	State      map[string]string
 }

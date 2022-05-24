@@ -20,6 +20,7 @@ import (
 
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/container"
+	"github.com/nektos/act/pkg/exprparser"
 	"github.com/nektos/act/pkg/model"
 )
 
@@ -346,7 +347,7 @@ func (rc *RunContext) hostname() string {
 func (rc *RunContext) isEnabled(ctx context.Context) (bool, error) {
 	job := rc.Run.Job()
 	l := common.Logger(ctx)
-	runJob, err := EvalBool(rc.ExprEval, job.If.Value)
+	runJob, err := EvalBool(rc.ExprEval, job.If.Value, exprparser.DefaultStatusCheckSuccess)
 	if err != nil {
 		return false, fmt.Errorf("  \u274C  Error in if-expression: \"if: %s\" (%s)", job.If.Value, err)
 	}

@@ -1,0 +1,12 @@
+name: "Test Composite Action"
+description: "Test action uses composite"
+
+runs:
+  using: "composite"
+  steps:
+  - uses: ./uses-composite-with-pre-and-post-steps/action-with-pre-and-post
+    with:
+      step: step1
+  - uses: ./uses-composite-with-pre-and-post-steps/action-with-pre-and-post
+    with:
+      step: step2

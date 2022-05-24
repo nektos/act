@@ -27,7 +27,7 @@ func (sr *stepRun) pre() common.Executor {
 func (sr *stepRun) main() common.Executor {
 	sr.env = map[string]string{}
 
-	return runStepExecutor(sr, common.NewPipelineExecutor(
+	return runStepExecutor(sr, stepStageMain, common.NewPipelineExecutor(
 		sr.setupShellCommandExecutor(),
 		func(ctx context.Context) error {
 			return sr.getRunContext().JobContainer.Exec(sr.cmd, sr.env, "", sr.Step.WorkingDirectory)(ctx)
@@ -51,6 +51,10 @@ func (sr *stepRun) getStepModel() *model.Step {
 
 func (sr *stepRun) getEnv() *map[string]string {
 	return &sr.env
+}
+
+func (sr *stepRun) getIfExpression(stage stepStage) string {
+	return sr.Step.If.Value
 }
 
 func (sr *stepRun) setupShellCommandExecutor() common.Executor {

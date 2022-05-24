@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/nektos/act/pkg/common"
+	"github.com/nektos/act/pkg/exprparser"
 	"github.com/nektos/act/pkg/model"
 	log "github.com/sirupsen/logrus"
 )
@@ -18,14 +19,49 @@ type step interface {
 	getRunContext() *RunContext
 	getStepModel() *model.Step
 	getEnv() *map[string]string
+	getIfExpression(stage stepStage) string
 }
 
-func runStepExecutor(step step, executor common.Executor) common.Executor {
+type stepStage int
+
+const (
+	stepStagePre stepStage = iota
+	stepStageMain
+	stepStagePost
+)
+
+func (s stepStage) String() string {
+	switch s {
+	case stepStagePre:
+		return "Pre"
+	case stepStageMain:
+		return "Main"
+	case stepStagePost:
+		return "Post"
+	}
+	return "Unknown"
+}
+
+func (s stepStage) getStepName(stepModel *model.Step) string {
+	switch s {
+	case stepStagePre:
+		return fmt.Sprintf("pre-%s", stepModel.ID)
+	case stepStageMain:
+		return stepModel.ID
+	case stepStagePost:
+		return fmt.Sprintf("post-%s", stepModel.ID)
+	}
+	return "unknown"
+}
+
+func runStepExecutor(step step, stage stepStage, executor common.Executor) common.Executor {
 	return func(ctx context.Context) error {
 		rc := step.getRunContext()
 		stepModel := step.getStepModel()
 
-		rc.CurrentStep = stepModel.ID
+		ifExpression := step.getIfExpression(stage)
+		rc.CurrentStep = stage.getStepName(stepModel)
+
 		rc.StepResults[rc.CurrentStep] = &model.StepResult{
 			Outcome:    model.StepStatusSuccess,
 			Conclusion: model.StepStatusSuccess,
@@ -37,7 +73,7 @@ func runStepExecutor(step step, executor common.Executor) common.Executor {
 			return err
 		}
 
-		runStep, err := isStepEnabled(ctx, step)
+		runStep, err := isStepEnabled(ctx, ifExpression, step, stage)
 		if err != nil {
 			rc.StepResults[rc.CurrentStep].Conclusion = model.StepStatusFailure
 			rc.StepResults[rc.CurrentStep].Outcome = model.StepStatusFailure
@@ -45,7 +81,7 @@ func runStepExecutor(step step, executor common.Executor) common.Executor {
 		}
 
 		if !runStep {
-			log.Debugf("Skipping step '%s' due to '%s'", stepModel.String(), stepModel.If.Value)
+			log.Debugf("Skipping step '%s' due to '%s'", stepModel, ifExpression)
 			rc.StepResults[rc.CurrentStep].Conclusion = model.StepStatusSkipped
 			rc.StepResults[rc.CurrentStep].Outcome = model.StepStatusSkipped
 			return nil
@@ -55,14 +91,14 @@ func runStepExecutor(step step, executor common.Executor) common.Executor {
 		if strings.Contains(stepString, "::add-mask::") {
 			stepString = "add-mask command"
 		}
-		common.Logger(ctx).Infof("\u2B50  Run %s", stepString)
+		common.Logger(ctx).Infof("\u2B50 Run %s %s", stage, stepString)
 
 		err = executor(ctx)
 
 		if err == nil {
-			common.Logger(ctx).Infof("  \u2705  Success - %s", stepString)
+			common.Logger(ctx).Infof("  \u2705  Success - %s %s", stage, stepString)
 		} else {
-			common.Logger(ctx).Errorf("  \u274C  Failure - %s", stepString)
+			common.Logger(ctx).Errorf("  \u274C  Failure - %s %s", stage, stepString)
 
 			rc.StepResults[rc.CurrentStep].Outcome = model.StepStatusFailure
 			if stepModel.ContinueOnError {
@@ -129,12 +165,19 @@ func mergeEnv(step step) {
 	mergeIntoMap(env, rc.withGithubEnv(*env))
 }
 
-func isStepEnabled(ctx context.Context, step step) (bool, error) {
+func isStepEnabled(ctx context.Context, expr string, step step, stage stepStage) (bool, error) {
 	rc := step.getRunContext()
 
-	runStep, err := EvalBool(rc.NewStepExpressionEvaluator(step), step.getStepModel().If.Value)
+	var defaultStatusCheck exprparser.DefaultStatusCheck
+	if stage == stepStagePost {
+		defaultStatusCheck = exprparser.DefaultStatusCheckAlways
+	} else {
+		defaultStatusCheck = exprparser.DefaultStatusCheckSuccess
+	}
+
+	runStep, err := EvalBool(rc.NewStepExpressionEvaluator(step), expr, defaultStatusCheck)
 	if err != nil {
-		return false, fmt.Errorf("  \u274C  Error in if-expression: \"if: %s\" (%s)", step.getStepModel().If.Value, err)
+		return false, fmt.Errorf("  \u274C  Error in if-expression: \"if: %s\" (%s)", expr, err)
 	}
 
 	return runStep, nil
