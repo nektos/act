@@ -30,8 +30,32 @@ type Config struct {
 	Context    string
 }
 
+type DefaultStatusCheck int
+
+const (
+	DefaultStatusCheckNone DefaultStatusCheck = iota
+	DefaultStatusCheckSuccess
+	DefaultStatusCheckAlways
+	DefaultStatusCheckCanceled
+	DefaultStatusCheckFailure
+)
+
+func (dsc DefaultStatusCheck) String() string {
+	switch dsc {
+	case DefaultStatusCheckSuccess:
+		return "success"
+	case DefaultStatusCheckAlways:
+		return "always"
+	case DefaultStatusCheckCanceled:
+		return "cancelled"
+	case DefaultStatusCheckFailure:
+		return "failure"
+	}
+	return ""
+}
+
 type Interpreter interface {
-	Evaluate(input string, isIfExpression bool) (interface{}, error)
+	Evaluate(input string, defaultStatusCheck DefaultStatusCheck) (interface{}, error)
 }
 
 type interperterImpl struct {
@@ -46,9 +70,9 @@ func NewInterpeter(env *EvaluationEnvironment, config Config) Interpreter {
 	}
 }
 
-func (impl *interperterImpl) Evaluate(input string, isIfExpression bool) (interface{}, error) {
+func (impl *interperterImpl) Evaluate(input string, defaultStatusCheck DefaultStatusCheck) (interface{}, error) {
 	input = strings.TrimPrefix(input, "${{")
-	if isIfExpression && input == "" {
+	if defaultStatusCheck != DefaultStatusCheckNone && input == "" {
 		input = "success()"
 	}
 	parser := actionlint.NewExprParser()
@@ -57,7 +81,7 @@ func (impl *interperterImpl) Evaluate(input string, isIfExpression bool) (interf
 		return nil, fmt.Errorf("Failed to parse: %s", err.Message)
 	}
 
-	if isIfExpression {
+	if defaultStatusCheck != DefaultStatusCheckNone {
 		hasStatusCheckFunction := false
 		actionlint.VisitExprNode(exprNode, func(node, _ actionlint.ExprNode, entering bool) {
 			if funcCallNode, ok := node.(*actionlint.FuncCallNode); entering && ok {
@@ -72,7 +96,7 @@ func (impl *interperterImpl) Evaluate(input string, isIfExpression bool) (interf
 			exprNode = &actionlint.LogicalOpNode{
 				Kind: actionlint.LogicalOpNodeKindAnd,
 				Left: &actionlint.FuncCallNode{
-					Callee: "success",
+					Callee: defaultStatusCheck.String(),
 					Args:   []actionlint.ExprNode{},
 				},
 				Right: exprNode,
@@ -361,7 +385,7 @@ func (impl *interperterImpl) coerceToNumber(value reflect.Value) reflect.Value {
 		}
 
 		// try to parse the string as a number
-		evaluated, err := impl.Evaluate(value.String(), false)
+		evaluated, err := impl.Evaluate(value.String(), DefaultStatusCheckNone)
 		if err != nil {
 			return reflect.ValueOf(math.NaN())
 		}

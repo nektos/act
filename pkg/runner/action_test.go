@@ -44,8 +44,10 @@ runs:
 			expected: &model.Action{
 				Name: "name",
 				Runs: model.ActionRuns{
-					Using: "node16",
-					Main:  "main.js",
+					Using:  "node16",
+					Main:   "main.js",
+					PreIf:  "always()",
+					PostIf: "always()",
 				},
 			},
 		},
@@ -57,8 +59,10 @@ runs:
 			expected: &model.Action{
 				Name: "name",
 				Runs: model.ActionRuns{
-					Using: "node16",
-					Main:  "main.js",
+					Using:  "node16",
+					Main:   "main.js",
+					PreIf:  "always()",
+					PostIf: "always()",
 				},
 			},
 		},
@@ -138,14 +142,15 @@ runs:
 
 func TestActionRunner(t *testing.T) {
 	table := []struct {
-		name string
-		step actionStep
+		name        string
+		step        actionStep
+		expectedEnv map[string]string
 	}{
 		{
-			name: "Test",
+			name: "with-input",
 			step: &stepActionRemote{
 				Step: &model.Step{
-					Uses: "repo@ref",
+					Uses: "org/repo/path@ref",
 				},
 				RunContext: &RunContext{
 					Config: &Config{},
@@ -172,6 +177,47 @@ func TestActionRunner(t *testing.T) {
 				},
 				env: map[string]string{},
 			},
+			expectedEnv: map[string]string{"INPUT_KEY": "default value"},
+		},
+		{
+			name: "restore-saved-state",
+			step: &stepActionRemote{
+				Step: &model.Step{
+					ID:   "step",
+					Uses: "org/repo/path@ref",
+				},
+				RunContext: &RunContext{
+					ActionRepository: "org/repo",
+					ActionPath:       "path",
+					ActionRef:        "ref",
+					Config:           &Config{},
+					Run: &model.Run{
+						JobID: "job",
+						Workflow: &model.Workflow{
+							Jobs: map[string]*model.Job{
+								"job": {
+									Name: "job",
+								},
+							},
+						},
+					},
+					CurrentStep: "post-step",
+					StepResults: map[string]*model.StepResult{
+						"step": {
+							State: map[string]string{
+								"name": "state value",
+							},
+						},
+					},
+				},
+				action: &model.Action{
+					Runs: model.ActionRuns{
+						Using: "node16",
+					},
+				},
+				env: map[string]string{},
+			},
+			expectedEnv: map[string]string{"STATE_name": "state value"},
 		},
 	}
 
@@ -183,8 +229,14 @@ func TestActionRunner(t *testing.T) {
 			cm.On("CopyDir", "/var/run/act/actions/dir/", "dir/", false).Return(func(ctx context.Context) error { return nil })
 
 			envMatcher := mock.MatchedBy(func(env map[string]string) bool {
-				return env["INPUT_KEY"] == "default value"
+				for k, v := range tt.expectedEnv {
+					if env[k] != v {
+						return false
+					}
+				}
+				return true
 			})
+
 			cm.On("Exec", []string{"node", "/var/run/act/actions/dir/path"}, envMatcher, "", "").Return(func(ctx context.Context) error { return nil })
 
 			tt.step.getRunContext().JobContainer = cm

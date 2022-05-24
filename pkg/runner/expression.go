@@ -12,7 +12,7 @@ import (
 
 // ExpressionEvaluator is the interface for evaluating expressions
 type ExpressionEvaluator interface {
-	evaluate(string, bool) (interface{}, error)
+	evaluate(string, exprparser.DefaultStatusCheck) (interface{}, error)
 	EvaluateYamlNode(node *yaml.Node) error
 	Interpolate(string) string
 }
@@ -115,9 +115,9 @@ type expressionEvaluator struct {
 	interpreter exprparser.Interpreter
 }
 
-func (ee expressionEvaluator) evaluate(in string, isIfExpression bool) (interface{}, error) {
+func (ee expressionEvaluator) evaluate(in string, defaultStatusCheck exprparser.DefaultStatusCheck) (interface{}, error) {
 	log.Debugf("evaluating expression '%s'", in)
-	evaluated, err := ee.interpreter.Evaluate(in, isIfExpression)
+	evaluated, err := ee.interpreter.Evaluate(in, defaultStatusCheck)
 	log.Debugf("expression '%s' evaluated to '%t'", in, evaluated)
 	return evaluated, err
 }
@@ -131,7 +131,7 @@ func (ee expressionEvaluator) evaluateScalarYamlNode(node *yaml.Node) error {
 		return nil
 	}
 	expr, _ := rewriteSubExpression(in, false)
-	res, err := ee.evaluate(expr, false)
+	res, err := ee.evaluate(expr, exprparser.DefaultStatusCheckNone)
 	if err != nil {
 		return err
 	}
@@ -201,7 +201,7 @@ func (ee expressionEvaluator) Interpolate(in string) string {
 	}
 
 	expr, _ := rewriteSubExpression(in, true)
-	evaluated, err := ee.evaluate(expr, false)
+	evaluated, err := ee.evaluate(expr, exprparser.DefaultStatusCheckNone)
 	if err != nil {
 		log.Errorf("Unable to interpolate expression '%s': %s", expr, err)
 		return ""
@@ -216,10 +216,10 @@ func (ee expressionEvaluator) Interpolate(in string) string {
 }
 
 // EvalBool evaluates an expression against given evaluator
-func EvalBool(evaluator ExpressionEvaluator, expr string) (bool, error) {
+func EvalBool(evaluator ExpressionEvaluator, expr string, defaultStatusCheck exprparser.DefaultStatusCheck) (bool, error) {
 	nextExpr, _ := rewriteSubExpression(expr, false)
 
-	evaluated, err := evaluator.evaluate(nextExpr, true)
+	evaluated, err := evaluator.evaluate(nextExpr, defaultStatusCheck)
 	if err != nil {
 		return false, err
 	}

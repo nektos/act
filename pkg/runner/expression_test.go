@@ -7,6 +7,7 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/nektos/act/pkg/exprparser"
 	"github.com/nektos/act/pkg/model"
 	assert "github.com/stretchr/testify/assert"
 	yaml "gopkg.in/yaml.v3"
@@ -135,7 +136,7 @@ func TestEvaluateRunContext(t *testing.T) {
 		table := table
 		t.Run(table.in, func(t *testing.T) {
 			assertObject := assert.New(t)
-			out, err := ee.evaluate(table.in, false)
+			out, err := ee.evaluate(table.in, exprparser.DefaultStatusCheckNone)
 			if table.errMesg == "" {
 				assertObject.NoError(err, table.in)
 				assertObject.Equal(table.out, out, table.in)
@@ -175,7 +176,7 @@ func TestEvaluateStep(t *testing.T) {
 		table := table
 		t.Run(table.in, func(t *testing.T) {
 			assertObject := assert.New(t)
-			out, err := ee.evaluate(table.in, false)
+			out, err := ee.evaluate(table.in, exprparser.DefaultStatusCheckNone)
 			if table.errMesg == "" {
 				assertObject.NoError(err, table.in)
 				assertObject.Equal(table.out, out, table.in)

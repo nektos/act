@@ -89,7 +89,7 @@ func NewContainer(input *NewContainerInput) Container {
 
 // supportsContainerImagePlatform returns true if the underlying Docker server
 // API version is 1.41 and beyond
-func supportsContainerImagePlatform(ctx context.Context, cli *client.Client) bool {
+func supportsContainerImagePlatform(ctx context.Context, cli client.APIClient) bool {
 	logger := common.Logger(ctx)
 	ver, err := cli.ServerVersion(ctx)
 	if err != nil {
@@ -210,12 +210,12 @@ func (cr *containerReference) ReplaceLogWriter(stdout io.Writer, stderr io.Write
 }
 
 type containerReference struct {
-	cli   *client.Client
+	cli   client.APIClient
 	id    string
 	input *NewContainerInput
 }
 
-func GetDockerClient(ctx context.Context) (cli *client.Client, err error) {
+func GetDockerClient(ctx context.Context) (cli client.APIClient, err error) {
 	// TODO: this should maybe need to be a global option, not hidden in here?
 	//       though i'm not sure how that works out when there's another Executor :D
 	//		 I really would like something that works on OSX native for eg
@@ -244,7 +244,7 @@ func GetDockerClient(ctx context.Context) (cli *client.Client, err error) {
 }
 
 func GetHostInfo(ctx context.Context) (info types.Info, err error) {
-	var cli *client.Client
+	var cli client.APIClient
 	cli, err = GetDockerClient(ctx)
 	if err != nil {
 		return info, err
@@ -558,23 +558,9 @@ func (cr *containerReference) exec(cmd []string, env map[string]string, user, wo
 		}
 		defer resp.Close()
 
-		var outWriter io.Writer
-		outWriter = cr.input.Stdout
-		if outWriter == nil {
-			outWriter = os.Stdout
-		}
-		errWriter := cr.input.Stderr
-		if errWriter == nil {
-			errWriter = os.Stderr
-		}
-
-		if !isTerminal || os.Getenv("NORAW") != "" {
-			_, err = stdcopy.StdCopy(outWriter, errWriter, resp.Reader)
-		} else {
-			_, err = io.Copy(outWriter, resp.Reader)
-		}
+		err = cr.waitForCommand(ctx, isTerminal, resp, idResp, user, workdir)
 		if err != nil {
-			logger.Error(err)
+			return err
 		}
 
 		inspectResp, err := cr.cli.ContainerExecInspect(ctx, idResp.ID)
@@ -587,6 +573,51 @@ func (cr *containerReference) exec(cmd []string, env map[string]string, user, wo
 		}
 
 		return fmt.Errorf("exit with `FAILURE`: %v", inspectResp.ExitCode)
+	}
+}
+
+func (cr *containerReference) waitForCommand(ctx context.Context, isTerminal bool, resp types.HijackedResponse, idResp types.IDResponse, user string, workdir string) error {
+	logger := common.Logger(ctx)
+
+	cmdResponse := make(chan error)
+
+	go func() {
+		var outWriter io.Writer
+		outWriter = cr.input.Stdout
+		if outWriter == nil {
+			outWriter = os.Stdout
+		}
+		errWriter := cr.input.Stderr
+		if errWriter == nil {
+			errWriter = os.Stderr
+		}
+
+		var err error
+		if !isTerminal || os.Getenv("NORAW") != "" {
+			_, err = stdcopy.StdCopy(outWriter, errWriter, resp.Reader)
+		} else {
+			_, err = io.Copy(outWriter, resp.Reader)
+		}
+		cmdResponse <- err
+	}()
+
+	select {
+	case <-ctx.Done():
+		// send ctrl + c
+		_, err := resp.Conn.Write([]byte{3})
+		if err != nil {
+			logger.Warnf("Failed to send CTRL+C: %+s", err)
+		}
+
+		// we return the context canceled error to prevent other steps
+		// from executing
+		return ctx.Err()
+	case err := <-cmdResponse:
+		if err != nil {
+			logger.Error(err)
+		}
+
+		return nil
 	}
 }
 
