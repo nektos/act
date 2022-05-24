@@ -179,13 +179,6 @@ func runActionImpl(step actionStep, actionDir string, remoteAction *remoteAction
 				return err
 			}
 
-			// Disable some features of composite actions, only for feature parity with github
-			for _, compositeStep := range action.Runs.Steps {
-				if err := compositeStep.Validate(rc.Config.CompositeRestrictions); err != nil {
-					return err
-				}
-			}
-
 			return execAsComposite(step)(ctx)
 		default:
 			return fmt.Errorf(fmt.Sprintf("The runs.using key must be one of: %v, got %s", []string{
