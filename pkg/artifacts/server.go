@@ -1,6 +1,7 @@
 package artifacts
 
 import (
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"errors"
@@ -11,7 +12,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"strings"
 
 	"github.com/julienschmidt/httprouter"
 	"github.com/nektos/act/pkg/common"
@@ -65,8 +65,6 @@ func (fsys MkdirFsImpl) Open(name string) (fs.File, error) {
 	return os.OpenFile(fsys.dir+"/"+name, os.O_CREATE|os.O_RDWR, 0644)
 }
 
-var gzipExtension = ".gz__"
-
 func uploads(router *httprouter.Router, fsys MkdirFS) {
 	router.POST("/_apis/pipelines/workflows/:runId/artifacts", func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
 		runID := params.ByName("runId")
@@ -88,13 +86,22 @@ func uploads(router *httprouter.Router, fsys MkdirFS) {
 		itemPath := req.URL.Query().Get("itemPath")
 		runID := params.ByName("runId")
 
+		body := req.Body
+		if body == nil {
+			panic(errors.New("No body given"))
+		}
+
+		var err error
 		if req.Header.Get("Content-Encoding") == "gzip" {
-			itemPath += gzipExtension
+			body, err = gzip.NewReader(body)
+			if err != nil {
+				panic(err)
+			}
 		}
 
 		filePath := fmt.Sprintf("%s/%s", runID, itemPath)
 
-		err := fsys.MkdirAll(path.Dir(filePath), os.ModePerm)
+		err = fsys.MkdirAll(path.Dir(filePath), os.ModePerm)
 		if err != nil {
 			panic(err)
 		}
@@ -110,11 +117,8 @@ func uploads(router *httprouter.Router, fsys MkdirFS) {
 			panic(errors.New("File is not writable"))
 		}
 
-		if req.Body == nil {
-			panic(errors.New("No body given"))
-		}
-
-		_, err = io.Copy(writer, req.Body)
+		//nolint:gosec // G110; File upload size is already not limited, so decompressing gzipped files doesn't add new risks.
+		_, err = io.Copy(writer, body)
 		if err != nil {
 			panic(err)
 		}
@@ -191,9 +195,6 @@ func downloads(router *httprouter.Router, fsys fs.FS) {
 					panic(err)
 				}
 
-				// if it was upload as gzip
-				rel = strings.TrimSuffix(rel, gzipExtension)
-
 				files = append(files, ContainerItem{
 					Path:            fmt.Sprintf("%s/%s", itemPath, rel),
 					ItemType:        "file",
@@ -224,12 +225,7 @@ func downloads(router *httprouter.Router, fsys fs.FS) {
 
 		file, err := fsys.Open(path)
 		if err != nil {
-			// try gzip file
-			file, err = fsys.Open(path + gzipExtension)
-			if err != nil {
-				panic(err)
-			}
-			w.Header().Add("Content-Encoding", "gzip")
+			panic(err)
 		}
 
 		_, err = io.Copy(w, file)
