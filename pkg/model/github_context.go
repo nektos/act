@@ -34,6 +34,7 @@ type GithubContext struct {
 	RetentionDays    string                 `json:"retention_days"`
 	RunnerPerflog    string                 `json:"runner_perflog"`
 	RunnerTrackingID string                 `json:"runner_tracking_id"`
+	CopiedWorkspace  string                 `json:"copied_workspace"`
 }
 
 func asString(v interface{}) string {

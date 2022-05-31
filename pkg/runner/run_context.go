@@ -179,6 +179,9 @@ func (rc *RunContext) startJobContainer() common.Executor {
 		if !rc.Config.BindWorkdir {
 			copyToPath, copyWorkspace = rc.localCheckoutPath()
 			copyToPath = filepath.Join(rc.Config.ContainerWorkdir(), copyToPath)
+			if copyWorkspace {
+				rc.getGithubContext().CopiedWorkspace = "true"
+			}
 		}
 
 		return common.NewPipelineExecutor(
@@ -450,6 +453,7 @@ func (rc *RunContext) getGithubContext() *model.GithubContext {
 		RetentionDays:    rc.Config.Env["GITHUB_RETENTION_DAYS"],
 		RunnerPerflog:    rc.Config.Env["RUNNER_PERFLOG"],
 		RunnerTrackingID: rc.Config.Env["RUNNER_TRACKING_ID"],
+		CopiedWorkspace:  "false",
 	}
 
 	if ghc.RunID == "" {
@@ -512,6 +516,9 @@ func (rc *RunContext) getGithubContext() *model.GithubContext {
 }
 
 func isLocalCheckout(ghc *model.GithubContext, step *model.Step) bool {
+	if ghc.CopiedWorkspace != "true" {
+		return false
+	}
 	if step.Type() == model.StepTypeInvalid {
 		// This will be errored out by the executor later, we need this here to avoid a null panic though
 		return false
