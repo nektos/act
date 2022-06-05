@@ -181,6 +181,7 @@ func TestRunEvent(t *testing.T) {
 
 	for _, table := range tables {
 		t.Run(table.workflowPath, func(t *testing.T) {
+			table.runTest(common.WithDryrun(ctx, true), t, &Config{})
 			table.runTest(ctx, t, &Config{})
 		})
 	}
