@@ -182,9 +182,35 @@ func TestRunEvent(t *testing.T) {
 
 	for _, table := range tables {
 		t.Run(table.workflowPath, func(t *testing.T) {
-                        dryrunTable := table
-                        dryrunTable.errorMessage = ""
-			dryrunTable.runTest(common.WithDryrun(ctx, true), t, &Config{})
+			table.runTest(ctx, t, &Config{})
+		})
+	}
+}
+
+func TestDryrunEvent(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	ctx := common.WithDryrun(context.Background(), true)
+
+	tables := []TestJobFileInfo{
+		// Shells
+		{workdir, "shells/defaults", "push", "", platforms},
+		{workdir, "shells/pwsh", "push", "", map[string]string{"ubuntu-latest": "ghcr.io/justingrote/act-pwsh:latest"}}, // custom image with pwsh
+		{workdir, "shells/bash", "push", "", platforms},
+		{workdir, "shells/python", "push", "", map[string]string{"ubuntu-latest": "node:16-buster"}}, // slim doesn't have python
+		{workdir, "shells/sh", "push", "", platforms},
+
+		// Local action
+		{workdir, "local-action-docker-url", "push", "", platforms},
+		{workdir, "local-action-dockerfile", "push", "", platforms},
+		{workdir, "local-action-via-composite-dockerfile", "push", "", platforms},
+		{workdir, "local-action-js", "push", "", platforms},
+	}
+
+	for _, table := range tables {
+		t.Run(table.workflowPath, func(t *testing.T) {
 			table.runTest(ctx, t, &Config{})
 		})
 	}
