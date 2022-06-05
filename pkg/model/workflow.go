@@ -290,7 +290,7 @@ func (j *Job) GetMatrixes() []map[string]interface{} {
 						}
 					}
 				}
-				if matched {
+				if !matched {
 					extraIncludes = append(extraIncludes, include)
 				}
 			}
