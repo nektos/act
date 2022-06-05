@@ -319,7 +319,7 @@ func commonKeysMatch(a map[string]interface{}, b map[string]interface{}) bool {
 	return true
 }
 
-func commonKeysMatch2(a map[string]interface{}, b map[string]interface{}, m map[string]interface{}) bool {
+func commonKeysMatch2(a map[string]interface{}, b map[string]interface{}, m map[string][]interface{}) bool {
 	for aKey, aVal := range a {
 		_, useKey := m[aKey]
 		if bVal, ok := b[aKey]; useKey && ok && !reflect.DeepEqual(aVal, bVal) {
