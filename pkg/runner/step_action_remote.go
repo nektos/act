@@ -96,8 +96,12 @@ func (sar *stepActionRemote) main() common.Executor {
 	return runStepExecutor(sar, stepStageMain, func(ctx context.Context) error {
 		github := sar.RunContext.getGithubContext()
 		if sar.remoteAction.IsCheckout() && isLocalCheckout(github, sar.Step) && !sar.RunContext.Config.NoSkipCheckout {
-			common.Logger(ctx).Debugf("Skipping local actions/checkout because workdir was already copied")
-			return nil
+			if rc.Config.BindWorkdir {
+				common.Logger(ctx).Debugf("Skipping local actions/checkout because you bound your workspace")
+				return nil
+			}
+			copyToPath := filepath.Join(rc.Config.ContainerWorkdir(), sar.Step.With["path"])
+			return sar.RunContext.JobContainer.CopyDir(copyToPath, sar.RunContext.Config.Workdir+string(filepath.Separator)+".", sar.RunContext.Config.UseGitIgnore)(ctx)
 		}
 
 		actionDir := fmt.Sprintf("%s/%s", sar.RunContext.ActionCacheDir(), strings.ReplaceAll(sar.Step.Uses, "/", "-"))
