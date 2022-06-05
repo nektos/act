@@ -28,6 +28,9 @@ func (sal *stepActionLocal) pre() common.Executor {
 	sal.env = map[string]string{}
 
 	return func(ctx context.Context) error {
+		if common.Dryrun(ctx) {
+			return nil
+		}
 		actionDir := filepath.Join(sal.getRunContext().Config.Workdir, sal.Step.Uses)
 
 		localReader := func(ctx context.Context) actionYamlReader {
@@ -65,6 +68,9 @@ func (sal *stepActionLocal) pre() common.Executor {
 
 func (sal *stepActionLocal) main() common.Executor {
 	return runStepExecutor(sal, stepStageMain, func(ctx context.Context) error {
+		if common.Dryrun(ctx) {
+			return nil
+		}
 		actionDir := filepath.Join(sal.getRunContext().Config.Workdir, sal.Step.Uses)
 		return sal.runAction(sal, actionDir, nil)(ctx)
 	})
