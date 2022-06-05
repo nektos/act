@@ -282,7 +282,7 @@ func (j *Job) GetMatrixes() []map[string]interface{} {
 			for _, include := range includes {
 				matched := false
 				for _, matrix := range matrixes {
-					if commonKeysMatch(matrix, include) {
+					if commonKeysMatch2(matrix, include, m) {
 						matched = true
 						log.Debugf("Adding include values '%v' to existing entry", include)
 						for k, v := range include {
@@ -291,8 +291,7 @@ func (j *Job) GetMatrixes() []map[string]interface{} {
 					}
 				}
 				if matched {
-					log.Debugf("Adding include '%v'", include)
-					matrixes = append(matrixes, include)
+					extraIncludes = append(extraIncludes, include)
 				}
 			}
 			for _, include := range extraIncludes {
@@ -314,6 +313,16 @@ func (j *Job) GetMatrixes() []map[string]interface{} {
 func commonKeysMatch(a map[string]interface{}, b map[string]interface{}) bool {
 	for aKey, aVal := range a {
 		if bVal, ok := b[aKey]; ok && !reflect.DeepEqual(aVal, bVal) {
+			return false
+		}
+	}
+	return true
+}
+
+func commonKeysMatch2(a map[string]interface{}, b map[string]interface{}, a map[string]interface{}) bool {
+	for aKey, aVal := range a {
+		_, useKey := m[aKey]
+		if bVal, ok := b[aKey]; useKey && ok && !reflect.DeepEqual(aVal, bVal) {
 			return false
 		}
 	}
