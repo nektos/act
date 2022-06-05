@@ -279,14 +279,20 @@ func (j *Job) GetMatrixes() []map[string]interface{} {
 				}
 				matrixes = append(matrixes, matrix)
 			}
-			for _, matrix := range matrixes {
-				for _, include := range includes {
+			for _, include := range includes {
+				matched := false
+				for _, matrix := range matrixes {
 					if commonKeysMatch(matrix, include) {
-						log.Debugf("Adding include values '%v'", include)
+						matched = true
+						log.Debugf("Adding include values '%v' to existing entry", include)
 						for k, v := range include {
 							matrix[k] = v
 						}
 					}
+				}
+				if matched {
+					log.Debugf("Adding include '%v'", include)
+					matrixes = append(matrixes, include)
 				}
 			}
 			for _, include := range extraIncludes {
