@@ -224,16 +224,22 @@ func (j *Job) GetMatrixes() []map[string]interface{} {
 
 		if m := j.Matrix(); m != nil {
 			includes := make([]map[string]interface{}, 0)
+			extraIncludes := make([]map[string]interface{}, 0)
 			for _, v := range m["include"] {
 				switch t := v.(type) {
 				case []interface{}:
 					for _, i := range t {
 						i := i.(map[string]interface{})
+						extraInclude := true
 						for k := range i {
 							if _, ok := m[k]; ok {
 								includes = append(includes, i)
+								extraInclude = false
 								break
 							}
+						}
+						if extraInclude {
+							extraIncludes = append(extraIncludes, i)
 						}
 					}
 				case interface{}:
@@ -273,9 +279,22 @@ func (j *Job) GetMatrixes() []map[string]interface{} {
 				}
 				matrixes = append(matrixes, matrix)
 			}
-			for _, include := range includes {
+			for _, matrix := range matrixes {
+				for _, include := range includes {
+					if commonKeysMatch(matrix, include) {
+						log.Debugf("Adding include values '%v'", include)
+						for k, v := range include {
+							matrix[k] = v
+						}
+					}
+				}
+			}
+			for _, include := range extraIncludes {
 				log.Debugf("Adding include '%v'", include)
 				matrixes = append(matrixes, include)
+			}
+			if len(matrixes) == 0 {
+				matrixes = append(matrixes, make(map[string]interface{}))
 			}
 		} else {
 			matrixes = append(matrixes, make(map[string]interface{}))
