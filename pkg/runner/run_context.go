@@ -174,13 +174,6 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			Hostname:    hostname,
 		})
 
-		var copyWorkspace bool
-		var copyToPath string
-		if !rc.Config.BindWorkdir {
-			copyToPath, copyWorkspace = rc.localCheckoutPath()
-			copyToPath = filepath.Join(rc.Config.ContainerWorkdir(), copyToPath)
-		}
-
 		return common.NewPipelineExecutor(
 			rc.JobContainer.Pull(rc.Config.ForcePull),
 			rc.stopJobContainer(),
@@ -189,7 +182,6 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			rc.JobContainer.UpdateFromImageEnv(&rc.Env),
 			rc.JobContainer.UpdateFromEnv("/etc/environment", &rc.Env),
 			rc.JobContainer.Exec([]string{"mkdir", "-m", "0777", "-p", ActPath}, rc.Env, "root", ""),
-			rc.JobContainer.CopyDir(copyToPath, rc.Config.Workdir+string(filepath.Separator)+".", rc.Config.UseGitIgnore).IfBool(copyWorkspace),
 			rc.JobContainer.Copy(ActPath+"/", &container.FileEntry{
 				Name: "workflow/event.json",
 				Mode: 0644,
@@ -637,20 +629,6 @@ func setActionRuntimeVars(rc *RunContext, env map[string]string) {
 		actionsRuntimeToken = "token"
 	}
 	env["ACTIONS_RUNTIME_TOKEN"] = actionsRuntimeToken
-}
-
-func (rc *RunContext) localCheckoutPath() (string, bool) {
-	if rc.Config.NoSkipCheckout {
-		return "", false
-	}
-
-	ghContext := rc.getGithubContext()
-	for _, step := range rc.Run.Job().Steps {
-		if isLocalCheckout(ghContext, step) {
-			return step.With["path"], true
-		}
-	}
-	return "", false
 }
 
 func (rc *RunContext) handleCredentials() (username, password string, err error) {
