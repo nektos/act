@@ -13,6 +13,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	assert "github.com/stretchr/testify/assert"
 
+	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/model"
 )
 
