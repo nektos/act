@@ -24,9 +24,9 @@ type fileCollectorHandler interface {
 
 type tarCollector struct {
 	TarWriter *tar.Writer
-	Uid       int
-	Gid       int
-	DestDir   string
+	UID       int
+	GID       int
+	DstDir    string
 }
 
 func (tc tarCollector) WriteFile(fpath string, fi fs.FileInfo, linkName string, f io.Reader) error {
@@ -37,11 +37,11 @@ func (tc tarCollector) WriteFile(fpath string, fi fs.FileInfo, linkName string, 
 	}
 
 	// update the name to correctly reflect the desired destination when untaring
-	header.Name = path.Join(tc.DestDir, fpath)
+	header.Name = path.Join(tc.DstDir, fpath)
 	header.Mode = int64(fi.Mode())
 	header.ModTime = fi.ModTime()
-	header.Uid = tc.Uid
-	header.Gid = tc.Gid
+	header.Uid = tc.UID
+	header.Gid = tc.GID
 
 	// write the header
 	if err := tc.TarWriter.WriteHeader(header); err != nil {

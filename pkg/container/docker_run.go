@@ -128,8 +128,8 @@ func (cr *containerReference) Start(attach bool) common.Executor {
 				cr.attach().IfBool(attach),
 				cr.start(),
 				cr.wait().IfBool(attach),
-				cr.tryReadUid(),
-				cr.tryReadGid(),
+				cr.tryReadUID(),
+				cr.tryReadGID(),
 				func(ctx context.Context) error {
 					// If this fails, then folders have wrong permissions on non root container
 					_ = cr.Exec([]string{"chown", "-R", fmt.Sprint(cr.Uid) + ":" + fmt.Sprint(cr.Gid), cr.input.WorkingDir}, nil, "0", "")(ctx)
@@ -590,7 +590,7 @@ func (cr *containerReference) exec(cmd []string, env map[string]string, user, wo
 	}
 }
 
-func (cr *containerReference) tryReadId(opt string, cbk func(id int)) common.Executor {
+func (cr *containerReference) tryReadID(opt string, cbk func(id int)) common.Executor {
 	return func(ctx context.Context) error {
 		idResp, err := cr.cli.ContainerExecCreate(ctx, cr.id, types.ExecConfig{
 			Cmd:          []string{"id", opt},
@@ -623,12 +623,12 @@ func (cr *containerReference) tryReadId(opt string, cbk func(id int)) common.Exe
 	}
 }
 
-func (cr *containerReference) tryReadUid() common.Executor {
-	return cr.tryReadId("-u", func(id int) { cr.Uid = id })
+func (cr *containerReference) tryReadUID() common.Executor {
+	return cr.tryReadID("-u", func(id int) { cr.Uid = id })
 }
 
-func (cr *containerReference) tryReadGid() common.Executor {
-	return cr.tryReadId("-g", func(id int) { cr.Gid = id })
+func (cr *containerReference) tryReadGID() common.Executor {
+	return cr.tryReadID("-g", func(id int) { cr.Gid = id })
 }
 
 func (cr *containerReference) waitForCommand(ctx context.Context, isTerminal bool, resp types.HijackedResponse, idResp types.IDResponse, user string, workdir string) error {
@@ -720,9 +720,9 @@ func (cr *containerReference) copyDir(dstPath string, srcPath string, useGitIgno
 			SrcPrefix: srcPrefix,
 			Handler: &tarCollector{
 				TarWriter: tw,
-				Uid:       cr.Uid,
-				Gid:       cr.Gid,
-				DestDir:   dstPath[1:],
+				UID:       cr.Uid,
+				GID:       cr.Gid,
+				DstDir:    dstPath[1:],
 			},
 		}
 
