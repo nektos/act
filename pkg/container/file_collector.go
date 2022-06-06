@@ -24,9 +24,12 @@ type fileCollectorHandler interface {
 
 type tarCollector struct {
 	TarWriter *tar.Writer
+	Uid       int
+	Gid       int
+	DestDir   string
 }
 
-func (tc tarCollector) WriteFile(path string, fi fs.FileInfo, linkName string, f io.Reader) error {
+func (tc tarCollector) WriteFile(fpath string, fi fs.FileInfo, linkName string, f io.Reader) error {
 	// create a new dir/file header
 	header, err := tar.FileInfoHeader(fi, linkName)
 	if err != nil {
@@ -34,9 +37,11 @@ func (tc tarCollector) WriteFile(path string, fi fs.FileInfo, linkName string, f
 	}
 
 	// update the name to correctly reflect the desired destination when untaring
-	header.Name = path
+	header.Name = path.Join(tc.DestDir, fpath)
 	header.Mode = int64(fi.Mode())
 	header.ModTime = fi.ModTime()
+	header.Uid = tc.Uid
+	header.Gid = tc.Gid
 
 	// write the header
 	if err := tc.TarWriter.WriteHeader(header); err != nil {
@@ -139,7 +144,7 @@ func (fc *fileCollector) collectFiles(ctx context.Context, submodulePath []strin
 			}
 		}
 		if err == nil && entry.Mode == filemode.Submodule {
-			err = filepath.Walk(fi.Name(), fc.collectFiles(ctx, split))
+			err = fc.Fs.Walk(fi.Name(), fc.collectFiles(ctx, split))
 			if err != nil {
 				return err
 			}
