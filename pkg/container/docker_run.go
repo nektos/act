@@ -132,7 +132,7 @@ func (cr *containerReference) Start(attach bool) common.Executor {
 				cr.tryReadGID(),
 				func(ctx context.Context) error {
 					// If this fails, then folders have wrong permissions on non root container
-					_ = cr.Exec([]string{"chown", "-R", fmt.Sprint(cr.Uid) + ":" + fmt.Sprint(cr.Gid), cr.input.WorkingDir}, nil, "0", "")(ctx)
+					_ = cr.Exec([]string{"chown", "-R", fmt.Sprint(cr.UID) + ":" + fmt.Sprint(cr.GID), cr.input.WorkingDir}, nil, "0", "")(ctx)
 					return nil
 				},
 			).IfNot(common.Dryrun),
@@ -167,7 +167,7 @@ func (cr *containerReference) CopyDir(destPath string, srcPath string, useGitIgn
 		cr.copyDir(destPath, srcPath, useGitIgnore),
 		func(ctx context.Context) error {
 			// If this fails, then folders have wrong permissions on non root container
-			_ = cr.Exec([]string{"chown", "-R", fmt.Sprint(cr.Uid) + ":" + fmt.Sprint(cr.Gid), destPath}, nil, "0", "")(ctx)
+			_ = cr.Exec([]string{"chown", "-R", fmt.Sprint(cr.UID) + ":" + fmt.Sprint(cr.GID), destPath}, nil, "0", "")(ctx)
 			return nil
 		},
 	).IfNot(common.Dryrun)
@@ -225,8 +225,8 @@ type containerReference struct {
 	cli   client.APIClient
 	id    string
 	input *NewContainerInput
-	Uid   int
-	Gid   int
+	UID   int
+	GID   int
 }
 
 func GetDockerClient(ctx context.Context) (cli client.APIClient, err error) {
@@ -624,11 +624,11 @@ func (cr *containerReference) tryReadID(opt string, cbk func(id int)) common.Exe
 }
 
 func (cr *containerReference) tryReadUID() common.Executor {
-	return cr.tryReadID("-u", func(id int) { cr.Uid = id })
+	return cr.tryReadID("-u", func(id int) { cr.UID = id })
 }
 
 func (cr *containerReference) tryReadGID() common.Executor {
-	return cr.tryReadID("-g", func(id int) { cr.Gid = id })
+	return cr.tryReadID("-g", func(id int) { cr.GID = id })
 }
 
 func (cr *containerReference) waitForCommand(ctx context.Context, isTerminal bool, resp types.HijackedResponse, idResp types.IDResponse, user string, workdir string) error {
@@ -720,8 +720,8 @@ func (cr *containerReference) copyDir(dstPath string, srcPath string, useGitIgno
 			SrcPrefix: srcPrefix,
 			Handler: &tarCollector{
 				TarWriter: tw,
-				UID:       cr.Uid,
-				GID:       cr.Gid,
+				UID:       cr.UID,
+				GID:       cr.GID,
 				DstDir:    dstPath[1:],
 			},
 		}
@@ -758,8 +758,8 @@ func (cr *containerReference) copyContent(dstPath string, files ...*FileEntry) c
 				Name: file.Name,
 				Mode: file.Mode,
 				Size: int64(len(file.Body)),
-				Uid:  cr.Uid,
-				Gid:  cr.Gid,
+				Uid:  cr.UID,
+				Gid:  cr.GID,
 			}
 			if err := tw.WriteHeader(hdr); err != nil {
 				return err
