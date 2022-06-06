@@ -130,6 +130,11 @@ func (cr *containerReference) Start(attach bool) common.Executor {
 				cr.wait().IfBool(attach),
 				cr.tryReadUid(),
 				cr.tryReadGid(),
+				func(ctx context.Context) error {
+					// If this fails, then folders have wrong permissions on non root container
+					_ = cr.Exec([]string{"chown", "-R", fmt.Sprint(cr.Uid) + ":" + fmt.Sprint(cr.Gid), cr.input.WorkingDir}, nil, "0", "")(ctx)
+					return nil
+				},
 			).IfNot(common.Dryrun),
 		)
 }
