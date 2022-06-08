@@ -106,16 +106,16 @@ func (sar *stepActionRemote) main() common.Executor {
 	return common.NewPipelineExecutor(
 		sar.prepareActionExecutor(),
 		runStepExecutor(sar, stepStageMain, func(ctx context.Context) error {
-      github := sar.RunContext.getGithubContext()
-      if sar.remoteAction.IsCheckout() && isLocalCheckout(github, sar.Step) && !sar.RunContext.Config.NoSkipCheckout {
-        if sar.RunContext.Config.BindWorkdir {
-          common.Logger(ctx).Debugf("Skipping local actions/checkout because you bound your workspace")
-          return nil
-        }
-        eval := sar.RunContext.NewExpressionEvaluator()
-        copyToPath := filepath.Join(sar.RunContext.Config.ContainerWorkdir(), eval.Interpolate(sar.Step.With["path"]))
-        return sar.RunContext.JobContainer.CopyDir(copyToPath, sar.RunContext.Config.Workdir+string(filepath.Separator)+".", sar.RunContext.Config.UseGitIgnore)(ctx)
-      }
+			github := sar.RunContext.getGithubContext()
+			if sar.remoteAction.IsCheckout() && isLocalCheckout(github, sar.Step) && !sar.RunContext.Config.NoSkipCheckout {
+				if sar.RunContext.Config.BindWorkdir {
+					common.Logger(ctx).Debugf("Skipping local actions/checkout because you bound your workspace")
+					return nil
+				}
+				eval := sar.RunContext.NewExpressionEvaluator()
+				copyToPath := filepath.Join(sar.RunContext.Config.ContainerWorkdir(), eval.Interpolate(sar.Step.With["path"]))
+				return sar.RunContext.JobContainer.CopyDir(copyToPath, sar.RunContext.Config.Workdir+string(filepath.Separator)+".", sar.RunContext.Config.UseGitIgnore)(ctx)
+			}
 			actionDir := fmt.Sprintf("%s/%s", sar.RunContext.ActionCacheDir(), strings.ReplaceAll(sar.Step.Uses, "/", "-"))
 
 			return common.NewPipelineExecutor(
