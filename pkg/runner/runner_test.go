@@ -147,6 +147,7 @@ func TestRunEvent(t *testing.T) {
 		{workdir, "evalmatrixneeds2", "push", "", platforms},
 		{workdir, "evalmatrix-merge-map", "push", "", platforms},
 		{workdir, "evalmatrix-merge-array", "push", "", platforms},
+		{workdir, "issue-1195", "push", "", platforms},
 
 		{workdir, "basic", "push", "", platforms},
 		{workdir, "fail", "push", "exit with `FAILURE`: 1", platforms},

@@ -14,6 +14,7 @@ import (
 
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/container"
+	"github.com/nektos/act/pkg/exprparser"
 	"github.com/nektos/act/pkg/model"
 )
 
@@ -158,6 +159,14 @@ func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 					rc.JobName = rc.Name
 					if len(matrixes) > 1 {
 						rc.Name = fmt.Sprintf("%s-%d", rc.Name, i+1)
+					}
+					// evaluate environment variables since they can contain
+					// GitHub's special environment variables.
+					for k, v := range rc.GetEnv() {
+						valueEval, err := rc.ExprEval.evaluate(v, exprparser.DefaultStatusCheckNone)
+						if err == nil {
+							rc.Env[k] = fmt.Sprintf("%v", valueEval)
+						}
 					}
 					if len(rc.String()) > maxJobNameLen {
 						maxJobNameLen = len(rc.String())
