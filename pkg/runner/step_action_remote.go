@@ -116,6 +116,7 @@ func (sar *stepActionRemote) main() common.Executor {
 				copyToPath := filepath.Join(sar.RunContext.Config.ContainerWorkdir(), eval.Interpolate(sar.Step.With["path"]))
 				return sar.RunContext.JobContainer.CopyDir(copyToPath, sar.RunContext.Config.Workdir+string(filepath.Separator)+".", sar.RunContext.Config.UseGitIgnore)(ctx)
 			}
+
 			actionDir := fmt.Sprintf("%s/%s", sar.RunContext.ActionCacheDir(), strings.ReplaceAll(sar.Step.Uses, "/", "-"))
 
 			return common.NewPipelineExecutor(
