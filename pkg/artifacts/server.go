@@ -67,6 +67,7 @@ func (fsys MkdirFsImpl) Open(name string) (fs.File, error) {
 
 var gzipExtension = ".gz__"
 
+// nolint:gocyclo
 func uploads(router *httprouter.Router, fsys MkdirFS) {
 	router.POST("/_apis/pipelines/workflows/:runId/artifacts", func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
 		runID := params.ByName("runId")
@@ -114,11 +115,25 @@ func uploads(router *httprouter.Router, fsys MkdirFS) {
 			panic(errors.New("No body given"))
 		}
 
-		_, err = io.Copy(writer, req.Body)
+		reader, err := req.MultipartReader()
 		if err != nil {
-			panic(err)
-		}
+			_, err = io.Copy(writer, req.Body)
+			if err != nil {
+				panic(err)
+			}
+		} else {
+			for {
+				part, err := reader.NextPart()
+				if err == io.EOF {
+					break
+				}
 
+				_, err = io.Copy(writer, part)
+				if err != nil {
+					panic(err)
+				}
+			}
+		}
 		json, err := json.Marshal(ResponseMessage{
 			Message: "success",
 		})
