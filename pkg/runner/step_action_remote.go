@@ -35,11 +35,14 @@ var (
 	stepActionRemoteNewCloneExecutor = git.NewGitCloneExecutor
 )
 
-func (sar *stepActionRemote) pre() common.Executor {
-	sar.env = map[string]string{}
-
+func (sar *stepActionRemote) prepareActionExecutor() common.Executor {
 	return common.NewPipelineExecutor(
 		func(ctx context.Context) error {
+			if sar.remoteAction != nil && sar.action != nil {
+				// we are already good to run
+				return nil
+			}
+
 			sar.remoteAction = newRemoteAction(sar.Step.Uses)
 			if sar.remoteAction == nil {
 				return fmt.Errorf("Expected format {org}/{repo}[/path]@ref. Actual '%s' Input string was not in a correct format", sar.Step.Uses)
@@ -91,24 +94,34 @@ func (sar *stepActionRemote) pre() common.Executor {
 		func(ctx context.Context) error {
 			sar.RunContext.setupActionInputs(sar)
 			return nil
-		},
+		})
+}
+
+func (sar *stepActionRemote) pre() common.Executor {
+	sar.env = map[string]string{}
+
+	return common.NewPipelineExecutor(
+		sar.prepareActionExecutor(),
 		runStepExecutor(sar, stepStagePre, runPreStep(sar)).If(hasPreStep(sar)).If(shouldRunPreStep(sar)))
 }
 
 func (sar *stepActionRemote) main() common.Executor {
-	return runStepExecutor(sar, stepStageMain, func(ctx context.Context) error {
-		github := sar.RunContext.getGithubContext()
-		if sar.remoteAction.IsCheckout() && isLocalCheckout(github, sar.Step) && !sar.RunContext.Config.NoSkipCheckout {
-			common.Logger(ctx).Debugf("Skipping local actions/checkout because workdir was already copied")
-			return nil
-		}
+	return common.NewPipelineExecutor(
+		sar.prepareActionExecutor(),
+		runStepExecutor(sar, stepStageMain, func(ctx context.Context) error {
+			github := sar.RunContext.getGithubContext()
+			if sar.remoteAction.IsCheckout() && isLocalCheckout(github, sar.Step) && !sar.RunContext.Config.NoSkipCheckout {
+				common.Logger(ctx).Debugf("Skipping local actions/checkout because workdir was already copied")
+				return nil
+			}
 
-		actionDir := fmt.Sprintf("%s/%s", sar.RunContext.ActionCacheDir(), strings.ReplaceAll(sar.Step.Uses, "/", "-"))
+			actionDir := fmt.Sprintf("%s/%s", sar.RunContext.ActionCacheDir(), strings.ReplaceAll(sar.Step.Uses, "/", "-"))
 
-		return common.NewPipelineExecutor(
-			sar.runAction(sar, actionDir, sar.remoteAction),
-		)(ctx)
-	})
+			return common.NewPipelineExecutor(
+				sar.runAction(sar, actionDir, sar.remoteAction),
+			)(ctx)
+		}),
+	)
 }
 
 func (sar *stepActionRemote) post() common.Executor {

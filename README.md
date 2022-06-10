@@ -211,6 +211,10 @@ act -s GITHUB_TOKEN=[insert token or leave blank for secure input]
 
 # Known Issues
 
+## Services
+
+Services are not currently supported but are being worked on. See: https://github.com/nektos/act/issues/173
+
 ## `MODULE_NOT_FOUND`
 
 A `MODULE_NOT_FOUND` during `docker cp` command [#228](https://github.com/nektos/act/issues/228) can happen if you are relying on local changes that have not been pushed. This can get triggered if the action is using a path, like:

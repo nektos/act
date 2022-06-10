@@ -11,6 +11,7 @@ body:
     id: act-debug
     attributes:
       label: Bug report info
+      render: plain text
       description: |
         Output of `act --bug-report`
       placeholder: |
