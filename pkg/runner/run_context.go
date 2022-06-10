@@ -11,14 +11,13 @@ import (
 	"strings"
 
 	"github.com/kballard/go-shellquote"
+	"github.com/mitchellh/go-homedir"
+	"github.com/opencontainers/selinux/go-selinux"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
-	"github.com/mitchellh/go-homedir"
-	log "github.com/sirupsen/logrus"
-
-	selinux "github.com/opencontainers/selinux/go-selinux"
-
 	"github.com/nektos/act/pkg/common"
+	"github.com/nektos/act/pkg/common/git"
 	"github.com/nektos/act/pkg/container"
 	"github.com/nektos/act/pkg/exprparser"
 	"github.com/nektos/act/pkg/model"
@@ -476,7 +475,7 @@ func (rc *RunContext) getGithubContext() *model.GithubContext {
 	}
 
 	repoPath := rc.Config.Workdir
-	repo, err := common.FindGithubRepo(repoPath, rc.Config.GitHubInstance, rc.Config.RemoteName)
+	repo, err := git.FindGithubRepo(repoPath, rc.Config.GitHubInstance, rc.Config.RemoteName)
 	if err != nil {
 		log.Warningf("unable to get git repo: %v", err)
 	} else {

@@ -1,7 +1,8 @@
-package common
+package git
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -12,13 +13,14 @@ import (
 	"strings"
 	"sync"
 
-	git "github.com/go-git/go-git/v5"
+	"github.com/nektos/act/pkg/common"
+
+	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-ini/ini"
 	"github.com/mattn/go-isatty"
-	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -29,7 +31,27 @@ var (
 	githubSSHRegex      = regexp.MustCompile(`github.com[:/](.+)/(.+?)(?:.git)?$`)
 
 	cloneLock sync.Mutex
+
+	ErrShortRef = errors.New("short SHA references are not supported")
+	ErrNoRepo   = errors.New("unable to find git repo")
 )
+
+type Error struct {
+	err    error
+	commit string
+}
+
+func (e *Error) Error() string {
+	return e.err.Error()
+}
+
+func (e *Error) Unwrap() error {
+	return e.err
+}
+
+func (e *Error) Commit() string {
+	return e.commit
+}
 
 // FindGitRevision get the current git revision
 func FindGitRevision(file string) (shortSha string, sha string, err error) {
@@ -222,7 +244,7 @@ func findGitDirectory(fromFile string) (string, error) {
 	if err == nil && fi.Mode().IsDir() {
 		return gitPath, nil
 	} else if dir == "/" || dir == "C:\\" || dir == "c:\\" {
-		return "", errors.New("unable to find git repo")
+		return "", &Error{err: ErrNoRepo}
 	}
 
 	return findGitDirectory(filepath.Dir(dir))
@@ -277,11 +299,27 @@ func CloneIfRequired(ctx context.Context, refName plumbing.ReferenceName, input 
 	return r, nil
 }
 
+func gitOptions(token string) (fetchOptions git.FetchOptions, pullOptions git.PullOptions) {
+	fetchOptions.RefSpecs = []config.RefSpec{"refs/*:refs/*", "HEAD:refs/heads/HEAD"}
+	pullOptions.Force = true
+
+	if token != "" {
+		auth := &http.BasicAuth{
+			Username: "token",
+			Password: token,
+		}
+		fetchOptions.Auth = auth
+		pullOptions.Auth = auth
+	}
+
+	return fetchOptions, pullOptions
+}
+
 // NewGitCloneExecutor creates an executor to clone git repos
 // nolint:gocyclo
-func NewGitCloneExecutor(input NewGitCloneExecutorInput) Executor {
+func NewGitCloneExecutor(input NewGitCloneExecutorInput) common.Executor {
 	return func(ctx context.Context) error {
-		logger := Logger(ctx)
+		logger := common.Logger(ctx)
 		logger.Infof("  \u2601  git clone '%s' # ref=%s", input.URL, input.Ref)
 		logger.Debugf("  cloning %s to %s", input.URL, input.Dir)
 
@@ -295,15 +333,7 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) Executor {
 		}
 
 		// fetch latest changes
-		fetchOptions := git.FetchOptions{
-			RefSpecs: []config.RefSpec{"refs/*:refs/*", "HEAD:refs/heads/HEAD"},
-		}
-		if input.Token != "" {
-			fetchOptions.Auth = &http.BasicAuth{
-				Username: "token",
-				Password: input.Token,
-			}
-		}
+		fetchOptions, pullOptions := gitOptions(input.Token)
 
 		err = r.Fetch(&fetchOptions)
 		if err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
@@ -317,7 +347,10 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) Executor {
 		}
 
 		if hash.String() != input.Ref && strings.HasPrefix(hash.String(), input.Ref) {
-			return errors.Wrap(errors.New(hash.String()), "short SHA references are not supported")
+			return &Error{
+				err:    ErrShortRef,
+				commit: hash.String(),
+			}
 		}
 
 		// At this point we need to know if it's a tag or a branch
@@ -365,17 +398,7 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) Executor {
 			}
 		}
 
-		pullOptions := git.PullOptions{
-			Force: true,
-		}
-		if input.Token != "" {
-			pullOptions.Auth = &http.BasicAuth{
-				Username: "token",
-				Password: input.Token,
-			}
-		}
-
-		if err = w.Pull(&pullOptions); err != nil && err.Error() != "already up-to-date" {
+		if err = w.Pull(&pullOptions); err != nil && err != git.NoErrAlreadyUpToDate {
 			logger.Debugf("Unable to pull %s: %v", refName, err)
 		}
 		logger.Debugf("Cloned %s to %s", input.URL, input.Dir)

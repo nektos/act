@@ -2,6 +2,7 @@ package runner
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -12,8 +13,10 @@ import (
 	"strings"
 
 	"github.com/nektos/act/pkg/common"
+	"github.com/nektos/act/pkg/common/git"
 	"github.com/nektos/act/pkg/model"
-	"github.com/pkg/errors"
+
+	gogit "github.com/go-git/go-git/v5"
 )
 
 type stepActionRemote struct {
@@ -29,7 +32,7 @@ type stepActionRemote struct {
 }
 
 var (
-	stepActionRemoteNewCloneExecutor = common.NewGitCloneExecutor
+	stepActionRemoteNewCloneExecutor = git.NewGitCloneExecutor
 )
 
 func (sar *stepActionRemote) prepareActionExecutor() common.Executor {
@@ -54,7 +57,7 @@ func (sar *stepActionRemote) prepareActionExecutor() common.Executor {
 			}
 
 			actionDir := fmt.Sprintf("%s/%s", sar.RunContext.ActionCacheDir(), strings.ReplaceAll(sar.Step.Uses, "/", "-"))
-			gitClone := stepActionRemoteNewCloneExecutor(common.NewGitCloneExecutorInput{
+			gitClone := stepActionRemoteNewCloneExecutor(git.NewGitCloneExecutorInput{
 				URL:   sar.remoteAction.CloneURL(),
 				Ref:   sar.remoteAction.Ref,
 				Dir:   actionDir,
@@ -62,13 +65,13 @@ func (sar *stepActionRemote) prepareActionExecutor() common.Executor {
 			})
 			var ntErr common.Executor
 			if err := gitClone(ctx); err != nil {
-				if err.Error() == "short SHA references are not supported" {
-					err = errors.Cause(err)
-					return fmt.Errorf("Unable to resolve action `%s`, the provided ref `%s` is the shortened version of a commit SHA, which is not supported. Please use the full commit SHA `%s` instead", sar.Step.Uses, sar.remoteAction.Ref, err.Error())
-				} else if err.Error() != "some refs were not updated" {
-					return err
-				} else {
+				if errors.Is(err, git.ErrShortRef) {
+					return fmt.Errorf("Unable to resolve action `%s`, the provided ref `%s` is the shortened version of a commit SHA, which is not supported. Please use the full commit SHA `%s` instead",
+						sar.Step.Uses, sar.remoteAction.Ref, err.(*git.Error).Commit())
+				} else if errors.Is(err, gogit.ErrForceNeeded) { // TODO: figure out if it will be easy to shadow/alias go-git err's
 					ntErr = common.NewInfoExecutor("Non-terminating error while running 'git clone': %v", err)
+				} else {
+					return err
 				}
 			}
 
