@@ -63,7 +63,7 @@ func (fsys MkdirFsImpl) MkdirAll(path string, perm fs.FileMode) error {
 }
 
 func (fsys MkdirFsImpl) Open(name string) (fs.File, error) {
-	return os.OpenFile(fsys.dir+"/"+name, os.O_CREATE|os.O_RDWR, 0644)
+	return os.OpenFile(fsys.dir+"/"+name, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0644)
 }
 
 func (fsys MkdirFsImpl) OpenAtEnd(name string) (fs.File, error) {
@@ -117,7 +117,7 @@ func uploads(router *httprouter.Router, fsys MkdirFS) {
 
 		file, err := func() (fs.File, error) {
 			contentRange := req.Header.Get("Content-Range")
-			if contentRange != "" {
+			if contentRange != "" && !strings.HasPrefix(contentRange, "bytes 0-") {
 				return fsys.OpenAtEnd(filePath)
 			}
 			return fsys.Open(filePath)
