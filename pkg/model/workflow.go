@@ -244,11 +244,16 @@ func (j *Job) GetMatrixes() []map[string]interface{} {
 					}
 				case interface{}:
 					v := v.(map[string]interface{})
+					extraInclude := true
 					for k := range v {
 						if _, ok := m[k]; ok {
 							includes = append(includes, v)
+							extraInclude = false
 							break
 						}
+					}
+					if extraInclude {
+						extraIncludes = append(extraIncludes, v)
 					}
 				}
 			}
