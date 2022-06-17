@@ -14,7 +14,6 @@ import (
 
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/container"
-	"github.com/nektos/act/pkg/exprparser"
 	"github.com/nektos/act/pkg/model"
 )
 
@@ -163,10 +162,7 @@ func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 					// evaluate environment variables since they can contain
 					// GitHub's special environment variables.
 					for k, v := range rc.GetEnv() {
-						valueEval, err := rc.ExprEval.evaluate(ctx, v, exprparser.DefaultStatusCheckNone)
-						if err == nil {
-							rc.Env[k] = fmt.Sprintf("%v", valueEval)
-						}
+						rc.Env[k] = rc.ExprEval.Interpolate(ctx, v)
 					}
 					if len(rc.String()) > maxJobNameLen {
 						maxJobNameLen = len(rc.String())
