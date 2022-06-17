@@ -1,24 +1,25 @@
 package runner
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 	"strings"
 
+	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/exprparser"
-	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 )
 
 // ExpressionEvaluator is the interface for evaluating expressions
 type ExpressionEvaluator interface {
-	evaluate(string, exprparser.DefaultStatusCheck) (interface{}, error)
-	EvaluateYamlNode(node *yaml.Node) error
-	Interpolate(string) string
+	evaluate(context.Context, string, exprparser.DefaultStatusCheck) (interface{}, error)
+	EvaluateYamlNode(context.Context, *yaml.Node) error
+	Interpolate(context.Context, string) string
 }
 
 // NewExpressionEvaluator creates a new evaluator
-func (rc *RunContext) NewExpressionEvaluator() ExpressionEvaluator {
+func (rc *RunContext) NewExpressionEvaluator(ctx context.Context) ExpressionEvaluator {
 	// todo: cleanup EvaluationEnvironment creation
 	job := rc.Run.Job()
 	strategy := make(map[string]interface{})
@@ -38,7 +39,7 @@ func (rc *RunContext) NewExpressionEvaluator() ExpressionEvaluator {
 	}
 
 	ee := &exprparser.EvaluationEnvironment{
-		Github: rc.getGithubContext(),
+		Github: rc.getGithubContext(ctx),
 		Env:    rc.GetEnv(),
 		Job:    rc.getJobContext(),
 		// todo: should be unavailable
@@ -65,7 +66,7 @@ func (rc *RunContext) NewExpressionEvaluator() ExpressionEvaluator {
 }
 
 // NewExpressionEvaluator creates a new evaluator
-func (rc *RunContext) NewStepExpressionEvaluator(step step) ExpressionEvaluator {
+func (rc *RunContext) NewStepExpressionEvaluator(ctx context.Context, step step) ExpressionEvaluator {
 	// todo: cleanup EvaluationEnvironment creation
 	job := rc.Run.Job()
 	strategy := make(map[string]interface{})
@@ -85,7 +86,7 @@ func (rc *RunContext) NewStepExpressionEvaluator(step step) ExpressionEvaluator 
 	}
 
 	ee := &exprparser.EvaluationEnvironment{
-		Github: rc.getGithubContext(),
+		Github: rc.getGithubContext(ctx),
 		Env:    *step.getEnv(),
 		Job:    rc.getJobContext(),
 		Steps:  rc.getStepsContext(),
@@ -115,14 +116,18 @@ type expressionEvaluator struct {
 	interpreter exprparser.Interpreter
 }
 
-func (ee expressionEvaluator) evaluate(in string, defaultStatusCheck exprparser.DefaultStatusCheck) (interface{}, error) {
-	log.Debugf("evaluating expression '%s'", in)
+func (ee expressionEvaluator) evaluate(ctx context.Context, in string, defaultStatusCheck exprparser.DefaultStatusCheck) (interface{}, error) {
+	logger := common.Logger(ctx)
+	logger.Debugf("evaluating expression '%s'", in)
 	evaluated, err := ee.interpreter.Evaluate(in, defaultStatusCheck)
-	log.Debugf("expression '%s' evaluated to '%t'", in, evaluated)
+
+	printable := regexp.MustCompile(`::add-mask::.*`).ReplaceAllString(fmt.Sprintf("%t", evaluated), "::add-mask::***)")
+	logger.Debugf("expression '%s' evaluated to '%s'", in, printable)
+
 	return evaluated, err
 }
 
-func (ee expressionEvaluator) evaluateScalarYamlNode(node *yaml.Node) error {
+func (ee expressionEvaluator) evaluateScalarYamlNode(ctx context.Context, node *yaml.Node) error {
 	var in string
 	if err := node.Decode(&in); err != nil {
 		return err
@@ -130,21 +135,21 @@ func (ee expressionEvaluator) evaluateScalarYamlNode(node *yaml.Node) error {
 	if !strings.Contains(in, "${{") || !strings.Contains(in, "}}") {
 		return nil
 	}
-	expr, _ := rewriteSubExpression(in, false)
-	res, err := ee.evaluate(expr, exprparser.DefaultStatusCheckNone)
+	expr, _ := rewriteSubExpression(ctx, in, false)
+	res, err := ee.evaluate(ctx, expr, exprparser.DefaultStatusCheckNone)
 	if err != nil {
 		return err
 	}
 	return node.Encode(res)
 }
 
-func (ee expressionEvaluator) evaluateMappingYamlNode(node *yaml.Node) error {
+func (ee expressionEvaluator) evaluateMappingYamlNode(ctx context.Context, node *yaml.Node) error {
 	// GitHub has this undocumented feature to merge maps, called insert directive
 	insertDirective := regexp.MustCompile(`\${{\s*insert\s*}}`)
 	for i := 0; i < len(node.Content)/2; {
 		k := node.Content[i*2]
 		v := node.Content[i*2+1]
-		if err := ee.EvaluateYamlNode(v); err != nil {
+		if err := ee.EvaluateYamlNode(ctx, v); err != nil {
 			return err
 		}
 		var sk string
@@ -153,7 +158,7 @@ func (ee expressionEvaluator) evaluateMappingYamlNode(node *yaml.Node) error {
 			node.Content = append(append(node.Content[:i*2], v.Content...), node.Content[(i+1)*2:]...)
 			i += len(v.Content) / 2
 		} else {
-			if err := ee.EvaluateYamlNode(k); err != nil {
+			if err := ee.EvaluateYamlNode(ctx, k); err != nil {
 				return err
 			}
 			i++
@@ -162,12 +167,12 @@ func (ee expressionEvaluator) evaluateMappingYamlNode(node *yaml.Node) error {
 	return nil
 }
 
-func (ee expressionEvaluator) evaluateSequenceYamlNode(node *yaml.Node) error {
+func (ee expressionEvaluator) evaluateSequenceYamlNode(ctx context.Context, node *yaml.Node) error {
 	for i := 0; i < len(node.Content); {
 		v := node.Content[i]
 		// Preserve nested sequences
 		wasseq := v.Kind == yaml.SequenceNode
-		if err := ee.EvaluateYamlNode(v); err != nil {
+		if err := ee.EvaluateYamlNode(ctx, v); err != nil {
 			return err
 		}
 		// GitHub has this undocumented feature to merge sequences / arrays
@@ -182,28 +187,28 @@ func (ee expressionEvaluator) evaluateSequenceYamlNode(node *yaml.Node) error {
 	return nil
 }
 
-func (ee expressionEvaluator) EvaluateYamlNode(node *yaml.Node) error {
+func (ee expressionEvaluator) EvaluateYamlNode(ctx context.Context, node *yaml.Node) error {
 	switch node.Kind {
 	case yaml.ScalarNode:
-		return ee.evaluateScalarYamlNode(node)
+		return ee.evaluateScalarYamlNode(ctx, node)
 	case yaml.MappingNode:
-		return ee.evaluateMappingYamlNode(node)
+		return ee.evaluateMappingYamlNode(ctx, node)
 	case yaml.SequenceNode:
-		return ee.evaluateSequenceYamlNode(node)
+		return ee.evaluateSequenceYamlNode(ctx, node)
 	default:
 		return nil
 	}
 }
 
-func (ee expressionEvaluator) Interpolate(in string) string {
+func (ee expressionEvaluator) Interpolate(ctx context.Context, in string) string {
 	if !strings.Contains(in, "${{") || !strings.Contains(in, "}}") {
 		return in
 	}
 
-	expr, _ := rewriteSubExpression(in, true)
-	evaluated, err := ee.evaluate(expr, exprparser.DefaultStatusCheckNone)
+	expr, _ := rewriteSubExpression(ctx, in, true)
+	evaluated, err := ee.evaluate(ctx, expr, exprparser.DefaultStatusCheckNone)
 	if err != nil {
-		log.Errorf("Unable to interpolate expression '%s': %s", expr, err)
+		common.Logger(ctx).Errorf("Unable to interpolate expression '%s': %s", expr, err)
 		return ""
 	}
 
@@ -216,10 +221,10 @@ func (ee expressionEvaluator) Interpolate(in string) string {
 }
 
 // EvalBool evaluates an expression against given evaluator
-func EvalBool(evaluator ExpressionEvaluator, expr string, defaultStatusCheck exprparser.DefaultStatusCheck) (bool, error) {
-	nextExpr, _ := rewriteSubExpression(expr, false)
+func EvalBool(ctx context.Context, evaluator ExpressionEvaluator, expr string, defaultStatusCheck exprparser.DefaultStatusCheck) (bool, error) {
+	nextExpr, _ := rewriteSubExpression(ctx, expr, false)
 
-	evaluated, err := evaluator.evaluate(nextExpr, defaultStatusCheck)
+	evaluated, err := evaluator.evaluate(ctx, nextExpr, defaultStatusCheck)
 	if err != nil {
 		return false, err
 	}
@@ -232,7 +237,7 @@ func escapeFormatString(in string) string {
 }
 
 //nolint:gocyclo
-func rewriteSubExpression(in string, forceFormat bool) (string, error) {
+func rewriteSubExpression(ctx context.Context, in string, forceFormat bool) (string, error) {
 	if !strings.Contains(in, "${{") || !strings.Contains(in, "}}") {
 		return in, nil
 	}
@@ -293,7 +298,7 @@ func rewriteSubExpression(in string, forceFormat bool) (string, error) {
 
 	out := fmt.Sprintf("format('%s', %s)", strings.ReplaceAll(formatOut, "'", "''"), strings.Join(results, ", "))
 	if in != out {
-		log.Debugf("expression '%s' rewritten to '%s'", in, out)
+		common.Logger(ctx).Debugf("expression '%s' rewritten to '%s'", in, out)
 	}
 	return out, nil
 }

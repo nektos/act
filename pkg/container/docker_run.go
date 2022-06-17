@@ -28,7 +28,6 @@ import (
 	specs "github.com/opencontainers/image-spec/specs-go/v1"
 
 	"github.com/Masterminds/semver"
-	log "github.com/sirupsen/logrus"
 	"golang.org/x/term"
 
 	"github.com/nektos/act/pkg/common"
@@ -634,7 +633,7 @@ func (cr *containerReference) copyDir(dstPath string, srcPath string, useGitIgno
 		if err != nil {
 			return err
 		}
-		log.Debugf("Writing tarball %s from %s", tarFile.Name(), srcPath)
+		logger.Debugf("Writing tarball %s from %s", tarFile.Name(), srcPath)
 		defer func(tarFile *os.File) {
 			name := tarFile.Name()
 			err := tarFile.Close()
@@ -652,13 +651,13 @@ func (cr *containerReference) copyDir(dstPath string, srcPath string, useGitIgno
 		if !strings.HasSuffix(srcPrefix, string(filepath.Separator)) {
 			srcPrefix += string(filepath.Separator)
 		}
-		log.Debugf("Stripping prefix:%s src:%s", srcPrefix, srcPath)
+		logger.Debugf("Stripping prefix:%s src:%s", srcPrefix, srcPath)
 
 		var ignorer gitignore.Matcher
 		if useGitIgnore {
 			ps, err := gitignore.ReadPatterns(polyfill.New(osfs.New(srcPath)), nil)
 			if err != nil {
-				log.Debugf("Error loading .gitignore: %v", err)
+				logger.Debugf("Error loading .gitignore: %v", err)
 			}
 
 			ignorer = gitignore.NewMatcher(ps)
@@ -701,7 +700,7 @@ func (cr *containerReference) copyContent(dstPath string, files ...*FileEntry) c
 		var buf bytes.Buffer
 		tw := tar.NewWriter(&buf)
 		for _, file := range files {
-			log.Debugf("Writing entry to tarball %s len:%d", file.Name, len(file.Body))
+			logger.Debugf("Writing entry to tarball %s len:%d", file.Name, len(file.Body))
 			hdr := &tar.Header{
 				Name: file.Name,
 				Mode: file.Mode,

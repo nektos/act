@@ -82,6 +82,7 @@ func (rc *RunContext) setEnv(ctx context.Context, kvPairs map[string]string, arg
 	rc.Env[kvPairs["name"]] = arg
 }
 func (rc *RunContext) setOutput(ctx context.Context, kvPairs map[string]string, arg string) {
+	logger := common.Logger(ctx)
 	stepID := rc.CurrentStep
 	outputName := kvPairs["name"]
 	if outputMapping, ok := rc.OutputMappings[MappableOutput{StepID: stepID, OutputName: outputName}]; ok {
@@ -91,11 +92,11 @@ func (rc *RunContext) setOutput(ctx context.Context, kvPairs map[string]string, 
 
 	result, ok := rc.StepResults[stepID]
 	if !ok {
-		common.Logger(ctx).Infof("  \U00002757  no outputs used step '%s'", stepID)
+		logger.Infof("  \U00002757  no outputs used step '%s'", stepID)
 		return
 	}
 
-	common.Logger(ctx).Infof("  \U00002699  ::set-output:: %s=%s", outputName, arg)
+	logger.Infof("  \U00002699  ::set-output:: %s=%s", outputName, arg)
 	result.Outputs[outputName] = arg
 }
 func (rc *RunContext) addPath(ctx context.Context, arg string) {

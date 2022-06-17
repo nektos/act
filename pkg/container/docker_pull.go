@@ -8,7 +8,6 @@ import (
 
 	"github.com/docker/distribution/reference"
 	"github.com/docker/docker/api/types"
-	log "github.com/sirupsen/logrus"
 
 	"github.com/nektos/act/pkg/common"
 )
@@ -35,7 +34,7 @@ func NewDockerPullExecutor(input NewDockerPullExecutorInput) common.Executor {
 		pull := input.ForcePull
 		if !pull {
 			imageExists, err := ImageExistsLocally(ctx, input.Image, input.Platform)
-			log.Debugf("Image exists? %v", imageExists)
+			logger.Debugf("Image exists? %v", imageExists)
 			if err != nil {
 				return fmt.Errorf("unable to determine if image already exists for image '%s' (%s): %w", input.Image, input.Platform, err)
 			}
@@ -49,7 +48,7 @@ func NewDockerPullExecutor(input NewDockerPullExecutorInput) common.Executor {
 			return nil
 		}
 
-		imageRef := cleanImage(input.Image)
+		imageRef := cleanImage(ctx, input.Image)
 		logger.Debugf("pulling image '%v' (%s)", imageRef, input.Platform)
 
 		cli, err := GetDockerClient(ctx)
@@ -94,7 +93,7 @@ func getImagePullOptions(ctx context.Context, input NewDockerPullExecutorInput) 
 
 		imagePullOptions.RegistryAuth = base64.URLEncoding.EncodeToString(encodedJSON)
 	} else {
-		authConfig, err := LoadDockerAuthConfig(input.Image)
+		authConfig, err := LoadDockerAuthConfig(ctx, input.Image)
 		if err != nil {
 			return imagePullOptions, err
 		}
@@ -113,10 +112,10 @@ func getImagePullOptions(ctx context.Context, input NewDockerPullExecutorInput) 
 	return imagePullOptions, nil
 }
 
-func cleanImage(image string) string {
+func cleanImage(ctx context.Context, image string) string {
 	ref, err := reference.ParseAnyReference(image)
 	if err != nil {
-		log.Error(err)
+		common.Logger(ctx).Error(err)
 		return ""
 	}
 

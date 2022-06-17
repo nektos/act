@@ -21,7 +21,7 @@ func (salm *stepActionLocalMocks) runAction(step actionStep, actionDir string, r
 	return args.Get(0).(func(context.Context) error)
 }
 
-func (salm *stepActionLocalMocks) readAction(step *model.Step, actionDir string, actionPath string, readFile actionYamlReader, writeFile fileWriter) (*model.Action, error) {
+func (salm *stepActionLocalMocks) readAction(ctx context.Context, step *model.Step, actionDir string, actionPath string, readFile actionYamlReader, writeFile fileWriter) (*model.Action, error) {
 	args := salm.Called(step, actionDir, actionPath, readFile, writeFile)
 	return args.Get(0).(*model.Action), args.Error(1)
 }

@@ -55,7 +55,7 @@ func (sal *stepActionLocal) main() common.Executor {
 			}
 		}
 
-		actionModel, err := sal.readAction(sal.Step, actionDir, "", localReader(ctx), ioutil.WriteFile)
+		actionModel, err := sal.readAction(ctx, sal.Step, actionDir, "", localReader(ctx), ioutil.WriteFile)
 		if err != nil {
 			return err
 		}
@@ -82,7 +82,7 @@ func (sal *stepActionLocal) getEnv() *map[string]string {
 	return &sal.env
 }
 
-func (sal *stepActionLocal) getIfExpression(stage stepStage) string {
+func (sal *stepActionLocal) getIfExpression(context context.Context, stage stepStage) string {
 	switch stage {
 	case stepStageMain:
 		return sal.Step.If.Value
@@ -96,12 +96,12 @@ func (sal *stepActionLocal) getActionModel() *model.Action {
 	return sal.action
 }
 
-func (sal *stepActionLocal) getCompositeRunContext() *RunContext {
+func (sal *stepActionLocal) getCompositeRunContext(ctx context.Context) *RunContext {
 	if sal.compositeRunContext == nil {
 		actionDir := filepath.Join(sal.RunContext.Config.Workdir, sal.Step.Uses)
 		_, containerActionDir := getContainerActionPaths(sal.getStepModel(), actionDir, sal.RunContext)
 
-		sal.compositeRunContext = newCompositeRunContext(sal.RunContext, sal, containerActionDir)
+		sal.compositeRunContext = newCompositeRunContext(ctx, sal.RunContext, sal, containerActionDir)
 		sal.compositeSteps = sal.compositeRunContext.compositeExecutor(sal.action)
 	}
 	return sal.compositeRunContext
