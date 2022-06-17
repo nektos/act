@@ -115,8 +115,8 @@ func (sar *stepActionRemote) main() common.Executor {
 					common.Logger(ctx).Debugf("Skipping local actions/checkout because you bound your workspace")
 					return nil
 				}
-				eval := sar.RunContext.NewExpressionEvaluator()
-				copyToPath := filepath.Join(sar.RunContext.Config.ContainerWorkdir(), eval.Interpolate(sar.Step.With["path"]))
+				eval := sar.RunContext.NewExpressionEvaluator(ctx)
+				copyToPath := filepath.Join(sar.RunContext.Config.ContainerWorkdir(), eval.Interpolate(ctx, sar.Step.With["path"]))
 				return sar.RunContext.JobContainer.CopyDir(copyToPath, sar.RunContext.Config.Workdir+string(filepath.Separator)+".", sar.RunContext.Config.UseGitIgnore)(ctx)
 			}
 
