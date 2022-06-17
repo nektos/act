@@ -247,7 +247,7 @@ func TestReadWorkflow_Strategy(t *testing.T) {
 			{"datacenter": "site-c", "node-version": "14.x", "site": "staging"},
 			{"datacenter": "site-c", "node-version": "16.x", "site": "staging"},
 			{"datacenter": "site-d", "node-version": "16.x", "site": "staging"},
-                        {"php-version": 5.4},
+			{"php-version": 5.4},
 			{"datacenter": "site-a", "node-version": "10.x", "site": "prod"},
 			{"datacenter": "site-b", "node-version": "12.x", "site": "dev"},
 		},
