@@ -1,6 +1,7 @@
 package model
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -16,11 +17,11 @@ func TestSetRefAndSha(t *testing.T) {
 	defer func() { findGitRef = oldFindGitRef }()
 	defer func() { findGitRevision = oldFindGitRevision }()
 
-	findGitRef = func(file string) (string, error) {
+	findGitRef = func(ctx context.Context, file string) (string, error) {
 		return "refs/heads/master", nil
 	}
 
-	findGitRevision = func(file string) (string, string, error) {
+	findGitRevision = func(ctx context.Context, file string) (string, string, error) {
 		return "", "1234fakesha", nil
 	}
 
@@ -107,7 +108,7 @@ func TestSetRefAndSha(t *testing.T) {
 				Event:     table.event,
 			}
 
-			ghc.SetRefAndSha("main", "/some/dir")
+			ghc.SetRefAndSha(context.Background(), "main", "/some/dir")
 
 			assert.Equal(t, table.ref, ghc.Ref)
 			assert.Equal(t, table.sha, ghc.Sha)
@@ -115,7 +116,7 @@ func TestSetRefAndSha(t *testing.T) {
 	}
 
 	t.Run("no-default-branch", func(t *testing.T) {
-		findGitRef = func(file string) (string, error) {
+		findGitRef = func(ctx context.Context, file string) (string, error) {
 			return "", fmt.Errorf("no default branch")
 		}
 
@@ -124,7 +125,7 @@ func TestSetRefAndSha(t *testing.T) {
 			Event:     map[string]interface{}{},
 		}
 
-		ghc.SetRefAndSha("", "/some/dir")
+		ghc.SetRefAndSha(context.Background(), "", "/some/dir")
 
 		assert.Equal(t, "master", ghc.Ref)
 		assert.Equal(t, "1234fakesha", ghc.Sha)

@@ -53,7 +53,7 @@ func (sr *stepRun) getEnv() *map[string]string {
 	return &sr.env
 }
 
-func (sr *stepRun) getIfExpression(stage stepStage) string {
+func (sr *stepRun) getIfExpression(context context.Context, stage stepStage) string {
 	return sr.Step.If.Value
 }
 
@@ -86,12 +86,13 @@ func getScriptName(rc *RunContext, step *model.Step) string {
 // it will error anyway with:
 // OCI runtime exec failed: exec failed: container_linux.go:380: starting container process caused: exec: "${{": executable file not found in $PATH: unknown
 func (sr *stepRun) setupShellCommand(ctx context.Context) (name, script string, err error) {
-	sr.setupShell()
-	sr.setupWorkingDirectory()
+	logger := common.Logger(ctx)
+	sr.setupShell(ctx)
+	sr.setupWorkingDirectory(ctx)
 
 	step := sr.Step
 
-	script = sr.RunContext.NewStepExpressionEvaluator(sr).Interpolate(step.Run)
+	script = sr.RunContext.NewStepExpressionEvaluator(ctx, sr).Interpolate(ctx, step.Run)
 
 	scCmd := step.ShellCommand()
 
@@ -118,9 +119,9 @@ func (sr *stepRun) setupShellCommand(ctx context.Context) (name, script string, 
 	script = fmt.Sprintf("%s\n%s\n%s", runPrepend, script, runAppend)
 
 	if !strings.Contains(script, "::add-mask::") && !sr.RunContext.Config.InsecureSecrets {
-		common.Logger(ctx).Debugf("Wrote command \n%s\n to '%s'", script, name)
+		logger.Debugf("Wrote command \n%s\n to '%s'", script, name)
 	} else {
-		common.Logger(ctx).Debugf("Wrote add-mask command to '%s'", name)
+		logger.Debugf("Wrote add-mask command to '%s'", name)
 	}
 
 	scriptPath := fmt.Sprintf("%s/%s", ActPath, name)
@@ -129,7 +130,7 @@ func (sr *stepRun) setupShellCommand(ctx context.Context) (name, script string, 
 	return name, script, err
 }
 
-func (sr *stepRun) setupShell() {
+func (sr *stepRun) setupShell(ctx context.Context) {
 	rc := sr.RunContext
 	step := sr.Step
 
@@ -137,7 +138,7 @@ func (sr *stepRun) setupShell() {
 		step.Shell = rc.Run.Job().Defaults.Run.Shell
 	}
 
-	step.Shell = rc.NewExpressionEvaluator().Interpolate(step.Shell)
+	step.Shell = rc.NewExpressionEvaluator(ctx).Interpolate(ctx, step.Shell)
 
 	if step.Shell == "" {
 		step.Shell = rc.Run.Workflow.Defaults.Run.Shell
@@ -155,7 +156,7 @@ func (sr *stepRun) setupShell() {
 	}
 }
 
-func (sr *stepRun) setupWorkingDirectory() {
+func (sr *stepRun) setupWorkingDirectory(ctx context.Context) {
 	rc := sr.RunContext
 	step := sr.Step
 
@@ -164,7 +165,7 @@ func (sr *stepRun) setupWorkingDirectory() {
 	}
 
 	// jobs can receive context values, so we interpolate
-	step.WorkingDirectory = rc.NewExpressionEvaluator().Interpolate(step.WorkingDirectory)
+	step.WorkingDirectory = rc.NewExpressionEvaluator(ctx).Interpolate(ctx, step.WorkingDirectory)
 
 	// but top level keys in workflow file like `defaults` or `env` can't
 	if step.WorkingDirectory == "" {
