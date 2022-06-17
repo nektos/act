@@ -3,9 +3,11 @@ package runner
 import (
 	"context"
 	"fmt"
+	"io"
 	"testing"
 
 	"github.com/nektos/act/pkg/common"
+	"github.com/nektos/act/pkg/container"
 	"github.com/nektos/act/pkg/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -73,6 +75,14 @@ func (jim *jobInfoMock) interpolateOutputs() common.Executor {
 
 func (jim *jobInfoMock) result(result string) {
 	jim.Called(result)
+}
+
+type jobContainerMock struct {
+	container.Container
+}
+
+func (jcm *jobContainerMock) ReplaceLogWriter(stdout, stderr io.Writer) (io.Writer, io.Writer) {
+	return nil, nil
 }
 
 type stepFactoryMock struct {
@@ -236,7 +246,9 @@ func TestNewJobExecutor(t *testing.T) {
 			ctx := common.WithJobErrorContainer(context.Background())
 			jim := &jobInfoMock{}
 			sfm := &stepFactoryMock{}
-			rc := &RunContext{}
+			rc := &RunContext{
+				JobContainer: &jobContainerMock{},
+			}
 			executorOrder := make([]string, 0)
 
 			jim.On("steps").Return(tt.steps)

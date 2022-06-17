@@ -15,7 +15,6 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/filemode"
 	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
 	"github.com/go-git/go-git/v5/plumbing/format/index"
-	"github.com/pkg/errors"
 )
 
 type fileCollectorHandler interface {
@@ -156,7 +155,7 @@ func (fc *fileCollector) collectFiles(ctx context.Context, submodulePath []strin
 		if fi.Mode()&os.ModeSymlink == os.ModeSymlink {
 			linkName, err := fc.Fs.Readlink(file)
 			if err != nil {
-				return errors.WithMessagef(err, "unable to readlink %s", file)
+				return fmt.Errorf("unable to readlink '%s': %w", file, err)
 			}
 			return fc.Handler.WriteFile(path, fi, linkName, nil)
 		} else if !fi.Mode().IsRegular() {

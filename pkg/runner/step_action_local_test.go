@@ -21,7 +21,7 @@ func (salm *stepActionLocalMocks) runAction(step actionStep, actionDir string, r
 	return args.Get(0).(func(context.Context) error)
 }
 
-func (salm *stepActionLocalMocks) readAction(step *model.Step, actionDir string, actionPath string, readFile actionYamlReader, writeFile fileWriter) (*model.Action, error) {
+func (salm *stepActionLocalMocks) readAction(ctx context.Context, step *model.Step, actionDir string, actionPath string, readFile actionYamlReader, writeFile fileWriter) (*model.Action, error) {
 	args := salm.Called(step, actionDir, actionPath, readFile, writeFile)
 	return args.Get(0).(*model.Action), args.Error(1)
 }
@@ -86,52 +86,6 @@ func TestStepActionLocalTest(t *testing.T) {
 	assert.Nil(t, err)
 
 	err = sal.main()(ctx)
-	assert.Nil(t, err)
-
-	cm.AssertExpectations(t)
-	salm.AssertExpectations(t)
-}
-
-func TestStepActionLocalPre(t *testing.T) {
-	cm := &containerMock{}
-	salm := &stepActionLocalMocks{}
-
-	ctx := context.Background()
-
-	sal := &stepActionLocal{
-		readAction: salm.readAction,
-		RunContext: &RunContext{
-			StepResults: map[string]*model.StepResult{},
-			ExprEval:    &expressionEvaluator{},
-			Config: &Config{
-				Workdir: "/tmp",
-			},
-			Run: &model.Run{
-				JobID: "1",
-				Workflow: &model.Workflow{
-					Jobs: map[string]*model.Job{
-						"1": {
-							Defaults: model.Defaults{
-								Run: model.RunDefaults{
-									Shell: "bash",
-								},
-							},
-						},
-					},
-				},
-			},
-			JobContainer: cm,
-		},
-		Step: &model.Step{
-			ID:   "1",
-			Uses: "./path/to/action",
-		},
-	}
-
-	salm.On("readAction", sal.Step, "/tmp/path/to/action", "", mock.Anything, mock.Anything).
-		Return(&model.Action{}, nil)
-
-	err := sal.pre()(ctx)
 	assert.Nil(t, err)
 
 	cm.AssertExpectations(t)

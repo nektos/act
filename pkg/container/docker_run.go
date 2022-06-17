@@ -29,8 +29,6 @@ import (
 	specs "github.com/opencontainers/image-spec/specs-go/v1"
 
 	"github.com/Masterminds/semver"
-	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 	"golang.org/x/term"
 
 	"github.com/nektos/act/pkg/common"
@@ -250,11 +248,11 @@ func GetDockerClient(ctx context.Context) (cli client.APIClient, err error) {
 		cli, err = client.NewClientWithOpts(client.FromEnv)
 	}
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, fmt.Errorf("failed to connect to docker daemon: %w", err)
 	}
 	cli.NegotiateAPIVersion(ctx)
 
-	return cli, err
+	return cli, nil
 }
 
 func GetHostInfo(ctx context.Context) (info types.Info, err error) {
@@ -290,8 +288,11 @@ func (cr *containerReference) connect() common.Executor {
 func (cr *containerReference) Close() common.Executor {
 	return func(ctx context.Context) error {
 		if cr.cli != nil {
-			cr.cli.Close()
+			err := cr.cli.Close()
 			cr.cli = nil
+			if err != nil {
+				return fmt.Errorf("failed to close client: %w", err)
+			}
 		}
 		return nil
 	}
@@ -306,7 +307,7 @@ func (cr *containerReference) find() common.Executor {
 			All: true,
 		})
 		if err != nil {
-			return errors.WithStack(err)
+			return fmt.Errorf("failed to list containers: %w", err)
 		}
 
 		for _, c := range containers {
@@ -335,7 +336,7 @@ func (cr *containerReference) remove() common.Executor {
 			Force:         true,
 		})
 		if err != nil {
-			logger.Error(errors.WithStack(err))
+			logger.Error(fmt.Errorf("failed to remove container: %w", err))
 		}
 
 		logger.Debugf("Removed container: %v", cr.id)
@@ -383,7 +384,7 @@ func (cr *containerReference) create(capAdd []string, capDrop []string) common.E
 			desiredPlatform := strings.SplitN(cr.input.Platform, `/`, 2)
 
 			if len(desiredPlatform) != 2 {
-				logger.Panicf("Incorrect container platform option. %s is not a valid platform.", cr.input.Platform)
+				return fmt.Errorf("incorrect container platform option '%s'", cr.input.Platform)
 			}
 
 			platSpecs = &specs.Platform{
@@ -401,7 +402,7 @@ func (cr *containerReference) create(capAdd []string, capDrop []string) common.E
 			UsernsMode:  container.UsernsMode(input.UsernsMode),
 		}, nil, platSpecs, input.Name)
 		if err != nil {
-			return errors.WithStack(err)
+			return fmt.Errorf("failed to create container: %w", err)
 		}
 		logger.Debugf("Created container name=%s id=%v from image %v (platform: %s)", input.Name, resp.ID, input.Image, input.Platform)
 		logger.Debugf("ENV ==> %v", input.Env)
@@ -411,7 +412,7 @@ func (cr *containerReference) create(capAdd []string, capDrop []string) common.E
 	}
 }
 
-var singleLineEnvPattern, mulitiLineEnvPattern *regexp.Regexp
+var singleLineEnvPattern, multiLineEnvPattern *regexp.Regexp
 
 func (cr *containerReference) extractEnv(srcPath string, env *map[string]string) common.Executor {
 	if singleLineEnvPattern == nil {
@@ -419,7 +420,7 @@ func (cr *containerReference) extractEnv(srcPath string, env *map[string]string)
 		// SOME_VAR=data=moredata
 		// SOME_VAR=datamoredata
 		singleLineEnvPattern = regexp.MustCompile(`^([^=]*)\=(.*)$`)
-		mulitiLineEnvPattern = regexp.MustCompile(`^([^<]+)<<(\w+)$`)
+		multiLineEnvPattern = regexp.MustCompile(`^([^<]+)<<(\w+)$`)
 	}
 
 	localEnv := *env
@@ -429,10 +430,11 @@ func (cr *containerReference) extractEnv(srcPath string, env *map[string]string)
 			return nil
 		}
 		defer envTar.Close()
+
 		reader := tar.NewReader(envTar)
 		_, err = reader.Next()
 		if err != nil && err != io.EOF {
-			return errors.WithStack(err)
+			return fmt.Errorf("failed to read tar archive: %w", err)
 		}
 		s := bufio.NewScanner(reader)
 		multiLineEnvKey := ""
@@ -453,9 +455,9 @@ func (cr *containerReference) extractEnv(srcPath string, env *map[string]string)
 				}
 				multiLineEnvContent += line
 			}
-			if mulitiLineEnvStart := mulitiLineEnvPattern.FindStringSubmatch(line); mulitiLineEnvStart != nil {
-				multiLineEnvKey = mulitiLineEnvStart[1]
-				multiLineEnvDelimiter = mulitiLineEnvStart[2]
+			if multiLineEnvStart := multiLineEnvPattern.FindStringSubmatch(line); multiLineEnvStart != nil {
+				multiLineEnvKey = multiLineEnvStart[1]
+				multiLineEnvDelimiter = multiLineEnvStart[2]
 			}
 		}
 		env = &localEnv
@@ -500,14 +502,14 @@ func (cr *containerReference) extractPath(env *map[string]string) common.Executo
 	return func(ctx context.Context) error {
 		pathTar, _, err := cr.cli.CopyFromContainer(ctx, cr.id, localEnv["GITHUB_PATH"])
 		if err != nil {
-			return errors.WithStack(err)
+			return fmt.Errorf("failed to copy from container: %w", err)
 		}
 		defer pathTar.Close()
 
 		reader := tar.NewReader(pathTar)
 		_, err = reader.Next()
 		if err != nil && err != io.EOF {
-			return errors.WithStack(err)
+			return fmt.Errorf("failed to read tar archive: %w", err)
 		}
 		s := bufio.NewScanner(reader)
 		for s.Scan() {
@@ -561,14 +563,14 @@ func (cr *containerReference) exec(cmd []string, env map[string]string, user, wo
 			AttachStdout: true,
 		})
 		if err != nil {
-			return errors.WithStack(err)
+			return fmt.Errorf("failed to create exec: %w", err)
 		}
 
 		resp, err := cr.cli.ContainerExecAttach(ctx, idResp.ID, types.ExecStartCheck{
 			Tty: isTerminal,
 		})
 		if err != nil {
-			return errors.WithStack(err)
+			return fmt.Errorf("failed to attach to exec: %w", err)
 		}
 		defer resp.Close()
 
@@ -579,14 +581,17 @@ func (cr *containerReference) exec(cmd []string, env map[string]string, user, wo
 
 		inspectResp, err := cr.cli.ContainerExecInspect(ctx, idResp.ID)
 		if err != nil {
-			return errors.WithStack(err)
+			return fmt.Errorf("failed to inspect exec: %w", err)
 		}
 
-		if inspectResp.ExitCode == 0 {
+		switch inspectResp.ExitCode {
+		case 0:
 			return nil
+		case 127:
+			return fmt.Errorf("exitcode '%d': command not found, please refer to https://github.com/nektos/act/issues/107 for more information", inspectResp.ExitCode)
+		default:
+			return fmt.Errorf("exitcode '%d': failure", inspectResp.ExitCode)
 		}
-
-		return fmt.Errorf("exit with `FAILURE`: %v", inspectResp.ExitCode)
 	}
 }
 
@@ -683,7 +688,7 @@ func (cr *containerReference) copyDir(dstPath string, srcPath string, useGitIgno
 		if err != nil {
 			return err
 		}
-		log.Debugf("Writing tarball %s from %s", tarFile.Name(), srcPath)
+		logger.Debugf("Writing tarball %s from %s", tarFile.Name(), srcPath)
 		defer func(tarFile *os.File) {
 			name := tarFile.Name()
 			err := tarFile.Close()
@@ -701,13 +706,13 @@ func (cr *containerReference) copyDir(dstPath string, srcPath string, useGitIgno
 		if !strings.HasSuffix(srcPrefix, string(filepath.Separator)) {
 			srcPrefix += string(filepath.Separator)
 		}
-		log.Debugf("Stripping prefix:%s src:%s", srcPrefix, srcPath)
+		logger.Debugf("Stripping prefix:%s src:%s", srcPrefix, srcPath)
 
 		var ignorer gitignore.Matcher
 		if useGitIgnore {
 			ps, err := gitignore.ReadPatterns(polyfill.New(osfs.New(srcPath)), nil)
 			if err != nil {
-				log.Debugf("Error loading .gitignore: %v", err)
+				logger.Debugf("Error loading .gitignore: %v", err)
 			}
 
 			ignorer = gitignore.NewMatcher(ps)
@@ -737,11 +742,11 @@ func (cr *containerReference) copyDir(dstPath string, srcPath string, useGitIgno
 		logger.Debugf("Extracting content from '%s' to '%s'", tarFile.Name(), dstPath)
 		_, err = tarFile.Seek(0, 0)
 		if err != nil {
-			return errors.WithStack(err)
+			return fmt.Errorf("failed to seek tar archive: %w", err)
 		}
 		err = cr.cli.CopyToContainer(ctx, cr.id, "/", tarFile, types.CopyToContainerOptions{})
 		if err != nil {
-			return errors.WithStack(err)
+			return fmt.Errorf("failed to copy content to container: %w", err)
 		}
 		return nil
 	}
@@ -753,7 +758,7 @@ func (cr *containerReference) copyContent(dstPath string, files ...*FileEntry) c
 		var buf bytes.Buffer
 		tw := tar.NewWriter(&buf)
 		for _, file := range files {
-			log.Debugf("Writing entry to tarball %s len:%d", file.Name, len(file.Body))
+			logger.Debugf("Writing entry to tarball %s len:%d", file.Name, len(file.Body))
 			hdr := &tar.Header{
 				Name: file.Name,
 				Mode: file.Mode,
@@ -775,7 +780,7 @@ func (cr *containerReference) copyContent(dstPath string, files ...*FileEntry) c
 		logger.Debugf("Extracting content to '%s'", dstPath)
 		err := cr.cli.CopyToContainer(ctx, cr.id, dstPath, &buf, types.CopyToContainerOptions{})
 		if err != nil {
-			return errors.WithStack(err)
+			return fmt.Errorf("failed to copy content to container: %w", err)
 		}
 		return nil
 	}
@@ -789,7 +794,7 @@ func (cr *containerReference) attach() common.Executor {
 			Stderr: true,
 		})
 		if err != nil {
-			return errors.WithStack(err)
+			return fmt.Errorf("failed to attach to container: %w", err)
 		}
 		isTerminal := term.IsTerminal(int(os.Stdout.Fd()))
 
@@ -822,7 +827,7 @@ func (cr *containerReference) start() common.Executor {
 		logger.Debugf("Starting container: %v", cr.id)
 
 		if err := cr.cli.ContainerStart(ctx, cr.id, types.ContainerStartOptions{}); err != nil {
-			return errors.WithStack(err)
+			return fmt.Errorf("failed to start container: %w", err)
 		}
 
 		logger.Debugf("Started container: %v", cr.id)
@@ -838,7 +843,7 @@ func (cr *containerReference) wait() common.Executor {
 		select {
 		case err := <-errCh:
 			if err != nil {
-				return errors.WithStack(err)
+				return fmt.Errorf("failed to wait for container: %w", err)
 			}
 		case status := <-statusCh:
 			statusCode = status.StatusCode

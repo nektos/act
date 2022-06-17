@@ -8,32 +8,32 @@ import (
 	"github.com/nektos/act/pkg/model"
 )
 
-func evaluteCompositeInputAndEnv(parent *RunContext, step actionStep) (inputs map[string]interface{}, env map[string]string) {
-	eval := parent.NewExpressionEvaluator()
+func evaluteCompositeInputAndEnv(ctx context.Context, parent *RunContext, step actionStep) (inputs map[string]interface{}, env map[string]string) {
+	eval := parent.NewExpressionEvaluator(ctx)
 
 	inputs = make(map[string]interface{})
 	for k, input := range step.getActionModel().Inputs {
-		inputs[k] = eval.Interpolate(input.Default)
+		inputs[k] = eval.Interpolate(ctx, input.Default)
 	}
 	if step.getStepModel().With != nil {
 		for k, v := range step.getStepModel().With {
-			inputs[k] = eval.Interpolate(v)
+			inputs[k] = eval.Interpolate(ctx, v)
 		}
 	}
 
 	env = make(map[string]string)
 	for k, v := range parent.Env {
-		env[k] = eval.Interpolate(v)
+		env[k] = eval.Interpolate(ctx, v)
 	}
 	for k, v := range step.getStepModel().Environment() {
-		env[k] = eval.Interpolate(v)
+		env[k] = eval.Interpolate(ctx, v)
 	}
 
 	return inputs, env
 }
 
-func newCompositeRunContext(parent *RunContext, step actionStep, actionPath string) *RunContext {
-	inputs, env := evaluteCompositeInputAndEnv(parent, step)
+func newCompositeRunContext(ctx context.Context, parent *RunContext, step actionStep, actionPath string) *RunContext {
+	inputs, env := evaluteCompositeInputAndEnv(ctx, parent, step)
 
 	// run with the global config but without secrets
 	configCopy := *(parent.Config)
@@ -70,8 +70,8 @@ func newCompositeRunContext(parent *RunContext, step actionStep, actionPath stri
 // This updates a composite context inputs, env and masks.
 // This is needed to re-evalute/update that context between pre/main/post steps.
 // Some of the inputs/env may requires the results of in-between steps.
-func (rc *RunContext) updateCompositeRunContext(parent *RunContext, step actionStep) {
-	inputs, env := evaluteCompositeInputAndEnv(parent, step)
+func (rc *RunContext) updateCompositeRunContext(ctx context.Context, parent *RunContext, step actionStep) {
+	inputs, env := evaluteCompositeInputAndEnv(ctx, parent, step)
 
 	rc.Inputs = inputs
 	rc.Env = env
@@ -83,21 +83,21 @@ func execAsComposite(step actionStep) common.Executor {
 	action := step.getActionModel()
 
 	return func(ctx context.Context) error {
-		compositerc := step.getCompositeRunContext()
+		compositerc := step.getCompositeRunContext(ctx)
 
 		steps := step.getCompositeSteps()
 
 		ctx = WithCompositeLogger(ctx, &compositerc.Masks)
 
-		compositerc.updateCompositeRunContext(rc, step)
+		compositerc.updateCompositeRunContext(ctx, rc, step)
 		err := steps.main(ctx)
 
 		// Map outputs from composite RunContext to job RunContext
-		eval := compositerc.NewExpressionEvaluator()
+		eval := compositerc.NewExpressionEvaluator(ctx)
 		for outputName, output := range action.Outputs {
 			rc.setOutput(ctx, map[string]string{
 				"name": outputName,
-			}, eval.Interpolate(output.Value))
+			}, eval.Interpolate(ctx, output.Value))
 		}
 
 		rc.Masks = append(rc.Masks, compositerc.Masks...)
@@ -140,12 +140,13 @@ func (rc *RunContext) compositeExecutor(action *model.Action) *compositeSteps {
 		preSteps = append(preSteps, step.pre())
 
 		steps = append(steps, func(ctx context.Context) error {
+			logger := common.Logger(ctx)
 			err := step.main()(ctx)
 			if err != nil {
-				common.Logger(ctx).Errorf("%v", err)
+				logger.Errorf("%v", err)
 				common.SetJobError(ctx, err)
 			} else if ctx.Err() != nil {
-				common.Logger(ctx).Errorf("%v", ctx.Err())
+				logger.Errorf("%v", ctx.Err())
 				common.SetJobError(ctx, ctx.Err())
 			}
 			return nil

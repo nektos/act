@@ -1,0 +1,13 @@
+on: push
+
+env:
+  variable: "${{ github.repository_owner }}"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: print env.variable
+        run: |
+          echo ${{ env.variable }}
+          exit ${{ (env.variable == 'nektos') && '0' || '1'}}

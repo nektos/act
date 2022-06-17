@@ -1,7 +1,8 @@
-package common
+package git
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -12,13 +13,14 @@ import (
 	"strings"
 	"sync"
 
-	git "github.com/go-git/go-git/v5"
+	"github.com/nektos/act/pkg/common"
+
+	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-ini/ini"
 	"github.com/mattn/go-isatty"
-	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -29,10 +31,31 @@ var (
 	githubSSHRegex      = regexp.MustCompile(`github.com[:/](.+)/(.+?)(?:.git)?$`)
 
 	cloneLock sync.Mutex
+
+	ErrShortRef = errors.New("short SHA references are not supported")
+	ErrNoRepo   = errors.New("unable to find git repo")
 )
 
+type Error struct {
+	err    error
+	commit string
+}
+
+func (e *Error) Error() string {
+	return e.err.Error()
+}
+
+func (e *Error) Unwrap() error {
+	return e.err
+}
+
+func (e *Error) Commit() string {
+	return e.commit
+}
+
 // FindGitRevision get the current git revision
-func FindGitRevision(file string) (shortSha string, sha string, err error) {
+func FindGitRevision(ctx context.Context, file string) (shortSha string, sha string, err error) {
+	logger := common.Logger(ctx)
 	gitDir, err := findGitDirectory(file)
 	if err != nil {
 		return "", "", err
@@ -55,24 +78,25 @@ func FindGitRevision(file string) (shortSha string, sha string, err error) {
 		refBuf = []byte(ref)
 	}
 
-	log.Debugf("Found revision: %s", refBuf)
+	logger.Debugf("Found revision: %s", refBuf)
 	return string(refBuf[:7]), strings.TrimSpace(string(refBuf)), nil
 }
 
 // FindGitRef get the current git ref
-func FindGitRef(file string) (string, error) {
+func FindGitRef(ctx context.Context, file string) (string, error) {
+	logger := common.Logger(ctx)
 	gitDir, err := findGitDirectory(file)
 	if err != nil {
 		return "", err
 	}
-	log.Debugf("Loading revision from git directory '%s'", gitDir)
+	logger.Debugf("Loading revision from git directory '%s'", gitDir)
 
-	_, ref, err := FindGitRevision(file)
+	_, ref, err := FindGitRevision(ctx, file)
 	if err != nil {
 		return "", err
 	}
 
-	log.Debugf("HEAD points to '%s'", ref)
+	logger.Debugf("HEAD points to '%s'", ref)
 
 	// Prefer the git library to iterate over the references and find a matching tag or branch.
 	var refTag = ""
@@ -86,7 +110,7 @@ func FindGitRef(file string) (string, error) {
 				if r == nil || err != nil {
 					break
 				}
-				// log.Debugf("Reference: name=%s sha=%s", r.Name().String(), r.Hash().String())
+				// logger.Debugf("Reference: name=%s sha=%s", r.Name().String(), r.Hash().String())
 				if r.Hash().String() == ref {
 					if r.Name().IsTag() {
 						refTag = r.Name().String()
@@ -109,15 +133,15 @@ func FindGitRef(file string) (string, error) {
 	// If the above doesn't work, fall back to the old way
 
 	// try tags first
-	tag, err := findGitPrettyRef(ref, gitDir, "refs/tags")
+	tag, err := findGitPrettyRef(ctx, ref, gitDir, "refs/tags")
 	if err != nil || tag != "" {
 		return tag, err
 	}
 	// and then branches
-	return findGitPrettyRef(ref, gitDir, "refs/heads")
+	return findGitPrettyRef(ctx, ref, gitDir, "refs/heads")
 }
 
-func findGitPrettyRef(head, root, sub string) (string, error) {
+func findGitPrettyRef(ctx context.Context, head, root, sub string) (string, error) {
 	var name string
 	var err = filepath.Walk(filepath.Join(root, sub), func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -134,7 +158,7 @@ func findGitPrettyRef(head, root, sub string) (string, error) {
 		if head == pointsTo {
 			// On Windows paths are separated with backslash character so they should be replaced to provide proper git refs format
 			name = strings.TrimPrefix(strings.ReplaceAll(strings.Replace(path, root, "", 1), `\`, `/`), "/")
-			log.Debugf("HEAD matches %s", name)
+			common.Logger(ctx).Debugf("HEAD matches %s", name)
 		}
 		return nil
 	})
@@ -142,12 +166,12 @@ func findGitPrettyRef(head, root, sub string) (string, error) {
 }
 
 // FindGithubRepo get the repo
-func FindGithubRepo(file, githubInstance, remoteName string) (string, error) {
+func FindGithubRepo(ctx context.Context, file, githubInstance, remoteName string) (string, error) {
 	if remoteName == "" {
 		remoteName = "origin"
 	}
 
-	url, err := findGitRemoteURL(file, remoteName)
+	url, err := findGitRemoteURL(ctx, file, remoteName)
 	if err != nil {
 		return "", err
 	}
@@ -155,12 +179,12 @@ func FindGithubRepo(file, githubInstance, remoteName string) (string, error) {
 	return slug, err
 }
 
-func findGitRemoteURL(file, remoteName string) (string, error) {
+func findGitRemoteURL(ctx context.Context, file, remoteName string) (string, error) {
 	gitDir, err := findGitDirectory(file)
 	if err != nil {
 		return "", err
 	}
-	log.Debugf("Loading slug from git directory '%s'", gitDir)
+	common.Logger(ctx).Debugf("Loading slug from git directory '%s'", gitDir)
 
 	gitconfig, err := ini.InsensitiveLoad(fmt.Sprintf("%s/config", gitDir))
 	if err != nil {
@@ -222,7 +246,7 @@ func findGitDirectory(fromFile string) (string, error) {
 	if err == nil && fi.Mode().IsDir() {
 		return gitPath, nil
 	} else if dir == "/" || dir == "C:\\" || dir == "c:\\" {
-		return "", errors.New("unable to find git repo")
+		return "", &Error{err: ErrNoRepo}
 	}
 
 	return findGitDirectory(filepath.Dir(dir))
@@ -277,11 +301,27 @@ func CloneIfRequired(ctx context.Context, refName plumbing.ReferenceName, input 
 	return r, nil
 }
 
+func gitOptions(token string) (fetchOptions git.FetchOptions, pullOptions git.PullOptions) {
+	fetchOptions.RefSpecs = []config.RefSpec{"refs/*:refs/*", "HEAD:refs/heads/HEAD"}
+	pullOptions.Force = true
+
+	if token != "" {
+		auth := &http.BasicAuth{
+			Username: "token",
+			Password: token,
+		}
+		fetchOptions.Auth = auth
+		pullOptions.Auth = auth
+	}
+
+	return fetchOptions, pullOptions
+}
+
 // NewGitCloneExecutor creates an executor to clone git repos
 // nolint:gocyclo
-func NewGitCloneExecutor(input NewGitCloneExecutorInput) Executor {
+func NewGitCloneExecutor(input NewGitCloneExecutorInput) common.Executor {
 	return func(ctx context.Context) error {
-		logger := Logger(ctx)
+		logger := common.Logger(ctx)
 		logger.Infof("  \u2601  git clone '%s' # ref=%s", input.URL, input.Ref)
 		logger.Debugf("  cloning %s to %s", input.URL, input.Dir)
 
@@ -295,15 +335,7 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) Executor {
 		}
 
 		// fetch latest changes
-		fetchOptions := git.FetchOptions{
-			RefSpecs: []config.RefSpec{"refs/*:refs/*", "HEAD:refs/heads/HEAD"},
-		}
-		if input.Token != "" {
-			fetchOptions.Auth = &http.BasicAuth{
-				Username: "token",
-				Password: input.Token,
-			}
-		}
+		fetchOptions, pullOptions := gitOptions(input.Token)
 
 		err = r.Fetch(&fetchOptions)
 		if err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
@@ -317,7 +349,10 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) Executor {
 		}
 
 		if hash.String() != input.Ref && strings.HasPrefix(hash.String(), input.Ref) {
-			return errors.Wrap(errors.New(hash.String()), "short SHA references are not supported")
+			return &Error{
+				err:    ErrShortRef,
+				commit: hash.String(),
+			}
 		}
 
 		// At this point we need to know if it's a tag or a branch
@@ -365,17 +400,7 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) Executor {
 			}
 		}
 
-		pullOptions := git.PullOptions{
-			Force: true,
-		}
-		if input.Token != "" {
-			pullOptions.Auth = &http.BasicAuth{
-				Username: "token",
-				Password: input.Token,
-			}
-		}
-
-		if err = w.Pull(&pullOptions); err != nil && err.Error() != "already up-to-date" {
+		if err = w.Pull(&pullOptions); err != nil && err != git.NoErrAlreadyUpToDate {
 			logger.Debugf("Unable to pull %s: %v", refName, err)
 		}
 		logger.Debugf("Cloned %s to %s", input.URL, input.Dir)
