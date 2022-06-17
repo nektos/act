@@ -608,7 +608,7 @@ func (cr *containerReference) tryReadID(opt string, cbk func(id int)) common.Exe
 
 		resp, err := cr.cli.ContainerExecAttach(ctx, idResp.ID, types.ExecStartCheck{})
 		if err != nil {
-			return errors.WithStack(err)
+			return nil
 		}
 		defer resp.Close()
 
