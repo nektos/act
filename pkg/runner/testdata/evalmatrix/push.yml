@@ -16,3 +16,64 @@ jobs:
         exit ${{matrix.A && '0' || '1'}}
       env:
         MATRIX: ${{toJSON(matrix)}}
+  _additionalInclude_0:
+    strategy:
+      matrix:
+        include:
+        - def: val
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check if the matrix key A exists
+      run: |
+        echo $MATRIX
+        exit ${{matrix.def == 'val' && '0' || '1'}}
+      env:
+        MATRIX: ${{toJSON(matrix)}}
+    - run: |
+        echo "::set-output name=result::success"
+      id: result
+    outputs:
+      result: ${{ steps.result.outputs.result }}
+  _additionalInclude_1:
+    needs: _additionalInclude_0
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check if the matrix key A exists
+      run: |
+        echo $MATRIX
+        exit ${{needs._additionalInclude_0.outputs.result == 'success' && '0' || '1'}}
+  _additionalProperties_0:
+    strategy:
+      matrix:
+        x:
+        - 0
+        y:
+        - 0
+        z:
+        - 0
+        include:
+        - def: val
+          z: 0
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check if the matrix key A exists
+      run: |
+        echo $MATRIX
+        exit ${{matrix.def == 'val' && matrix.x == 0 && matrix.y == 0 && matrix.z == 0 && '0' || '1'}}
+      env:
+        MATRIX: ${{toJSON(matrix)}}
+    - run: |
+        echo "::set-output name=result::success"
+      id: result
+    outputs:
+      result: ${{ steps.result.outputs.result }}
+  _additionalProperties_1:
+    needs: _additionalProperties_0
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check if the matrix key A exists
+      run: |
+        echo $MATRIX
+        exit ${{needs._additionalProperties_0.outputs.result == 'success' && '0' || '1'}}
