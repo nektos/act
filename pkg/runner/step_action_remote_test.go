@@ -293,8 +293,8 @@ func TestStepActionRemotePreThroughAction(t *testing.T) {
 				Step: tt.stepModel,
 				RunContext: &RunContext{
 					Config: &Config{
-						GitHubInstance: "https://enterprise.github.com",
-						ThroughAction:  []string{"org/repo"},
+						GitHubInstance:    "https://enterprise.github.com",
+						ActionsFromGithub: []string{"org/repo"},
 					},
 					Run: &model.Run{
 						JobID: "1",
@@ -363,9 +363,9 @@ func TestStepActionRemotePreThroughActionToken(t *testing.T) {
 				Step: tt.stepModel,
 				RunContext: &RunContext{
 					Config: &Config{
-						GitHubInstance:     "https://enterprise.github.com",
-						ThroughAction:      []string{"org/repo"},
-						ThroughActionToken: "PRIVATE_ACTIONS_TOKEN_ON_GITHUB",
+						GitHubInstance:         "https://enterprise.github.com",
+						ActionsFromGithub:      []string{"org/repo"},
+						ActionsFromGithubToken: "PRIVATE_ACTIONS_TOKEN_ON_GITHUB",
 					},
 					Run: &model.Run{
 						JobID: "1",

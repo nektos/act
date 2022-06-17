@@ -160,6 +160,8 @@ It will save that information to `~/.actrc`, please refer to [Configuration](#co
 
 ```none
   -a, --actor string                     user that triggered the event (default "nektos/act")
+      --actions-from-github              If you are using GitHub Enterprise Server and allow specified actions from GitHub (github.com), you can set actions on this. (e.g. --actions-from-github=github/super-linter)
+      --actions-from-github-token        If you are using actions-from-github and you want to use private actions on GitHub, you have to set personal access token
       --artifact-server-path string      Defines the path where the artifact server stores uploads and retrieves downloads from. If not specified the artifact server will not start.
       --artifact-server-port string      Defines the port where the artifact server listens (will only bind to localhost). (default "34567")
   -b, --bind                             bind working directory to container, rather than copy
@@ -195,8 +197,6 @@ It will save that information to `~/.actrc`, please refer to [Configuration](#co
   -v, --verbose                          verbose output
   -w, --watch                            watch the contents of the local repo and run when files change
   -W, --workflows string                 path to workflow file(s) (default "./.github/workflows/")
-      --through-action                   If you are using GitHub Enterprise Server and allow specified actions from GitHub (github.com), you can set actions on this. (e.g. --through-action=github/super-linter)
-      --through-action-token             If you are using through-action and you want to use private actions on GitHub, you have to set personal access token
 ```
 
 ## `GITHUB_TOKEN`

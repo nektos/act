@@ -56,10 +56,10 @@ func (sar *stepActionRemote) prepareActionExecutor() common.Executor {
 		}
 
 		sar.remoteAction.URL = sar.RunContext.Config.GitHubInstance
-		for _, throughAction := range sar.RunContext.Config.ThroughAction {
-			if (sar.remoteAction.Org + "/" + sar.remoteAction.Repo) == throughAction {
+		for _, actionsFromGithub := range sar.RunContext.Config.ActionsFromGithub {
+			if strings.EqualFold(fmt.Sprintf("%s/%s", sar.remoteAction.Org, sar.remoteAction.Repo), actionsFromGithub) {
 				sar.remoteAction.URL = "github.com"
-				github.Token = sar.RunContext.Config.ThroughActionToken
+				github.Token = sar.RunContext.Config.ActionsFromGithubToken
 			}
 		}
 

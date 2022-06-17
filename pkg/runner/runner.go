@@ -25,37 +25,37 @@ type Runner interface {
 
 // Config contains the config for a new runner
 type Config struct {
-	Actor                 string            // the user that triggered the event
-	Workdir               string            // path to working directory
-	BindWorkdir           bool              // bind the workdir to the job container
-	EventName             string            // name of event to run
-	EventPath             string            // path to JSON file to use for event.json in containers
-	DefaultBranch         string            // name of the main branch for this repository
-	ReuseContainers       bool              // reuse containers to maintain state
-	ForcePull             bool              // force pulling of the image, even if already present
-	ForceRebuild          bool              // force rebuilding local docker image action
-	LogOutput             bool              // log the output from docker run
-	JSONLogger            bool              // use json or text logger
-	Env                   map[string]string // env for containers
-	Secrets               map[string]string // list of secrets
-	Token                 string            // GitHub token
-	InsecureSecrets       bool              // switch hiding output when printing to terminal
-	Platforms             map[string]string // list of platforms
-	Privileged            bool              // use privileged mode
-	UsernsMode            string            // user namespace to use
-	ContainerArchitecture string            // Desired OS/architecture platform for running containers
-	ContainerDaemonSocket string            // Path to Docker daemon socket
-	UseGitIgnore          bool              // controls if paths in .gitignore should not be copied into container, default true
-	GitHubInstance        string            // GitHub instance to use, default "github.com"
-	ContainerCapAdd       []string          // list of kernel capabilities to add to the containers
-	ContainerCapDrop      []string          // list of kernel capabilities to remove from the containers
-	AutoRemove            bool              // controls if the container is automatically removed upon workflow completion
-	ArtifactServerPath    string            // the path where the artifact server stores uploads
-	ArtifactServerPort    string            // the port the artifact server binds to
-	NoSkipCheckout        bool              // do not skip actions/checkout
-	RemoteName            string            // remote name in local git repo config
-	ThroughAction         []string          // Through actions from GitHub Enterprise instance to GitHub
-	ThroughActionToken    string            // Your through private action's GitHub token.
+	Actor                  string            // the user that triggered the event
+	Workdir                string            // path to working directory
+	BindWorkdir            bool              // bind the workdir to the job container
+	EventName              string            // name of event to run
+	EventPath              string            // path to JSON file to use for event.json in containers
+	DefaultBranch          string            // name of the main branch for this repository
+	ReuseContainers        bool              // reuse containers to maintain state
+	ForcePull              bool              // force pulling of the image, even if already present
+	ForceRebuild           bool              // force rebuilding local docker image action
+	LogOutput              bool              // log the output from docker run
+	JSONLogger             bool              // use json or text logger
+	Env                    map[string]string // env for containers
+	Secrets                map[string]string // list of secrets
+	Token                  string            // GitHub token
+	InsecureSecrets        bool              // switch hiding output when printing to terminal
+	Platforms              map[string]string // list of platforms
+	Privileged             bool              // use privileged mode
+	UsernsMode             string            // user namespace to use
+	ContainerArchitecture  string            // Desired OS/architecture platform for running containers
+	ContainerDaemonSocket  string            // Path to Docker daemon socket
+	UseGitIgnore           bool              // controls if paths in .gitignore should not be copied into container, default true
+	GitHubInstance         string            // GitHub instance to use, default "github.com"
+	ContainerCapAdd        []string          // list of kernel capabilities to add to the containers
+	ContainerCapDrop       []string          // list of kernel capabilities to remove from the containers
+	AutoRemove             bool              // controls if the container is automatically removed upon workflow completion
+	ArtifactServerPath     string            // the path where the artifact server stores uploads
+	ArtifactServerPort     string            // the port the artifact server binds to
+	NoSkipCheckout         bool              // do not skip actions/checkout
+	RemoteName             string            // remote name in local git repo config
+	ActionsFromGithub      []string          // Use actions from GitHub Enterprise instance to GitHub
+	ActionsFromGithubToken string            // Token of private action repo on GitHub.
 }
 
 // Resolves the equivalent host path inside the container
