@@ -61,8 +61,8 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.Flags().StringArrayVarP(&input.containerCapAdd, "container-cap-add", "", []string{}, "kernel capabilities to add to the workflow containers (e.g. --container-cap-add SYS_PTRACE)")
 	rootCmd.Flags().StringArrayVarP(&input.containerCapDrop, "container-cap-drop", "", []string{}, "kernel capabilities to remove from the workflow containers (e.g. --container-cap-drop SYS_PTRACE)")
 	rootCmd.Flags().BoolVar(&input.autoRemove, "rm", false, "automatically remove container(s)/volume(s) after a workflow(s) failure")
-	rootCmd.Flags().StringArrayVarP(&input.actionsFromGithub, "actions-from-github", "", []string{}, "If you are using GitHub Enterprise Server and allow specified actions from GitHub (github.com), you can set actions on this. (e.g. --actions-from-github=github/super-linter)")
-	rootCmd.Flags().StringVar(&input.actionsFromGithubToken, "actions-from-github-token", "", "If you are using actions-from-github and you want to use private actions on GitHub, you have to set personal access token")
+	rootCmd.Flags().StringArrayVarP(&input.replaceGheActionWithGithubCom, "replace-ghe-action-with-github-com", "", []string{}, "If you are using GitHub Enterprise Server and allow specified actions from GitHub (github.com), you can set actions on this. (e.g. --replace-ghe-action-with-github-com =github/super-linter)")
+	rootCmd.Flags().StringVar(&input.replaceGheActionTokenWithGithubCom, "replace-ghe-action-token-with-github-com", "", "If you are using replace-ghe-action-with-github-com  and you want to use private actions on GitHub, you have to set personal access token")
 	rootCmd.PersistentFlags().StringVarP(&input.actor, "actor", "a", "nektos/act", "user that triggered the event")
 	rootCmd.PersistentFlags().StringVarP(&input.workflowsPath, "workflows", "W", "./.github/workflows/", "path to workflow file(s)")
 	rootCmd.PersistentFlags().BoolVarP(&input.noWorkflowRecurse, "no-recurse", "", false, "Flag to disable running workflows from subdirectories of specified path in '--workflows'/'-W' flag")
@@ -372,37 +372,37 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 
 		// run the plan
 		config := &runner.Config{
-			Actor:                  input.actor,
-			EventName:              eventName,
-			EventPath:              input.EventPath(),
-			DefaultBranch:          defaultbranch,
-			ForcePull:              input.forcePull,
-			ForceRebuild:           input.forceRebuild,
-			ReuseContainers:        input.reuseContainers,
-			Workdir:                input.Workdir(),
-			BindWorkdir:            input.bindWorkdir,
-			LogOutput:              !input.noOutput,
-			JSONLogger:             input.jsonLogger,
-			Env:                    envs,
-			Secrets:                secrets,
-			Token:                  secrets["GITHUB_TOKEN"],
-			InsecureSecrets:        input.insecureSecrets,
-			Platforms:              input.newPlatforms(),
-			Privileged:             input.privileged,
-			UsernsMode:             input.usernsMode,
-			ContainerArchitecture:  input.containerArchitecture,
-			ContainerDaemonSocket:  input.containerDaemonSocket,
-			UseGitIgnore:           input.useGitIgnore,
-			GitHubInstance:         input.githubInstance,
-			ContainerCapAdd:        input.containerCapAdd,
-			ContainerCapDrop:       input.containerCapDrop,
-			AutoRemove:             input.autoRemove,
-			ArtifactServerPath:     input.artifactServerPath,
-			ArtifactServerPort:     input.artifactServerPort,
-			NoSkipCheckout:         input.noSkipCheckout,
-			RemoteName:             input.remoteName,
-			ActionsFromGithub:      input.actionsFromGithub,
-			ActionsFromGithubToken: input.actionsFromGithubToken,
+			Actor:                              input.actor,
+			EventName:                          eventName,
+			EventPath:                          input.EventPath(),
+			DefaultBranch:                      defaultbranch,
+			ForcePull:                          input.forcePull,
+			ForceRebuild:                       input.forceRebuild,
+			ReuseContainers:                    input.reuseContainers,
+			Workdir:                            input.Workdir(),
+			BindWorkdir:                        input.bindWorkdir,
+			LogOutput:                          !input.noOutput,
+			JSONLogger:                         input.jsonLogger,
+			Env:                                envs,
+			Secrets:                            secrets,
+			Token:                              secrets["GITHUB_TOKEN"],
+			InsecureSecrets:                    input.insecureSecrets,
+			Platforms:                          input.newPlatforms(),
+			Privileged:                         input.privileged,
+			UsernsMode:                         input.usernsMode,
+			ContainerArchitecture:              input.containerArchitecture,
+			ContainerDaemonSocket:              input.containerDaemonSocket,
+			UseGitIgnore:                       input.useGitIgnore,
+			GitHubInstance:                     input.githubInstance,
+			ContainerCapAdd:                    input.containerCapAdd,
+			ContainerCapDrop:                   input.containerCapDrop,
+			AutoRemove:                         input.autoRemove,
+			ArtifactServerPath:                 input.artifactServerPath,
+			ArtifactServerPort:                 input.artifactServerPort,
+			NoSkipCheckout:                     input.noSkipCheckout,
+			RemoteName:                         input.remoteName,
+			ReplaceGheActionWithGithubCom:      input.replaceGheActionWithGithubCom,
+			ReplaceGheActionTokenWithGithubCom: input.replaceGheActionTokenWithGithubCom,
 		}
 		r, err := runner.New(config)
 		if err != nil {
