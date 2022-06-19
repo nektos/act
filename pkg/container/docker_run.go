@@ -130,7 +130,7 @@ func (cr *containerReference) Start(attach bool) common.Executor {
 				cr.tryReadGID(),
 				func(ctx context.Context) error {
 					// If this fails, then folders have wrong permissions on non root container
-					_ = cr.Exec([]string{"chown", "-R", fmt.Sprint(cr.UID) + ":" + fmt.Sprint(cr.GID), cr.input.WorkingDir}, nil, "0", "")(ctx)
+					_ = cr.Exec([]string{"chown", "-R", fmt.Sprintf("%d:%d", cr.UID, cr.GID), cr.input.WorkingDir}, nil, "0", "")(ctx)
 					return nil
 				},
 			).IfNot(common.Dryrun),
@@ -165,7 +165,7 @@ func (cr *containerReference) CopyDir(destPath string, srcPath string, useGitIgn
 		cr.copyDir(destPath, srcPath, useGitIgnore),
 		func(ctx context.Context) error {
 			// If this fails, then folders have wrong permissions on non root container
-			_ = cr.Exec([]string{"chown", "-R", fmt.Sprint(cr.UID) + ":" + fmt.Sprint(cr.GID), destPath}, nil, "0", "")(ctx)
+			_ = cr.Exec([]string{"chown", "-R", fmt.Sprintf("%d:%d", cr.UID, cr.GID), destPath}, nil, "0", "")(ctx)
 			return nil
 		},
 	).IfNot(common.Dryrun)
