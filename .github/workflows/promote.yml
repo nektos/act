@@ -1,4 +1,4 @@
-name: tag-monthly
+name: promote
 on:
   schedule:
     - cron: '0 2 1 * *'
@@ -9,13 +9,14 @@ env:
 
 jobs:
   release:
-    name: tag-monthly
+    name: promote
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
           ref: master
+      - uses: fregante/setup-git-user@v1
       - uses: actions/setup-go@v3
         with:
           go-version: ${{ env.GO_VERSION }}
