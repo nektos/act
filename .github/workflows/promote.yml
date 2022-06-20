@@ -16,6 +16,7 @@ jobs:
         with:
           fetch-depth: 0
           ref: master
+          token: ${{ secrets.GORELEASER_GITHUB_TOKEN }}
       - uses: fregante/setup-git-user@v1
       - uses: actions/setup-go@v3
         with:
