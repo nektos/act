@@ -180,7 +180,6 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			rc.JobContainer.Start(false),
 			rc.JobContainer.UpdateFromImageEnv(&rc.Env),
 			rc.JobContainer.UpdateFromEnv("/etc/environment", &rc.Env),
-			rc.JobContainer.CopyDir(copyToPath, rc.Config.Workdir+string(filepath.Separator)+".", rc.Config.UseGitIgnore).IfBool(copyWorkspace),
 			rc.JobContainer.Copy(ActPath+"/", &container.FileEntry{
 				Name: "workflow/event.json",
 				Mode: 0644,
