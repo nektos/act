@@ -224,25 +224,36 @@ func (j *Job) GetMatrixes() []map[string]interface{} {
 
 		if m := j.Matrix(); m != nil {
 			includes := make([]map[string]interface{}, 0)
+			extraIncludes := make([]map[string]interface{}, 0)
 			for _, v := range m["include"] {
 				switch t := v.(type) {
 				case []interface{}:
 					for _, i := range t {
 						i := i.(map[string]interface{})
+						extraInclude := true
 						for k := range i {
 							if _, ok := m[k]; ok {
 								includes = append(includes, i)
+								extraInclude = false
 								break
 							}
+						}
+						if extraInclude {
+							extraIncludes = append(extraIncludes, i)
 						}
 					}
 				case interface{}:
 					v := v.(map[string]interface{})
+					extraInclude := true
 					for k := range v {
 						if _, ok := m[k]; ok {
 							includes = append(includes, v)
+							extraInclude = false
 							break
 						}
+					}
+					if extraInclude {
+						extraIncludes = append(extraIncludes, v)
 					}
 				}
 			}
@@ -274,8 +285,26 @@ func (j *Job) GetMatrixes() []map[string]interface{} {
 				matrixes = append(matrixes, matrix)
 			}
 			for _, include := range includes {
+				matched := false
+				for _, matrix := range matrixes {
+					if commonKeysMatch2(matrix, include, m) {
+						matched = true
+						log.Debugf("Adding include values '%v' to existing entry", include)
+						for k, v := range include {
+							matrix[k] = v
+						}
+					}
+				}
+				if !matched {
+					extraIncludes = append(extraIncludes, include)
+				}
+			}
+			for _, include := range extraIncludes {
 				log.Debugf("Adding include '%v'", include)
 				matrixes = append(matrixes, include)
+			}
+			if len(matrixes) == 0 {
+				matrixes = append(matrixes, make(map[string]interface{}))
 			}
 		} else {
 			matrixes = append(matrixes, make(map[string]interface{}))
@@ -289,6 +318,16 @@ func (j *Job) GetMatrixes() []map[string]interface{} {
 func commonKeysMatch(a map[string]interface{}, b map[string]interface{}) bool {
 	for aKey, aVal := range a {
 		if bVal, ok := b[aKey]; ok && !reflect.DeepEqual(aVal, bVal) {
+			return false
+		}
+	}
+	return true
+}
+
+func commonKeysMatch2(a map[string]interface{}, b map[string]interface{}, m map[string][]interface{}) bool {
+	for aKey, aVal := range a {
+		_, useKey := m[aKey]
+		if bVal, ok := b[aKey]; useKey && ok && !reflect.DeepEqual(aVal, bVal) {
 			return false
 		}
 	}
