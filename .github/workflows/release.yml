@@ -32,12 +32,12 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          outputFile: release-notes.md
+          outputFile: .release-notes.md
       - name: GoReleaser
         uses: goreleaser/goreleaser-action@v3
         with:
           version: latest
-          args: release --rm-dist --release-notes=release-notes.md
+          args: release --rm-dist --release-notes=.release-notes.md
         env:
           GITHUB_TOKEN: ${{ secrets.GORELEASER_GITHUB_TOKEN }}
       - name: Chocolatey

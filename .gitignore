@@ -31,3 +31,6 @@ coverage.txt
 
 # megalinter
 report/
+
+# generated release notes
+.release-notes.md
