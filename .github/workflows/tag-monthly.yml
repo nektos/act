@@ -2,6 +2,7 @@ name: tag-monthly
 on:
   schedule:
     - cron: '0 2 1 * *'
+  workflow_dispatch: {}
 
 env:
   GO_VERSION: 1.18
