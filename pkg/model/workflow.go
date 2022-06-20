@@ -360,7 +360,7 @@ type Step struct {
 	Env              yaml.Node         `yaml:"env"`
 	With             map[string]string `yaml:"with"`
 	ContinueOnError  bool              `yaml:"continue-on-error"`
-	TimeoutMinutes   int64             `yaml:"timeout-minutes"`
+	TimeoutMinutes   string            `yaml:"timeout-minutes"`
 }
 
 // String gets the name of step

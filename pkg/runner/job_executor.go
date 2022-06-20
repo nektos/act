@@ -25,8 +25,9 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 	var postExecutor common.Executor
 
 	steps = append(steps, func(ctx context.Context) error {
+		logger := common.Logger(ctx)
 		if len(info.matrix()) > 0 {
-			common.Logger(ctx).Infof("\U0001F9EA  Matrix: %v", info.matrix())
+			logger.Infof("\U0001F9EA  Matrix: %v", info.matrix())
 		}
 		return nil
 	})
@@ -40,6 +41,7 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 	preSteps = append(preSteps, info.startContainer())
 
 	for i, stepModel := range infoSteps {
+		stepModel := stepModel
 		if stepModel == nil {
 			return func(ctx context.Context) error {
 				return fmt.Errorf("invalid Step %v: missing run or uses key", i)
@@ -55,42 +57,44 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 			return common.NewErrorExecutor(err)
 		}
 
-		preSteps = append(preSteps, step.pre())
+		preSteps = append(preSteps, useStepLogger(rc, stepModel, stepStagePre, step.pre()))
 
 		stepExec := step.main()
-		steps = append(steps, func(ctx context.Context) error {
-			stepName := stepModel.String()
-			return (func(ctx context.Context) error {
-				err := stepExec(ctx)
-				if err != nil {
-					common.Logger(ctx).Errorf("%v", err)
-					common.SetJobError(ctx, err)
-				} else if ctx.Err() != nil {
-					common.Logger(ctx).Errorf("%v", ctx.Err())
-					common.SetJobError(ctx, ctx.Err())
-				}
-				return nil
-			})(withStepLogger(ctx, stepName))
-		})
+		steps = append(steps, useStepLogger(rc, stepModel, stepStageMain, func(ctx context.Context) error {
+			logger := common.Logger(ctx)
+			err := stepExec(ctx)
+			if err != nil {
+				logger.Errorf("%v", err)
+				common.SetJobError(ctx, err)
+			} else if ctx.Err() != nil {
+				logger.Errorf("%v", ctx.Err())
+				common.SetJobError(ctx, ctx.Err())
+			}
+			return nil
+		}))
 
-		// run the post exector in reverse order
+		postExec := useStepLogger(rc, stepModel, stepStagePost, step.post())
 		if postExecutor != nil {
-			postExecutor = step.post().Finally(postExecutor)
+			// run the post exector in reverse order
+			postExecutor = postExec.Finally(postExecutor)
 		} else {
-			postExecutor = step.post()
+			postExecutor = postExec
 		}
 	}
 
 	postExecutor = postExecutor.Finally(func(ctx context.Context) error {
+		logger := common.Logger(ctx)
 		jobError := common.JobError(ctx)
 		if jobError != nil {
 			info.result("failure")
+			logger.WithField("jobResult", "failure").Infof("\U0001F3C1  Job failed")
 		} else {
 			err := info.stopContainer()(ctx)
 			if err != nil {
 				return err
 			}
 			info.result("success")
+			logger.WithField("jobResult", "success").Infof("\U0001F3C1  Job succeeded")
 		}
 
 		return nil
@@ -113,4 +117,25 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 		}).
 		Finally(info.interpolateOutputs()).
 		Finally(info.closeContainer())
+}
+
+func useStepLogger(rc *RunContext, stepModel *model.Step, stage stepStage, executor common.Executor) common.Executor {
+	return func(ctx context.Context) error {
+		ctx = withStepLogger(ctx, stepModel.ID, stepModel.String(), stage.String())
+
+		rawLogger := common.Logger(ctx).WithField("raw_output", true)
+		logWriter := common.NewLineWriter(rc.commandHandler(ctx), func(s string) bool {
+			if rc.Config.LogOutput {
+				rawLogger.Infof("%s", s)
+			} else {
+				rawLogger.Debugf("%s", s)
+			}
+			return true
+		})
+
+		oldout, olderr := rc.JobContainer.ReplaceLogWriter(logWriter, logWriter)
+		defer rc.JobContainer.ReplaceLogWriter(oldout, olderr)
+
+		return executor(ctx)
+	}
 }

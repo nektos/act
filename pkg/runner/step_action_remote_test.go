@@ -7,7 +7,9 @@ import (
 	"testing"
 
 	"github.com/nektos/act/pkg/common"
+	"github.com/nektos/act/pkg/common/git"
 	"github.com/nektos/act/pkg/model"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"gopkg.in/yaml.v3"
@@ -17,7 +19,7 @@ type stepActionRemoteMocks struct {
 	mock.Mock
 }
 
-func (sarm *stepActionRemoteMocks) readAction(step *model.Step, actionDir string, actionPath string, readFile actionYamlReader, writeFile fileWriter) (*model.Action, error) {
+func (sarm *stepActionRemoteMocks) readAction(ctx context.Context, step *model.Step, actionDir string, actionPath string, readFile actionYamlReader, writeFile fileWriter) (*model.Action, error) {
 	args := sarm.Called(step, actionDir, actionPath, readFile, writeFile)
 	return args.Get(0).(*model.Action), args.Error(1)
 }
@@ -123,7 +125,7 @@ func TestStepActionRemote(t *testing.T) {
 			clonedAction := false
 
 			origStepAtionRemoteNewCloneExecutor := stepActionRemoteNewCloneExecutor
-			stepActionRemoteNewCloneExecutor = func(input common.NewGitCloneExecutorInput) common.Executor {
+			stepActionRemoteNewCloneExecutor = func(input git.NewGitCloneExecutorInput) common.Executor {
 				return func(ctx context.Context) error {
 					clonedAction = true
 					return nil
@@ -208,7 +210,7 @@ func TestStepActionRemotePre(t *testing.T) {
 			sarm := &stepActionRemoteMocks{}
 
 			origStepAtionRemoteNewCloneExecutor := stepActionRemoteNewCloneExecutor
-			stepActionRemoteNewCloneExecutor = func(input common.NewGitCloneExecutorInput) common.Executor {
+			stepActionRemoteNewCloneExecutor = func(input git.NewGitCloneExecutorInput) common.Executor {
 				return func(ctx context.Context) error {
 					clonedAction = true
 					return nil

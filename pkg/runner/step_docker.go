@@ -47,7 +47,7 @@ func (sd *stepDocker) getEnv() *map[string]string {
 	return &sd.env
 }
 
-func (sd *stepDocker) getIfExpression(stage stepStage) string {
+func (sd *stepDocker) getIfExpression(context context.Context, stage stepStage) string {
 	return sd.Step.If.Value
 }
 
@@ -57,14 +57,14 @@ func (sd *stepDocker) runUsesContainer() common.Executor {
 
 	return func(ctx context.Context) error {
 		image := strings.TrimPrefix(step.Uses, "docker://")
-		eval := rc.NewExpressionEvaluator()
-		cmd, err := shellquote.Split(eval.Interpolate(step.With["args"]))
+		eval := rc.NewExpressionEvaluator(ctx)
+		cmd, err := shellquote.Split(eval.Interpolate(ctx, step.With["args"]))
 		if err != nil {
 			return err
 		}
 
 		var entrypoint []string
-		if entry := eval.Interpolate(step.With["entrypoint"]); entry != "" {
+		if entry := eval.Interpolate(ctx, step.With["entrypoint"]); entry != "" {
 			entrypoint = []string{entry}
 		}
 

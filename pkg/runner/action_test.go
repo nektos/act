@@ -130,7 +130,7 @@ runs:
 				closerMock.On("Close")
 			}
 
-			action, err := readActionImpl(tt.step, "actionDir", "actionPath", readFile, writeFile)
+			action, err := readActionImpl(context.Background(), tt.step, "actionDir", "actionPath", readFile, writeFile)
 
 			assert.Nil(t, err)
 			assert.Equal(t, tt.expected, action)

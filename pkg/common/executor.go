@@ -3,8 +3,6 @@ package common
 import (
 	"context"
 	"fmt"
-
-	log "github.com/sirupsen/logrus"
 )
 
 // Warning that implements `error` but safe to ignore
@@ -132,7 +130,7 @@ func (e Executor) Then(then Executor) Executor {
 		if err != nil {
 			switch err.(type) {
 			case Warning:
-				log.Warning(err.Error())
+				Logger(ctx).Warning(err.Error())
 			default:
 				return err
 			}

@@ -13,6 +13,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	assert "github.com/stretchr/testify/assert"
 
+	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/model"
 )
 
@@ -146,6 +147,7 @@ func TestRunEvent(t *testing.T) {
 		{workdir, "evalmatrixneeds2", "push", "", platforms},
 		{workdir, "evalmatrix-merge-map", "push", "", platforms},
 		{workdir, "evalmatrix-merge-array", "push", "", platforms},
+		{workdir, "issue-1195", "push", "", platforms},
 
 		{workdir, "basic", "push", "", platforms},
 		{workdir, "fail", "push", "exit with `FAILURE`: 1", platforms},
@@ -177,6 +179,35 @@ func TestRunEvent(t *testing.T) {
 		{"../model/testdata", "strategy", "push", "", platforms}, // TODO: move all testdata into pkg so we can validate it with planner and runner
 		// {"testdata", "issue-228", "push", "", platforms, }, // TODO [igni]: Remove this once everything passes
 		{"../model/testdata", "container-volumes", "push", "", platforms},
+	}
+
+	for _, table := range tables {
+		t.Run(table.workflowPath, func(t *testing.T) {
+			table.runTest(ctx, t, &Config{})
+		})
+	}
+}
+
+func TestDryrunEvent(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	ctx := common.WithDryrun(context.Background(), true)
+
+	tables := []TestJobFileInfo{
+		// Shells
+		{workdir, "shells/defaults", "push", "", platforms},
+		{workdir, "shells/pwsh", "push", "", map[string]string{"ubuntu-latest": "ghcr.io/justingrote/act-pwsh:latest"}}, // custom image with pwsh
+		{workdir, "shells/bash", "push", "", platforms},
+		{workdir, "shells/python", "push", "", map[string]string{"ubuntu-latest": "node:16-buster"}}, // slim doesn't have python
+		{workdir, "shells/sh", "push", "", platforms},
+
+		// Local action
+		{workdir, "local-action-docker-url", "push", "", platforms},
+		{workdir, "local-action-dockerfile", "push", "", platforms},
+		{workdir, "local-action-via-composite-dockerfile", "push", "", platforms},
+		{workdir, "local-action-js", "push", "", platforms},
 	}
 
 	for _, table := range tables {
@@ -230,7 +261,7 @@ func TestMaskValues(t *testing.T) {
 	})
 
 	assertNoSecret(output, "secret value")
-	assertNoSecret(output, "composite secret")
+	assertNoSecret(output, "YWJjCg==")
 }
 
 func TestRunEventSecrets(t *testing.T) {

@@ -230,7 +230,7 @@ func TestIsStepEnabled(t *testing.T) {
 
 	// success()
 	step := createTestStep(t, "if: success()")
-	assertObject.True(isStepEnabled(context.Background(), step.getIfExpression(stepStageMain), step, stepStageMain))
+	assertObject.True(isStepEnabled(context.Background(), step.getIfExpression(context.Background(), stepStageMain), step, stepStageMain))
 
 	step = createTestStep(t, "if: success()")
 	step.getRunContext().StepResults["a"] = &model.StepResult{

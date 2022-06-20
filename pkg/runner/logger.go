@@ -58,7 +58,7 @@ func WithMasks(ctx context.Context, masks *[]string) context.Context {
 }
 
 // WithJobLogger attaches a new logger to context that is aware of steps
-func WithJobLogger(ctx context.Context, jobName string, config *Config, masks *[]string) context.Context {
+func WithJobLogger(ctx context.Context, jobID string, jobName string, config *Config, masks *[]string) context.Context {
 	mux.Lock()
 	defer mux.Unlock()
 
@@ -82,7 +82,11 @@ func WithJobLogger(ctx context.Context, jobName string, config *Config, masks *[
 	logger.SetFormatter(formatter)
 	logger.SetOutput(os.Stdout)
 	logger.SetLevel(logrus.GetLevel())
-	rtn := logger.WithFields(logrus.Fields{"job": jobName, "dryrun": common.Dryrun(ctx)}).WithContext(ctx)
+	rtn := logger.WithFields(logrus.Fields{
+		"job":    jobName,
+		"jobID":  jobID,
+		"dryrun": common.Dryrun(ctx),
+	}).WithContext(ctx)
 
 	return common.WithLogger(ctx, rtn)
 }
@@ -92,8 +96,12 @@ func WithCompositeLogger(ctx context.Context, masks *[]string) context.Context {
 	return common.WithLogger(ctx, common.Logger(ctx).WithFields(logrus.Fields{}).WithContext(ctx))
 }
 
-func withStepLogger(ctx context.Context, stepName string) context.Context {
-	rtn := common.Logger(ctx).WithFields(logrus.Fields{"step": stepName})
+func withStepLogger(ctx context.Context, stepID string, stepName string, stageName string) context.Context {
+	rtn := common.Logger(ctx).WithFields(logrus.Fields{
+		"step":   stepName,
+		"stepID": stepID,
+		"stage":  stageName,
+	})
 	return common.WithLogger(ctx, rtn)
 }
 
@@ -146,26 +154,34 @@ func (f *jobLogFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 func (f *jobLogFormatter) printColored(b *bytes.Buffer, entry *logrus.Entry) {
 	entry.Message = strings.TrimSuffix(entry.Message, "\n")
 	jobName := entry.Data["job"]
+	debugFlag := ""
+	if entry.Level == logrus.DebugLevel {
+		debugFlag = "[DEBUG] "
+	}
 
 	if entry.Data["raw_output"] == true {
 		fmt.Fprintf(b, "\x1b[%dm|\x1b[0m %s", f.color, entry.Message)
 	} else if entry.Data["dryrun"] == true {
-		fmt.Fprintf(b, "\x1b[1m\x1b[%dm\x1b[7m*DRYRUN*\x1b[0m \x1b[%dm[%s] \x1b[0m%s", gray, f.color, jobName, entry.Message)
+		fmt.Fprintf(b, "\x1b[1m\x1b[%dm\x1b[7m*DRYRUN*\x1b[0m \x1b[%dm[%s] \x1b[0m%s%s", gray, f.color, jobName, debugFlag, entry.Message)
 	} else {
-		fmt.Fprintf(b, "\x1b[%dm[%s] \x1b[0m%s", f.color, jobName, entry.Message)
+		fmt.Fprintf(b, "\x1b[%dm[%s] \x1b[0m%s%s", f.color, jobName, debugFlag, entry.Message)
 	}
 }
 
 func (f *jobLogFormatter) print(b *bytes.Buffer, entry *logrus.Entry) {
 	entry.Message = strings.TrimSuffix(entry.Message, "\n")
 	jobName := entry.Data["job"]
+	debugFlag := ""
+	if entry.Level == logrus.DebugLevel {
+		debugFlag = "[DEBUG] "
+	}
 
 	if entry.Data["raw_output"] == true {
 		fmt.Fprintf(b, "[%s]   | %s", jobName, entry.Message)
 	} else if entry.Data["dryrun"] == true {
-		fmt.Fprintf(b, "*DRYRUN* [%s] %s", jobName, entry.Message)
+		fmt.Fprintf(b, "*DRYRUN* [%s] %s%s", jobName, debugFlag, entry.Message)
 	} else {
-		fmt.Fprintf(b, "[%s] %s", jobName, entry.Message)
+		fmt.Fprintf(b, "[%s] %s%s", jobName, debugFlag, entry.Message)
 	}
 }
 
