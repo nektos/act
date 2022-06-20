@@ -36,65 +36,64 @@ var (
 )
 
 func (sar *stepActionRemote) prepareActionExecutor() common.Executor {
-	return common.NewPipelineExecutor(
-		func(ctx context.Context) error {
-			if sar.remoteAction != nil && sar.action != nil {
-				// we are already good to run
-				return nil
-			}
-
-			sar.remoteAction = newRemoteAction(sar.Step.Uses)
-			if sar.remoteAction == nil {
-				return fmt.Errorf("Expected format {org}/{repo}[/path]@ref. Actual '%s' Input string was not in a correct format", sar.Step.Uses)
-			}
-
-			sar.remoteAction.URL = sar.RunContext.Config.GitHubInstance
-
-			github := sar.RunContext.getGithubContext(ctx)
-			if sar.remoteAction.IsCheckout() && isLocalCheckout(github, sar.Step) && !sar.RunContext.Config.NoSkipCheckout {
-				common.Logger(ctx).Debugf("Skipping local actions/checkout because workdir was already copied")
-				return nil
-			}
-
-			actionDir := fmt.Sprintf("%s/%s", sar.RunContext.ActionCacheDir(), strings.ReplaceAll(sar.Step.Uses, "/", "-"))
-			gitClone := stepActionRemoteNewCloneExecutor(git.NewGitCloneExecutorInput{
-				URL:   sar.remoteAction.CloneURL(),
-				Ref:   sar.remoteAction.Ref,
-				Dir:   actionDir,
-				Token: github.Token,
-			})
-			var ntErr common.Executor
-			if err := gitClone(ctx); err != nil {
-				if errors.Is(err, git.ErrShortRef) {
-					return fmt.Errorf("Unable to resolve action `%s`, the provided ref `%s` is the shortened version of a commit SHA, which is not supported. Please use the full commit SHA `%s` instead",
-						sar.Step.Uses, sar.remoteAction.Ref, err.(*git.Error).Commit())
-				} else if errors.Is(err, gogit.ErrForceNeeded) { // TODO: figure out if it will be easy to shadow/alias go-git err's
-					ntErr = common.NewInfoExecutor("Non-terminating error while running 'git clone': %v", err)
-				} else {
-					return err
-				}
-			}
-
-			remoteReader := func(ctx context.Context) actionYamlReader {
-				return func(filename string) (io.Reader, io.Closer, error) {
-					f, err := os.Open(filepath.Join(actionDir, sar.remoteAction.Path, filename))
-					return f, f, err
-				}
-			}
-
-			return common.NewPipelineExecutor(
-				ntErr,
-				func(ctx context.Context) error {
-					actionModel, err := sar.readAction(ctx, sar.Step, actionDir, sar.remoteAction.Path, remoteReader(ctx), ioutil.WriteFile)
-					sar.action = actionModel
-					return err
-				},
-			)(ctx)
-		},
-		func(ctx context.Context) error {
-			sar.RunContext.setupActionInputs(ctx, sar)
+	return func(ctx context.Context) error {
+		if sar.remoteAction != nil && sar.action != nil {
+			// we are already good to run
 			return nil
+		}
+
+		sar.remoteAction = newRemoteAction(sar.Step.Uses)
+		if sar.remoteAction == nil {
+			return fmt.Errorf("Expected format {org}/{repo}[/path]@ref. Actual '%s' Input string was not in a correct format", sar.Step.Uses)
+		}
+
+		sar.remoteAction.URL = sar.RunContext.Config.GitHubInstance
+
+		github := sar.RunContext.getGithubContext(ctx)
+		if sar.remoteAction.IsCheckout() && isLocalCheckout(github, sar.Step) && !sar.RunContext.Config.NoSkipCheckout {
+			common.Logger(ctx).Debugf("Skipping local actions/checkout because workdir was already copied")
+			return nil
+		}
+
+		actionDir := fmt.Sprintf("%s/%s", sar.RunContext.ActionCacheDir(), strings.ReplaceAll(sar.Step.Uses, "/", "-"))
+		gitClone := stepActionRemoteNewCloneExecutor(git.NewGitCloneExecutorInput{
+			URL:   sar.remoteAction.CloneURL(),
+			Ref:   sar.remoteAction.Ref,
+			Dir:   actionDir,
+			Token: github.Token,
 		})
+		var ntErr common.Executor
+		if err := gitClone(ctx); err != nil {
+			if errors.Is(err, git.ErrShortRef) {
+				return fmt.Errorf("Unable to resolve action `%s`, the provided ref `%s` is the shortened version of a commit SHA, which is not supported. Please use the full commit SHA `%s` instead",
+					sar.Step.Uses, sar.remoteAction.Ref, err.(*git.Error).Commit())
+			} else if errors.Is(err, gogit.ErrForceNeeded) { // TODO: figure out if it will be easy to shadow/alias go-git err's
+				ntErr = common.NewInfoExecutor("Non-terminating error while running 'git clone': %v", err)
+			} else {
+				return err
+			}
+		}
+
+		remoteReader := func(ctx context.Context) actionYamlReader {
+			return func(filename string) (io.Reader, io.Closer, error) {
+				f, err := os.Open(filepath.Join(actionDir, sar.remoteAction.Path, filename))
+				return f, f, err
+			}
+		}
+
+		return common.NewPipelineExecutor(
+			ntErr,
+			func(ctx context.Context) error {
+				actionModel, err := sar.readAction(ctx, sar.Step, actionDir, sar.remoteAction.Path, remoteReader(ctx), ioutil.WriteFile)
+				sar.action = actionModel
+				return err
+			},
+			func(ctx context.Context) error {
+				sar.RunContext.setupActionInputs(ctx, sar)
+				return nil
+			},
+		)(ctx)
+	}
 }
 
 func (sar *stepActionRemote) pre() common.Executor {
