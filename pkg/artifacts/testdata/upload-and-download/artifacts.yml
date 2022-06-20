@@ -26,10 +26,17 @@ jobs:
         run: |
           mkdir -p path/to/dir-1
           mkdir -p path/to/dir-2
-          mkdir -p path/to/dir-3    
+          mkdir -p path/to/dir-3
+          mkdir -p path/to/dir-5
+          mkdir -p path/to/dir-6
+          mkdir -p path/to/dir-7
           echo "Lorem ipsum dolor sit amet" > path/to/dir-1/file1.txt
           echo "Hello world from file #2" > path/to/dir-2/file2.txt
           echo "This is a going to be a test for a large enough file that should get compressed with GZip. The @actions/artifact package uses GZip to upload files. This text should have a compression ratio greater than 100% so it should get uploaded using GZip" > path/to/dir-3/gzip.txt
+          dd if=/dev/random of=path/to/dir-5/file5.rnd bs=1024 count=1024
+          dd if=/dev/random of=path/to/dir-6/file6.rnd bs=1024 count=$((10*1024))
+          dd if=/dev/random of=path/to/dir-7/file7.rnd bs=1024 count=$((10*1024))
+
       # Upload a single file artifact
       - name: 'Upload artifact #1'
         uses: actions/upload-artifact@v2
@@ -59,6 +66,35 @@ jobs:
             path/to/dir-1/*
             path/to/dir-[23]/*
             !path/to/dir-3/*.txt
+      
+      # Upload a mid-size file artifact
+      - name: 'Upload artifact #5'
+        uses: actions/upload-artifact@v2
+        with:
+          name: 'Mid-Size-Artifact'
+          path: path/to/dir-5/file5.rnd
+      
+      # Upload a big file artifact
+      - name: 'Upload artifact #6'
+        uses: actions/upload-artifact@v2
+        with:
+          name: 'Big-Artifact'
+          path: path/to/dir-6/file6.rnd
+
+      # Upload a big file artifact twice
+      - name: 'Upload artifact #7 (First)'
+        uses: actions/upload-artifact@v2
+        with:
+          name: 'Big-Uploaded-Twice'
+          path: path/to/dir-7/file7.rnd
+
+      # Upload a big file artifact twice
+      - name: 'Upload artifact #7 (Second)'
+        uses: actions/upload-artifact@v2
+        with:
+          name: 'Big-Uploaded-Twice'
+          path: path/to/dir-7/file7.rnd
+
       # Verify artifacts. Switch to download-artifact@v2 once it's out of preview
       
       # Download Artifact #1 and verify the correctness of the content
@@ -136,5 +172,59 @@ jobs:
           fi
           if [ "$(cat $file1)" != "Lorem ipsum dolor sit amet" -o "$(cat $file2)" != "Hello world from file #2" ] ; then
             echo "File contents of downloaded artifacts are incorrect"
+            exit 1
+          fi
+      
+      - name: 'Download artifact #5'
+        uses: actions/download-artifact@v2
+        with:
+          name: 'Mid-Size-Artifact'
+          path: mid-size/artifact/path
+      
+      - name: 'Verify Artifact #5'
+        run: |
+          file="mid-size/artifact/path/file5.rnd"
+          if [ ! -f $file ] ; then
+            echo "Expected file does not exist"
+            exit 1
+          fi
+          if ! diff $file path/to/dir-5/file5.rnd ; then
+            echo "File contents of downloaded artifact are incorrect"
+            exit 1
+          fi
+      
+      - name: 'Download artifact #6'
+        uses: actions/download-artifact@v2
+        with:
+          name: 'Big-Artifact'
+          path: big/artifact/path
+      
+      - name: 'Verify Artifact #6'
+        run: |
+          file="big/artifact/path/file6.rnd"
+          if [ ! -f $file ] ; then
+            echo "Expected file does not exist"
+            exit 1
+          fi
+          if ! diff $file path/to/dir-6/file6.rnd ; then
+            echo "File contents of downloaded artifact are incorrect"
+            exit 1
+          fi
+
+      - name: 'Download artifact #7'
+        uses: actions/download-artifact@v2
+        with:
+          name: 'Big-Uploaded-Twice'
+          path: big-uploaded-twice/artifact/path
+
+      - name: 'Verify Artifact #7'
+        run: |
+          file="big-uploaded-twice/artifact/path/file7.rnd"
+          if [ ! -f $file ] ; then
+            echo "Expected file does not exist"
+            exit 1
+          fi
+          if ! diff $file path/to/dir-7/file7.rnd ; then
+            echo "File contents of downloaded artifact are incorrect"
             exit 1
           fi

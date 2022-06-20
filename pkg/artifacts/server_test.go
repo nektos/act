@@ -51,6 +51,16 @@ func (fsys MapFsImpl) Open(path string) (fs.File, error) {
 	return WritableFile{result, fsys.MapFS, path}, err
 }
 
+func (fsys MapFsImpl) OpenAtEnd(path string) (fs.File, error) {
+	var file = fstest.MapFile{
+		Data: []byte("content2"),
+	}
+	fsys.MapFS[path] = &file
+
+	result, err := fsys.MapFS.Open(path)
+	return WritableFile{result, fsys.MapFS, path}, err
+}
+
 func TestNewArtifactUploadPrepare(t *testing.T) {
 	assert := assert.New(t)
 

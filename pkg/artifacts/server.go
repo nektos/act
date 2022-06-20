@@ -49,6 +49,7 @@ type MkdirFS interface {
 	fs.FS
 	MkdirAll(path string, perm fs.FileMode) error
 	Open(name string) (fs.File, error)
+	OpenAtEnd(name string) (fs.File, error)
 }
 
 type MkdirFsImpl struct {
@@ -61,7 +62,22 @@ func (fsys MkdirFsImpl) MkdirAll(path string, perm fs.FileMode) error {
 }
 
 func (fsys MkdirFsImpl) Open(name string) (fs.File, error) {
-	return os.OpenFile(fsys.dir+"/"+name, os.O_CREATE|os.O_RDWR, 0644)
+	return os.OpenFile(fsys.dir+"/"+name, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0644)
+}
+
+func (fsys MkdirFsImpl) OpenAtEnd(name string) (fs.File, error) {
+	file, err := os.OpenFile(fsys.dir+"/"+name, os.O_CREATE|os.O_RDWR, 0644)
+
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = file.Seek(0, os.SEEK_END)
+	if err != nil {
+		return nil, err
+	}
+
+	return file, nil
 }
 
 var gzipExtension = ".gz__"
@@ -98,7 +114,14 @@ func uploads(router *httprouter.Router, fsys MkdirFS) {
 			panic(err)
 		}
 
-		file, err := fsys.Open(filePath)
+		file, err := func() (fs.File, error) {
+			contentRange := req.Header.Get("Content-Range")
+			if contentRange != "" && !strings.HasPrefix(contentRange, "bytes 0-") {
+				return fsys.OpenAtEnd(filePath)
+			}
+			return fsys.Open(filePath)
+		}()
+
 		if err != nil {
 			panic(err)
 		}
