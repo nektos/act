@@ -62,7 +62,7 @@ func TestRunContext_EvalBool(t *testing.T) {
 			},
 		},
 	}
-	rc.ExprEval = rc.NewExpressionEvaluator()
+	rc.ExprEval = rc.NewExpressionEvaluator(context.Background())
 
 	tables := []struct {
 		in      string
@@ -156,7 +156,7 @@ func TestRunContext_EvalBool(t *testing.T) {
 		table := table
 		t.Run(table.in, func(t *testing.T) {
 			assertObject := assert.New(t)
-			b, err := EvalBool(rc.ExprEval, table.in, exprparser.DefaultStatusCheckSuccess)
+			b, err := EvalBool(context.Background(), rc.ExprEval, table.in, exprparser.DefaultStatusCheckSuccess)
 			if table.wantErr {
 				assertObject.Error(err)
 			}
@@ -365,7 +365,7 @@ func TestGetGitHubContext(t *testing.T) {
 		OutputMappings: map[MappableOutput]MappableOutput{},
 	}
 
-	ghc := rc.getGithubContext()
+	ghc := rc.getGithubContext(context.Background())
 
 	log.Debugf("%v", ghc)
 
@@ -413,7 +413,7 @@ func createIfTestRunContext(jobs map[string]*model.Job) *RunContext {
 			},
 		},
 	}
-	rc.ExprEval = rc.NewExpressionEvaluator()
+	rc.ExprEval = rc.NewExpressionEvaluator(context.Background())
 
 	return rc
 }

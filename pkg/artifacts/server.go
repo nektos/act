@@ -15,7 +15,6 @@ import (
 
 	"github.com/julienschmidt/httprouter"
 	"github.com/nektos/act/pkg/common"
-	log "github.com/sirupsen/logrus"
 )
 
 type FileContainerResourceURL struct {
@@ -264,6 +263,7 @@ func downloads(router *httprouter.Router, fsys fs.FS) {
 
 func Serve(ctx context.Context, artifactPath string, port string) context.CancelFunc {
 	serverContext, cancel := context.WithCancel(ctx)
+	logger := common.Logger(serverContext)
 
 	if artifactPath == "" {
 		return cancel
@@ -271,7 +271,7 @@ func Serve(ctx context.Context, artifactPath string, port string) context.Cancel
 
 	router := httprouter.New()
 
-	log.Debugf("Artifacts base path '%s'", artifactPath)
+	logger.Debugf("Artifacts base path '%s'", artifactPath)
 	fs := os.DirFS(artifactPath)
 	uploads(router, MkdirFsImpl{artifactPath, fs})
 	downloads(router, fs)
@@ -281,9 +281,9 @@ func Serve(ctx context.Context, artifactPath string, port string) context.Cancel
 
 	// run server
 	go func() {
-		log.Infof("Start server on http://%s:%s", ip, port)
+		logger.Infof("Start server on http://%s:%s", ip, port)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatal(err)
+			logger.Fatal(err)
 		}
 	}()
 
@@ -292,7 +292,7 @@ func Serve(ctx context.Context, artifactPath string, port string) context.Cancel
 		<-serverContext.Done()
 
 		if err := server.Shutdown(ctx); err != nil {
-			log.Errorf("Failed shutdown gracefully - force shutdown: %v", err)
+			logger.Errorf("Failed shutdown gracefully - force shutdown: %v", err)
 			server.Close()
 		}
 	}()

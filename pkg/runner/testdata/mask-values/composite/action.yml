@@ -6,7 +6,7 @@ runs:
   steps:
     - run: echo "secret value"
       shell: bash
-    - run: echo "::add-mask::composite secret"
+    - run: echo "::add-mask::$(echo "abc" | base64)"
       shell: bash
-    - run: echo "composite secret"
+    - run: echo "abc" | base64
       shell: bash
