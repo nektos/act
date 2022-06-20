@@ -158,6 +158,7 @@ func TestRunEvent(t *testing.T) {
 		{workdir, "container-hostname", "push", "", platforms},
 		{workdir, "remote-action-docker", "push", "", platforms},
 		{workdir, "remote-action-js", "push", "", platforms},
+		{workdir, "remote-action-js", "push", "", map[string]string{"ubuntu-latest": "ghcr.io/catthehacker/ubuntu:runner-latest"}}, // Test if this works with non root container
 		{workdir, "matrix", "push", "", platforms},
 		{workdir, "matrix-include-exclude", "push", "", platforms},
 		{workdir, "commands", "push", "", platforms},

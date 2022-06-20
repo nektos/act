@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
 
 	"github.com/go-git/go-billy/v5/helper/polyfill"
@@ -125,6 +126,13 @@ func (cr *containerReference) Start(attach bool) common.Executor {
 				cr.attach().IfBool(attach),
 				cr.start(),
 				cr.wait().IfBool(attach),
+				cr.tryReadUID(),
+				cr.tryReadGID(),
+				func(ctx context.Context) error {
+					// If this fails, then folders have wrong permissions on non root container
+					_ = cr.Exec([]string{"chown", "-R", fmt.Sprintf("%d:%d", cr.UID, cr.GID), cr.input.WorkingDir}, nil, "0", "")(ctx)
+					return nil
+				},
 			).IfNot(common.Dryrun),
 		)
 }
@@ -154,8 +162,12 @@ func (cr *containerReference) Copy(destPath string, files ...*FileEntry) common.
 func (cr *containerReference) CopyDir(destPath string, srcPath string, useGitIgnore bool) common.Executor {
 	return common.NewPipelineExecutor(
 		common.NewInfoExecutor("%sdocker cp src=%s dst=%s", logPrefix, srcPath, destPath),
-		cr.Exec([]string{"mkdir", "-p", destPath}, nil, "", ""),
 		cr.copyDir(destPath, srcPath, useGitIgnore),
+		func(ctx context.Context) error {
+			// If this fails, then folders have wrong permissions on non root container
+			_ = cr.Exec([]string{"chown", "-R", fmt.Sprintf("%d:%d", cr.UID, cr.GID), destPath}, nil, "0", "")(ctx)
+			return nil
+		},
 	).IfNot(common.Dryrun)
 }
 
@@ -211,6 +223,8 @@ type containerReference struct {
 	cli   client.APIClient
 	id    string
 	input *NewContainerInput
+	UID   int
+	GID   int
 }
 
 func GetDockerClient(ctx context.Context) (cli client.APIClient, err error) {
@@ -581,6 +595,47 @@ func (cr *containerReference) exec(cmd []string, env map[string]string, user, wo
 	}
 }
 
+func (cr *containerReference) tryReadID(opt string, cbk func(id int)) common.Executor {
+	return func(ctx context.Context) error {
+		idResp, err := cr.cli.ContainerExecCreate(ctx, cr.id, types.ExecConfig{
+			Cmd:          []string{"id", opt},
+			AttachStdout: true,
+			AttachStderr: true,
+		})
+		if err != nil {
+			return nil
+		}
+
+		resp, err := cr.cli.ContainerExecAttach(ctx, idResp.ID, types.ExecStartCheck{})
+		if err != nil {
+			return nil
+		}
+		defer resp.Close()
+
+		sid, err := resp.Reader.ReadString('\n')
+		if err != nil {
+			return nil
+		}
+		exp := regexp.MustCompile(`\d+\n`)
+		found := exp.FindString(sid)
+		id, err := strconv.ParseInt(found[:len(found)-1], 10, 32)
+		if err != nil {
+			return nil
+		}
+		cbk(int(id))
+
+		return nil
+	}
+}
+
+func (cr *containerReference) tryReadUID() common.Executor {
+	return cr.tryReadID("-u", func(id int) { cr.UID = id })
+}
+
+func (cr *containerReference) tryReadGID() common.Executor {
+	return cr.tryReadID("-g", func(id int) { cr.GID = id })
+}
+
 func (cr *containerReference) waitForCommand(ctx context.Context, isTerminal bool, resp types.HijackedResponse, idResp types.IDResponse, user string, workdir string) error {
 	logger := common.Logger(ctx)
 
@@ -670,6 +725,9 @@ func (cr *containerReference) copyDir(dstPath string, srcPath string, useGitIgno
 			SrcPrefix: srcPrefix,
 			Handler: &tarCollector{
 				TarWriter: tw,
+				UID:       cr.UID,
+				GID:       cr.GID,
+				DstDir:    dstPath[1:],
 			},
 		}
 
@@ -686,7 +744,7 @@ func (cr *containerReference) copyDir(dstPath string, srcPath string, useGitIgno
 		if err != nil {
 			return fmt.Errorf("failed to seek tar archive: %w", err)
 		}
-		err = cr.cli.CopyToContainer(ctx, cr.id, dstPath, tarFile, types.CopyToContainerOptions{})
+		err = cr.cli.CopyToContainer(ctx, cr.id, "/", tarFile, types.CopyToContainerOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to copy content to container: %w", err)
 		}
@@ -705,6 +763,8 @@ func (cr *containerReference) copyContent(dstPath string, files ...*FileEntry) c
 				Name: file.Name,
 				Mode: file.Mode,
 				Size: int64(len(file.Body)),
+				Uid:  cr.UID,
+				Gid:  cr.GID,
 			}
 			if err := tw.WriteHeader(hdr); err != nil {
 				return err
