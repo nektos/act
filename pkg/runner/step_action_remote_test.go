@@ -256,6 +256,147 @@ func TestStepActionRemotePre(t *testing.T) {
 	}
 }
 
+func TestStepActionRemotePreThroughAction(t *testing.T) {
+	table := []struct {
+		name      string
+		stepModel *model.Step
+	}{
+		{
+			name: "run-pre",
+			stepModel: &model.Step{
+				Uses: "org/repo/path@ref",
+			},
+		},
+	}
+
+	for _, tt := range table {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+
+			clonedAction := false
+			sarm := &stepActionRemoteMocks{}
+
+			origStepAtionRemoteNewCloneExecutor := stepActionRemoteNewCloneExecutor
+			stepActionRemoteNewCloneExecutor = func(input git.NewGitCloneExecutorInput) common.Executor {
+				return func(ctx context.Context) error {
+					if input.URL == "https://github.com/org/repo" {
+						clonedAction = true
+					}
+					return nil
+				}
+			}
+			defer (func() {
+				stepActionRemoteNewCloneExecutor = origStepAtionRemoteNewCloneExecutor
+			})()
+
+			sar := &stepActionRemote{
+				Step: tt.stepModel,
+				RunContext: &RunContext{
+					Config: &Config{
+						GitHubInstance:                "https://enterprise.github.com",
+						ReplaceGheActionWithGithubCom: []string{"org/repo"},
+					},
+					Run: &model.Run{
+						JobID: "1",
+						Workflow: &model.Workflow{
+							Jobs: map[string]*model.Job{
+								"1": {},
+							},
+						},
+					},
+				},
+				readAction: sarm.readAction,
+			}
+
+			suffixMatcher := func(suffix string) interface{} {
+				return mock.MatchedBy(func(actionDir string) bool {
+					return strings.HasSuffix(actionDir, suffix)
+				})
+			}
+
+			sarm.On("readAction", sar.Step, suffixMatcher("org-repo-path@ref"), "path", mock.Anything, mock.Anything).Return(&model.Action{}, nil)
+
+			err := sar.pre()(ctx)
+
+			assert.Nil(t, err)
+			assert.Equal(t, true, clonedAction)
+
+			sarm.AssertExpectations(t)
+		})
+	}
+}
+
+func TestStepActionRemotePreThroughActionToken(t *testing.T) {
+	table := []struct {
+		name      string
+		stepModel *model.Step
+	}{
+		{
+			name: "run-pre",
+			stepModel: &model.Step{
+				Uses: "org/repo/path@ref",
+			},
+		},
+	}
+
+	for _, tt := range table {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+
+			clonedAction := false
+			sarm := &stepActionRemoteMocks{}
+
+			origStepAtionRemoteNewCloneExecutor := stepActionRemoteNewCloneExecutor
+			stepActionRemoteNewCloneExecutor = func(input git.NewGitCloneExecutorInput) common.Executor {
+				return func(ctx context.Context) error {
+					if input.URL == "https://github.com/org/repo" && input.Token == "PRIVATE_ACTIONS_TOKEN_ON_GITHUB" {
+						clonedAction = true
+					}
+					return nil
+				}
+			}
+			defer (func() {
+				stepActionRemoteNewCloneExecutor = origStepAtionRemoteNewCloneExecutor
+			})()
+
+			sar := &stepActionRemote{
+				Step: tt.stepModel,
+				RunContext: &RunContext{
+					Config: &Config{
+						GitHubInstance:                     "https://enterprise.github.com",
+						ReplaceGheActionWithGithubCom:      []string{"org/repo"},
+						ReplaceGheActionTokenWithGithubCom: "PRIVATE_ACTIONS_TOKEN_ON_GITHUB",
+					},
+					Run: &model.Run{
+						JobID: "1",
+						Workflow: &model.Workflow{
+							Jobs: map[string]*model.Job{
+								"1": {},
+							},
+						},
+					},
+				},
+				readAction: sarm.readAction,
+			}
+
+			suffixMatcher := func(suffix string) interface{} {
+				return mock.MatchedBy(func(actionDir string) bool {
+					return strings.HasSuffix(actionDir, suffix)
+				})
+			}
+
+			sarm.On("readAction", sar.Step, suffixMatcher("org-repo-path@ref"), "path", mock.Anything, mock.Anything).Return(&model.Action{}, nil)
+
+			err := sar.pre()(ctx)
+
+			assert.Nil(t, err)
+			assert.Equal(t, true, clonedAction)
+
+			sarm.AssertExpectations(t)
+		})
+	}
+}
+
 func TestStepActionRemotePost(t *testing.T) {
 	table := []struct {
 		name                   string
