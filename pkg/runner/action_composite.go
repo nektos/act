@@ -9,7 +9,7 @@ import (
 )
 
 func evaluteCompositeInputAndEnv(ctx context.Context, parent *RunContext, step actionStep) (inputs map[string]interface{}, env map[string]string) {
-	eval := parent.NewExpressionEvaluator(ctx)
+	eval := parent.NewStepExpressionEvaluator(ctx, step)
 
 	inputs = make(map[string]interface{})
 	for k, input := range step.getActionModel().Inputs {
