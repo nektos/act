@@ -384,13 +384,22 @@ on:
       SOME_VALUE:
         description: "Some other input to pass"
         type: string
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Test with inputs
+        run: |
+          echo "Hello ${{ github.event.inputs.NAME }} and ${{ github.event.inputs.SOME_VALUE }}!"
 ```
 
 Example JSON payload file conveniently named `payload.json`
 
 ```json
 {
-  "action": "workflow_dispatch",
   "inputs": {
     "NAME": "Manual Workflow",
     "SOME_VALUE": "ABC"
@@ -401,7 +410,7 @@ Example JSON payload file conveniently named `payload.json`
 Command for triggering the workflow
 
 ```sh
-act -e payload.json
+act workflow_dispatch -e payload.json
 ```
 
 # GitHub Enterprise
