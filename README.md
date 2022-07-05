@@ -370,6 +370,49 @@ act -e pull-request.json
 
 Act will properly provide `github.head_ref` and `github.base_ref` to the action as expected.
 
+## Pass Inputs to Manually Triggered Workflows
+
+Example workflow file
+
+```yaml
+on:
+  workflow_dispatch:
+    inputs:
+      NAME:
+        description: "A random input name for the workflow"
+        type: string
+      SOME_VALUE:
+        description: "Some other input to pass"
+        type: string
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Test with inputs
+        run: |
+          echo "Hello ${{ github.event.inputs.NAME }} and ${{ github.event.inputs.SOME_VALUE }}!"
+```
+
+Example JSON payload file conveniently named `payload.json`
+
+```json
+{
+  "inputs": {
+    "NAME": "Manual Workflow",
+    "SOME_VALUE": "ABC"
+  }
+}
+```
+
+Command for triggering the workflow
+
+```sh
+act workflow_dispatch -e payload.json
+```
+
 # GitHub Enterprise
 
 Act supports using and authenticating against private GitHub Enterprise servers.
