@@ -365,7 +365,7 @@ Every [GitHub event](https://developer.github.com/v3/activity/events/types) is a
 ```
 
 ```sh
-act -e pull-request.json
+act pull_request -e pull-request.json
 ```
 
 Act will properly provide `github.head_ref` and `github.base_ref` to the action as expected.
