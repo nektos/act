@@ -1,0 +1,106 @@
+---
+name: "Test Composite Action"
+description: "Test action uses composite"
+
+inputs:
+  test_input_required:
+    description: "Required input"
+    required: true
+  test_input_optional:
+    description: "optional defaulted input"
+    required: false
+    default: "test_input_optional_value"
+  test_input_optional_with_default_overriden:
+    description: "optional defaulted input"
+    required: false
+    default: "test_input_optional_value"
+  test_input_required_with_default:
+    description: "Required with default, due to an old bug of github actions this is allowed"
+    required: true
+    default: "test_input_optional_value"
+  test_input_required_with_default_overriden:
+    description: "Required with default, due to an old bug of github actions this is allowed"
+    required: true
+    default: "test_input_optional_value"
+  secret_input:
+    description: test pass a secret as input
+outputs:
+  test_output:
+    description: "Output value to pass up"
+    value: ${{ steps.output.outputs.test_output }}
+  secret_output:
+    description: test pass a secret as output
+    value: ${{ format('{0}/{1}', inputs.secret_input, env.secret_input) }}
+
+runs:
+  using: "composite"
+  steps:
+    - run: |
+        echo "#####################################"
+        echo "Inputs:"
+        echo "---"
+        echo "test_input_required=${{ inputs.test_input_required }}"
+        echo "test_input_optional=${{ inputs.test_input_optional }}"
+        echo "test_input_optional_with_default_overriden=${{ inputs.test_input_optional_with_default_overriden }}"
+        echo "test_input_required_with_default=${{ inputs.test_input_required_with_default }}"
+        echo "test_input_required_with_default_overriden=${{ inputs.test_input_required_with_default_overriden }}"
+        echo "---"
+      shell: bash
+
+    - uses: ./../../actions/node16
+      with:
+        who-to-greet: Universe!
+
+    # Let's test the inputs
+    - run: |
+        if [ "${{ inputs.test_input_required }}" != "test_input_required_value" ]; then
+          exit 1
+        fi
+      shell: bash
+
+    - run: |
+        if [ "${{ inputs.test_input_optional }}" != "test_input_optional_value" ]; then
+          exit 1
+        fi
+      shell: bash
+
+    - run: |
+        if [ "${{ inputs.test_input_optional_with_default_overriden }}" != "test_input_optional_with_default_overriden" ]; then
+          exit 1
+        fi
+      shell: bash
+
+    - run: |
+        if [ "${{ inputs.test_input_required_with_default }}" != "test_input_optional_value" ]; then
+          exit 1
+        fi
+      shell: bash
+
+    - run: |
+        if [ "${{ inputs.test_input_required_with_default_overriden }}" != "test_input_required_with_default_overriden" ]; then
+          exit 1
+        fi
+      shell: bash
+
+    - run: |
+        if [ -z "$GITHUB_ACTION_PATH" ]; then
+          exit 1
+        fi
+        if [ -z "${{ github.action_path }}" ]; then
+          exit 2
+        fi
+      shell: bash
+
+    - run: |
+        if [ "${{ inputs.who-to-greet }}" != "Universe!" ]; then
+          exit 1
+        fi
+      shell: bash
+
+    # Let's send up an output to test
+    - run: echo "::set-output name=test_output::test_output_value"
+      id: output
+      shell: bash
+    - run: echo "COMPOSITE_ACTION_ENV_OUTPUT=my test value" >> $GITHUB_ENV
+      shell: bash
+
