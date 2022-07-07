@@ -8,7 +8,7 @@ jobs:
         run: ''
   check-container:
     runs-on: ubuntu-latest
-    container: ghcr.io/justingrote/act-pwsh:latest
+    container: catthehacker/ubuntu:pwsh-latest
     steps:
       - shell: pwsh -v '. {0}'
         run: ''

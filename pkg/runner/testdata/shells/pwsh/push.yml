@@ -10,7 +10,7 @@ jobs:
           $PSVersionTable
   check-container:
     runs-on: ubuntu-latest
-    container: ghcr.io/justingrote/act-pwsh:latest
+    container: catthehacker/ubuntu:pwsh-latest
     steps:
       - shell: ${{ env.MY_SHELL }}
         run: |
