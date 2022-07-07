@@ -63,7 +63,7 @@ type Job struct {
 	Env            yaml.Node                 `yaml:"env"`
 	If             yaml.Node                 `yaml:"if"`
 	Steps          []*Step                   `yaml:"steps"`
-	TimeoutMinutes int64                     `yaml:"timeout-minutes"`
+	TimeoutMinutes string                    `yaml:"timeout-minutes"`
 	Services       map[string]*ContainerSpec `yaml:"services"`
 	Strategy       *Strategy                 `yaml:"strategy"`
 	RawContainer   yaml.Node                 `yaml:"container"`
