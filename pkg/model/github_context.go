@@ -98,7 +98,7 @@ func (ghc *GithubContext) SetRefAndSha(ctx context.Context, defaultBranch string
 		ghc.Ref = ghc.BaseRef
 		ghc.Sha = asString(nestedMapLookup(ghc.Event, "pull_request", "base", "sha"))
 	case "pull_request", "pull_request_review", "pull_request_review_comment":
-		ghc.Ref = fmt.Sprintf("refs/pull/%d/merge", ghc.Event["number"])
+		ghc.Ref = fmt.Sprintf("refs/pull/%.0f/merge", ghc.Event["number"])
 	case "deployment", "deployment_status":
 		ghc.Ref = asString(nestedMapLookup(ghc.Event, "deployment", "ref"))
 		ghc.Sha = asString(nestedMapLookup(ghc.Event, "deployment", "sha"))
