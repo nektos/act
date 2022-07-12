@@ -46,7 +46,7 @@ func TestSetRefAndSha(t *testing.T) {
 		{
 			eventName: "pull_request",
 			event: map[string]interface{}{
-				"number": "1234",
+				"number": 1234.,
 			},
 			ref: "refs/pull/1234/merge",
 			sha: "1234fakesha",
