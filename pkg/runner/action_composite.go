@@ -62,6 +62,7 @@ func newCompositeRunContext(ctx context.Context, parent *RunContext, step action
 		Env:              env,
 		Masks:            parent.Masks,
 		ExtraPath:        parent.ExtraPath,
+		Parent:           parent,
 	}
 
 	return compositerc
@@ -137,9 +138,12 @@ func (rc *RunContext) compositeExecutor(action *model.Action) *compositeSteps {
 			}
 		}
 
-		preSteps = append(preSteps, step.pre())
+		stepID := step.getStepModel().ID
+		stepPre := step.pre()
+		preSteps = append(preSteps, newCompositeStepLogExecutor(stepPre, stepID))
 
 		steps = append(steps, func(ctx context.Context) error {
+			ctx = WithCompositeStepLogger(ctx, stepID)
 			logger := common.Logger(ctx)
 			err := step.main()(ctx)
 			if err != nil {
@@ -154,15 +158,20 @@ func (rc *RunContext) compositeExecutor(action *model.Action) *compositeSteps {
 
 		// run the post executor in reverse order
 		if postExecutor != nil {
-			postExecutor = step.post().Finally(postExecutor)
+			stepPost := step.post()
+			postExecutor = newCompositeStepLogExecutor(stepPost, stepID)
+			stepPost.Finally(postExecutor)
 		} else {
-			postExecutor = step.post()
+			stepPost := step.post()
+			postExecutor = newCompositeStepLogExecutor(stepPost, stepID)
 		}
 	}
 
 	steps = append(steps, common.JobError)
 	return &compositeSteps{
-		pre: rc.newCompositeCommandExecutor(common.NewPipelineExecutor(preSteps...)),
+		pre: rc.newCompositeCommandExecutor(func(ctx context.Context) error {
+			return common.NewPipelineExecutor(preSteps...)(common.WithJobErrorContainer(ctx))
+		}),
 		main: rc.newCompositeCommandExecutor(func(ctx context.Context) error {
 			return common.NewPipelineExecutor(steps...)(common.WithJobErrorContainer(ctx))
 		}),
@@ -192,5 +201,21 @@ func (rc *RunContext) newCompositeCommandExecutor(executor common.Executor) comm
 		defer rc.JobContainer.ReplaceLogWriter(oldout, olderr)
 
 		return executor(ctx)
+	}
+}
+
+func newCompositeStepLogExecutor(runStep common.Executor, stepID string) common.Executor {
+	return func(ctx context.Context) error {
+		ctx = WithCompositeStepLogger(ctx, stepID)
+		logger := common.Logger(ctx)
+		err := runStep(ctx)
+		if err != nil {
+			logger.Errorf("%v", err)
+			common.SetJobError(ctx, err)
+		} else if ctx.Err() != nil {
+			logger.Errorf("%v", ctx.Err())
+			common.SetJobError(ctx, ctx.Err())
+		}
+		return nil
 	}
 }
