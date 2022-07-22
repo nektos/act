@@ -122,6 +122,13 @@ curl https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash
 
 Download the [latest release](https://github.com/nektos/act/releases/latest) and add the path to your binary into your PATH.
 
+# Logging into GitHub Packages
+
+`act` uses container images that are hosted on GitHub Packages (ghcr.io). In order to access the container images that are required for `act` to run, you must follow these steps:
+1. Generate a [GitHub Personal Access Token](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token) with `read:packages` access.
+2. Run `docker login ghcr.io`, provide your GitHub username as the username, and the token generated in the previous step as the password.
+3. `act` should be able to run images now! If you recieve this error `Error: Error response from daemon: Head "https://ghcr.io/v2/catthehacker/ubuntu/manifests/act-latest": denied: denied`, double check that your token has `read:packages` access.
+
 # Example commands
 
 ```sh
