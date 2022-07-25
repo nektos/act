@@ -183,6 +183,14 @@ func (rc *RunContext) newCompositeCommandExecutor(executor common.Executor) comm
 	return func(ctx context.Context) error {
 		ctx = WithCompositeLogger(ctx, &rc.Masks)
 
+		return executor(ctx)
+	}
+}
+
+func newCompositeStepLogExecutor(runStep common.Executor, stepID string) common.Executor {
+	return func(ctx context.Context) error {
+		ctx = WithCompositeStepLogger(ctx, stepID)
+		
 		// We need to inject a composite RunContext related command
 		// handler into the current running job container
 		// We need this, to support scoping commands to the composite action
@@ -200,13 +208,6 @@ func (rc *RunContext) newCompositeCommandExecutor(executor common.Executor) comm
 		oldout, olderr := rc.JobContainer.ReplaceLogWriter(logWriter, logWriter)
 		defer rc.JobContainer.ReplaceLogWriter(oldout, olderr)
 
-		return executor(ctx)
-	}
-}
-
-func newCompositeStepLogExecutor(runStep common.Executor, stepID string) common.Executor {
-	return func(ctx context.Context) error {
-		ctx = WithCompositeStepLogger(ctx, stepID)
 		logger := common.Logger(ctx)
 		err := runStep(ctx)
 		if err != nil {
