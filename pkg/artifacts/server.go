@@ -12,6 +12,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/julienschmidt/httprouter"
 	"github.com/nektos/act/pkg/common"
@@ -277,7 +278,11 @@ func Serve(ctx context.Context, artifactPath string, port string) context.Cancel
 	downloads(router, fs)
 	ip := common.GetOutboundIP().String()
 
-	server := &http.Server{Addr: fmt.Sprintf("%s:%s", ip, port), Handler: router}
+	server := &http.Server{
+		Addr:              fmt.Sprintf("%s:%s", ip, port),
+		ReadHeaderTimeout: 2 * time.Second,
+		Handler:           router,
+	}
 
 	// run server
 	go func() {
