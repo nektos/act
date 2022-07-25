@@ -140,30 +140,18 @@ func (rc *RunContext) compositeExecutor(action *model.Action) *compositeSteps {
 
 		stepID := step.getStepModel().ID
 		stepPre := step.pre()
-		preSteps = append(preSteps, newCompositeStepLogExecutor(stepPre, stepID))
+		preSteps = append(preSteps, newCompositeStepLogExecutor(rc, stepPre, stepID))
 
-		steps = append(steps, func(ctx context.Context) error {
-			ctx = WithCompositeStepLogger(ctx, stepID)
-			logger := common.Logger(ctx)
-			err := step.main()(ctx)
-			if err != nil {
-				logger.Errorf("%v", err)
-				common.SetJobError(ctx, err)
-			} else if ctx.Err() != nil {
-				logger.Errorf("%v", ctx.Err())
-				common.SetJobError(ctx, ctx.Err())
-			}
-			return nil
-		})
+		steps = append(steps, newCompositeStepLogExecutor(rc, step.main(), stepID))
 
 		// run the post executor in reverse order
 		if postExecutor != nil {
 			stepPost := step.post()
-			postExecutor = newCompositeStepLogExecutor(stepPost, stepID)
+			postExecutor = newCompositeStepLogExecutor(rc, stepPost, stepID)
 			stepPost.Finally(postExecutor)
 		} else {
 			stepPost := step.post()
-			postExecutor = newCompositeStepLogExecutor(stepPost, stepID)
+			postExecutor = newCompositeStepLogExecutor(rc, stepPost, stepID)
 		}
 	}
 
@@ -187,7 +175,7 @@ func (rc *RunContext) newCompositeCommandExecutor(executor common.Executor) comm
 	}
 }
 
-func newCompositeStepLogExecutor(runStep common.Executor, stepID string) common.Executor {
+func newCompositeStepLogExecutor(rc *RunContext, runStep common.Executor, stepID string) common.Executor {
 	return func(ctx context.Context) error {
 		ctx = WithCompositeStepLogger(ctx, stepID)
 		
