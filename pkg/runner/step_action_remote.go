@@ -55,6 +55,14 @@ func (sar *stepActionRemote) prepareActionExecutor() common.Executor {
 			return nil
 		}
 
+		sar.remoteAction.URL = sar.RunContext.Config.GitHubInstance
+		for _, action := range sar.RunContext.Config.ReplaceGheActionWithGithubCom {
+			if strings.EqualFold(fmt.Sprintf("%s/%s", sar.remoteAction.Org, sar.remoteAction.Repo), action) {
+				sar.remoteAction.URL = "github.com"
+				github.Token = sar.RunContext.Config.ReplaceGheActionTokenWithGithubCom
+			}
+		}
+
 		actionDir := fmt.Sprintf("%s/%s", sar.RunContext.ActionCacheDir(), strings.ReplaceAll(sar.Step.Uses, "/", "-"))
 		gitClone := stepActionRemoteNewCloneExecutor(git.NewGitCloneExecutorInput{
 			URL:   sar.remoteAction.CloneURL(),
@@ -115,7 +123,7 @@ func (sar *stepActionRemote) main() common.Executor {
 					return nil
 				}
 				eval := sar.RunContext.NewExpressionEvaluator(ctx)
-				copyToPath := filepath.Join(sar.RunContext.Config.ContainerWorkdir(), eval.Interpolate(ctx, sar.Step.With["path"]))
+				copyToPath := path.Join(sar.RunContext.Config.ContainerWorkdir(), eval.Interpolate(ctx, sar.Step.With["path"]))
 				return sar.RunContext.JobContainer.CopyDir(copyToPath, sar.RunContext.Config.Workdir+string(filepath.Separator)+".", sar.RunContext.Config.UseGitIgnore)(ctx)
 			}
 

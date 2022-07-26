@@ -159,47 +159,49 @@ It will save that information to `~/.actrc`, please refer to [Configuration](#co
 # Flags
 
 ```none
-  -a, --actor string                     user that triggered the event (default "nektos/act")
-      --artifact-server-path string      Defines the path where the artifact server stores uploads and retrieves downloads from. If not specified the artifact server will not start.
-      --artifact-server-port string      Defines the port where the artifact server listens (will only bind to localhost). (default "34567")
-  -b, --bind                             bind working directory to container, rather than copy
-      --container-architecture string    Architecture which should be used to run containers, e.g.: linux/amd64. If not specified, will use host default architecture. Requires Docker server API Version 1.41+. Ignored on earlier Docker server platforms.
-      --container-cap-add stringArray    kernel capabilities to add to the workflow containers (e.g. --container-cap-add SYS_PTRACE)
-      --container-cap-drop stringArray   kernel capabilities to remove from the workflow containers (e.g. --container-cap-drop SYS_PTRACE)
-      --container-daemon-socket string   Path to Docker daemon socket which will be mounted to containers (default "/var/run/docker.sock")
-      --defaultbranch string             the name of the main branch
-      --detect-event                     Use first event type from workflow as event that triggered the workflow
-  -C, --directory string                 working directory (default ".")
-  -n, --dryrun                           dryrun mode
-      --env stringArray                  env to make available to actions with optional value (e.g. --env myenv=foo or --env myenv)
-      --env-file string                  environment file to read and use as env in the containers (default ".env")
-  -e, --eventpath string                 path to event JSON file
-      --github-instance string           GitHub instance to use. Don't use this if you are not using GitHub Enterprise Server. (default "github.com")
-  -g, --graph                            draw workflows
-  -h, --help                             help for act
-      --insecure-secrets                 NOT RECOMMENDED! Doesn't hide secrets while printing logs.
-  -j, --job string                       run job
-  -l, --list                             list workflows
-      --no-recurse                       Flag to disable running workflows from subdirectories of specified path in '--workflows'/'-W' flag
-  -P, --platform stringArray             custom image to use per platform (e.g. -P ubuntu-18.04=nektos/act-environments-ubuntu:18.04)
-      --privileged                       use privileged mode
-  -p, --pull                             pull docker image(s) even if already present
-  -q, --quiet                            disable logging of output from steps
-      --rebuild                          rebuild local action docker image(s) even if already present
-  -r, --reuse                            don't remove container(s) on successfully completed workflow(s) to maintain state between runs
-      --rm                               automatically remove container(s)/volume(s) after a workflow(s) failure
-  -s, --secret stringArray               secret to make available to actions with optional value (e.g. -s mysecret=foo or -s mysecret)
-      --secret-file string               file with list of secrets to read from (e.g. --secret-file .secrets) (default ".secrets")
-      --use-gitignore                    Controls whether paths specified in .gitignore should be copied into container (default true)
-      --userns string                    user namespace to use
-  -v, --verbose                          verbose output
-  -w, --watch                            watch the contents of the local repo and run when files change
-  -W, --workflows string                 path to workflow file(s) (default "./.github/workflows/")
+  -a, --actor string                                user that triggered the event (default "nektos/act")
+      --replace-ghe-action-with-github-com          If you are using GitHub Enterprise Server and allow specified actions from GitHub (github.com), you can set actions on this. (e.g. --replace-ghe-action-with-github-com=github/super-linter)
+      --replace-ghe-action-token-with-github-com    If you are using replace-ghe-action-with-github-com and you want to use private actions on GitHub, you have to set personal access token
+      --artifact-server-path string                 Defines the path where the artifact server stores uploads and retrieves downloads from. If not specified the artifact server will not start.
+      --artifact-server-port string                 Defines the port where the artifact server listens (will only bind to localhost). (default "34567")
+  -b, --bind                                        bind working directory to container, rather than copy
+      --container-architecture string               Architecture which should be used to run containers, e.g.: linux/amd64. If not specified, will use host default architecture. Requires Docker server API Version 1.41+. Ignored on earlier Docker server platforms.
+      --container-cap-add stringArray               kernel capabilities to add to the workflow containers (e.g. --container-cap-add SYS_PTRACE)
+      --container-cap-drop stringArray              kernel capabilities to remove from the workflow containers (e.g. --container-cap-drop SYS_PTRACE)
+      --container-daemon-socket string              Path to Docker daemon socket which will be mounted to containers (default "/var/run/docker.sock")
+      --defaultbranch string                        the name of the main branch
+      --detect-event                                Use first event type from workflow as event that triggered the workflow
+  -C, --directory string                            working directory (default ".")
+  -n, --dryrun                                      dryrun mode
+      --env stringArray                             env to make available to actions with optional value (e.g. --env myenv=foo or --env myenv)
+      --env-file string                             environment file to read and use as env in the containers (default ".env")
+  -e, --eventpath string                            path to event JSON file
+      --github-instance string                      GitHub instance to use. Don't use this if you are not using GitHub Enterprise Server. (default "github.com")
+  -g, --graph                                       draw workflows
+  -h, --help                                        help for act
+      --insecure-secrets                            NOT RECOMMENDED! Doesn't hide secrets while printing logs.
+  -j, --job string                                  run job
+  -l, --list                                        list workflows
+      --no-recurse                                  Flag to disable running workflows from subdirectories of specified path in '--workflows'/'-W' flag
+  -P, --platform stringArray                        custom image to use per platform (e.g. -P ubuntu-18.04=nektos/act-environments-ubuntu:18.04)
+      --privileged                                  use privileged mode
+  -p, --pull                                        pull docker image(s) even if already present
+  -q, --quiet                                       disable logging of output from steps
+      --rebuild                                     rebuild local action docker image(s) even if already present
+  -r, --reuse                                       don't remove container(s) on successfully completed workflow(s) to maintain state between runs
+      --rm                                          automatically remove container(s)/volume(s) after a workflow(s) failure
+  -s, --secret stringArray                          secret to make available to actions with optional value (e.g. -s mysecret=foo or -s mysecret)
+      --secret-file string                          file with list of secrets to read from (e.g. --secret-file .secrets) (default ".secrets")
+      --use-gitignore                               Controls whether paths specified in .gitignore should be copied into container (default true)
+      --userns string                               user namespace to use
+  -v, --verbose                                     verbose output
+  -w, --watch                                       watch the contents of the local repo and run when files change
+  -W, --workflows string                            path to workflow file(s) (default "./.github/workflows/")
 ```
 
 ## `GITHUB_TOKEN`
 
-Github [automatically provides](https://docs.github.com/en/actions/security-guides/automatic-token-authentication#about-the-github_token-secret) a `GITHUB_TOKEN` secret when running workflows inside Github.
+GitHub [automatically provides](https://docs.github.com/en/actions/security-guides/automatic-token-authentication#about-the-github_token-secret) a `GITHUB_TOKEN` secret when running workflows inside GitHub.
 
 If your workflow depends on this token, you need to create a [personal access token](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token) and pass it to `act` as a secret:
 
@@ -252,10 +254,10 @@ GitHub Actions offers managed [virtual environments](https://help.github.com/en/
 
 | GitHub Runner   | Micro Docker Image               | Medium Docker Image                                       | Large Docker Image                                         |
 | --------------- | -------------------------------- | --------------------------------------------------------- | ---------------------------------------------------------- |
-| `ubuntu-latest` | [`node:16-buster-slim`][micro]   | [`ghcr.io/catthehacker/ubuntu:act-latest`][docker_images] | [`ghcr.io/catthehacker/ubuntu:full-latest`][docker_images] |
-| `ubuntu-22.04`  | [`node:16-bullseye-slim`][micro] | [`ghcr.io/catthehacker/ubuntu:act-22.04`][docker_images]  | `unavailable`                                              |
-| `ubuntu-20.04`  | [`node:16-buster-slim`][micro]   | [`ghcr.io/catthehacker/ubuntu:act-20.04`][docker_images]  | [`ghcr.io/catthehacker/ubuntu:full-20.04`][docker_images]  |
-| `ubuntu-18.04`  | [`node:16-buster-slim`][micro]   | [`ghcr.io/catthehacker/ubuntu:act-18.04`][docker_images]  | [`ghcr.io/catthehacker/ubuntu:full-18.04`][docker_images]  |
+| `ubuntu-latest` | [`node:16-buster-slim`][micro]   | [`catthehacker/ubuntu:act-latest`][docker_images] | [`catthehacker/ubuntu:full-latest`][docker_images] |
+| `ubuntu-22.04`  | [`node:16-bullseye-slim`][micro] | [`catthehacker/ubuntu:act-22.04`][docker_images]  | `unavailable`                                              |
+| `ubuntu-20.04`  | [`node:16-buster-slim`][micro]   | [`catthehacker/ubuntu:act-20.04`][docker_images]  | [`catthehacker/ubuntu:full-20.04`][docker_images]  |
+| `ubuntu-18.04`  | [`node:16-buster-slim`][micro]   | [`catthehacker/ubuntu:act-18.04`][docker_images]  | [`catthehacker/ubuntu:full-18.04`][docker_images]  |
 
 [micro]: https://hub.docker.com/_/buildpack-deps
 [docker_images]: https://github.com/catthehacker/docker_images
@@ -279,7 +281,7 @@ If you need an environment that works just like the corresponding GitHub runner 
 
 :warning: :elephant: `*** WARNING - this image is >18GB 😱***`
 
-- [`ghcr.io/catthehacker/ubuntu:full-*`](https://github.com/catthehacker/docker_images/pkgs/container/ubuntu) - built from Packer template provided by GitHub, see [catthehacker/virtual-environments-fork](https://github.com/catthehacker/virtual-environments-fork) or [catthehacker/docker_images](https://github.com/catthehacker/docker_images) for more information
+- [`catthehacker/ubuntu:full-*`](https://github.com/catthehacker/docker_images/pkgs/container/ubuntu) - built from Packer template provided by GitHub, see [catthehacker/virtual-environments-fork](https://github.com/catthehacker/virtual-environments-fork) or [catthehacker/docker_images](https://github.com/catthehacker/docker_images) for more information
 
 ## Use an alternative runner image
 
@@ -363,10 +365,53 @@ Every [GitHub event](https://developer.github.com/v3/activity/events/types) is a
 ```
 
 ```sh
-act -e pull-request.json
+act pull_request -e pull-request.json
 ```
 
 Act will properly provide `github.head_ref` and `github.base_ref` to the action as expected.
+
+## Pass Inputs to Manually Triggered Workflows
+
+Example workflow file
+
+```yaml
+on:
+  workflow_dispatch:
+    inputs:
+      NAME:
+        description: "A random input name for the workflow"
+        type: string
+      SOME_VALUE:
+        description: "Some other input to pass"
+        type: string
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Test with inputs
+        run: |
+          echo "Hello ${{ github.event.inputs.NAME }} and ${{ github.event.inputs.SOME_VALUE }}!"
+```
+
+Example JSON payload file conveniently named `payload.json`
+
+```json
+{
+  "inputs": {
+    "NAME": "Manual Workflow",
+    "SOME_VALUE": "ABC"
+  }
+}
+```
+
+Command for triggering the workflow
+
+```sh
+act workflow_dispatch -e payload.json
+```
 
 # GitHub Enterprise
 

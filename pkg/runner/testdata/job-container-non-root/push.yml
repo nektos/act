@@ -5,6 +5,6 @@ jobs:
   test:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/catthehacker/ubuntu:runner-latest # image with user 'runner:runner' built on tag 'act-latest'
+      image: catthehacker/ubuntu:runner-latest # image with user 'runner:runner' built on tag 'act-latest'
     steps:
       - run: echo PASS
