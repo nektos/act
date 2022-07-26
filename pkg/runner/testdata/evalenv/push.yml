@@ -1,0 +1,20 @@
+name: CI
+
+on: push
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      BUILD_DIR: ${{ github.workspace }}/build
+    steps:
+      - name: Dump
+        run: |
+          echo "$BUILD_DIR"
+          echo "$EXPECTED_BUILD_DIR"
+          echo "$GITHUB_WORKSPACE/build"
+        env:
+          EXPECTED_BUILD_DIR: ${{ github.workspace }}/build
+      - name: Test
+        run: [ "$BUILD_DIR" = "$EXPECTED_BUILD_DIR" ] && [ "$BUILD_DIR" = "$GITHUB_WORKSPACE/build" ]
+        env:
+          EXPECTED_BUILD_DIR: ${{ github.workspace }}/build
