@@ -142,14 +142,16 @@ func (fc *fileCollector) collectFiles(ctx context.Context, submodulePath []strin
 				return nil
 			}
 		}
+
+		path := filepath.ToSlash(sansPrefix)
+
 		if err == nil && entry.Mode == filemode.Submodule {
-			err = fc.Fs.Walk(fi.Name(), fc.collectFiles(ctx, split))
+			err = fc.Fs.Walk(path, fc.collectFiles(ctx, split))
 			if err != nil {
 				return err
 			}
 			return filepath.SkipDir
 		}
-		path := filepath.ToSlash(sansPrefix)
 
 		// return on non-regular files (thanks to [kumo](https://medium.com/@komuw/just-like-you-did-fbdd7df829d3) for this suggested update)
 		if fi.Mode()&os.ModeSymlink == os.ModeSymlink {
