@@ -143,7 +143,7 @@ func (fc *fileCollector) collectFiles(ctx context.Context, submodulePath []strin
 			}
 		}
 		if err == nil && entry.Mode == filemode.Submodule {
-			err = fc.Fs.Walk(fi.Name(), fc.collectFiles(ctx, split))
+			err = fc.Fs.Walk(file, fc.collectFiles(ctx, split))
 			if err != nil {
 				return err
 			}
