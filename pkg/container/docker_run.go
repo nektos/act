@@ -697,7 +697,15 @@ func (cr *containerReference) copyDir(dstPath string, srcPath string, useGitIgno
 			name := tarFile.Name()
 			err := tarFile.Close()
 			if err != nil {
-				logger.Error(err)
+				alreadyClosed := false
+				if err2, ok := err.(*os.PathError); ok {
+					if err2.Unwrap() == os.ErrClosed {
+						alreadyClosed = true
+					}
+				}
+				if !alreadyClosed {
+					logger.Error(err)
+				}
 			}
 			err = os.Remove(name)
 			if err != nil {
