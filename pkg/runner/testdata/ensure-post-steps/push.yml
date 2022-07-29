@@ -1,0 +1,8 @@
+name: test
+on: push
+jobs:
+  second-post-step-should-fail:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: ./ensure-post-steps/action-composite/

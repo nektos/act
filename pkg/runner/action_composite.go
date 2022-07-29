@@ -160,8 +160,7 @@ func (rc *RunContext) compositeExecutor(action *model.Action) *compositeSteps {
 		// run the post executor in reverse order
 		if postExecutor != nil {
 			stepPost := rc.newCompositeCommandExecutor(step.post())
-			postExecutor = newCompositeStepLogExecutor(stepPost, stepID)
-			stepPost.Finally(postExecutor)
+			postExecutor = newCompositeStepLogExecutor(stepPost.Finally(postExecutor), stepID)
 		} else {
 			stepPost := rc.newCompositeCommandExecutor(step.post())
 			postExecutor = newCompositeStepLogExecutor(stepPost, stepID)
