@@ -178,6 +178,7 @@ func TestRunEvent(t *testing.T) {
 		{workdir, "actions-environment-and-context-tests", "push", "", platforms},
 		{workdir, "uses-action-with-pre-and-post-step", "push", "", platforms},
 		{workdir, "evalenv", "push", "", platforms},
+		{workdir, "ensure-post-steps", "push", "Job 'second-post-step-should-fail' failed", platforms},
 		{"../model/testdata", "strategy", "push", "", platforms}, // TODO: move all testdata into pkg so we can validate it with planner and runner
 		// {"testdata", "issue-228", "push", "", platforms, }, // TODO [igni]: Remove this once everything passes
 		{"../model/testdata", "container-volumes", "push", "", platforms},
