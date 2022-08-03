@@ -5,6 +5,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -696,16 +697,8 @@ func (cr *containerReference) copyDir(dstPath string, srcPath string, useGitIgno
 		defer func(tarFile *os.File) {
 			name := tarFile.Name()
 			err := tarFile.Close()
-			if err != nil {
-				alreadyClosed := false
-				if err2, ok := err.(*os.PathError); ok {
-					if err2.Unwrap() == os.ErrClosed {
-						alreadyClosed = true
-					}
-				}
-				if !alreadyClosed {
-					logger.Error(err)
-				}
+			if !errors.Is(err, os.ErrClosed) {
+				logger.Error(err)
 			}
 			err = os.Remove(name)
 			if err != nil {
