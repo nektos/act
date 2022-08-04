@@ -489,17 +489,17 @@ func (*HostEnvironment) JoinPathVariable(paths ...string) string {
 	return strings.Join(paths, string(filepath.ListSeparator))
 }
 
-func (h *HostEnvironment) GetRunnerContext() map[string]interface{} {
+func (e *HostEnvironment) GetRunnerContext() map[string]interface{} {
 	return map[string]interface{}{
 		"os":         runtime.GOOS,
 		"arch":       runtime.GOARCH,
-		"temp":       h.TmpDir,
-		"tool_cache": h.ToolCache,
+		"temp":       e.TmpDir,
+		"tool_cache": e.ToolCache,
 	}
 }
 
-func (h *HostEnvironment) ReplaceLogWriter(stdout io.Writer, stderr io.Writer) (io.Writer, io.Writer) {
-	org := h.StdOut
-	h.StdOut = stdout
+func (e *HostEnvironment) ReplaceLogWriter(stdout io.Writer, stderr io.Writer) (io.Writer, io.Writer) {
+	org := e.StdOut
+	e.StdOut = stdout
 	return org, org
 }
