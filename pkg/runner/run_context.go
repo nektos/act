@@ -141,7 +141,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 		})
 		if image == "-self-hosted" {
 			cacheDir := rc.ActionCacheDir()
-			randBytes := make([]byte, 16)
+			randBytes := make([]byte, 8)
 			_, _ = rand.Read(randBytes)
 			miscpath := filepath.Join(cacheDir, hex.EncodeToString(randBytes))
 			actPath := filepath.Join(miscpath, "act")
@@ -161,6 +161,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 				Path:      path,
 				TmpDir:    runnerTmp,
 				ToolCache: toolCache,
+				Workdir:   rc.Config.Workdir,
 				CleanUp: func() {
 					os.RemoveAll(miscpath)
 				},

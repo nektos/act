@@ -18,6 +18,9 @@ import (
 
 	"errors"
 
+	"github.com/go-git/go-billy/v5/helper/polyfill"
+	"github.com/go-git/go-billy/v5/osfs"
+	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/lookpath"
 	"golang.org/x/term"
@@ -27,6 +30,7 @@ type HostEnvironment struct {
 	Path      string
 	TmpDir    string
 	ToolCache string
+	Workdir   string
 	CleanUp   func()
 	StdOut    io.Writer
 }
@@ -59,122 +63,76 @@ func (e *HostEnvironment) Copy(destPath string, files ...*FileEntry) common.Exec
 
 func (e *HostEnvironment) CopyDir(destPath string, srcPath string, useGitIgnore bool) common.Executor {
 	return func(ctx context.Context) error {
-		return filepath.Walk(srcPath, func(file string, fi os.FileInfo, err error) error {
-			if fi.Mode()&os.ModeSymlink != 0 {
-				lnk, err := os.Readlink(file)
-				if err != nil {
-					return err
-				}
-				relpath, err := filepath.Rel(srcPath, file)
-				if err != nil {
-					return err
-				}
-				fdestpath := filepath.Join(destPath, relpath)
-				if err := os.MkdirAll(filepath.Dir(fdestpath), 0777); err != nil {
-					return err
-				}
-				if err := os.Symlink(lnk, fdestpath); err != nil {
-					return err
-				}
-			} else if fi.Mode().IsRegular() {
-				relpath, err := filepath.Rel(srcPath, file)
-				if err != nil {
-					return err
-				}
-				f, err := os.Open(file)
-				if err != nil {
-					return err
-				}
-				defer f.Close()
-				fdestpath := filepath.Join(destPath, relpath)
-				if err := os.MkdirAll(filepath.Dir(fdestpath), 0777); err != nil {
-					return err
-				}
-				df, err := os.OpenFile(fdestpath, os.O_CREATE|os.O_WRONLY, fi.Mode())
-				if err != nil {
-					return err
-				}
-				defer df.Close()
-				if _, err := io.Copy(df, f); err != nil {
-					return err
-				}
+		logger := common.Logger(ctx)
+		srcPrefix := filepath.Dir(srcPath)
+		if !strings.HasSuffix(srcPrefix, string(filepath.Separator)) {
+			srcPrefix += string(filepath.Separator)
+		}
+		logger.Debugf("Stripping prefix:%s src:%s", srcPrefix, srcPath)
+		var ignorer gitignore.Matcher
+		if useGitIgnore {
+			ps, err := gitignore.ReadPatterns(polyfill.New(osfs.New(srcPath)), nil)
+			if err != nil {
+				logger.Debugf("Error loading .gitignore: %v", err)
 			}
-			return nil
-		})
+
+			ignorer = gitignore.NewMatcher(ps)
+		}
+		fc := &fileCollector{
+			Fs:        &defaultFs{},
+			Ignorer:   ignorer,
+			SrcPath:   srcPath,
+			SrcPrefix: srcPrefix,
+			Handler: &copyCollector{
+				DstDir: destPath,
+			},
+		}
+		return filepath.Walk(srcPath, fc.collectFiles(ctx, []string{}))
 	}
 }
 
-func fileCallbackfilecbk(srcPath string, tw *tar.Writer, file string, fi os.FileInfo, err error) error {
-	if fi.Mode()&os.ModeSymlink != 0 {
-		lnk, err := os.Readlink(file)
-		if err != nil {
-			return err
-		}
-		fih, err := tar.FileInfoHeader(fi, lnk)
-		if err != nil {
-			return err
-		}
-		fih.Name, err = filepath.Rel(srcPath, file)
-		if err != nil {
-			return err
-		}
-		if string(filepath.Separator) != "/" {
-			fih.Name = strings.ReplaceAll(fih.Name, string(filepath.Separator), "/")
-		}
-		if err := tw.WriteHeader(fih); err != nil {
-			return err
-		}
-	} else if fi.Mode().IsRegular() {
-		fih, err := tar.FileInfoHeader(fi, "")
-		if err != nil {
-			return err
-		}
-		fih.Name, err = filepath.Rel(srcPath, file)
-		if err != nil {
-			return err
-		}
-		if string(filepath.Separator) != "/" {
-			fih.Name = strings.ReplaceAll(fih.Name, string(filepath.Separator), "/")
-		}
-		if err := tw.WriteHeader(fih); err != nil {
-			return err
-		}
-		f, err := os.Open(file)
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-		if _, err := io.Copy(tw, f); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (e *HostEnvironment) GetContainerArchive(ctx context.Context, srcPath string) (rc io.ReadCloser, err error) {
+func (e *HostEnvironment) GetContainerArchive(ctx context.Context, srcPath string) (io.ReadCloser, error) {
 	buf := &bytes.Buffer{}
 	tw := tar.NewWriter(buf)
-	defer func() {
-		if err == nil {
-			err = tw.Close()
-		}
-	}()
+	defer tw.Close()
 	srcPath = filepath.Clean(srcPath)
 	fi, err := os.Lstat(srcPath)
 	if err != nil {
 		return nil, err
 	}
-	filecbk := func(file string, fi os.FileInfo, err error) error {
-		return fileCallbackfilecbk(srcPath, tw, file, fi, err)
+	tc := &tarCollector{
+		TarWriter: tw,
 	}
 	if fi.IsDir() {
-		if err := filepath.Walk(srcPath, filecbk); err != nil {
+		srcPrefix := filepath.Dir(srcPath)
+		if !strings.HasSuffix(srcPrefix, string(filepath.Separator)) {
+			srcPrefix += string(filepath.Separator)
+		}
+		fc := &fileCollector{
+			SrcPath:   srcPath,
+			SrcPrefix: srcPrefix,
+		}
+		err = filepath.Walk(srcPath, fc.collectFiles(ctx, []string{}))
+		if err != nil {
 			return nil, err
 		}
 	} else {
-		file := srcPath
-		srcPath = filepath.Dir(srcPath)
-		if err := filecbk(file, fi, nil); err != nil {
+		var f io.ReadCloser
+		var linkname string
+		if fi.Mode()&fs.ModeSymlink != 0 {
+			linkname, err = os.Readlink(srcPath)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			f, err = os.Open(srcPath)
+			if err != nil {
+				return nil, err
+			}
+			defer f.Close()
+		}
+		err := tc.WriteFile(fi.Name(), fi, linkname, nil)
+		if err != nil {
 			return nil, err
 		}
 	}
@@ -465,7 +423,12 @@ func (e *HostEnvironment) Remove() common.Executor {
 	}
 }
 
-func (*HostEnvironment) ToContainerPath(path string) string {
+func (e *HostEnvironment) ToContainerPath(path string) string {
+	if bp, err := filepath.Rel(e.Workdir, path); err != nil {
+		return filepath.Join(e.Path, bp)
+	} else if filepath.Clean(e.Workdir) == filepath.Clean(path) {
+		return e.Path
+	}
 	return path
 }
 

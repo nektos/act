@@ -59,6 +59,29 @@ func (tc tarCollector) WriteFile(fpath string, fi fs.FileInfo, linkName string, 
 	return nil
 }
 
+type copyCollector struct {
+	DstDir string
+}
+
+func (cc *copyCollector) WriteFile(fpath string, fi fs.FileInfo, linkName string, f io.Reader) error {
+	fdestpath := filepath.Join(cc.DstDir, fpath)
+	if err := os.MkdirAll(filepath.Dir(fdestpath), 0777); err != nil {
+		return err
+	}
+	if f == nil {
+		return os.Symlink(linkName, fdestpath)
+	}
+	df, err := os.OpenFile(fdestpath, os.O_CREATE|os.O_WRONLY, fi.Mode())
+	if err != nil {
+		return err
+	}
+	defer df.Close()
+	if _, err := io.Copy(df, f); err != nil {
+		return err
+	}
+	return nil
+}
+
 type fileCollector struct {
 	Ignorer   gitignore.Matcher
 	SrcPath   string
