@@ -3,6 +3,7 @@ package runner
 import (
 	"context"
 	"embed"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -285,6 +286,9 @@ func execAsDocker(ctx context.Context, step actionStep, actionName string, based
 		}
 	}
 	stepContainer := newStepContainer(ctx, step, image, cmd, entrypoint)
+	if stepContainer == nil {
+		return errors.New("Failed to create step container")
+	}
 	return common.NewPipelineExecutor(
 		prepImage,
 		stepContainer.Pull(rc.Config.ForcePull),
@@ -353,7 +357,7 @@ func newStepContainer(ctx context.Context, step step, image string, cmd []string
 	stepContainer := container.NewContainer(&container.NewContainerInput{
 		Cmd:         cmd,
 		Entrypoint:  entrypoint,
-		WorkingDir:  rc.Config.ContainerWorkdir(),
+		WorkingDir:  rc.JobContainer.ToContainerPath(rc.Config.Workdir),
 		Image:       image,
 		Username:    rc.Config.Secrets["DOCKER_USERNAME"],
 		Password:    rc.Config.Secrets["DOCKER_PASSWORD"],
@@ -420,11 +424,11 @@ func getContainerActionPaths(step *model.Step, actionDir string, rc *RunContext)
 	containerActionDir := "."
 	if step.Type() != model.StepTypeUsesActionRemote {
 		actionName = getOsSafeRelativePath(actionDir, rc.Config.Workdir)
-		containerActionDir = rc.Config.ContainerWorkdir() + "/" + actionName
+		containerActionDir = rc.JobContainer.ToContainerPath(rc.Config.Workdir) + "/" + actionName
 		actionName = "./" + actionName
 	} else if step.Type() == model.StepTypeUsesActionRemote {
 		actionName = getOsSafeRelativePath(actionDir, rc.ActionCacheDir())
-		containerActionDir = ActPath + "/actions/" + actionName
+		containerActionDir = rc.JobContainer.GetActPath() + "/actions/" + actionName
 	}
 
 	if actionName == "" {

@@ -44,17 +44,15 @@ func (rc *RunContext) NewExpressionEvaluator(ctx context.Context) ExpressionEval
 		Job:    rc.getJobContext(),
 		// todo: should be unavailable
 		// but required to interpolate/evaluate the step outputs on the job
-		Steps: rc.getStepsContext(),
-		Runner: map[string]interface{}{
-			"os":         "Linux",
-			"temp":       "/tmp",
-			"tool_cache": "/opt/hostedtoolcache",
-		},
+		Steps:    rc.getStepsContext(),
 		Secrets:  rc.Config.Secrets,
 		Strategy: strategy,
 		Matrix:   rc.Matrix,
 		Needs:    using,
 		Inputs:   rc.Inputs,
+	}
+	if rc.JobContainer != nil {
+		ee.Runner = rc.JobContainer.GetRunnerContext()
 	}
 	return expressionEvaluator{
 		interpreter: exprparser.NewInterpeter(ee, exprparser.Config{
@@ -86,15 +84,10 @@ func (rc *RunContext) NewStepExpressionEvaluator(ctx context.Context, step step)
 	}
 
 	ee := &exprparser.EvaluationEnvironment{
-		Github: rc.getGithubContext(ctx),
-		Env:    *step.getEnv(),
-		Job:    rc.getJobContext(),
-		Steps:  rc.getStepsContext(),
-		Runner: map[string]interface{}{
-			"os":         "Linux",
-			"temp":       "/tmp",
-			"tool_cache": "/opt/hostedtoolcache",
-		},
+		Github:   rc.getGithubContext(ctx),
+		Env:      *step.getEnv(),
+		Job:      rc.getJobContext(),
+		Steps:    rc.getStepsContext(),
 		Secrets:  rc.Config.Secrets,
 		Strategy: strategy,
 		Matrix:   rc.Matrix,
@@ -102,6 +95,9 @@ func (rc *RunContext) NewStepExpressionEvaluator(ctx context.Context, step step)
 		// todo: should be unavailable
 		// but required to interpolate/evaluate the inputs in actions/composite
 		Inputs: rc.Inputs,
+	}
+	if rc.JobContainer != nil {
+		ee.Runner = rc.JobContainer.GetRunnerContext()
 	}
 	return expressionEvaluator{
 		interpreter: exprparser.NewInterpeter(ee, exprparser.Config{

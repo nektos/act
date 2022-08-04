@@ -79,6 +79,7 @@ func (jim *jobInfoMock) result(result string) {
 
 type jobContainerMock struct {
 	container.Container
+	container.LinuxContainerEnvironmentExtensions
 }
 
 func (jcm *jobContainerMock) ReplaceLogWriter(stdout, stderr io.Writer) (io.Writer, io.Writer) {

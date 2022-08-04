@@ -64,7 +64,8 @@ func (sr *stepRun) setupShellCommandExecutor() common.Executor {
 			return err
 		}
 
-		return sr.RunContext.JobContainer.Copy(ActPath, &container.FileEntry{
+		rc := sr.getRunContext()
+		return sr.RunContext.JobContainer.Copy(rc.JobContainer.GetActPath(), &container.FileEntry{
 			Name: scriptName,
 			Mode: 0755,
 			Body: script,
@@ -124,7 +125,8 @@ func (sr *stepRun) setupShellCommand(ctx context.Context) (name, script string, 
 		logger.Debugf("Wrote add-mask command to '%s'", name)
 	}
 
-	scriptPath := fmt.Sprintf("%s/%s", ActPath, name)
+	rc := sr.getRunContext()
+	scriptPath := fmt.Sprintf("%s/%s", rc.JobContainer.GetActPath(), name)
 	sr.cmd, err = shellquote.Split(strings.Replace(scCmd, `{0}`, scriptPath, 1))
 
 	return name, script, err

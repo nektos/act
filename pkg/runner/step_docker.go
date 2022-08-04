@@ -2,6 +2,7 @@ package runner
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -69,7 +70,9 @@ func (sd *stepDocker) runUsesContainer() common.Executor {
 		}
 
 		stepContainer := sd.newStepContainer(ctx, image, cmd, entrypoint)
-
+		if stepContainer == nil {
+			return errors.New("Failed to create step container")
+		}
 		return common.NewPipelineExecutor(
 			stepContainer.Pull(rc.Config.ForcePull),
 			stepContainer.Remove().IfBool(!rc.Config.ReuseContainers),
@@ -111,7 +114,7 @@ func (sd *stepDocker) newStepContainer(ctx context.Context, image string, cmd []
 	stepContainer := ContainerNewContainer(&container.NewContainerInput{
 		Cmd:         cmd,
 		Entrypoint:  entrypoint,
-		WorkingDir:  rc.Config.ContainerWorkdir(),
+		WorkingDir:  rc.JobContainer.ToContainerPath(rc.Config.Workdir),
 		Image:       image,
 		Username:    rc.Config.Secrets["DOCKER_USERNAME"],
 		Password:    rc.Config.Secrets["DOCKER_PASSWORD"],
