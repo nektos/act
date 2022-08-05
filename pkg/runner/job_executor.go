@@ -40,8 +40,9 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 
 	preSteps = append(preSteps, info.startContainer())
 	preSteps = append(preSteps, func(ctx context.Context) error {
+		// skip this in tests
 		if rc.ExprEval == nil {
-			rc.ExprEval = rc.NewExpressionEvaluator(ctx)
+			return nil
 		}
 		// evaluate environment variables since they can contain
 		// GitHub's special environment variables.
