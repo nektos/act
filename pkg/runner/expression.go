@@ -21,20 +21,22 @@ type ExpressionEvaluator interface {
 // NewExpressionEvaluator creates a new evaluator
 func (rc *RunContext) NewExpressionEvaluator(ctx context.Context) ExpressionEvaluator {
 	// todo: cleanup EvaluationEnvironment creation
-	job := rc.Run.Job()
-	strategy := make(map[string]interface{})
-	if job.Strategy != nil {
-		strategy["fail-fast"] = job.Strategy.FailFast
-		strategy["max-parallel"] = job.Strategy.MaxParallel
-	}
-
-	jobs := rc.Run.Workflow.Jobs
-	jobNeeds := rc.Run.Job().Needs()
-
 	using := make(map[string]map[string]map[string]string)
-	for _, needs := range jobNeeds {
-		using[needs] = map[string]map[string]string{
-			"outputs": jobs[needs].Outputs,
+	strategy := make(map[string]interface{})
+	if rc.Run != nil {
+		job := rc.Run.Job()
+		if job != nil && job.Strategy != nil {
+			strategy["fail-fast"] = job.Strategy.FailFast
+			strategy["max-parallel"] = job.Strategy.MaxParallel
+		}
+
+		jobs := rc.Run.Workflow.Jobs
+		jobNeeds := rc.Run.Job().Needs()
+
+		for _, needs := range jobNeeds {
+			using[needs] = map[string]map[string]string{
+				"outputs": jobs[needs].Outputs,
+			}
 		}
 	}
 
