@@ -117,7 +117,8 @@ func TestEvaluateRunContext(t *testing.T) {
 		{"github.run_id", "1", ""},
 		{"github.run_number", "1", ""},
 		{"job.status", "success", ""},
-		{"runner.os", "Linux", ""},
+		// disabled the os is not known without executionenvironment
+		// {"runner.os", "Linux", ""},
 		{"matrix.os", "Linux", ""},
 		{"matrix.foo", "bar", ""},
 		{"env.key", "value", ""},

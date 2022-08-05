@@ -39,6 +39,14 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 	}
 
 	preSteps = append(preSteps, info.startContainer())
+	preSteps = append(preSteps, func(ctx context.Context) error {
+		// evaluate environment variables since they can contain
+		// GitHub's special environment variables.
+		for k, v := range rc.GetEnv() {
+			rc.Env[k] = rc.ExprEval.Interpolate(ctx, v)
+		}
+		return nil
+	})
 
 	for i, stepModel := range infoSteps {
 		stepModel := stepModel

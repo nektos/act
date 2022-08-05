@@ -117,11 +117,6 @@ func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 					if len(matrixes) > 1 {
 						rc.Name = fmt.Sprintf("%s-%d", rc.Name, i+1)
 					}
-					// evaluate environment variables since they can contain
-					// GitHub's special environment variables.
-					for k, v := range rc.GetEnv() {
-						rc.Env[k] = rc.ExprEval.Interpolate(ctx, v)
-					}
 					if len(rc.String()) > maxJobNameLen {
 						maxJobNameLen = len(rc.String())
 					}
