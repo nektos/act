@@ -3,7 +3,6 @@ package runner
 import (
 	"context"
 	"embed"
-	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -286,9 +285,6 @@ func execAsDocker(ctx context.Context, step actionStep, actionName string, based
 		}
 	}
 	stepContainer := newStepContainer(ctx, step, image, cmd, entrypoint)
-	if stepContainer == nil {
-		return errors.New("Failed to create step container")
-	}
 	return common.NewPipelineExecutor(
 		prepImage,
 		stepContainer.Pull(rc.Config.ForcePull),
