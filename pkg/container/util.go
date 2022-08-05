@@ -1,4 +1,4 @@
-// +build !windows,!plan9,!openbsd !windows,!plan9,!mips64
+//go:build (!windows && !plan9 && !openbsd) || (!windows && !plan9 && !mips64)
 
 package container
 
