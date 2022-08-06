@@ -30,7 +30,7 @@ func (sr *stepRun) main() common.Executor {
 	return runStepExecutor(sr, stepStageMain, common.NewPipelineExecutor(
 		sr.setupShellCommandExecutor(),
 		func(ctx context.Context) error {
-			return sr.getRunContext().JobContainer.Exec(sr.cmd, sr.env, "", sr.Step.WorkingDirectory)(ctx)
+			return sr.getRunContext().JobContainer.Exec(sr.cmd, *sr.getEnv(), "", sr.Step.WorkingDirectory)(ctx)
 		},
 	))
 }
