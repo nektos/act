@@ -1,0 +1,26 @@
+on:
+  push:
+defaults:
+  run:
+    shell: sh
+jobs:
+  test:
+    runs-on: self-hosted
+    steps:
+    - run: |
+        mkdir build
+        echo '#!/usr/bin/env sh' > build/test
+        echo 'echo Hi' >> build/test
+        chmod +x build/test
+    - run: |
+        echo '${{ tojson(runner) }}'
+        ls
+        echo '${{ github.workspace }}'
+      working-directory: ${{ github.workspace }}/build
+    - run: |
+        echo "$GITHUB_PATH"
+        echo '${{ github.workspace }}/build' > "$GITHUB_PATH"
+        cat "$GITHUB_PATH"
+    - run: |
+        echo "$PATH"
+        test
