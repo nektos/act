@@ -257,10 +257,10 @@ func (e *HostEnvironment) exec(ctx context.Context, command []string, cmdline st
 	envList := getEnvListFromMap(env)
 	var wd string
 	if workdir != "" {
-		if strings.HasPrefix(workdir, "/") {
+		if filepath.IsAbs(workdir) {
 			wd = workdir
 		} else {
-			wd = fmt.Sprintf("%s/%s", e.Path, workdir)
+			wd = filepath.Join(e.Path, workdir)
 		}
 	} else {
 		wd = e.Path
