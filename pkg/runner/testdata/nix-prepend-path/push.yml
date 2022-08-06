@@ -9,9 +9,9 @@ jobs:
     steps:
     - run: |
         mkdir build
-        echo '#!/usr/bin/env sh' > build/test
-        echo 'echo Hi' >> build/test
-        chmod +x build/test
+        echo '#!/usr/bin/env sh' > build/testtool
+        echo 'echo Hi' >> build/testtool
+        chmod +x build/testtool
     - run: |
         echo '${{ tojson(runner) }}'
         ls
@@ -23,4 +23,4 @@ jobs:
         cat "$GITHUB_PATH"
     - run: |
         echo "$PATH"
-        test
+        testtool
