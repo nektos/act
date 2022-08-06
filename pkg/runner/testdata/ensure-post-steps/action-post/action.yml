@@ -1,0 +1,11 @@
+name: "action post"
+description: "action post"
+inputs:
+  fail:
+    description: "true if this should fail"
+    required: false
+    default: "false"
+runs:
+  using: node16
+  main: "./main.js"
+  post: "./post.js"

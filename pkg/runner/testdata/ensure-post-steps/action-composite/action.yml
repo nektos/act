@@ -1,0 +1,10 @@
+name: "action composite"
+description: "action composite"
+runs:
+  using: composite
+  steps:
+    # second post action should fail if executed (we do check on the exit code)
+    - uses: ./ensure-post-steps/action-post/
+      with:
+        fail: "true"
+    - uses: ./ensure-post-steps/action-post/
