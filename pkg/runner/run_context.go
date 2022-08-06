@@ -168,6 +168,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 				TmpDir:    runnerTmp,
 				ToolCache: toolCache,
 				Workdir:   rc.Config.Workdir,
+				ActPath:   actPath,
 				CleanUp: func() {
 					os.RemoveAll(miscpath)
 				},

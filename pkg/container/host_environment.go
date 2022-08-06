@@ -31,6 +31,7 @@ type HostEnvironment struct {
 	TmpDir    string
 	ToolCache string
 	Workdir   string
+	ActPath   string
 	CleanUp   func()
 	StdOut    io.Writer
 }
@@ -131,7 +132,7 @@ func (e *HostEnvironment) GetContainerArchive(ctx context.Context, srcPath strin
 			}
 			defer f.Close()
 		}
-		err := tc.WriteFile(fi.Name(), fi, linkname, nil)
+		err := tc.WriteFile(fi.Name(), fi, linkname, f)
 		if err != nil {
 			return nil, err
 		}
@@ -406,7 +407,7 @@ func (e *HostEnvironment) UpdateFromPath(env *map[string]string) common.Executor
 		for s.Scan() {
 			line := s.Text()
 			pathSep := string(filepath.ListSeparator)
-			localEnv[e.GetPathVariableName()] = fmt.Sprintf("%s%s%s", line, pathSep, localEnv["PATH"])
+			localEnv[e.GetPathVariableName()] = fmt.Sprintf("%s%s%s", line, pathSep, localEnv[e.GetPathVariableName()])
 		}
 
 		env = &localEnv
@@ -432,8 +433,8 @@ func (e *HostEnvironment) ToContainerPath(path string) string {
 	return path
 }
 
-func (*HostEnvironment) GetActPath() string {
-	return "/var/run/act"
+func (e *HostEnvironment) GetActPath() string {
+	return e.ActPath
 }
 
 func (*HostEnvironment) GetPathVariableName() string {
