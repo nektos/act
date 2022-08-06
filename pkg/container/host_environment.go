@@ -340,12 +340,12 @@ func (e *HostEnvironment) Exec(command []string /*cmdline string, */, env map[st
 }
 
 var _singleLineEnvPattern *regexp.Regexp
-var _mulitiLineEnvPattern *regexp.Regexp
+var _multiLineEnvPattern *regexp.Regexp
 
 func (e *HostEnvironment) UpdateFromEnv(srcPath string, env *map[string]string) common.Executor {
 	if _singleLineEnvPattern == nil {
-		_singleLineEnvPattern = regexp.MustCompile("^([^=]+)=([^=]+)$")
-		_mulitiLineEnvPattern = regexp.MustCompile(`^([^<]+)<<(\w+)$`)
+		_singleLineEnvPattern = regexp.MustCompile(`^([^=]*)\=(.*)$`)
+		_multiLineEnvPattern = regexp.MustCompile(`^([^<]+)<<(\w+)$`)
 	}
 
 	localEnv := *env
@@ -379,7 +379,7 @@ func (e *HostEnvironment) UpdateFromEnv(srcPath string, env *map[string]string) 
 				}
 				multiLineEnvContent += line
 			}
-			if mulitiLineEnvStart := _mulitiLineEnvPattern.FindStringSubmatch(line); mulitiLineEnvStart != nil {
+			if mulitiLineEnvStart := _multiLineEnvPattern.FindStringSubmatch(line); mulitiLineEnvStart != nil {
 				multiLineEnvKey = mulitiLineEnvStart[1]
 				multiLineEnvDelimiter = mulitiLineEnvStart[2]
 			}
