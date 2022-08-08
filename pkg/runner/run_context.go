@@ -339,10 +339,10 @@ func (rc *RunContext) interpolateOutputs() common.Executor {
 func (rc *RunContext) startContainer() common.Executor {
 	return func(ctx context.Context) error {
 		image := rc.platformImage(ctx)
-		if image == "-self-hosted" {
-			return rc.startJobContainer()(ctx)
+		if strings.EqualFold(image, "-self-hosted") {
+			return rc.startHostEnvironment()(ctx)
 		}
-		return rc.startHostEnvironment()(ctx)
+		return rc.startJobContainer()(ctx)
 	}
 }
 
