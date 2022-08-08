@@ -132,6 +132,76 @@ func (rc *RunContext) GetBindsAndMounts() ([]string, map[string]string) {
 	return binds, mounts
 }
 
+func (rc *RunContext) startHostEnvironment() common.Executor {
+	return func(ctx context.Context) error {
+		logger := common.Logger(ctx)
+		rawLogger := logger.WithField("raw_output", true)
+		logWriter := common.NewLineWriter(rc.commandHandler(ctx), func(s string) bool {
+			if rc.Config.LogOutput {
+				rawLogger.Infof("%s", s)
+			} else {
+				rawLogger.Debugf("%s", s)
+			}
+			return true
+		})
+		cacheDir := rc.ActionCacheDir()
+		randBytes := make([]byte, 8)
+		_, _ = rand.Read(randBytes)
+		miscpath := filepath.Join(cacheDir, hex.EncodeToString(randBytes))
+		actPath := filepath.Join(miscpath, "act")
+		if err := os.MkdirAll(actPath, 0777); err != nil {
+			return err
+		}
+		path := filepath.Join(miscpath, "hostexecutor")
+		if err := os.MkdirAll(path, 0777); err != nil {
+			return err
+		}
+		runnerTmp := filepath.Join(miscpath, "tmp")
+		if err := os.MkdirAll(runnerTmp, 0777); err != nil {
+			return err
+		}
+		toolCache := filepath.Join(cacheDir, "tool_cache")
+		rc.JobContainer = &container.HostEnvironment{
+			Path:      path,
+			TmpDir:    runnerTmp,
+			ToolCache: toolCache,
+			Workdir:   rc.Config.Workdir,
+			ActPath:   actPath,
+			CleanUp: func() {
+				os.RemoveAll(miscpath)
+			},
+			StdOut: logWriter,
+		}
+		rc.cleanUpJobContainer = rc.JobContainer.Remove()
+		rc.Env["RUNNER_TOOL_CACHE"] = toolCache
+		rc.Env["RUNNER_OS"] = runtime.GOOS
+		rc.Env["RUNNER_ARCH"] = runtime.GOARCH
+		rc.Env["RUNNER_TEMP"] = runnerTmp
+		for _, env := range os.Environ() {
+			i := strings.Index(env, "=")
+			if i > 0 {
+				rc.Env[env[0:i]] = env[i+1:]
+			}
+		}
+
+		return common.NewPipelineExecutor(
+			rc.JobContainer.Copy(rc.JobContainer.GetActPath()+"/", &container.FileEntry{
+				Name: "workflow/event.json",
+				Mode: 0644,
+				Body: rc.EventJSON,
+			}, &container.FileEntry{
+				Name: "workflow/envs.txt",
+				Mode: 0666,
+				Body: "",
+			}, &container.FileEntry{
+				Name: "workflow/paths.txt",
+				Mode: 0666,
+				Body: "",
+			}),
+		)(ctx)
+	}
+}
+
 func (rc *RunContext) startJobContainer() common.Executor {
 	return func(ctx context.Context) error {
 		logger := common.Logger(ctx)
@@ -145,63 +215,6 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			}
 			return true
 		})
-		if image == "-self-hosted" {
-			cacheDir := rc.ActionCacheDir()
-			randBytes := make([]byte, 8)
-			_, _ = rand.Read(randBytes)
-			miscpath := filepath.Join(cacheDir, hex.EncodeToString(randBytes))
-			actPath := filepath.Join(miscpath, "act")
-			if err := os.MkdirAll(actPath, 0777); err != nil {
-				return err
-			}
-			path := filepath.Join(miscpath, "hostexecutor")
-			if err := os.MkdirAll(path, 0777); err != nil {
-				return err
-			}
-			runnerTmp := filepath.Join(miscpath, "tmp")
-			if err := os.MkdirAll(runnerTmp, 0777); err != nil {
-				return err
-			}
-			toolCache := filepath.Join(cacheDir, "tool_cache")
-			rc.JobContainer = &container.HostEnvironment{
-				Path:      path,
-				TmpDir:    runnerTmp,
-				ToolCache: toolCache,
-				Workdir:   rc.Config.Workdir,
-				ActPath:   actPath,
-				CleanUp: func() {
-					os.RemoveAll(miscpath)
-				},
-				StdOut: logWriter,
-			}
-			rc.cleanUpJobContainer = rc.JobContainer.Remove()
-			rc.Env["RUNNER_TOOL_CACHE"] = toolCache
-			rc.Env["RUNNER_OS"] = runtime.GOOS
-			rc.Env["RUNNER_ARCH"] = runtime.GOARCH
-			rc.Env["RUNNER_TEMP"] = runnerTmp
-			for _, env := range os.Environ() {
-				i := strings.Index(env, "=")
-				if i > 0 {
-					rc.Env[env[0:i]] = env[i+1:]
-				}
-			}
-
-			return common.NewPipelineExecutor(
-				rc.JobContainer.Copy(rc.JobContainer.GetActPath()+"/", &container.FileEntry{
-					Name: "workflow/event.json",
-					Mode: 0644,
-					Body: rc.EventJSON,
-				}, &container.FileEntry{
-					Name: "workflow/envs.txt",
-					Mode: 0666,
-					Body: "",
-				}, &container.FileEntry{
-					Name: "workflow/paths.txt",
-					Mode: 0666,
-					Body: "",
-				}),
-			)(ctx)
-		}
 		hostname := rc.hostname(ctx)
 
 		username, password, err := rc.handleCredentials(ctx)
@@ -324,7 +337,13 @@ func (rc *RunContext) interpolateOutputs() common.Executor {
 }
 
 func (rc *RunContext) startContainer() common.Executor {
-	return rc.startJobContainer()
+	return func(ctx context.Context) error {
+		image := rc.platformImage(ctx)
+		if image == "-self-hosted" {
+			return rc.startJobContainer()(ctx)
+		}
+		return rc.startHostEnvironment()(ctx)
+	}
 }
 
 func (rc *RunContext) stopContainer() common.Executor {
