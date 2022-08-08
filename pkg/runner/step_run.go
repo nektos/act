@@ -65,7 +65,7 @@ func (sr *stepRun) setupShellCommandExecutor() common.Executor {
 		}
 
 		rc := sr.getRunContext()
-		return sr.RunContext.JobContainer.Copy(rc.JobContainer.GetActPath(), &container.FileEntry{
+		return rc.JobContainer.Copy(rc.JobContainer.GetActPath(), &container.FileEntry{
 			Name: scriptName,
 			Mode: 0755,
 			Body: script,

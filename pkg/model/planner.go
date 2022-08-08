@@ -46,9 +46,6 @@ func (r *Run) String() string {
 
 // Job returns the job for this Run
 func (r *Run) Job() *Job {
-	if r.Workflow == nil {
-		return nil
-	}
 	return r.Workflow.GetJob(r.JobID)
 }
 

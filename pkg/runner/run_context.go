@@ -69,7 +69,7 @@ func (rc *RunContext) GetEnv() map[string]string {
 		rc.Env = map[string]string{}
 		if rc.Run != nil && rc.Run.Workflow != nil && rc.Config != nil {
 			job := rc.Run.Job()
-			if job != nil && rc.Config != nil {
+			if job != nil {
 				rc.Env = mergeMaps(rc.Run.Workflow.Env, job.Environment(), rc.Config.Env)
 			}
 		}
