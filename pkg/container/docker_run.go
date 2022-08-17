@@ -286,8 +286,13 @@ func RunnerArch(ctx context.Context) string {
 
 	archMapper := map[string]string{
 		"x86_64": "X64",
+		"386": "x86",
+		"aarch64": "arm64",
 	}
-	return archMapper[info.Architecture]
+	if arch, ok := archMapper[info.Architecture]; ok {
+		return arch
+	}
+	return info.Architecture
 }
 
 func (cr *containerReference) connect() common.Executor {
