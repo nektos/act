@@ -285,8 +285,8 @@ func RunnerArch(ctx context.Context) string {
 	}
 
 	archMapper := map[string]string{
-		"x86_64": "X64",
-		"386": "x86",
+		"x86_64":  "X64",
+		"386":     "x86",
 		"aarch64": "arm64",
 	}
 	if arch, ok := archMapper[info.Architecture]; ok {
