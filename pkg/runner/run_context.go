@@ -229,6 +229,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 
 		envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_TOOL_CACHE", "/opt/hostedtoolcache"))
 		envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_OS", "Linux"))
+		envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_ARCH", container.RunnerArch(ctx)))
 		envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_TEMP", "/tmp"))
 
 		ext := container.LinuxContainerEnvironmentExtensions{}

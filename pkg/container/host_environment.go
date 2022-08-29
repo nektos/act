@@ -453,7 +453,7 @@ func (*HostEnvironment) JoinPathVariable(paths ...string) string {
 	return strings.Join(paths, string(filepath.ListSeparator))
 }
 
-func (e *HostEnvironment) GetRunnerContext() map[string]interface{} {
+func (e *HostEnvironment) GetRunnerContext(ctx context.Context) map[string]interface{} {
 	return map[string]interface{}{
 		"os":         runtime.GOOS,
 		"arch":       runtime.GOARCH,

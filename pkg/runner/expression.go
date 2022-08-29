@@ -54,7 +54,7 @@ func (rc *RunContext) NewExpressionEvaluator(ctx context.Context) ExpressionEval
 		Inputs:   rc.Inputs,
 	}
 	if rc.JobContainer != nil {
-		ee.Runner = rc.JobContainer.GetRunnerContext()
+		ee.Runner = rc.JobContainer.GetRunnerContext(ctx)
 	}
 	return expressionEvaluator{
 		interpreter: exprparser.NewInterpeter(ee, exprparser.Config{
@@ -99,7 +99,7 @@ func (rc *RunContext) NewStepExpressionEvaluator(ctx context.Context, step step)
 		Inputs: rc.Inputs,
 	}
 	if rc.JobContainer != nil {
-		ee.Runner = rc.JobContainer.GetRunnerContext()
+		ee.Runner = rc.JobContainer.GetRunnerContext(ctx)
 	}
 	return expressionEvaluator{
 		interpreter: exprparser.NewInterpeter(ee, exprparser.Config{

@@ -277,6 +277,26 @@ func GetHostInfo(ctx context.Context) (info types.Info, err error) {
 	return info, nil
 }
 
+// Arch fetches values from docker info and translates architecture to
+// GitHub actions compatible runner.arch values
+// https://github.com/github/docs/blob/main/data/reusables/actions/runner-arch-description.md
+func RunnerArch(ctx context.Context) string {
+	info, err := GetHostInfo(ctx)
+	if err != nil {
+		return ""
+	}
+
+	archMapper := map[string]string{
+		"x86_64":  "X64",
+		"386":     "x86",
+		"aarch64": "arm64",
+	}
+	if arch, ok := archMapper[info.Architecture]; ok {
+		return arch
+	}
+	return info.Architecture
+}
+
 func (cr *containerReference) connect() common.Executor {
 	return func(ctx context.Context) error {
 		if cr.cli != nil {

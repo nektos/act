@@ -1,6 +1,7 @@
 package container
 
 import (
+	"context"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -62,9 +63,10 @@ func (*LinuxContainerEnvironmentExtensions) JoinPathVariable(paths ...string) st
 	return strings.Join(paths, ":")
 }
 
-func (*LinuxContainerEnvironmentExtensions) GetRunnerContext() map[string]interface{} {
+func (*LinuxContainerEnvironmentExtensions) GetRunnerContext(ctx context.Context) map[string]interface{} {
 	return map[string]interface{}{
 		"os":         "Linux",
+		"arch":       RunnerArch(ctx),
 		"temp":       "/tmp",
 		"tool_cache": "/opt/hostedtoolcache",
 	}

@@ -1,5 +1,7 @@
 package container
 
+import "context"
+
 type ExecutionsEnvironment interface {
 	Container
 	ToContainerPath(string) string
@@ -7,5 +9,5 @@ type ExecutionsEnvironment interface {
 	GetPathVariableName() string
 	DefaultPathVariable() string
 	JoinPathVariable(...string) string
-	GetRunnerContext() map[string]interface{}
+	GetRunnerContext(ctx context.Context) map[string]interface{}
 }
