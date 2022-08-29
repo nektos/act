@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/nektos/act/pkg/common"
+	"github.com/nektos/act/pkg/container"
 	"github.com/nektos/act/pkg/exprparser"
 	"gopkg.in/yaml.v3"
 )
@@ -47,6 +48,7 @@ func (rc *RunContext) NewExpressionEvaluator(ctx context.Context) ExpressionEval
 		Steps: rc.getStepsContext(),
 		Runner: map[string]interface{}{
 			"os":         "Linux",
+			"arch":       container.RunnerArch(ctx),
 			"temp":       "/tmp",
 			"tool_cache": "/opt/hostedtoolcache",
 		},
@@ -92,6 +94,7 @@ func (rc *RunContext) NewStepExpressionEvaluator(ctx context.Context, step step)
 		Steps:  rc.getStepsContext(),
 		Runner: map[string]interface{}{
 			"os":         "Linux",
+			"arch":       container.RunnerArch(ctx),
 			"temp":       "/tmp",
 			"tool_cache": "/opt/hostedtoolcache",
 		},
