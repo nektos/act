@@ -69,6 +69,7 @@ func (sd *stepDocker) runUsesContainer() common.Executor {
 		}
 
 		stepContainer := sd.newStepContainer(ctx, image, cmd, entrypoint)
+
 		return common.NewPipelineExecutor(
 			stepContainer.Pull(rc.Config.ForcePull),
 			stepContainer.Remove().IfBool(!rc.Config.ReuseContainers),
