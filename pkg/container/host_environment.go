@@ -110,8 +110,10 @@ func (e *HostEnvironment) GetContainerArchive(ctx context.Context, srcPath strin
 			srcPrefix += string(filepath.Separator)
 		}
 		fc := &fileCollector{
+			Fs:        &defaultFs{},
 			SrcPath:   srcPath,
 			SrcPrefix: srcPrefix,
+			Handler:   tc,
 		}
 		err = filepath.Walk(srcPath, fc.collectFiles(ctx, []string{}))
 		if err != nil {
