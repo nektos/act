@@ -133,7 +133,7 @@ func NewWorkflowPlanner(path string, noWorkflowRecurse bool) (WorkflowPlanner, e
 				if err == io.EOF {
 					return nil, fmt.Errorf("unable to read workflow '%s': file is empty: %w", wf.workflowFileInfo.Name(), err)
 				}
-				return nil, err
+				return nil, fmt.Errorf("workflow is not valid. '%s': %w", wf.workflowFileInfo.Name(), err)
 			}
 			_, err = f.Seek(0, 0)
 			if err != nil {
@@ -149,6 +149,7 @@ func NewWorkflowPlanner(path string, noWorkflowRecurse bool) (WorkflowPlanner, e
 			jobNameRegex := regexp.MustCompile(`^([[:alpha:]_][[:alnum:]_\-]*)$`)
 			for k := range workflow.Jobs {
 				if ok := jobNameRegex.MatchString(k); !ok {
+					_ = f.Close()
 					return nil, fmt.Errorf("workflow is not valid. '%s': Job name '%s' is invalid. Names must start with a letter or '_' and contain only alphanumeric characters, '-', or '_'", workflow.Name, k)
 				}
 			}
