@@ -276,3 +276,73 @@ func TestIsStepEnabled(t *testing.T) {
 	}
 	assertObject.True(isStepEnabled(context.Background(), step.getStepModel().If.Value, step, stepStageMain))
 }
+
+func TestIsContinueOnError(t *testing.T) {
+	createTestStep := func(t *testing.T, input string) step {
+		var step *model.Step
+		err := yaml.Unmarshal([]byte(input), &step)
+		assert.NoError(t, err)
+
+		return &stepRun{
+			RunContext: &RunContext{
+				Config: &Config{
+					Workdir: ".",
+					Platforms: map[string]string{
+						"ubuntu-latest": "ubuntu-latest",
+					},
+				},
+				StepResults: map[string]*model.StepResult{},
+				Env:         map[string]string{},
+				Run: &model.Run{
+					JobID: "job1",
+					Workflow: &model.Workflow{
+						Name: "workflow1",
+						Jobs: map[string]*model.Job{
+							"job1": createJob(t, `runs-on: ubuntu-latest`, ""),
+						},
+					},
+				},
+			},
+			Step: step,
+		}
+	}
+
+	log.SetLevel(log.DebugLevel)
+	assertObject := assert.New(t)
+
+	// absent
+	step := createTestStep(t, "name: test")
+	continueOnError, err := isContinueOnError(context.Background(), step.getStepModel().RawContinueOnError, step, stepStageMain)
+	assertObject.False(continueOnError)
+	assertObject.Nil(err)
+
+	// explcit true
+	step = createTestStep(t, "continue-on-error: true")
+	continueOnError, err = isContinueOnError(context.Background(), step.getStepModel().RawContinueOnError, step, stepStageMain)
+	assertObject.True(continueOnError)
+	assertObject.Nil(err)
+
+	// explicit false
+	step = createTestStep(t, "continue-on-error: false")
+	continueOnError, err = isContinueOnError(context.Background(), step.getStepModel().RawContinueOnError, step, stepStageMain)
+	assertObject.False(continueOnError)
+	assertObject.Nil(err)
+
+	// expression true
+	step = createTestStep(t, "continue-on-error: ${{ 'test' == 'test' }}")
+	continueOnError, err = isContinueOnError(context.Background(), step.getStepModel().RawContinueOnError, step, stepStageMain)
+	assertObject.True(continueOnError)
+	assertObject.Nil(err)
+
+	// expression false
+	step = createTestStep(t, "continue-on-error: ${{ 'test' != 'test' }}")
+	continueOnError, err = isContinueOnError(context.Background(), step.getStepModel().RawContinueOnError, step, stepStageMain)
+	assertObject.False(continueOnError)
+	assertObject.Nil(err)
+
+	// expression parse error
+	step = createTestStep(t, "continue-on-error: ${{ 'test' != test }}")
+	continueOnError, err = isContinueOnError(context.Background(), step.getStepModel().RawContinueOnError, step, stepStageMain)
+	assertObject.False(continueOnError)
+	assertObject.NotNil(err)
+}
