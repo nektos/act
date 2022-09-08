@@ -304,46 +304,90 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			return err
 		}
 
-		// Determine the event name
-		var eventName string
-		events := planner.GetEvents()
-		if input.autodetectEvent && len(events) > 0 {
-			// set default event type to first event
-			// this way user dont have to specify the event.
-			log.Debugf("Using detected workflow event: %s", events[0])
-			eventName = events[0]
-		} else {
-			if len(args) > 0 {
-				eventName = args[0]
-			} else if plan := planner.PlanEvent("push"); plan != nil {
-				eventName = "push"
-			}
-		}
-
-		// build the plan for this run
-		var plan *model.Plan
-		if jobID, err := cmd.Flags().GetString("job"); err != nil {
+		jobID, err := cmd.Flags().GetString("job")
+		if err != nil {
 			return err
-		} else if jobID != "" {
-			log.Debugf("Planning job: %s", jobID)
-			plan = planner.PlanJob(jobID)
-		} else {
-			log.Debugf("Planning event: %s", eventName)
-			plan = planner.PlanEvent(eventName)
 		}
 
 		// check if we should just list the workflows
-		if list, err := cmd.Flags().GetBool("list"); err != nil {
+		list, err := cmd.Flags().GetBool("list")
+		if err != nil {
 			return err
-		} else if list {
-			return printList(plan)
 		}
 
-		// check if we should just print the graph
-		if list, err := cmd.Flags().GetBool("graph"); err != nil {
+		// check if we should just draw the graph
+		graph, err := cmd.Flags().GetBool("graph")
+		if err != nil {
 			return err
-		} else if list {
-			return drawGraph(plan)
+		}
+
+		// collect all events from loaded workflows
+		events := planner.GetEvents()
+
+		// plan with filtered jobs - to be used for filtering only
+		var filterPlan *model.Plan
+
+		// Determine the event name to be filtered
+		var filterEventName string = ""
+
+		if len(args) > 0 {
+			log.Debugf("Using first passed in arguments event for filtering: %s", args[0])
+			filterEventName = args[0]
+		} else if input.autodetectEvent && len(events) > 0 && len(events[0]) > 0 {
+			// set default event type to first event from many available
+			// this way user dont have to specify the event.
+			log.Debugf("Using first detected workflow event for filtering: %s", events[0])
+			filterEventName = events[0]
+		}
+
+		if jobID != "" {
+			log.Debugf("Preparing plan with a job: %s", jobID)
+			filterPlan = planner.PlanJob(jobID)
+		} else if filterEventName != "" {
+			log.Debugf("Preparing plan for a event: %s", filterEventName)
+			filterPlan = planner.PlanEvent(filterEventName)
+		} else {
+			log.Debugf("Preparing plan with all jobs")
+			filterPlan = planner.PlanAll()
+		}
+
+		if list {
+			return printList(filterPlan)
+		}
+
+		if graph {
+			return drawGraph(filterPlan)
+		}
+
+		// plan with triggered jobs
+		var plan *model.Plan
+
+		// Determine the event name to be triggered
+		var eventName string
+
+		if len(args) > 0 {
+			log.Debugf("Using first passed in arguments event: %s", args[0])
+			eventName = args[0]
+		} else if len(events) == 1 && len(events[0]) > 0 {
+			log.Debugf("Using the only detected workflow event: %s", events[0])
+			eventName = events[0]
+		} else if input.autodetectEvent && len(events) > 0 && len(events[0]) > 0 {
+			// set default event type to first event from many available
+			// this way user dont have to specify the event.
+			log.Debugf("Using first detected workflow event: %s", events[0])
+			eventName = events[0]
+		} else {
+			log.Debugf("Using default workflow event: push")
+			eventName = "push"
+		}
+
+		// build the plan for this run
+		if jobID != "" {
+			log.Debugf("Planning job: %s", jobID)
+			plan = planner.PlanJob(jobID)
+		} else {
+			log.Debugf("Planning jobs for event: %s", eventName)
+			plan = planner.PlanEvent(eventName)
 		}
 
 		// check to see if the main branch was defined
