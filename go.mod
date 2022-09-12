@@ -3,7 +3,7 @@ module github.com/nektos/act
 go 1.18
 
 require (
-	github.com/AlecAivazis/survey/v2 v2.3.5
+	github.com/AlecAivazis/survey/v2 v2.3.6
 	github.com/Masterminds/semver v1.5.0
 	github.com/andreaskoch/go-fswatch v1.0.0
 	github.com/docker/cli v20.10.17+incompatible
