@@ -1,0 +1,15 @@
+name: push
+on: push
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: use simple composite action
+      uses: ./uses-composite-with-inputs/action
+      with:
+        some: value
+    - name: use nested composite action
+      uses: ./uses-composite-with-inputs/composite
+      with:
+        composite-input: value
