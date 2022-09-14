@@ -43,7 +43,6 @@ type RunContext struct {
 	ActionPath       string
 	ActionRef        string
 	ActionRepository string
-	Inputs           map[string]interface{}
 	Parent           *RunContext
 	Masks            []string
 }

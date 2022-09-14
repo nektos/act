@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -92,13 +91,9 @@ func (sar *stepActionRemote) prepareActionExecutor() common.Executor {
 		return common.NewPipelineExecutor(
 			ntErr,
 			func(ctx context.Context) error {
-				actionModel, err := sar.readAction(ctx, sar.Step, actionDir, sar.remoteAction.Path, remoteReader(ctx), ioutil.WriteFile)
+				actionModel, err := sar.readAction(ctx, sar.Step, actionDir, sar.remoteAction.Path, remoteReader(ctx), os.WriteFile)
 				sar.action = actionModel
 				return err
-			},
-			func(ctx context.Context) error {
-				sar.RunContext.setupActionInputs(ctx, sar)
-				return nil
 			},
 		)(ctx)
 	}
@@ -129,9 +124,7 @@ func (sar *stepActionRemote) main() common.Executor {
 
 			actionDir := fmt.Sprintf("%s/%s", sar.RunContext.ActionCacheDir(), strings.ReplaceAll(sar.Step.Uses, "/", "-"))
 
-			return common.NewPipelineExecutor(
-				sar.runAction(sar, actionDir, sar.remoteAction),
-			)(ctx)
+			return sar.runAction(sar, actionDir, sar.remoteAction)(ctx)
 		}),
 	)
 }

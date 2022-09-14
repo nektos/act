@@ -136,9 +136,11 @@ func setupEnv(ctx context.Context, step step) error {
 	if err != nil {
 		return err
 	}
-	mergeIntoMap(step.getEnv(), step.getStepModel().GetEnv()) // step env should not be overwritten
+	rc.withGithubEnv(ctx, *step.getEnv())
+	// merge step env last, since it should not be overwritten
+	mergeIntoMap(step.getEnv(), step.getStepModel().GetEnv())
 
-	exprEval := rc.NewStepExpressionEvaluator(ctx, step)
+	exprEval := rc.NewExpressionEvaluator(ctx)
 	for k, v := range *step.getEnv() {
 		(*step.getEnv())[k] = exprEval.Interpolate(ctx, v)
 	}
