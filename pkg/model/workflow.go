@@ -74,12 +74,12 @@ type Job struct {
 	DRYRUNOutputs  map[string]string
 }
 
-func (job *Job) UnmarshalYAML(value *yaml.Node) error {
+func (j *Job) UnmarshalYAML(value *yaml.Node) error {
 	type DRYRUNJob struct {
 		Outputs yaml.Node `yaml:"outputs"`
 	}
 	type RegularJob Job
-	err := value.Decode((*RegularJob)(job))
+	err := value.Decode((*RegularJob)(j))
 	if err != nil {
 		return err
 	}
@@ -102,7 +102,7 @@ func (job *Job) UnmarshalYAML(value *yaml.Node) error {
 				if err != nil {
 					return err
 				}
-				job.DRYRUNOutputs[key] = comment[valueStart:valueEnd]
+				j.DRYRUNOutputs[key] = comment[valueStart:valueEnd]
 			}
 		}
 	}
