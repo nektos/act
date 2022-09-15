@@ -38,8 +38,6 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 		return common.NewDebugExecutor("No steps found")
 	}
 
-	preSteps = append(preSteps, info.startContainer())
-
 	for i, stepModel := range infoSteps {
 		stepModel := stepModel
 		if stepModel == nil {
@@ -104,7 +102,7 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 	pipeline = append(pipeline, preSteps...)
 	pipeline = append(pipeline, steps...)
 
-	return common.NewPipelineExecutor(pipeline...).
+	return common.NewPipelineExecutor(info.startContainer(), common.NewPipelineExecutor(pipeline...).
 		Finally(func(ctx context.Context) error {
 			var cancel context.CancelFunc
 			if ctx.Err() == context.Canceled {
@@ -116,7 +114,7 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 			return postExecutor(ctx)
 		}).
 		Finally(info.interpolateOutputs()).
-		Finally(info.closeContainer())
+		Finally(info.closeContainer()))
 }
 
 func useStepLogger(rc *RunContext, stepModel *model.Step, stage stepStage, executor common.Executor) common.Executor {
