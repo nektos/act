@@ -71,6 +71,42 @@ type Job struct {
 	Outputs        map[string]string         `yaml:"outputs"`
 	Uses           string                    `yaml:"uses"`
 	Result         string
+	DRYRUNOutputs  map[string]string
+}
+
+func (job *Job) UnmarshalYAML(value *yaml.Node) error {
+	type DRYRUNJob struct {
+		Outputs yaml.Node `yaml:"outputs"`
+	}
+	type RegularJob Job
+	err := value.Decode((*RegularJob)(job))
+	if err != nil {
+		return err
+	}
+	djob := &DRYRUNJob{}
+	err = value.Decode(&djob)
+	if !djob.Outputs.IsZero() {
+		job.DRYRUNOutputs = map[string]string{}
+		prefix := "#DRYRUN: "
+		for i := 0; i+1 < len(djob.Outputs.Content); i += 2 {
+			comment := strings.ReplaceAll(djob.Outputs.Content[i].HeadComment, "# DRYRUN: ", prefix)
+			j := strings.Index(comment, prefix)
+			if j == 0 || j > 0 && comment[j-1] == '\n' {
+				valueStart := j + len(prefix)
+				valueEnd := strings.Index(comment[valueStart:], "\n")
+				if valueEnd != -1 {
+					valueEnd += valueStart
+				}
+				var key string
+				err = djob.Outputs.Content[i].Decode(&key)
+				if err != nil {
+					return err
+				}
+				job.DRYRUNOutputs[key] = comment[valueStart:valueEnd]
+			}
+		}
+	}
+	return err
 }
 
 // Strategy for the job

@@ -235,6 +235,10 @@ func (rc *RunContext) ActionCacheDir() string {
 // Interpolate outputs after a job is done
 func (rc *RunContext) interpolateOutputs() common.Executor {
 	return func(ctx context.Context) error {
+		if common.Dryrun(ctx) {
+			rc.Run.Job().Outputs = rc.Run.Job().DRYRUNOutputs
+			return nil
+		}
 		ee := rc.NewExpressionEvaluator(ctx)
 		for k, v := range rc.Run.Job().Outputs {
 			interpolated := ee.Interpolate(ctx, v)
