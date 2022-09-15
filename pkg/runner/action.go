@@ -499,6 +499,10 @@ func runPreStep(step actionStep) common.Executor {
 			return rc.execJobContainer(containerArgs, *step.getEnv(), "", "")(ctx)
 
 		case model.ActionRunsUsingComposite:
+			if step.getCompositeSteps() == nil {
+				step.getCompositeRunContext(ctx)
+			}
+
 			return step.getCompositeSteps().pre(ctx)
 
 		default:
