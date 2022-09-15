@@ -90,9 +90,9 @@ func (j *Job) UnmarshalYAML(value *yaml.Node) error {
 		prefix := "#DRYRUN: "
 		for i := 0; i+1 < len(djob.Outputs.Content); i += 2 {
 			comment := strings.ReplaceAll(djob.Outputs.Content[i].HeadComment, "# DRYRUN: ", prefix)
-			j := strings.Index(comment, prefix)
-			if j == 0 || j > 0 && comment[j-1] == '\n' {
-				valueStart := j + len(prefix)
+			k := strings.Index(comment, prefix)
+			if k == 0 || k > 0 && comment[k-1] == '\n' {
+				valueStart := k + len(prefix)
 				valueEnd := strings.Index(comment[valueStart:], "\n")
 				if valueEnd != -1 {
 					valueEnd += valueStart
