@@ -86,7 +86,7 @@ func (j *Job) UnmarshalYAML(value *yaml.Node) error {
 	djob := &DRYRUNJob{}
 	err = value.Decode(&djob)
 	if !djob.Outputs.IsZero() {
-		job.DRYRUNOutputs = map[string]string{}
+		j.DRYRUNOutputs = map[string]string{}
 		prefix := "#DRYRUN: "
 		for i := 0; i+1 < len(djob.Outputs.Content); i += 2 {
 			comment := strings.ReplaceAll(djob.Outputs.Content[i].HeadComment, "# DRYRUN: ", prefix)
