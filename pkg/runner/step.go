@@ -99,7 +99,14 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 			logger.WithField("stepResult", rc.StepResults[rc.CurrentStep].Outcome).Infof("  \u2705  Success - %s %s", stage, stepString)
 		} else {
 			rc.StepResults[rc.CurrentStep].Outcome = model.StepStatusFailure
-			if stepModel.ContinueOnError {
+
+			continueOnError, parseErr := isContinueOnError(ctx, stepModel.RawContinueOnError, step, stage)
+			if parseErr != nil {
+				rc.StepResults[rc.CurrentStep].Conclusion = model.StepStatusFailure
+				return parseErr
+			}
+
+			if continueOnError {
 				logger.Infof("Failed but continue next step")
 				err = nil
 				rc.StepResults[rc.CurrentStep].Conclusion = model.StepStatusSuccess
@@ -180,6 +187,22 @@ func isStepEnabled(ctx context.Context, expr string, step step, stage stepStage)
 	}
 
 	return runStep, nil
+}
+
+func isContinueOnError(ctx context.Context, expr string, step step, stage stepStage) (bool, error) {
+	// https://github.com/github/docs/blob/3ae84420bd10997bb5f35f629ebb7160fe776eae/content/actions/reference/workflow-syntax-for-github-actions.md?plain=true#L962
+	if len(strings.TrimSpace(expr)) == 0 {
+		return false, nil
+	}
+
+	rc := step.getRunContext()
+
+	continueOnError, err := EvalBool(ctx, rc.NewStepExpressionEvaluator(ctx, step), expr, exprparser.DefaultStatusCheckNone)
+	if err != nil {
+		return false, fmt.Errorf("  \u274C  Error in continue-on-error-expression: \"continue-on-error: %s\" (%s)", expr, err)
+	}
+
+	return continueOnError, nil
 }
 
 func mergeIntoMap(target *map[string]string, maps ...map[string]string) {
