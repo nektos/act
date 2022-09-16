@@ -10,10 +10,13 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: node:16-buster-slim
-      options: "--hostname my.host.local"
+      options: "--hostname my.host.local --user 100:101"
     steps:
       - run: |
-          [[ $(uname -n) == "my.host.local" ]]
+          echo "UID: $(id -u)"
+          echo "GID: $(id -g)"
+          echo "HOST: $(uname -n)"
+          [[ $(id -u) == "100" ]] && [[ $(id -g) == "101" ]] && [[ $(uname -n) == "my.host.local" ]]
 
   default-hostname:
     runs-on: ubuntu-latest
@@ -21,4 +24,7 @@ jobs:
       image: node:16-buster-slim
     steps:
       - run: |
-          [[ $(uname -n) ]] && [[ $(uname -n) != "my.host.local" ]]
+          echo "UID: $(id -u)"
+          echo "GID: $(id -g)"
+          echo "HOST: $(uname -n)"
+          [[ "$(id -u)" == "0" ]] && [[ "$(id -g)" == "0" ]] && [[ $(uname -n) ]] && [[ "$(uname -n)" != "my.host.local" ]]

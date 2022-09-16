@@ -10,11 +10,9 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/kballard/go-shellquote"
 	"github.com/mitchellh/go-homedir"
 	"github.com/opencontainers/selinux/go-selinux"
 	log "github.com/sirupsen/logrus"
-	"github.com/spf13/pflag"
 
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/common/git"
@@ -126,7 +124,6 @@ func (rc *RunContext) startJobContainer() common.Executor {
 	return func(ctx context.Context) error {
 		logger := common.Logger(ctx)
 		image := rc.platformImage(ctx)
-		hostname := rc.hostname(ctx)
 		rawLogger := logger.WithField("raw_output", true)
 		logWriter := common.NewLineWriter(rc.commandHandler(ctx), func(s string) bool {
 			if rc.Config.LogOutput {
@@ -171,7 +168,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			Privileged:  rc.Config.Privileged,
 			UsernsMode:  rc.Config.UsernsMode,
 			Platform:    rc.Config.ContainerArchitecture,
-			Hostname:    hostname,
+			Options:     rc.options(ctx),
 		})
 
 		return common.NewPipelineExecutor(
@@ -314,27 +311,14 @@ func (rc *RunContext) platformImage(ctx context.Context) string {
 	return ""
 }
 
-func (rc *RunContext) hostname(ctx context.Context) string {
-	logger := common.Logger(ctx)
+func (rc *RunContext) options(ctx context.Context) string {
 	job := rc.Run.Job()
 	c := job.Container()
 	if c == nil {
 		return ""
 	}
 
-	optionsFlags := pflag.NewFlagSet("container_options", pflag.ContinueOnError)
-	hostname := optionsFlags.StringP("hostname", "h", "", "")
-	optionsArgs, err := shellquote.Split(c.Options)
-	if err != nil {
-		logger.Warnf("Cannot parse container options: %s", c.Options)
-		return ""
-	}
-	err = optionsFlags.Parse(optionsArgs)
-	if err != nil {
-		logger.Warnf("Cannot parse container options: %s", c.Options)
-		return ""
-	}
-	return *hostname
+	return c.Options
 }
 
 func (rc *RunContext) isEnabled(ctx context.Context) (bool, error) {

@@ -21,6 +21,10 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
 	"github.com/joho/godotenv"
 
+	"github.com/imdario/mergo"
+	"github.com/kballard/go-shellquote"
+	"github.com/spf13/pflag"
+
 	"github.com/docker/cli/cli/connhelper"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -53,7 +57,7 @@ type NewContainerInput struct {
 	Privileged  bool
 	UsernsMode  string
 	Platform    string
-	Hostname    string
+	Options     string
 }
 
 // FileEntry is a file to copy to a container
@@ -379,13 +383,35 @@ func (cr *containerReference) create(capAdd []string, capDrop []string) common.E
 		isTerminal := term.IsTerminal(int(os.Stdout.Fd()))
 		input := cr.input
 
+		// parse configuration from CLI container.options
+		flags := pflag.NewFlagSet("container_flags", pflag.ContinueOnError)
+		copts := addFlags(flags)
+
+		optionsArgs, err := shellquote.Split(input.Options)
+		if err != nil {
+			logger.Warnf("Cannot split container options: %s", input.Options)
+			return nil
+		}
+
+		err = flags.Parse(optionsArgs)
+		if err != nil {
+			logger.Warnf("Cannot parse container options: %s", input.Options)
+			return nil
+		}
+
+		containerConfig, err := parse(flags, copts, "")
+		if err != nil {
+			logger.Warnf("Cannot parse container options: %s", input.Options)
+			return nil
+		}
+
 		config := &container.Config{
 			Image:      input.Image,
 			WorkingDir: input.WorkingDir,
 			Env:        input.Env,
 			Tty:        isTerminal,
-			Hostname:   input.Hostname,
 		}
+		mergo.Merge(config, containerConfig.Config, mergo.WithOverride)
 
 		if len(input.Cmd) != 0 {
 			config.Cmd = input.Cmd
@@ -417,7 +443,8 @@ func (cr *containerReference) create(capAdd []string, capDrop []string) common.E
 				OS:           desiredPlatform[0],
 			}
 		}
-		resp, err := cr.cli.ContainerCreate(ctx, config, &container.HostConfig{
+
+		hostConfig := &container.HostConfig{
 			CapAdd:      capAdd,
 			CapDrop:     capDrop,
 			Binds:       input.Binds,
@@ -425,7 +452,10 @@ func (cr *containerReference) create(capAdd []string, capDrop []string) common.E
 			NetworkMode: container.NetworkMode(input.NetworkMode),
 			Privileged:  input.Privileged,
 			UsernsMode:  container.UsernsMode(input.UsernsMode),
-		}, nil, platSpecs, input.Name)
+		}
+		mergo.Merge(hostConfig, containerConfig.HostConfig, mergo.WithOverride)
+
+		resp, err := cr.cli.ContainerCreate(ctx, config, hostConfig, nil, platSpecs, input.Name)
 		if err != nil {
 			return fmt.Errorf("failed to create container: %w", err)
 		}
