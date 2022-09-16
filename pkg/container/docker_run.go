@@ -389,20 +389,17 @@ func (cr *containerReference) create(capAdd []string, capDrop []string) common.E
 
 		optionsArgs, err := shellquote.Split(input.Options)
 		if err != nil {
-			logger.Warnf("Cannot split container options: %s", input.Options)
-			return nil
+			return fmt.Errorf("Cannot split container options: '%s': '%w'", input.Options, err)
 		}
 
 		err = flags.Parse(optionsArgs)
 		if err != nil {
-			logger.Warnf("Cannot parse container options: %s", input.Options)
-			return nil
+			return fmt.Errorf("Cannot parse container options: '%s': '%w'", input.Options, err)
 		}
 
 		containerConfig, err := parse(flags, copts, "")
 		if err != nil {
-			logger.Warnf("Cannot parse container options: %s", input.Options)
-			return nil
+			return fmt.Errorf("Cannot process container options: '%s': '%w'", input.Options, err)
 		}
 
 		config := &container.Config{
@@ -411,7 +408,14 @@ func (cr *containerReference) create(capAdd []string, capDrop []string) common.E
 			Env:        input.Env,
 			Tty:        isTerminal,
 		}
-		mergo.Merge(config, containerConfig.Config, mergo.WithOverride)
+		logger.Debugf("Common container.Config ==> %+v", config)
+		logger.Debugf("Custom container.Config from options ==> %+v", containerConfig.Config)
+
+		err = mergo.Merge(config, containerConfig.Config, mergo.WithOverride)
+		if err != nil {
+			return fmt.Errorf("Cannot merge container.Config options: '%s': '%w'", input.Options, err)
+		}
+		logger.Debugf("Merged container.Config ==> %+v", config)
 
 		if len(input.Cmd) != 0 {
 			config.Cmd = input.Cmd
@@ -453,12 +457,20 @@ func (cr *containerReference) create(capAdd []string, capDrop []string) common.E
 			Privileged:  input.Privileged,
 			UsernsMode:  container.UsernsMode(input.UsernsMode),
 		}
-		mergo.Merge(hostConfig, containerConfig.HostConfig, mergo.WithOverride)
+		logger.Debugf("Common container.HostConfig ==> %+v", hostConfig)
+		logger.Debugf("Custom container.HostConfig from options ==> %+v", containerConfig.HostConfig)
+
+		err = mergo.Merge(hostConfig, containerConfig.HostConfig, mergo.WithOverride)
+		if err != nil {
+			return fmt.Errorf("Cannot merge container.HostConfig options: '%s': '%w'", input.Options, err)
+		}
+		logger.Debugf("Merged container.HostConfig ==> %+v", hostConfig)
 
 		resp, err := cr.cli.ContainerCreate(ctx, config, hostConfig, nil, platSpecs, input.Name)
 		if err != nil {
-			return fmt.Errorf("failed to create container: %w", err)
+			return fmt.Errorf("failed to create container: '%w'", err)
 		}
+
 		logger.Debugf("Created container name=%s id=%v from image %v (platform: %s)", input.Name, resp.ID, input.Image, input.Platform)
 		logger.Debugf("ENV ==> %v", input.Env)
 

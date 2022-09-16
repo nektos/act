@@ -16,7 +16,7 @@ jobs:
           echo "UID: $(id -u)"
           echo "GID: $(id -g)"
           echo "HOST: $(uname -n)"
-          [[ $(id -u) == "100" ]] && [[ $(id -g) == "101" ]] && [[ $(uname -n) == "my.host.local" ]]
+          [[ "$(id -u)" == "100" ]] && [[ "$(id -g)" == "101" ]] && [[ "$(uname -n)" == "my.host.local" ]]
 
   default-hostname:
     runs-on: ubuntu-latest
