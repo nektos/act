@@ -163,3 +163,6 @@ func TestDockerExecFailure(t *testing.T) {
 	conn.AssertExpectations(t)
 	client.AssertExpectations(t)
 }
+
+// Type assert containerReference implements ExecutionsEnvironment
+var _ ExecutionsEnvironment = &containerReference{}

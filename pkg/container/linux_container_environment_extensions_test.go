@@ -61,3 +61,11 @@ func TestContainerPath(t *testing.T) {
 		}
 	}
 }
+
+type typeAssertMockContainer struct {
+	Container
+	LinuxContainerEnvironmentExtensions
+}
+
+// Type assert Container + LinuxContainerEnvironmentExtensions implements ExecutionsEnvironment
+var _ ExecutionsEnvironment = &typeAssertMockContainer{}
