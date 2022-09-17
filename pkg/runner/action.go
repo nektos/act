@@ -211,7 +211,8 @@ func removeGitIgnore(ctx context.Context, directory string) error {
 }
 
 // TODO: break out parts of function to reduce complexicity
-// nolint:gocyclo
+//
+//nolint:gocyclo
 func execAsDocker(ctx context.Context, step actionStep, actionName string, basedir string, localAction bool) error {
 	logger := common.Logger(ctx)
 	rc := step.getRunContext()

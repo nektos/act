@@ -17,8 +17,8 @@
 
 **Note: `catthehacker/ubuntu` images are based on Ubuntu root filesystem**
 
-| Image                                                                | GitHub Repository                                             |
-| -------------------------------------------------------------------- | ------------------------------------------------------------- |
+| Image                                                        | GitHub Repository                                             |
+| ------------------------------------------------------------ | ------------------------------------------------------------- |
 | [`catthehacker/ubuntu:act-latest`][ghcr/catthehacker/ubuntu] | [`catthehacker/docker-images`][gh/catthehacker/docker_images] |
 | [`catthehacker/ubuntu:act-22.04`][ghcr/catthehacker/ubuntu]  | [`catthehacker/docker-images`][gh/catthehacker/docker_images] |
 | [`catthehacker/ubuntu:act-20.04`][ghcr/catthehacker/ubuntu]  | [`catthehacker/docker-images`][gh/catthehacker/docker_images] |
@@ -34,8 +34,8 @@
 | [`nektos/act-environments-ubuntu:18.04-lite`][hub/nektos/act-environments-ubuntu] | ![`nektos:18.04-lite`][hub/nektos/act-environments-ubuntu/18.04-lite/size] | [`nektos/act-environments`][gh/nektos/act-environments] |
 | [`nektos/act-environments-ubuntu:18.04-full`][hub/nektos/act-environments-ubuntu] | ![`nektos:18.04-full`][hub/nektos/act-environments-ubuntu/18.04-full/size] | [`nektos/act-environments`][gh/nektos/act-environments] |
 
-| Image                                                                 | GitHub Repository                                                                     |
-| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Image                                                         | GitHub Repository                                                                     |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
 | [`catthehacker/ubuntu:full-latest`][ghcr/catthehacker/ubuntu] | [`catthehacker/virtual-environments-fork`][gh/catthehacker/virtual-environments-fork] |
 | [`catthehacker/ubuntu:full-20.04`][ghcr/catthehacker/ubuntu]  | [`catthehacker/virtual-environments-fork`][gh/catthehacker/virtual-environments-fork] |
 | [`catthehacker/ubuntu:full-18.04`][ghcr/catthehacker/ubuntu]  | [`catthehacker/virtual-environments-fork`][gh/catthehacker/virtual-environments-fork] |

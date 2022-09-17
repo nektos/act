@@ -14,7 +14,7 @@ DISABLE_LINTERS:
   - MARKDOWN_MARKDOWN_LINK_CHECK
   - REPOSITORY_CHECKOV
   - REPOSITORY_TRIVY
-FILTER_REGEX_EXCLUDE: (.*testdata/*|install.sh)
+FILTER_REGEX_EXCLUDE: (.*testdata/*|install.sh|pkg/container/docker_cli.go)
 MARKDOWN_MARKDOWNLINT_CONFIG_FILE: .markdownlint.yml
 PARALLEL: false
 PRINT_ALPACA: false

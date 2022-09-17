@@ -557,7 +557,7 @@ func (impl *interperterImpl) evaluateLogicalCompare(compareNode *actionlint.Logi
 	return nil, fmt.Errorf("Unable to compare incompatibles types '%s' and '%s'", leftValue.Kind(), rightValue.Kind())
 }
 
-// nolint:gocyclo
+//nolint:gocyclo
 func (impl *interperterImpl) evaluateFuncCall(funcCallNode *actionlint.FuncCallNode) (interface{}, error) {
 	args := make([]reflect.Value, 0)
 

@@ -215,7 +215,8 @@ func (j *Job) Matrix() map[string][]interface{} {
 
 // GetMatrixes returns the matrix cross product
 // It skips includes and hard fails excludes for non-existing keys
-// nolint:gocyclo
+//
+//nolint:gocyclo
 func (j *Job) GetMatrixes() []map[string]interface{} {
 	matrixes := make([]map[string]interface{}, 0)
 	if j.Strategy != nil {
