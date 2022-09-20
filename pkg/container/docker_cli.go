@@ -1,7 +1,12 @@
+// This file is exact copy of https://github.com/docker/cli/blob/9ac8584acfd501c3f4da0e845e3a40ed15c85041/cli/command/container/opts.go
+// appended with license information.
+//
+// docker/cli is licensed under the Apache License, Version 2.0.
+// See DOCKER_LICENSE for the full license text.
+//
+
 //nolint:unparam,errcheck,depguard,deadcode,unused
 package container
-
-// exact copy of https://github.com/docker/cli/blob/9ac8584acfd501c3f4da0e845e3a40ed15c85041/cli/command/container/opts.go
 
 import (
 	"bytes"
