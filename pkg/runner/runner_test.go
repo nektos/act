@@ -155,6 +155,7 @@ func TestRunEvent(t *testing.T) {
 		{workdir, "checkout", "push", "", platforms},
 		{workdir, "job-container", "push", "", platforms},
 		{workdir, "job-container-non-root", "push", "", platforms},
+		{workdir, "job-container-invalid-credentials", "push", "failed to handle credentials: failed to interpolate container.credentials.password", platforms},
 		{workdir, "container-hostname", "push", "", platforms},
 		{workdir, "remote-action-docker", "push", "", platforms},
 		{workdir, "remote-action-js", "push", "", platforms},

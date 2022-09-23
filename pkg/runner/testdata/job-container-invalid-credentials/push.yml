@@ -1,0 +1,13 @@
+name: job-container-invalid-credentials
+on: push
+
+jobs:
+  fail-on-invalid-credentials:
+    runs-on: ubuntu-latest
+    container:
+      image: node:16-buster-slim
+      credentials:
+        username: "user"
+        password: "" # Empty password caused a crash in jobexecutor
+    steps:
+      - run: exit 0
