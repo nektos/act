@@ -76,7 +76,7 @@ scoop install act
 [![aur-shield](https://img.shields.io/aur/version/act)](https://aur.archlinux.org/packages/act/)
 
 ```shell
-yay -Syu act
+yay -S act
 ```
 
 ### [COPR](https://copr.fedorainfracloud.org/coprs/rubemlrm/act-cli/) (Linux)
