@@ -40,7 +40,7 @@ func TestSetRefAndSha(t *testing.T) {
 					},
 				},
 			},
-			ref: "master",
+			ref: "refs/heads/master",
 			sha: "pr-base-sha",
 		},
 		{
@@ -89,7 +89,7 @@ func TestSetRefAndSha(t *testing.T) {
 					"default_branch": "main",
 				},
 			},
-			ref: "main",
+			ref: "refs/heads/main",
 			sha: "1234fakesha",
 		},
 		{
@@ -127,7 +127,7 @@ func TestSetRefAndSha(t *testing.T) {
 
 		ghc.SetRefAndSha(context.Background(), "", "/some/dir")
 
-		assert.Equal(t, "master", ghc.Ref)
+		assert.Equal(t, "refs/heads/master", ghc.Ref)
 		assert.Equal(t, "1234fakesha", ghc.Sha)
 	})
 }
