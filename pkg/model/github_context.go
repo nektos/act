@@ -110,7 +110,10 @@ func (ghc *GithubContext) SetRefAndSha(ctx context.Context, defaultBranch string
 			ghc.Sha = asString(ghc.Event["after"])
 		}
 	default:
-		ghc.Ref = fmt.Sprintf("refs/heads/%s", asString(nestedMapLookup(ghc.Event, "repository", "default_branch")))
+		defaultBranch := asString(nestedMapLookup(ghc.Event, "repository", "default_branch"))
+		if defaultBranch != "" {
+			ghc.Ref = fmt.Sprintf("refs/heads/%s", defaultBranch)
+		}
 	}
 
 	if ghc.Ref == "" {
