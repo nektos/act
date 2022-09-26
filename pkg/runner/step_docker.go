@@ -39,6 +39,10 @@ func (sd *stepDocker) getRunContext() *RunContext {
 	return sd.RunContext
 }
 
+func (sd *stepDocker) getGithubContext(ctx context.Context) *model.GithubContext {
+	return sd.getRunContext().getGithubContext(ctx)
+}
+
 func (sd *stepDocker) getStepModel() *model.Step {
 	return sd.Step
 }

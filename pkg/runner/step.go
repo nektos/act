@@ -16,6 +16,7 @@ type step interface {
 	post() common.Executor
 
 	getRunContext() *RunContext
+	getGithubContext(ctx context.Context) *model.GithubContext
 	getStepModel() *model.Step
 	getEnv() *map[string]string
 	getIfExpression(context context.Context, stage stepStage) string
@@ -136,7 +137,6 @@ func setupEnv(ctx context.Context, step step) error {
 	if err != nil {
 		return err
 	}
-	rc.withGithubEnv(ctx, *step.getEnv())
 	// merge step env last, since it should not be overwritten
 	mergeIntoMap(step.getEnv(), step.getStepModel().GetEnv())
 
@@ -171,7 +171,7 @@ func mergeEnv(ctx context.Context, step step) {
 		(*env)["PATH"] += `:` + p
 	}
 
-	mergeIntoMap(env, rc.withGithubEnv(ctx, *env))
+	rc.withGithubEnv(ctx, step.getGithubContext(ctx), *env)
 }
 
 func isStepEnabled(ctx context.Context, expr string, step step, stage stepStage) (bool, error) {

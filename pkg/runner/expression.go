@@ -102,7 +102,7 @@ func (rc *RunContext) NewStepExpressionEvaluator(ctx context.Context, step step)
 	}
 
 	ee := &exprparser.EvaluationEnvironment{
-		Github: rc.getGithubContext(ctx),
+		Github: step.getGithubContext(ctx),
 		Env:    *step.getEnv(),
 		Job:    rc.getJobContext(),
 		Steps:  rc.getStepsContext(),

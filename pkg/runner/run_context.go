@@ -27,24 +27,24 @@ const ActPath string = "/var/run/act"
 
 // RunContext contains info about current job
 type RunContext struct {
-	Name             string
-	Config           *Config
-	Matrix           map[string]interface{}
-	Run              *model.Run
-	EventJSON        string
-	Env              map[string]string
-	ExtraPath        []string
-	CurrentStep      string
-	StepResults      map[string]*model.StepResult
-	ExprEval         ExpressionEvaluator
-	JobContainer     container.Container
-	OutputMappings   map[MappableOutput]MappableOutput
-	JobName          string
-	ActionPath       string
-	ActionRef        string
-	ActionRepository string
-	Parent           *RunContext
-	Masks            []string
+	Name           string
+	Config         *Config
+	Matrix         map[string]interface{}
+	Run            *model.Run
+	EventJSON      string
+	Env            map[string]string
+	ExtraPath      []string
+	CurrentStep    string
+	StepResults    map[string]*model.StepResult
+	ExprEval       ExpressionEvaluator
+	JobContainer   container.Container
+	OutputMappings map[MappableOutput]MappableOutput
+	JobName        string
+	ActionPath     string
+	// ActionRef        string
+	// ActionRepository string
+	Parent *RunContext
+	Masks  []string
 }
 
 func (rc *RunContext) AddMask(mask string) {
@@ -437,8 +437,6 @@ func (rc *RunContext) getGithubContext(ctx context.Context) *model.GithubContext
 		Action:           rc.CurrentStep,
 		Token:            rc.Config.Token,
 		ActionPath:       rc.ActionPath,
-		ActionRef:        rc.ActionRef,
-		ActionRepository: rc.ActionRepository,
 		RepositoryOwner:  rc.Config.Env["GITHUB_REPOSITORY_OWNER"],
 		RetentionDays:    rc.Config.Env["GITHUB_RETENTION_DAYS"],
 		RunnerPerflog:    rc.Config.Env["RUNNER_PERFLOG"],
@@ -556,8 +554,7 @@ func nestedMapLookup(m map[string]interface{}, ks ...string) (rval interface{}) 
 	}
 }
 
-func (rc *RunContext) withGithubEnv(ctx context.Context, env map[string]string) map[string]string {
-	github := rc.getGithubContext(ctx)
+func (rc *RunContext) withGithubEnv(ctx context.Context, github *model.GithubContext, env map[string]string) map[string]string {
 	env["CI"] = "true"
 	env["GITHUB_ENV"] = ActPath + "/workflow/envs.txt"
 	env["GITHUB_PATH"] = ActPath + "/workflow/paths.txt"

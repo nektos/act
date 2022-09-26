@@ -187,10 +187,8 @@ func TestActionRunner(t *testing.T) {
 					Uses: "org/repo/path@ref",
 				},
 				RunContext: &RunContext{
-					ActionRepository: "org/repo",
-					ActionPath:       "path",
-					ActionRef:        "ref",
-					Config:           &Config{},
+					ActionPath: "path",
+					Config:     &Config{},
 					Run: &model.Run{
 						JobID: "job",
 						Workflow: &model.Workflow{

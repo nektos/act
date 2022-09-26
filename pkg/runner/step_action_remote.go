@@ -48,7 +48,7 @@ func (sar *stepActionRemote) prepareActionExecutor() common.Executor {
 
 		sar.remoteAction.URL = sar.RunContext.Config.GitHubInstance
 
-		github := sar.RunContext.getGithubContext(ctx)
+		github := sar.getGithubContext(ctx)
 		if sar.remoteAction.IsCheckout() && isLocalCheckout(github, sar.Step) && !sar.RunContext.Config.NoSkipCheckout {
 			common.Logger(ctx).Debugf("Skipping local actions/checkout because workdir was already copied")
 			return nil
@@ -111,7 +111,7 @@ func (sar *stepActionRemote) main() common.Executor {
 	return common.NewPipelineExecutor(
 		sar.prepareActionExecutor(),
 		runStepExecutor(sar, stepStageMain, func(ctx context.Context) error {
-			github := sar.RunContext.getGithubContext(ctx)
+			github := sar.getGithubContext(ctx)
 			if sar.remoteAction.IsCheckout() && isLocalCheckout(github, sar.Step) && !sar.RunContext.Config.NoSkipCheckout {
 				if sar.RunContext.Config.BindWorkdir {
 					common.Logger(ctx).Debugf("Skipping local actions/checkout because you bound your workspace")
@@ -137,6 +137,19 @@ func (sar *stepActionRemote) getRunContext() *RunContext {
 	return sar.RunContext
 }
 
+func (sar *stepActionRemote) getGithubContext(ctx context.Context) *model.GithubContext {
+	ghc := sar.getRunContext().getGithubContext(ctx)
+
+	// extend github context if we already have an initialized remoteAction
+	remoteAction := sar.remoteAction
+	if remoteAction != nil {
+		ghc.ActionRepository = fmt.Sprintf("%s/%s", remoteAction.Org, remoteAction.Repo)
+		ghc.ActionRef = remoteAction.Ref
+	}
+
+	return ghc
+}
+
 func (sar *stepActionRemote) getStepModel() *model.Step {
 	return sar.Step
 }
@@ -148,7 +161,7 @@ func (sar *stepActionRemote) getEnv() *map[string]string {
 func (sar *stepActionRemote) getIfExpression(ctx context.Context, stage stepStage) string {
 	switch stage {
 	case stepStagePre:
-		github := sar.RunContext.getGithubContext(ctx)
+		github := sar.getGithubContext(ctx)
 		if sar.remoteAction.IsCheckout() && isLocalCheckout(github, sar.Step) && !sar.RunContext.Config.NoSkipCheckout {
 			// skip local checkout pre step
 			return "false"

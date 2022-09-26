@@ -153,6 +153,7 @@ func runActionImpl(step actionStep, actionDir string, remoteAction *remoteAction
 			}
 			containerArgs := []string{"node", path.Join(containerActionDir, action.Runs.Main)}
 			logger.Debugf("executing remote job container: %s", containerArgs)
+
 			return rc.execJobContainer(containerArgs, *step.getEnv(), "", "")(ctx)
 		case model.ActionRunsUsingDocker:
 			location := actionLocation
@@ -180,25 +181,11 @@ func runActionImpl(step actionStep, actionDir string, remoteAction *remoteAction
 func setupActionEnv(ctx context.Context, step actionStep, remoteAction *remoteAction) error {
 	rc := step.getRunContext()
 
-	if remoteAction != nil {
-		rc.ActionRepository = fmt.Sprintf("%s/%s", remoteAction.Org, remoteAction.Repo)
-		rc.ActionRef = remoteAction.Ref
-	} else {
-		rc.ActionRepository = ""
-		rc.ActionRef = ""
-	}
-	defer (func() {
-		// cleanup after the action is done, to avoid side-effects in
-		// the next step/action
-		rc.ActionRepository = ""
-		rc.ActionRef = ""
-	})()
-
 	// A few fields in the environment (e.g. GITHUB_ACTION_REPOSITORY)
 	// are dependent on the action. That means we can complete the
 	// setup only after resolving the whole action model and cloning
 	// the action
-	rc.withGithubEnv(ctx, *step.getEnv())
+	rc.withGithubEnv(ctx, step.getGithubContext(ctx), *step.getEnv())
 	populateEnvsFromSavedState(step.getEnv(), step, rc)
 	populateEnvsFromInput(ctx, step.getEnv(), step.getActionModel(), rc)
 
