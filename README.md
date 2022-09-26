@@ -76,7 +76,7 @@ scoop install act
 [![aur-shield](https://img.shields.io/aur/version/act)](https://aur.archlinux.org/packages/act/)
 
 ```shell
-yay -S act
+yay -Syu act
 ```
 
 ### [COPR](https://copr.fedorainfracloud.org/coprs/rubemlrm/act-cli/) (Linux)
@@ -206,7 +206,7 @@ GitHub [automatically provides](https://docs.github.com/en/actions/security-guid
 If your workflow depends on this token, you need to create a [personal access token](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token) and pass it to `act` as a secret:
 
 ```bash
-act -s GITHUB_TOKEN=[insert token or leave blank for secure input]
+act -s GITHUB_TOKEN=[insert token or leave blank and omit equals for secure input]
 ```
 
 **WARNING**: `GITHUB_TOKEN` will be logged in shell history if not inserted through secure input or (depending on your shell config) the command is prefixed with a whitespace.
