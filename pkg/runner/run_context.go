@@ -41,10 +41,8 @@ type RunContext struct {
 	OutputMappings map[MappableOutput]MappableOutput
 	JobName        string
 	ActionPath     string
-	// ActionRef        string
-	// ActionRepository string
-	Parent *RunContext
-	Masks  []string
+	Parent         *RunContext
+	Masks          []string
 }
 
 func (rc *RunContext) AddMask(mask string) {
