@@ -164,7 +164,7 @@ func TestAddmaskUsemask(t *testing.T) {
 
 	re := captureOutput(t, func() {
 		ctx := context.Background()
-		ctx = WithJobLogger(ctx, "0", "testjob", config, &rc.Masks)
+		ctx = WithJobLogger(ctx, "0", "testjob", config, &rc.Masks, map[string]interface{}{})
 
 		handler := rc.commandHandler(ctx)
 		handler("::add-mask::secret\n")
