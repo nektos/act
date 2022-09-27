@@ -22,7 +22,7 @@ jobs:
       - name: test required input
         run: |
           echo input.required=${{ inputs.required }}
-          [[ "${{ inputs.required }}" = "" ]] && exit 1
+          [[ "${{ inputs.required }}" = "required input" ]] || exit 1
       - name: test input with default
         run: |
           echo input.with_default=${{ inputs.with_default }}

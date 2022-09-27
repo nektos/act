@@ -190,7 +190,14 @@ func TestRunEvent(t *testing.T) {
 
 	for _, table := range tables {
 		t.Run(table.workflowPath, func(t *testing.T) {
-			table.runTest(ctx, t, &Config{})
+			config := &Config{}
+
+			eventFile := filepath.Join(workdir, table.workflowPath, "event.json")
+			if _, err := os.Stat(eventFile); err == nil {
+				config.EventPath = eventFile
+			}
+
+			table.runTest(ctx, t, config)
 		})
 	}
 }

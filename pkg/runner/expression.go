@@ -9,6 +9,7 @@ import (
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/container"
 	"github.com/nektos/act/pkg/exprparser"
+	"github.com/nektos/act/pkg/model"
 	"gopkg.in/yaml.v3"
 )
 
@@ -39,15 +40,11 @@ func (rc *RunContext) NewExpressionEvaluator(ctx context.Context) ExpressionEval
 		}
 	}
 
-	inputs := make(map[string]interface{})
-	for k, v := range rc.GetEnv() {
-		if strings.HasPrefix(k, "INPUT_") {
-			inputs[strings.ToLower(strings.TrimPrefix(k, "INPUT_"))] = v
-		}
-	}
+	ghc := rc.getGithubContext(ctx)
+	inputs := getEvaluatorInputs(ctx, rc, nil, ghc)
 
 	ee := &exprparser.EvaluationEnvironment{
-		Github: rc.getGithubContext(ctx),
+		Github: ghc,
 		Env:    rc.GetEnv(),
 		Job:    rc.getJobContext(),
 		// todo: should be unavailable
@@ -94,12 +91,8 @@ func (rc *RunContext) NewStepExpressionEvaluator(ctx context.Context, step step)
 		}
 	}
 
-	inputs := make(map[string]interface{})
-	for k, v := range *step.getEnv() {
-		if strings.HasPrefix(k, "INPUT_") {
-			inputs[strings.ToLower(strings.TrimPrefix(k, "INPUT_"))] = v
-		}
-	}
+	ghc := rc.getGithubContext(ctx)
+	inputs := getEvaluatorInputs(ctx, rc, step, ghc)
 
 	ee := &exprparser.EvaluationEnvironment{
 		Github: step.getGithubContext(ctx),
@@ -318,4 +311,27 @@ func rewriteSubExpression(ctx context.Context, in string, forceFormat bool) (str
 		common.Logger(ctx).Debugf("expression '%s' rewritten to '%s'", in, out)
 	}
 	return out, nil
+}
+
+func getEvaluatorInputs(ctx context.Context, rc *RunContext, step step, ghc *model.GithubContext) map[string]interface{} {
+	inputs := map[string]interface{}{}
+
+	for k, v := range *step.getEnv() {
+		if strings.HasPrefix(k, "INPUT_") {
+			inputs[strings.ToLower(strings.TrimPrefix(k, "INPUT_"))] = v
+		}
+	}
+
+	if ghc.EventName == "workflow_dispatch" {
+		config := rc.Run.Workflow.WorkflowDispatchConfig()
+		for k, v := range config.Inputs {
+			value := nestedMapLookup(ghc.Event, "inputs", k)
+			if value == nil {
+				value = v.Default
+			}
+			inputs[k] = value
+		}
+	}
+
+	return inputs
 }
