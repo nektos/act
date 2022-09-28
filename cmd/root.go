@@ -30,7 +30,7 @@ import (
 func Execute(ctx context.Context, version string) {
 	input := new(Input)
 	var rootCmd = &cobra.Command{
-		Use:              "act [event name to run]\nIf no event name passed, will default to \"on: push\"",
+		Use:              "act [event name to run] [flags]\n\nIf no event name passed, will default to \"on: push\"\nIf actions handles only one event it will be used as default instead of \"on: push\"",
 		Short:            "Run GitHub actions locally by specifying the event name (e.g. `push`) or an action name directly.",
 		Args:             cobra.MaximumNArgs(1),
 		RunE:             newRunCommand(ctx, input),
