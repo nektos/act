@@ -128,12 +128,16 @@ Download the [latest release](https://github.com/nektos/act/releases/latest) and
 # Command structure:
 act [<event>] [options]
 If no event name passed, will default to "on: push"
+If actions handles only one event it will be used as default instead of "on: push"
 
-# List the actions for the default event:
+# List all actions for all events:
 act -l
 
 # List the actions for a specific event:
 act workflow_dispatch -l
+
+# List the actions for a specific job:
+act -j test -l
 
 # Run the default (`push`) event:
 act
