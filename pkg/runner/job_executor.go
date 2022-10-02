@@ -38,7 +38,6 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 		return common.NewDebugExecutor("No steps found")
 	}
 
-	preSteps = append(preSteps, info.startContainer())
 	preSteps = append(preSteps, func(ctx context.Context) error {
 		// Have to be skipped for some Tests
 		if rc.Run == nil {
@@ -117,19 +116,19 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 	pipeline = append(pipeline, preSteps...)
 	pipeline = append(pipeline, steps...)
 
-	return common.NewPipelineExecutor(pipeline...).
+	return common.NewPipelineExecutor(info.startContainer(), common.NewPipelineExecutor(pipeline...).
 		Finally(func(ctx context.Context) error {
 			var cancel context.CancelFunc
 			if ctx.Err() == context.Canceled {
 				// in case of an aborted run, we still should execute the
 				// post steps to allow cleanup.
-				ctx, cancel = context.WithTimeout(context.Background(), 5*time.Minute)
+				ctx, cancel = context.WithTimeout(WithJobLogger(context.Background(), rc.Run.JobID, rc.String(), rc.Config, &rc.Masks, rc.Matrix), 5*time.Minute)
 				defer cancel()
 			}
 			return postExecutor(ctx)
 		}).
 		Finally(info.interpolateOutputs()).
-		Finally(info.closeContainer())
+		Finally(info.closeContainer()))
 }
 
 func useStepLogger(rc *RunContext, stepModel *model.Step, stage stepStage, executor common.Executor) common.Executor {

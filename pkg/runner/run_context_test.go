@@ -394,6 +394,48 @@ func TestGetGitHubContext(t *testing.T) {
 	assert.Equal(t, ghc.Token, rc.Config.Secrets["GITHUB_TOKEN"])
 }
 
+func TestGetGithubContextRef(t *testing.T) {
+	table := []struct {
+		event string
+		json  string
+		ref   string
+	}{
+		{event: "push", json: `{"ref":"0000000000000000000000000000000000000000"}`, ref: "0000000000000000000000000000000000000000"},
+		{event: "create", json: `{"ref":"0000000000000000000000000000000000000000"}`, ref: "0000000000000000000000000000000000000000"},
+		{event: "workflow_dispatch", json: `{"ref":"0000000000000000000000000000000000000000"}`, ref: "0000000000000000000000000000000000000000"},
+		{event: "delete", json: `{"repository":{"default_branch": "main"}}`, ref: "refs/heads/main"},
+		{event: "pull_request", json: `{"number":123}`, ref: "refs/pull/123/merge"},
+		{event: "pull_request_review", json: `{"number":123}`, ref: "refs/pull/123/merge"},
+		{event: "pull_request_review_comment", json: `{"number":123}`, ref: "refs/pull/123/merge"},
+		{event: "pull_request_target", json: `{"pull_request":{"base":{"ref": "main"}}}`, ref: "refs/heads/main"},
+		{event: "deployment", json: `{"deployment": {"ref": "tag-name"}}`, ref: "tag-name"},
+		{event: "deployment_status", json: `{"deployment": {"ref": "tag-name"}}`, ref: "tag-name"},
+		{event: "release", json: `{"release": {"tag_name": "tag-name"}}`, ref: "tag-name"},
+	}
+
+	for _, data := range table {
+		data := data
+		t.Run(data.event, func(t *testing.T) {
+			rc := &RunContext{
+				EventJSON: data.json,
+				Config: &Config{
+					EventName: data.event,
+					Workdir:   "",
+				},
+				Run: &model.Run{
+					Workflow: &model.Workflow{
+						Name: "GitHubContextTest",
+					},
+				},
+			}
+
+			ghc := rc.getGithubContext(context.Background())
+
+			assert.Equal(t, data.ref, ghc.Ref)
+		})
+	}
+}
+
 func createIfTestRunContext(jobs map[string]*model.Job) *RunContext {
 	rc := &RunContext{
 		Config: &Config{

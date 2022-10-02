@@ -481,6 +481,8 @@ func runPreStep(step actionStep) common.Executor {
 
 		switch action.Runs.Using {
 		case model.ActionRunsUsingNode12, model.ActionRunsUsingNode16:
+			// defaults in pre steps were missing, however provided inputs are available
+			populateEnvsFromInput(ctx, step.getEnv(), action, rc)
 			// todo: refactor into step
 			var actionDir string
 			var actionPath string
