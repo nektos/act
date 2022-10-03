@@ -20,7 +20,7 @@ require (
 	github.com/moby/buildkit v0.10.4
 	github.com/opencontainers/image-spec v1.0.3-0.20211202183452-c5a74bcca799
 	github.com/opencontainers/selinux v1.10.2
-	github.com/rhysd/actionlint v1.6.19
+	github.com/rhysd/actionlint v1.6.20
 	github.com/sabhiram/go-gitignore v0.0.0-20210923224102-525f6e181f06
 	github.com/sirupsen/logrus v1.9.0
 	github.com/spf13/cobra v1.5.0
