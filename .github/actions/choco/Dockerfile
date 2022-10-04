@@ -1,4 +1,4 @@
-FROM alpine:latest
+FROM alpine:3.16
 
 ARG CHOCOVERSION=1.1.0
 
