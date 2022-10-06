@@ -1,6 +1,6 @@
 {
   "inputs": {
     "required": "required input",
-    "boolean": true
+    "boolean": "true"
   }
 }

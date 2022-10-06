@@ -329,7 +329,11 @@ func getEvaluatorInputs(ctx context.Context, rc *RunContext, step step, ghc *mod
 			if value == nil {
 				value = v.Default
 			}
-			inputs[k] = value
+			if v.Type == "boolean" {
+				inputs[k] = value == "true"
+			} else {
+				inputs[k] = value
+			}
 		}
 	}
 
