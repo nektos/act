@@ -21,6 +21,10 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
 	"github.com/joho/godotenv"
 
+	"github.com/imdario/mergo"
+	"github.com/kballard/go-shellquote"
+	"github.com/spf13/pflag"
+
 	"github.com/docker/cli/cli/connhelper"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -53,7 +57,7 @@ type NewContainerInput struct {
 	Privileged  bool
 	UsernsMode  string
 	Platform    string
-	Hostname    string
+	Options     string
 }
 
 // FileEntry is a file to copy to a container
@@ -379,13 +383,39 @@ func (cr *containerReference) create(capAdd []string, capDrop []string) common.E
 		isTerminal := term.IsTerminal(int(os.Stdout.Fd()))
 		input := cr.input
 
+		// parse configuration from CLI container.options
+		flags := pflag.NewFlagSet("container_flags", pflag.ContinueOnError)
+		copts := addFlags(flags)
+
+		optionsArgs, err := shellquote.Split(input.Options)
+		if err != nil {
+			return fmt.Errorf("Cannot split container options: '%s': '%w'", input.Options, err)
+		}
+
+		err = flags.Parse(optionsArgs)
+		if err != nil {
+			return fmt.Errorf("Cannot parse container options: '%s': '%w'", input.Options, err)
+		}
+
+		containerConfig, err := parse(flags, copts, "")
+		if err != nil {
+			return fmt.Errorf("Cannot process container options: '%s': '%w'", input.Options, err)
+		}
+
 		config := &container.Config{
 			Image:      input.Image,
 			WorkingDir: input.WorkingDir,
 			Env:        input.Env,
 			Tty:        isTerminal,
-			Hostname:   input.Hostname,
 		}
+		logger.Debugf("Common container.Config ==> %+v", config)
+		logger.Debugf("Custom container.Config from options ==> %+v", containerConfig.Config)
+
+		err = mergo.Merge(config, containerConfig.Config, mergo.WithOverride)
+		if err != nil {
+			return fmt.Errorf("Cannot merge container.Config options: '%s': '%w'", input.Options, err)
+		}
+		logger.Debugf("Merged container.Config ==> %+v", config)
 
 		if len(input.Cmd) != 0 {
 			config.Cmd = input.Cmd
@@ -417,7 +447,8 @@ func (cr *containerReference) create(capAdd []string, capDrop []string) common.E
 				OS:           desiredPlatform[0],
 			}
 		}
-		resp, err := cr.cli.ContainerCreate(ctx, config, &container.HostConfig{
+
+		hostConfig := &container.HostConfig{
 			CapAdd:      capAdd,
 			CapDrop:     capDrop,
 			Binds:       input.Binds,
@@ -425,10 +456,21 @@ func (cr *containerReference) create(capAdd []string, capDrop []string) common.E
 			NetworkMode: container.NetworkMode(input.NetworkMode),
 			Privileged:  input.Privileged,
 			UsernsMode:  container.UsernsMode(input.UsernsMode),
-		}, nil, platSpecs, input.Name)
-		if err != nil {
-			return fmt.Errorf("failed to create container: %w", err)
 		}
+		logger.Debugf("Common container.HostConfig ==> %+v", hostConfig)
+		logger.Debugf("Custom container.HostConfig from options ==> %+v", containerConfig.HostConfig)
+
+		err = mergo.Merge(hostConfig, containerConfig.HostConfig, mergo.WithOverride)
+		if err != nil {
+			return fmt.Errorf("Cannot merge container.HostConfig options: '%s': '%w'", input.Options, err)
+		}
+		logger.Debugf("Merged container.HostConfig ==> %+v", hostConfig)
+
+		resp, err := cr.cli.ContainerCreate(ctx, config, hostConfig, nil, platSpecs, input.Name)
+		if err != nil {
+			return fmt.Errorf("failed to create container: '%w'", err)
+		}
+
 		logger.Debugf("Created container name=%s id=%v from image %v (platform: %s)", input.Name, resp.ID, input.Image, input.Platform)
 		logger.Debugf("ENV ==> %v", input.Env)
 
