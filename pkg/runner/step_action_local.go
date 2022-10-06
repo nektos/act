@@ -4,7 +4,6 @@ import (
 	"archive/tar"
 	"context"
 	"io"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -55,7 +54,7 @@ func (sal *stepActionLocal) main() common.Executor {
 			}
 		}
 
-		actionModel, err := sal.readAction(ctx, sal.Step, actionDir, "", localReader(ctx), ioutil.WriteFile)
+		actionModel, err := sal.readAction(ctx, sal.Step, actionDir, "", localReader(ctx), os.WriteFile)
 		if err != nil {
 			return err
 		}
@@ -72,6 +71,10 @@ func (sal *stepActionLocal) post() common.Executor {
 
 func (sal *stepActionLocal) getRunContext() *RunContext {
 	return sal.RunContext
+}
+
+func (sal *stepActionLocal) getGithubContext(ctx context.Context) *model.GithubContext {
+	return sal.getRunContext().getGithubContext(ctx)
 }
 
 func (sal *stepActionLocal) getStepModel() *model.Step {

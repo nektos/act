@@ -157,6 +157,7 @@ func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 				}
 
 				for i, matrix := range matrixes {
+					matrix := matrix
 					rc := runner.newRunContext(ctx, run, matrix)
 					rc.JobName = rc.Name
 					if len(matrixes) > 1 {

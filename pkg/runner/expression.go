@@ -39,6 +39,13 @@ func (rc *RunContext) NewExpressionEvaluator(ctx context.Context) ExpressionEval
 		}
 	}
 
+	inputs := make(map[string]interface{})
+	for k, v := range rc.GetEnv() {
+		if strings.HasPrefix(k, "INPUT_") {
+			inputs[strings.ToLower(strings.TrimPrefix(k, "INPUT_"))] = v
+		}
+	}
+
 	ee := &exprparser.EvaluationEnvironment{
 		Github: rc.getGithubContext(ctx),
 		Env:    rc.GetEnv(),
@@ -56,7 +63,7 @@ func (rc *RunContext) NewExpressionEvaluator(ctx context.Context) ExpressionEval
 		Strategy: strategy,
 		Matrix:   rc.Matrix,
 		Needs:    using,
-		Inputs:   rc.Inputs,
+		Inputs:   inputs,
 	}
 	return expressionEvaluator{
 		interpreter: exprparser.NewInterpeter(ee, exprparser.Config{
@@ -87,8 +94,15 @@ func (rc *RunContext) NewStepExpressionEvaluator(ctx context.Context, step step)
 		}
 	}
 
+	inputs := make(map[string]interface{})
+	for k, v := range *step.getEnv() {
+		if strings.HasPrefix(k, "INPUT_") {
+			inputs[strings.ToLower(strings.TrimPrefix(k, "INPUT_"))] = v
+		}
+	}
+
 	ee := &exprparser.EvaluationEnvironment{
-		Github: rc.getGithubContext(ctx),
+		Github: step.getGithubContext(ctx),
 		Env:    *step.getEnv(),
 		Job:    rc.getJobContext(),
 		Steps:  rc.getStepsContext(),
@@ -104,7 +118,7 @@ func (rc *RunContext) NewStepExpressionEvaluator(ctx context.Context, step step)
 		Needs:    using,
 		// todo: should be unavailable
 		// but required to interpolate/evaluate the inputs in actions/composite
-		Inputs: rc.Inputs,
+		Inputs: inputs,
 	}
 	return expressionEvaluator{
 		interpreter: exprparser.NewInterpeter(ee, exprparser.Config{

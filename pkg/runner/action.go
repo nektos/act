@@ -136,26 +136,10 @@ func runActionImpl(step actionStep, actionDir string, remoteAction *remoteAction
 		action := step.getActionModel()
 		logger.Debugf("About to run action %v", action)
 
-		if remoteAction != nil {
-			rc.ActionRepository = fmt.Sprintf("%s/%s", remoteAction.Org, remoteAction.Repo)
-			rc.ActionRef = remoteAction.Ref
-		} else {
-			rc.ActionRepository = ""
-			rc.ActionRef = ""
+		err := setupActionEnv(ctx, step, remoteAction)
+		if err != nil {
+			return err
 		}
-		defer (func() {
-			// cleanup after the action is done, to avoid side-effects in
-			// the next step/action
-			rc.ActionRepository = ""
-			rc.ActionRef = ""
-		})()
-
-		// we need to merge with github-env again, since at the step setup
-		// time, we don't have all environment prepared
-		mergeIntoMap(step.getEnv(), rc.withGithubEnv(ctx, map[string]string{}))
-
-		populateEnvsFromSavedState(step.getEnv(), step, rc)
-		populateEnvsFromInput(ctx, step.getEnv(), action, rc)
 
 		actionLocation := path.Join(actionDir, actionPath)
 		actionName, containerActionDir := getContainerActionPaths(stepModel, actionLocation, rc)
@@ -169,6 +153,7 @@ func runActionImpl(step actionStep, actionDir string, remoteAction *remoteAction
 			}
 			containerArgs := []string{"node", path.Join(containerActionDir, action.Runs.Main)}
 			logger.Debugf("executing remote job container: %s", containerArgs)
+
 			return rc.execJobContainer(containerArgs, *step.getEnv(), "", "")(ctx)
 		case model.ActionRunsUsingDocker:
 			location := actionLocation
@@ -191,6 +176,20 @@ func runActionImpl(step actionStep, actionDir string, remoteAction *remoteAction
 			}, action.Runs.Using))
 		}
 	}
+}
+
+func setupActionEnv(ctx context.Context, step actionStep, remoteAction *remoteAction) error {
+	rc := step.getRunContext()
+
+	// A few fields in the environment (e.g. GITHUB_ACTION_REPOSITORY)
+	// are dependent on the action. That means we can complete the
+	// setup only after resolving the whole action model and cloning
+	// the action
+	rc.withGithubEnv(ctx, step.getGithubContext(ctx), *step.getEnv())
+	populateEnvsFromSavedState(step.getEnv(), step, rc)
+	populateEnvsFromInput(ctx, step.getEnv(), step.getActionModel(), rc)
+
+	return nil
 }
 
 // https://github.com/nektos/act/issues/228#issuecomment-629709055
@@ -300,11 +299,8 @@ func execAsDocker(ctx context.Context, step actionStep, actionName string, based
 func evalDockerArgs(ctx context.Context, step step, action *model.Action, cmd *[]string) {
 	rc := step.getRunContext()
 	stepModel := step.getStepModel()
-	oldInputs := rc.Inputs
-	defer func() {
-		rc.Inputs = oldInputs
-	}()
-	inputs := make(map[string]interface{})
+
+	inputs := make(map[string]string)
 	eval := rc.NewExpressionEvaluator(ctx)
 	// Set Defaults
 	for k, input := range action.Inputs {
@@ -315,7 +311,8 @@ func evalDockerArgs(ctx context.Context, step step, action *model.Action, cmd *[
 			inputs[k] = eval.Interpolate(ctx, v)
 		}
 	}
-	rc.Inputs = inputs
+	mergeIntoMap(step.getEnv(), inputs)
+
 	stepEE := rc.NewStepExpressionEvaluator(ctx, step)
 	for i, v := range *cmd {
 		(*cmd)[i] = stepEE.Interpolate(ctx, v)
@@ -371,29 +368,6 @@ func newStepContainer(ctx context.Context, step step, image string, cmd []string
 		Platform:    rc.Config.ContainerArchitecture,
 	})
 	return stepContainer
-}
-
-func (rc *RunContext) setupActionInputs(ctx context.Context, step actionStep) {
-	if step.getActionModel() == nil {
-		// e.g. local checkout skip has no action model
-		return
-	}
-
-	stepModel := step.getStepModel()
-	action := step.getActionModel()
-
-	eval := rc.NewExpressionEvaluator(ctx)
-	inputs := make(map[string]interface{})
-	for k, input := range action.Inputs {
-		inputs[k] = eval.Interpolate(ctx, input.Default)
-	}
-	if stepModel.With != nil {
-		for k, v := range stepModel.With {
-			inputs[k] = eval.Interpolate(ctx, v)
-		}
-	}
-
-	rc.Inputs = inputs
 }
 
 func populateEnvsFromSavedState(env *map[string]string, step actionStep, rc *RunContext) {
@@ -514,7 +488,10 @@ func runPreStep(step actionStep) common.Executor {
 			return rc.execJobContainer(containerArgs, *step.getEnv(), "", "")(ctx)
 
 		case model.ActionRunsUsingComposite:
-			step.getCompositeRunContext(ctx).updateCompositeRunContext(ctx, step.getRunContext(), step)
+			if step.getCompositeSteps() == nil {
+				step.getCompositeRunContext(ctx)
+			}
+
 			return step.getCompositeSteps().pre(ctx)
 
 		default:
@@ -602,7 +579,6 @@ func runPostStep(step actionStep) common.Executor {
 				return err
 			}
 
-			step.getCompositeRunContext(ctx).updateCompositeRunContext(ctx, step.getRunContext(), step)
 			return step.getCompositeSteps().post(ctx)
 
 		default:

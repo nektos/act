@@ -377,8 +377,16 @@ func (s *Step) String() string {
 }
 
 // Environments returns string-based key=value map for a step
+// Note: all keys are uppercase
 func (s *Step) Environment() map[string]string {
-	return environment(s.Env)
+	env := environment(s.Env)
+
+	for k, v := range env {
+		delete(env, k)
+		env[strings.ToUpper(k)] = v
+	}
+
+	return env
 }
 
 // GetEnv gets the env for a step
@@ -436,6 +444,22 @@ const (
 	// StepTypeInvalid is for steps that have invalid step action
 	StepTypeInvalid
 )
+
+func (s StepType) String() string {
+	switch s {
+	case StepTypeInvalid:
+		return "invalid"
+	case StepTypeRun:
+		return "run"
+	case StepTypeUsesActionLocal:
+		return "local-action"
+	case StepTypeUsesActionRemote:
+		return "remote-action"
+	case StepTypeUsesDockerURL:
+		return "docker"
+	}
+	return "unknown"
+}
 
 // Type returns the type of the step
 func (s *Step) Type() StepType {
