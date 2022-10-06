@@ -45,6 +45,10 @@ func (sr *stepRun) getRunContext() *RunContext {
 	return sr.RunContext
 }
 
+func (sr *stepRun) getGithubContext(ctx context.Context) *model.GithubContext {
+	return sr.getRunContext().getGithubContext(ctx)
+}
+
 func (sr *stepRun) getStepModel() *model.Step {
 	return sr.Step
 }

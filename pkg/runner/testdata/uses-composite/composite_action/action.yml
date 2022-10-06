@@ -35,7 +35,8 @@ outputs:
 runs:
   using: "composite"
   steps:
-    - run: |
+    - name: echo inputs
+      run: |
         echo "#####################################"
         echo "Inputs:"
         echo "---"

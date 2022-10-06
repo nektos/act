@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -49,7 +48,7 @@ func (sar *stepActionRemote) prepareActionExecutor() common.Executor {
 
 		sar.remoteAction.URL = sar.RunContext.Config.GitHubInstance
 
-		github := sar.RunContext.getGithubContext(ctx)
+		github := sar.getGithubContext(ctx)
 		if sar.remoteAction.IsCheckout() && isLocalCheckout(github, sar.Step) && !sar.RunContext.Config.NoSkipCheckout {
 			common.Logger(ctx).Debugf("Skipping local actions/checkout because workdir was already copied")
 			return nil
@@ -92,13 +91,9 @@ func (sar *stepActionRemote) prepareActionExecutor() common.Executor {
 		return common.NewPipelineExecutor(
 			ntErr,
 			func(ctx context.Context) error {
-				actionModel, err := sar.readAction(ctx, sar.Step, actionDir, sar.remoteAction.Path, remoteReader(ctx), ioutil.WriteFile)
+				actionModel, err := sar.readAction(ctx, sar.Step, actionDir, sar.remoteAction.Path, remoteReader(ctx), os.WriteFile)
 				sar.action = actionModel
 				return err
-			},
-			func(ctx context.Context) error {
-				sar.RunContext.setupActionInputs(ctx, sar)
-				return nil
 			},
 		)(ctx)
 	}
@@ -116,7 +111,7 @@ func (sar *stepActionRemote) main() common.Executor {
 	return common.NewPipelineExecutor(
 		sar.prepareActionExecutor(),
 		runStepExecutor(sar, stepStageMain, func(ctx context.Context) error {
-			github := sar.RunContext.getGithubContext(ctx)
+			github := sar.getGithubContext(ctx)
 			if sar.remoteAction.IsCheckout() && isLocalCheckout(github, sar.Step) && !sar.RunContext.Config.NoSkipCheckout {
 				if sar.RunContext.Config.BindWorkdir {
 					common.Logger(ctx).Debugf("Skipping local actions/checkout because you bound your workspace")
@@ -129,9 +124,7 @@ func (sar *stepActionRemote) main() common.Executor {
 
 			actionDir := fmt.Sprintf("%s/%s", sar.RunContext.ActionCacheDir(), strings.ReplaceAll(sar.Step.Uses, "/", "-"))
 
-			return common.NewPipelineExecutor(
-				sar.runAction(sar, actionDir, sar.remoteAction),
-			)(ctx)
+			return sar.runAction(sar, actionDir, sar.remoteAction)(ctx)
 		}),
 	)
 }
@@ -142,6 +135,19 @@ func (sar *stepActionRemote) post() common.Executor {
 
 func (sar *stepActionRemote) getRunContext() *RunContext {
 	return sar.RunContext
+}
+
+func (sar *stepActionRemote) getGithubContext(ctx context.Context) *model.GithubContext {
+	ghc := sar.getRunContext().getGithubContext(ctx)
+
+	// extend github context if we already have an initialized remoteAction
+	remoteAction := sar.remoteAction
+	if remoteAction != nil {
+		ghc.ActionRepository = fmt.Sprintf("%s/%s", remoteAction.Org, remoteAction.Repo)
+		ghc.ActionRef = remoteAction.Ref
+	}
+
+	return ghc
 }
 
 func (sar *stepActionRemote) getStepModel() *model.Step {
@@ -155,7 +161,7 @@ func (sar *stepActionRemote) getEnv() *map[string]string {
 func (sar *stepActionRemote) getIfExpression(ctx context.Context, stage stepStage) string {
 	switch stage {
 	case stepStagePre:
-		github := sar.RunContext.getGithubContext(ctx)
+		github := sar.getGithubContext(ctx)
 		if sar.remoteAction.IsCheckout() && isLocalCheckout(github, sar.Step) && !sar.RunContext.Config.NoSkipCheckout {
 			// skip local checkout pre step
 			return "false"

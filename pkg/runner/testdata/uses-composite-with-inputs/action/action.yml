@@ -1,0 +1,19 @@
+name: "action"
+description: "action"
+
+inputs:
+  some:
+    description: "some input"
+    required: true
+outputs:
+  out:
+    description: "some output"
+    value: "output value"
+
+runs:
+  using: "composite"
+  steps:
+    - run: |
+        echo "action input=${{ inputs.some }}"
+        [[ "${{ inputs.some == 'value' }}" = "true" ]] || exit 1
+      shell: bash

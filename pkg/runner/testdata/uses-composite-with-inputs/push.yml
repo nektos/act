@@ -1,0 +1,30 @@
+name: push
+on: push
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: use simple composite action
+      uses: ./uses-composite-with-inputs/action
+      with:
+        some: value
+    - name: use nested composite action
+      uses: ./uses-composite-with-inputs/composite
+      with:
+        composite-input: value
+    ###
+    #
+    # Remote composite test
+    #
+    - name: use remote composite action
+      id: remote-composite
+      uses: nektos/act-test-actions/composite@main
+      with:
+        input: value
+    - name: test remote composite output
+      run: |
+        echo "steps.remote-composite.outputs.output=${{ steps.remote-composite.outputs.output }}"
+        [[ "${{ steps.remote-composite.outputs.output == 'value' }}" = "true" ]] || exit 1
+    #
+    ###

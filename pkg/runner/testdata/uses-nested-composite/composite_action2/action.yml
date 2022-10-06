@@ -46,7 +46,8 @@ runs:
       [[ "${{steps.composite.outputs.secret_output == format('{0}/{0}', inputs.test_input_optional)}}" = "true" ]] || exit 1
     shell: bash
   # Now test again with default values
-  - uses: ./uses-composite/composite_action
+  - name: ./uses-composite/composite_action with defaults
+    uses: ./uses-composite/composite_action
     id: composite2
     with:
       test_input_required: 'test_input_required_value'

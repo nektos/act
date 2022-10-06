@@ -3,37 +3,43 @@ package runner
 import (
 	"context"
 	"fmt"
+	"regexp"
+	"strings"
 
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/model"
 )
 
-func evaluteCompositeInputAndEnv(ctx context.Context, parent *RunContext, step actionStep) (inputs map[string]interface{}, env map[string]string) {
-	eval := parent.NewExpressionEvaluator(ctx)
-
-	inputs = make(map[string]interface{})
-	for k, input := range step.getActionModel().Inputs {
-		inputs[k] = eval.Interpolate(ctx, input.Default)
-	}
-	if step.getStepModel().With != nil {
-		for k, v := range step.getStepModel().With {
-			inputs[k] = eval.Interpolate(ctx, v)
+func evaluateCompositeInputAndEnv(ctx context.Context, parent *RunContext, step actionStep) map[string]string {
+	env := make(map[string]string)
+	stepEnv := *step.getEnv()
+	for k, v := range stepEnv {
+		// do not set current inputs into composite action
+		// the required inputs are added in the second loop
+		if !strings.HasPrefix(k, "INPUT_") {
+			env[k] = v
 		}
 	}
 
-	env = make(map[string]string)
-	for k, v := range parent.Env {
-		env[k] = eval.Interpolate(ctx, v)
-	}
-	for k, v := range step.getStepModel().Environment() {
-		env[k] = eval.Interpolate(ctx, v)
+	for inputID, input := range step.getActionModel().Inputs {
+		envKey := regexp.MustCompile("[^A-Z0-9-]").ReplaceAllString(strings.ToUpper(inputID), "_")
+		envKey = fmt.Sprintf("INPUT_%s", strings.ToUpper(envKey))
+
+		// lookup if key is defined in the step but the the already
+		// evaluated value from the environment
+		_, defined := step.getStepModel().With[inputID]
+		if value, ok := stepEnv[envKey]; defined && ok {
+			env[envKey] = value
+		} else {
+			env[envKey] = input.Default
+		}
 	}
 
-	return inputs, env
+	return env
 }
 
 func newCompositeRunContext(ctx context.Context, parent *RunContext, step actionStep, actionPath string) *RunContext {
-	inputs, env := evaluteCompositeInputAndEnv(ctx, parent, step)
+	env := evaluateCompositeInputAndEnv(ctx, parent, step)
 
 	// run with the global config but without secrets
 	configCopy := *(parent.Config)
@@ -52,31 +58,17 @@ func newCompositeRunContext(ctx context.Context, parent *RunContext, step action
 				},
 			},
 		},
-		Config:           &configCopy,
-		StepResults:      map[string]*model.StepResult{},
-		JobContainer:     parent.JobContainer,
-		Inputs:           inputs,
-		ActionPath:       actionPath,
-		ActionRepository: parent.ActionRepository,
-		ActionRef:        parent.ActionRef,
-		Env:              env,
-		Masks:            parent.Masks,
-		ExtraPath:        parent.ExtraPath,
-		Parent:           parent,
+		Config:       &configCopy,
+		StepResults:  map[string]*model.StepResult{},
+		JobContainer: parent.JobContainer,
+		ActionPath:   actionPath,
+		Env:          env,
+		Masks:        parent.Masks,
+		ExtraPath:    parent.ExtraPath,
+		Parent:       parent,
 	}
 
 	return compositerc
-}
-
-// This updates a composite context inputs, env and masks.
-// This is needed to re-evalute/update that context between pre/main/post steps.
-// Some of the inputs/env may requires the results of in-between steps.
-func (rc *RunContext) updateCompositeRunContext(ctx context.Context, parent *RunContext, step actionStep) {
-	inputs, env := evaluteCompositeInputAndEnv(ctx, parent, step)
-
-	rc.Inputs = inputs
-	rc.Env = env
-	rc.Masks = append(rc.Masks, parent.Masks...)
 }
 
 func execAsComposite(step actionStep) common.Executor {
@@ -84,25 +76,24 @@ func execAsComposite(step actionStep) common.Executor {
 	action := step.getActionModel()
 
 	return func(ctx context.Context) error {
-		compositerc := step.getCompositeRunContext(ctx)
+		compositeRC := step.getCompositeRunContext(ctx)
 
 		steps := step.getCompositeSteps()
 
-		ctx = WithCompositeLogger(ctx, &compositerc.Masks)
+		ctx = WithCompositeLogger(ctx, &compositeRC.Masks)
 
-		compositerc.updateCompositeRunContext(ctx, rc, step)
 		err := steps.main(ctx)
 
 		// Map outputs from composite RunContext to job RunContext
-		eval := compositerc.NewExpressionEvaluator(ctx)
+		eval := compositeRC.NewExpressionEvaluator(ctx)
 		for outputName, output := range action.Outputs {
 			rc.setOutput(ctx, map[string]string{
 				"name": outputName,
 			}, eval.Interpolate(ctx, output.Value))
 		}
 
-		rc.Masks = append(rc.Masks, compositerc.Masks...)
-		rc.ExtraPath = compositerc.ExtraPath
+		rc.Masks = append(rc.Masks, compositeRC.Masks...)
+		rc.ExtraPath = compositeRC.ExtraPath
 
 		return err
 	}
