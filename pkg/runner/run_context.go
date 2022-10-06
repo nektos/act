@@ -481,7 +481,7 @@ func (rc *RunContext) getGithubContext(ctx context.Context) *model.GithubContext
 		}
 	}
 
-	if ghc.EventName == "pull_request" {
+	if ghc.EventName == "pull_request" || ghc.EventName == "pull_request_target" {
 		ghc.BaseRef = asString(nestedMapLookup(ghc.Event, "pull_request", "base", "ref"))
 		ghc.HeadRef = asString(nestedMapLookup(ghc.Event, "pull_request", "head", "ref"))
 	}

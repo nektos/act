@@ -17,6 +17,7 @@ import (
 type WorkflowPlanner interface {
 	PlanEvent(eventName string) *Plan
 	PlanJob(jobName string) *Plan
+	PlanAll() *Plan
 	GetEvents() []string
 }
 
@@ -193,6 +194,20 @@ func (wp *workflowPlanner) PlanJob(jobName string) *Plan {
 	for _, w := range wp.workflows {
 		plan.mergeStages(createStages(w, jobName))
 	}
+	return plan
+}
+
+// PlanAll builds a new run to execute in parallel all
+func (wp *workflowPlanner) PlanAll() *Plan {
+	plan := new(Plan)
+	if len(wp.workflows) == 0 {
+		log.Debugf("no jobs found for loaded workflows")
+	}
+
+	for _, w := range wp.workflows {
+		plan.mergeStages(createStages(w, w.GetJobIDs()...))
+	}
+
 	return plan
 }
 

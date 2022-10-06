@@ -95,7 +95,7 @@ func (ghc *GithubContext) SetRefAndSha(ctx context.Context, defaultBranch string
 	// https://docs.github.com/en/developers/webhooks-and-events/webhooks/webhook-events-and-payloads
 	switch ghc.EventName {
 	case "pull_request_target":
-		ghc.Ref = ghc.BaseRef
+		ghc.Ref = fmt.Sprintf("refs/heads/%s", ghc.BaseRef)
 		ghc.Sha = asString(nestedMapLookup(ghc.Event, "pull_request", "base", "sha"))
 	case "pull_request", "pull_request_review", "pull_request_review_comment":
 		ghc.Ref = fmt.Sprintf("refs/pull/%.0f/merge", ghc.Event["number"])
@@ -110,7 +110,10 @@ func (ghc *GithubContext) SetRefAndSha(ctx context.Context, defaultBranch string
 			ghc.Sha = asString(ghc.Event["after"])
 		}
 	default:
-		ghc.Ref = asString(nestedMapLookup(ghc.Event, "repository", "default_branch"))
+		defaultBranch := asString(nestedMapLookup(ghc.Event, "repository", "default_branch"))
+		if defaultBranch != "" {
+			ghc.Ref = fmt.Sprintf("refs/heads/%s", defaultBranch)
+		}
 	}
 
 	if ghc.Ref == "" {
@@ -130,7 +133,7 @@ func (ghc *GithubContext) SetRefAndSha(ctx context.Context, defaultBranch string
 		}
 
 		if ghc.Ref == "" {
-			ghc.Ref = asString(nestedMapLookup(ghc.Event, "repository", "default_branch"))
+			ghc.Ref = fmt.Sprintf("refs/heads/%s", asString(nestedMapLookup(ghc.Event, "repository", "default_branch")))
 		}
 	}
 

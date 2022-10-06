@@ -58,7 +58,7 @@ func WithMasks(ctx context.Context, masks *[]string) context.Context {
 }
 
 // WithJobLogger attaches a new logger to context that is aware of steps
-func WithJobLogger(ctx context.Context, jobID string, jobName string, config *Config, masks *[]string) context.Context {
+func WithJobLogger(ctx context.Context, jobID string, jobName string, config *Config, masks *[]string, matrix map[string]interface{}) context.Context {
 	mux.Lock()
 	defer mux.Unlock()
 
@@ -86,6 +86,7 @@ func WithJobLogger(ctx context.Context, jobID string, jobName string, config *Co
 		"job":    jobName,
 		"jobID":  jobID,
 		"dryrun": common.Dryrun(ctx),
+		"matrix": matrix,
 	}).WithContext(ctx)
 
 	return common.WithLogger(ctx, rtn)
