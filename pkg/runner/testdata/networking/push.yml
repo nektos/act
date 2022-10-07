@@ -1,0 +1,14 @@
+name: test network setup
+on: push
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install tools
+        run: |
+          apt update
+          apt install -y bind9-host
+      - name: Run hostname test
+        run: |
+          hostname -f
+          host $(hostname -f)

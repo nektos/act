@@ -173,6 +173,7 @@ func TestRunEvent(t *testing.T) {
 		{workdir, "env-and-path", "push", "", platforms},
 		{workdir, "non-existent-action", "push", "Job 'nopanic' failed", platforms},
 		{workdir, "outputs", "push", "", platforms},
+		{workdir, "networking", "push", "", platforms},
 		{workdir, "steps-context/conclusion", "push", "", platforms},
 		{workdir, "steps-context/outcome", "push", "", platforms},
 		{workdir, "job-status-check", "push", "job 'fail' failed", platforms},
