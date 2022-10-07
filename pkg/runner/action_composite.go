@@ -21,6 +21,8 @@ func evaluateCompositeInputAndEnv(ctx context.Context, parent *RunContext, step 
 		}
 	}
 
+	ee := parent.NewStepExpressionEvaluator(ctx, step)
+
 	for inputID, input := range step.getActionModel().Inputs {
 		envKey := regexp.MustCompile("[^A-Z0-9-]").ReplaceAllString(strings.ToUpper(inputID), "_")
 		envKey = fmt.Sprintf("INPUT_%s", strings.ToUpper(envKey))
@@ -31,7 +33,8 @@ func evaluateCompositeInputAndEnv(ctx context.Context, parent *RunContext, step 
 		if value, ok := stepEnv[envKey]; defined && ok {
 			env[envKey] = value
 		} else {
-			env[envKey] = input.Default
+			// defaults could contain expressions
+			env[envKey] = ee.Interpolate(ctx, input.Default)
 		}
 	}
 
