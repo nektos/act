@@ -409,13 +409,16 @@ func (cr *containerReference) create(capAdd []string, capDrop []string) common.E
 			Tty:        isTerminal,
 		}
 		logger.Debugf("Common container.Config ==> %+v", config)
-		logger.Debugf("Custom container.Config from options ==> %+v", containerConfig.Config)
 
-		err = mergo.Merge(config, containerConfig.Config, mergo.WithOverride)
-		if err != nil {
-			return fmt.Errorf("Cannot merge container.Config options: '%s': '%w'", input.Options, err)
+		if input.Options != "" {
+			logger.Debugf("Custom container.Config from options ==> %+v", containerConfig.Config)
+
+			err = mergo.Merge(config, containerConfig.Config, mergo.WithOverride)
+			if err != nil {
+				return fmt.Errorf("Cannot merge container.Config options: '%s': '%w'", input.Options, err)
+			}
+			logger.Debugf("Merged container.Config ==> %+v", config)
 		}
-		logger.Debugf("Merged container.Config ==> %+v", config)
 
 		if len(input.Cmd) != 0 {
 			config.Cmd = input.Cmd
@@ -458,13 +461,16 @@ func (cr *containerReference) create(capAdd []string, capDrop []string) common.E
 			UsernsMode:  container.UsernsMode(input.UsernsMode),
 		}
 		logger.Debugf("Common container.HostConfig ==> %+v", hostConfig)
-		logger.Debugf("Custom container.HostConfig from options ==> %+v", containerConfig.HostConfig)
 
-		err = mergo.Merge(hostConfig, containerConfig.HostConfig, mergo.WithOverride)
-		if err != nil {
-			return fmt.Errorf("Cannot merge container.HostConfig options: '%s': '%w'", input.Options, err)
+		if input.Options != "" {
+			logger.Debugf("Custom container.HostConfig from options ==> %+v", containerConfig.HostConfig)
+
+			err = mergo.Merge(hostConfig, containerConfig.HostConfig, mergo.WithOverride)
+			if err != nil {
+				return fmt.Errorf("Cannot merge container.HostConfig options: '%s': '%w'", input.Options, err)
+			}
+			logger.Debugf("Merged container.HostConfig ==> %+v", hostConfig)
 		}
-		logger.Debugf("Merged container.HostConfig ==> %+v", hostConfig)
 
 		resp, err := cr.cli.ContainerCreate(ctx, config, hostConfig, nil, platSpecs, input.Name)
 		if err != nil {
