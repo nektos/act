@@ -210,7 +210,6 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			}
 			return true
 		})
-		hostname := rc.hostname(ctx)
 
 		username, password, err := rc.handleCredentials(ctx)
 		if err != nil {
