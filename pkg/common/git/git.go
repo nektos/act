@@ -318,7 +318,8 @@ func gitOptions(token string) (fetchOptions git.FetchOptions, pullOptions git.Pu
 }
 
 // NewGitCloneExecutor creates an executor to clone git repos
-// nolint:gocyclo
+//
+//nolint:gocyclo
 func NewGitCloneExecutor(input NewGitCloneExecutorInput) common.Executor {
 	return func(ctx context.Context) error {
 		logger := common.Logger(ctx)

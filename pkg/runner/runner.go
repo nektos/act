@@ -77,6 +77,7 @@ func New(runnerConfig *Config) (Runner, error) {
 }
 
 // NewPlanExecutor ...
+//
 //nolint:gocyclo
 func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 	maxJobNameLen := 0
@@ -112,6 +113,7 @@ func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 				}
 
 				for i, matrix := range matrixes {
+					matrix := matrix
 					rc := runner.newRunContext(ctx, run, matrix)
 					rc.JobName = rc.Name
 					if len(matrixes) > 1 {

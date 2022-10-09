@@ -94,6 +94,11 @@ func (sm *stepMock) getRunContext() *RunContext {
 	return args.Get(0).(*RunContext)
 }
 
+func (sm *stepMock) getGithubContext(ctx context.Context) *model.GithubContext {
+	args := sm.Called()
+	return args.Get(0).(*RunContext).getGithubContext(ctx)
+}
+
 func (sm *stepMock) getStepModel() *model.Step {
 	args := sm.Called()
 	return args.Get(0).(*model.Step)
@@ -142,6 +147,7 @@ func TestSetupEnv(t *testing.T) {
 	}
 
 	sm.On("getRunContext").Return(rc)
+	sm.On("getGithubContext").Return(rc)
 	sm.On("getStepModel").Return(step)
 	sm.On("getEnv").Return(&env)
 
