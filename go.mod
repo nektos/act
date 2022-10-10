@@ -31,7 +31,7 @@ require (
 	github.com/stretchr/testify v1.8.0
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211
 	gopkg.in/yaml.v3 v3.0.1
-	gotest.tools/v3 v3.0.3
+	gotest.tools/v3 v3.4.0
 )
 
 require (
