@@ -187,6 +187,15 @@ func (sar *stepActionRemote) getCompositeRunContext(ctx context.Context) *RunCon
 
 		sar.compositeRunContext = newCompositeRunContext(ctx, sar.RunContext, sar, containerActionDir)
 		sar.compositeSteps = sar.compositeRunContext.compositeExecutor(sar.action)
+	} else {
+		// Re-evaluate environment here. For remote actions the environment
+		// need to be re-created for every stage (pre, main, post) as there
+		// might be required context changes (inputs/outputs) while the action
+		// stages are executed. (e.g. the output of another action is the
+		// input for this action during the main stage, but the env
+		// was already created during the pre stage)
+		env := evaluateCompositeInputAndEnv(ctx, sar.RunContext, sar)
+		sar.compositeRunContext.Env = env
 	}
 	return sar.compositeRunContext
 }
