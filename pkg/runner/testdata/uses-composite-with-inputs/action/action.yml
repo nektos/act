@@ -5,6 +5,10 @@ inputs:
   some:
     description: "some input"
     required: true
+  other:
+    description: "other input"
+    default: "${{ inputs.some }}"
+    required: false
 outputs:
   out:
     description: "some output"
@@ -17,3 +21,9 @@ runs:
         echo "action input=${{ inputs.some }}"
         [[ "${{ inputs.some == 'value' }}" = "true" ]] || exit 1
       shell: bash
+    - run: |
+        echo "ENV_VAR=$ENV_VAR"
+        [[ "$ENV_VAR" = "value" ]] || exit 1
+      shell: bash
+      env:
+        ENV_VAR: ${{ inputs.other }}
