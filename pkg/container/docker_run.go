@@ -505,7 +505,7 @@ func (cr *containerReference) extractEnv(srcPath string, env *map[string]string)
 		// SOME_VAR=data=moredata
 		// SOME_VAR=datamoredata
 		singleLineEnvPattern = regexp.MustCompile(`^([^=]*)\=(.*)$`)
-		multiLineEnvPattern = regexp.MustCompile(`^([^<]+)<<(\w+)$`)
+		multiLineEnvPattern = regexp.MustCompile(`^([^<]+)<<([\w-]+)$`)
 	}
 
 	localEnv := *env
