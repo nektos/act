@@ -182,6 +182,7 @@ func TestRunEvent(t *testing.T) {
 		{workdir, "uses-action-with-pre-and-post-step", "push", "", platforms},
 		{workdir, "evalenv", "push", "", platforms},
 		{workdir, "ensure-post-steps", "push", "Job 'second-post-step-should-fail' failed", platforms},
+		{workdir, "workflow_dispatch", "workflow_dispatch", "", platforms},
 		{"../model/testdata", "strategy", "push", "", platforms}, // TODO: move all testdata into pkg so we can validate it with planner and runner
 		// {"testdata", "issue-228", "push", "", platforms, }, // TODO [igni]: Remove this once everything passes
 		{"../model/testdata", "container-volumes", "push", "", platforms},
@@ -189,7 +190,14 @@ func TestRunEvent(t *testing.T) {
 
 	for _, table := range tables {
 		t.Run(table.workflowPath, func(t *testing.T) {
-			table.runTest(ctx, t, &Config{})
+			config := &Config{}
+
+			eventFile := filepath.Join(workdir, table.workflowPath, "event.json")
+			if _, err := os.Stat(eventFile); err == nil {
+				config.EventPath = eventFile
+			}
+
+			table.runTest(ctx, t, config)
 		})
 	}
 }
