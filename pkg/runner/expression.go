@@ -316,7 +316,14 @@ func rewriteSubExpression(ctx context.Context, in string, forceFormat bool) (str
 func getEvaluatorInputs(ctx context.Context, rc *RunContext, step step, ghc *model.GithubContext) map[string]interface{} {
 	inputs := map[string]interface{}{}
 
-	for k, v := range *step.getEnv() {
+	var env map[string]string
+	if step != nil {
+		env = *step.getEnv()
+	} else {
+		env = rc.GetEnv()
+	}
+
+	for k, v := range env {
 		if strings.HasPrefix(k, "INPUT_") {
 			inputs[strings.ToLower(strings.TrimPrefix(k, "INPUT_"))] = v
 		}
