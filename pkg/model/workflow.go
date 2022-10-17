@@ -55,6 +55,51 @@ func (w *Workflow) On() []string {
 	return nil
 }
 
+func (w *Workflow) OnEvent(event string) interface{} {
+	if w.RawOn.Kind == yaml.MappingNode {
+		var val map[string]interface{}
+		err := w.RawOn.Decode(&val)
+		if err != nil {
+			log.Fatal(err)
+		}
+		return val[event]
+	}
+	return nil
+}
+
+type WorkflowDispatchInput struct {
+	Description string   `yaml:"description"`
+	Required    bool     `yaml:"required"`
+	Default     string   `yaml:"default"`
+	Type        string   `yaml:"type"`
+	Options     []string `yaml:"options"`
+}
+
+type WorkflowDispatch struct {
+	Inputs map[string]WorkflowDispatchInput `yaml:"inputs"`
+}
+
+func (w *Workflow) WorkflowDispatchConfig() *WorkflowDispatch {
+	if w.RawOn.Kind != yaml.MappingNode {
+		return nil
+	}
+
+	var val map[string]yaml.Node
+	err := w.RawOn.Decode(&val)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	var config WorkflowDispatch
+	node := val["workflow_dispatch"]
+	err = node.Decode(&config)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return &config
+}
+
 // Job is the structure of one job in a workflow
 type Job struct {
 	Name           string                    `yaml:"name"`
