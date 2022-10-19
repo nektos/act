@@ -66,3 +66,14 @@ jobs:
             echo "${KEY2} doesn't == 'value'"
             exit 1
           fi
+      - name: "Write multiline env with UUID to $GITHUB_ENV"
+        run: |
+          echo 'KEY3<<ghadelimiter_b8273c6d-d535-419a-a010-b0aaac240e36' >> $GITHUB_ENV
+                echo value3 >> $GITHUB_ENV
+                echo 'ghadelimiter_b8273c6d-d535-419a-a010-b0aaac240e36' >> $GITHUB_ENV
+      - name: "Check multiline env with UUID to $GITHUB_ENV"
+        run: |
+          if [[ "${KEY3}" != "value3" ]]; then
+            echo "${KEY3} doesn't == 'value3'"
+            exit 1
+          fi

@@ -7,14 +7,14 @@ require (
 	github.com/Masterminds/semver v1.5.0
 	github.com/andreaskoch/go-fswatch v1.0.0
 	github.com/creack/pty v1.1.17
-	github.com/docker/cli v20.10.18+incompatible
+	github.com/docker/cli v20.10.19+incompatible
 	github.com/docker/distribution v2.8.1+incompatible
-	github.com/docker/docker v20.10.18+incompatible
+	github.com/docker/docker v20.10.19+incompatible
 	github.com/docker/go-connections v0.4.0
 	github.com/go-git/go-billy/v5 v5.3.1
 	github.com/go-git/go-git/v5 v5.4.2
 	github.com/go-ini/ini v1.67.0
-	github.com/imdario/mergo v0.3.12
+	github.com/imdario/mergo v0.3.13
 	github.com/joho/godotenv v1.4.0
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
@@ -24,15 +24,15 @@ require (
 	github.com/opencontainers/image-spec v1.0.3-0.20211202183452-c5a74bcca799
 	github.com/opencontainers/selinux v1.10.2
 	github.com/pkg/errors v0.9.1
-	github.com/rhysd/actionlint v1.6.20
+	github.com/rhysd/actionlint v1.6.21
 	github.com/sabhiram/go-gitignore v0.0.0-20210923224102-525f6e181f06
 	github.com/sirupsen/logrus v1.9.0
-	github.com/spf13/cobra v1.5.0
+	github.com/spf13/cobra v1.6.0
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.8.0
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211
 	gopkg.in/yaml.v3 v3.0.1
-	gotest.tools/v3 v3.0.3
+	gotest.tools/v3 v3.4.0
 )
 
 require (
@@ -52,7 +52,7 @@ require (
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/google/go-cmp v0.5.7 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
-	github.com/inconshreveable/mousetrap v1.0.0 // indirect
+	github.com/inconshreveable/mousetrap v1.0.1 // indirect
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
 	github.com/kevinburke/ssh_config v1.2.0 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
