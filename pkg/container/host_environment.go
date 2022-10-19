@@ -341,15 +341,7 @@ func (e *HostEnvironment) Exec(command []string /*cmdline string, */, env map[st
 	}
 }
 
-var _singleLineEnvPattern *regexp.Regexp
-var _multiLineEnvPattern *regexp.Regexp
-
 func (e *HostEnvironment) UpdateFromEnv(srcPath string, env *map[string]string) common.Executor {
-	if _singleLineEnvPattern == nil {
-		_singleLineEnvPattern = regexp.MustCompile(`^([^=]*)\=(.*)$`)
-		_multiLineEnvPattern = regexp.MustCompile(`^([^<]+)<<(\w+)$`)
-	}
-
 	localEnv := *env
 	return func(ctx context.Context) error {
 		envTar, err := e.GetContainerArchive(ctx, srcPath)
@@ -363,27 +355,33 @@ func (e *HostEnvironment) UpdateFromEnv(srcPath string, env *map[string]string) 
 			return err
 		}
 		s := bufio.NewScanner(reader)
-		multiLineEnvKey := ""
-		multiLineEnvDelimiter := ""
-		multiLineEnvContent := ""
 		for s.Scan() {
 			line := s.Text()
-			if singleLineEnv := _singleLineEnvPattern.FindStringSubmatch(line); singleLineEnv != nil {
-				localEnv[singleLineEnv[1]] = singleLineEnv[2]
-			}
-			if line == multiLineEnvDelimiter {
-				localEnv[multiLineEnvKey] = multiLineEnvContent
-				multiLineEnvKey, multiLineEnvDelimiter, multiLineEnvContent = "", "", ""
-			}
-			if multiLineEnvKey != "" && multiLineEnvDelimiter != "" {
-				if multiLineEnvContent != "" {
-					multiLineEnvContent += "\n"
+			singleLineEnv := strings.Index(line, "=")
+			multiLineEnv := strings.Index(line, "<<")
+			if singleLineEnv != -1 && (multiLineEnv == -1 || singleLineEnv < multiLineEnv) {
+				localEnv[line[:singleLineEnv]] = line[singleLineEnv+1:]
+			} else if multiLineEnv != -1 {
+				multiLineEnvContent := ""
+				multiLineEnvDelimiter := line[multiLineEnv+2:]
+				delimiterFound := false
+				for s.Scan() {
+					content := s.Text()
+					if content == multiLineEnvDelimiter {
+						delimiterFound = true
+						break
+					}
+					if multiLineEnvContent != "" {
+						multiLineEnvContent += "\n"
+					}
+					multiLineEnvContent += content
 				}
-				multiLineEnvContent += line
-			}
-			if mulitiLineEnvStart := _multiLineEnvPattern.FindStringSubmatch(line); mulitiLineEnvStart != nil {
-				multiLineEnvKey = mulitiLineEnvStart[1]
-				multiLineEnvDelimiter = mulitiLineEnvStart[2]
+				if !delimiterFound {
+					return fmt.Errorf("invalid format delimiter '%v' not found before end of file", )
+				}
+				localEnv[line[:multiLineEnv]] = multiLineEnvContent
+			} else {
+				return fmt.Errorf("invalid format '%v', expected a line with '=' or '<<'", line)
 			}
 		}
 		env = &localEnv
