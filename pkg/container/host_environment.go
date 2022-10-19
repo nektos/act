@@ -376,7 +376,7 @@ func (e *HostEnvironment) UpdateFromEnv(srcPath string, env *map[string]string) 
 					multiLineEnvContent += content
 				}
 				if !delimiterFound {
-					return fmt.Errorf("invalid format delimiter '%v' not found before end of file", )
+					return fmt.Errorf("invalid format delimiter '%v' not found before end of file", multiLineEnvDelimiter)
 				}
 				localEnv[line[:multiLineEnv]] = multiLineEnvContent
 			} else {
