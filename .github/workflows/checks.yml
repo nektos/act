@@ -22,7 +22,7 @@ jobs:
       - uses: golangci/golangci-lint-action@v3.2.0
         with:
           version: v1.47.2
-      - uses: megalinter/megalinter/flavors/go@v6.12.0
+      - uses: megalinter/megalinter/flavors/go@v6.13.0
         env:
           DEFAULT_BRANCH: master
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
