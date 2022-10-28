@@ -423,25 +423,25 @@ func getOsSafeRelativePath(s, prefix string) string {
 }
 
 func shouldRunPreStep(step actionStep) common.Conditional {
-	return func(ctx context.Context) bool {
+	return func(ctx context.Context) (bool, error) {
 		log := common.Logger(ctx)
 
 		if step.getActionModel() == nil {
 			log.Debugf("skip pre step for '%s': no action model available", step.getStepModel())
-			return false
+			return false, nil
 		}
 
-		return true
+		return true, nil
 	}
 }
 
 func hasPreStep(step actionStep) common.Conditional {
-	return func(ctx context.Context) bool {
+	return func(ctx context.Context) (bool, error) {
 		action := step.getActionModel()
 		return action.Runs.Using == model.ActionRunsUsingComposite ||
 			((action.Runs.Using == model.ActionRunsUsingNode12 ||
 				action.Runs.Using == model.ActionRunsUsingNode16) &&
-				action.Runs.Pre != "")
+				action.Runs.Pre != ""), nil
 	}
 }
 
@@ -501,37 +501,37 @@ func runPreStep(step actionStep) common.Executor {
 }
 
 func shouldRunPostStep(step actionStep) common.Conditional {
-	return func(ctx context.Context) bool {
+	return func(ctx context.Context) (bool, error) {
 		log := common.Logger(ctx)
 		stepResults := step.getRunContext().getStepsContext()
 		stepResult := stepResults[step.getStepModel().ID]
 
 		if stepResult == nil {
 			log.WithField("stepResult", model.StepStatusSkipped).Debugf("skipping post step for '%s'; step was not executed", step.getStepModel())
-			return false
+			return false, nil
 		}
 
 		if stepResult.Conclusion == model.StepStatusSkipped {
 			log.WithField("stepResult", model.StepStatusSkipped).Debugf("skipping post step for '%s'; main step was skipped", step.getStepModel())
-			return false
+			return false, nil
 		}
 
 		if step.getActionModel() == nil {
 			log.WithField("stepResult", model.StepStatusSkipped).Debugf("skipping post step for '%s': no action model available", step.getStepModel())
-			return false
+			return false, nil
 		}
 
-		return true
+		return true, nil
 	}
 }
 
 func hasPostStep(step actionStep) common.Conditional {
-	return func(ctx context.Context) bool {
+	return func(ctx context.Context) (bool, error) {
 		action := step.getActionModel()
 		return action.Runs.Using == model.ActionRunsUsingComposite ||
 			((action.Runs.Using == model.ActionRunsUsingNode12 ||
 				action.Runs.Using == model.ActionRunsUsingNode16) &&
-				action.Runs.Post != "")
+				action.Runs.Post != ""), nil
 	}
 }
 

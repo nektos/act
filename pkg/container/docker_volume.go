@@ -36,7 +36,11 @@ func removeExecutor(volume string, force bool) common.Executor {
 		logger := common.Logger(ctx)
 		logger.Debugf("%sdocker volume rm %s", logPrefix, volume)
 
-		if common.Dryrun(ctx) {
+		dryRun, err := common.Dryrun(ctx)
+		if err != nil {
+			return err
+		}
+		if dryRun {
 			return nil
 		}
 
