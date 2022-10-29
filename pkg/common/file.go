@@ -48,9 +48,7 @@ func CopyDir(source string, dest string) (err error) {
 		return err
 	}
 
-	directory, _ := os.Open(source)
-
-	objects, err := directory.Readdir(-1)
+	objects, err := os.ReadDir(source)
 
 	for _, obj := range objects {
 		sourcefilepointer := source + "/" + obj.Name()
