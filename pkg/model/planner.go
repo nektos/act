@@ -3,7 +3,7 @@ package model
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
+	"io/fs"
 	"math"
 	"os"
 	"path/filepath"
@@ -51,7 +51,7 @@ func (r *Run) Job() *Job {
 }
 
 type WorkflowFiles struct {
-	workflowFileInfo os.FileInfo
+	workflowDirEntry os.DirEntry
 	dirPath          string
 }
 
@@ -74,7 +74,7 @@ func NewWorkflowPlanner(path string, noWorkflowRecurse bool) (WorkflowPlanner, e
 	if fi.IsDir() {
 		log.Debugf("Loading workflows from '%s'", path)
 		if noWorkflowRecurse {
-			files, err := ioutil.ReadDir(path)
+			files, err := os.ReadDir(path)
 			if err != nil {
 				return nil, err
 			}
@@ -82,7 +82,7 @@ func NewWorkflowPlanner(path string, noWorkflowRecurse bool) (WorkflowPlanner, e
 			for _, v := range files {
 				workflows = append(workflows, WorkflowFiles{
 					dirPath:          path,
-					workflowFileInfo: v,
+					workflowDirEntry: v,
 				})
 			}
 		} else {
@@ -97,7 +97,7 @@ func NewWorkflowPlanner(path string, noWorkflowRecurse bool) (WorkflowPlanner, e
 						log.Debugf("Found workflow '%s' in '%s'", f.Name(), p)
 						workflows = append(workflows, WorkflowFiles{
 							dirPath:          filepath.Dir(p),
-							workflowFileInfo: f,
+							workflowDirEntry: fs.FileInfoToDirEntry(f),
 						})
 					}
 
@@ -112,7 +112,7 @@ func NewWorkflowPlanner(path string, noWorkflowRecurse bool) (WorkflowPlanner, e
 
 		workflows = append(workflows, WorkflowFiles{
 			dirPath:          dirname,
-			workflowFileInfo: fi,
+			workflowDirEntry: fs.FileInfoToDirEntry(fi),
 		})
 	}
 	if err != nil {
@@ -121,9 +121,9 @@ func NewWorkflowPlanner(path string, noWorkflowRecurse bool) (WorkflowPlanner, e
 
 	wp := new(workflowPlanner)
 	for _, wf := range workflows {
-		ext := filepath.Ext(wf.workflowFileInfo.Name())
+		ext := filepath.Ext(wf.workflowDirEntry.Name())
 		if ext == ".yml" || ext == ".yaml" {
-			f, err := os.Open(filepath.Join(wf.dirPath, wf.workflowFileInfo.Name()))
+			f, err := os.Open(filepath.Join(wf.dirPath, wf.workflowDirEntry.Name()))
 			if err != nil {
 				return nil, err
 			}
@@ -133,19 +133,19 @@ func NewWorkflowPlanner(path string, noWorkflowRecurse bool) (WorkflowPlanner, e
 			if err != nil {
 				_ = f.Close()
 				if err == io.EOF {
-					return nil, fmt.Errorf("unable to read workflow '%s': file is empty: %w", wf.workflowFileInfo.Name(), err)
+					return nil, fmt.Errorf("unable to read workflow '%s': file is empty: %w", wf.workflowDirEntry.Name(), err)
 				}
-				return nil, fmt.Errorf("workflow is not valid. '%s': %w", wf.workflowFileInfo.Name(), err)
+				return nil, fmt.Errorf("workflow is not valid. '%s': %w", wf.workflowDirEntry.Name(), err)
 			}
 			_, err = f.Seek(0, 0)
 			if err != nil {
 				_ = f.Close()
-				return nil, fmt.Errorf("error occurring when resetting io pointer in '%s': %w", wf.workflowFileInfo.Name(), err)
+				return nil, fmt.Errorf("error occurring when resetting io pointer in '%s': %w", wf.workflowDirEntry.Name(), err)
 			}
 
-			workflow.File = wf.workflowFileInfo.Name()
+			workflow.File = wf.workflowDirEntry.Name()
 			if workflow.Name == "" {
-				workflow.Name = wf.workflowFileInfo.Name()
+				workflow.Name = wf.workflowDirEntry.Name()
 			}
 
 			jobNameRegex := regexp.MustCompile(`^([[:alpha:]_][[:alnum:]_\-]*)$`)
