@@ -3,7 +3,7 @@ package runner
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -111,7 +111,7 @@ func New(runnerConfig *Config) (Runner, error) {
 	runner.eventJSON = "{}"
 	if runnerConfig.EventPath != "" {
 		log.Debugf("Reading event.json from %s", runner.config.EventPath)
-		eventJSONBytes, err := ioutil.ReadFile(runner.config.EventPath)
+		eventJSONBytes, err := os.ReadFile(runner.config.EventPath)
 		if err != nil {
 			return nil, err
 		}

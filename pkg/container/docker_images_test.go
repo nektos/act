@@ -2,7 +2,7 @@ package container
 
 import (
 	"context"
-	"io/ioutil"
+	"io"
 	"testing"
 
 	"github.com/docker/docker/api/types"
@@ -45,7 +45,7 @@ func TestImageExistsLocally(t *testing.T) {
 	})
 	assert.Nil(t, err)
 	defer readerDefault.Close()
-	_, err = ioutil.ReadAll(readerDefault)
+	_, err = io.ReadAll(readerDefault)
 	assert.Nil(t, err)
 
 	imageDefaultArchExists, err := ImageExistsLocally(ctx, "node:16-buster-slim", "linux/amd64")
@@ -58,7 +58,7 @@ func TestImageExistsLocally(t *testing.T) {
 	})
 	assert.Nil(t, err)
 	defer readerArm64.Close()
-	_, err = ioutil.ReadAll(readerArm64)
+	_, err = io.ReadAll(readerArm64)
 	assert.Nil(t, err)
 
 	imageArm64Exists, err := ImageExistsLocally(ctx, "node:16-buster-slim", "linux/arm64")
