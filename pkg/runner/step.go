@@ -88,7 +88,7 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 			return nil
 		}
 
-		stepString := stepModel.String()
+		stepString := rc.ExprEval.Interpolate(ctx, stepModel.String())
 		if strings.Contains(stepString, "::add-mask::") {
 			stepString = "add-mask command"
 		}
