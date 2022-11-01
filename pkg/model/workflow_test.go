@@ -138,6 +138,31 @@ jobs:
 	})
 }
 
+func TestReadWorkflow_JobTypes(t *testing.T) {
+	yaml := `
+name: invalid job definition
+
+jobs:
+  default-job:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo
+  remote-reusable-workflow:
+    runs-on: ubuntu-latest
+    uses: remote/repo/.github/workflows/workflow.yml@main
+  local-reusable-workflow:
+    runs-on: ubuntu-latest
+    uses: ./.github/workflows/workflow.yml
+`
+
+	workflow, err := ReadWorkflow(strings.NewReader(yaml))
+	assert.NoError(t, err, "read workflow should succeed")
+	assert.Len(t, workflow.Jobs, 3)
+	assert.Equal(t, workflow.Jobs["default-job"].Type(), JobTypeDefault)
+	assert.Equal(t, workflow.Jobs["remote-reusable-workflow"].Type(), JobTypeReusableWorkflowRemote)
+	assert.Equal(t, workflow.Jobs["local-reusable-workflow"].Type(), JobTypeReusableWorkflowLocal)
+}
+
 func TestReadWorkflow_StepsTypes(t *testing.T) {
 	yaml := `
 name: invalid step definition
