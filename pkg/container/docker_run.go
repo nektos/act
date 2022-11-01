@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -769,7 +768,7 @@ func (cr *containerReference) waitForCommand(ctx context.Context, isTerminal boo
 func (cr *containerReference) copyDir(dstPath string, srcPath string, useGitIgnore bool) common.Executor {
 	return func(ctx context.Context) error {
 		logger := common.Logger(ctx)
-		tarFile, err := ioutil.TempFile("", "act")
+		tarFile, err := os.CreateTemp("", "act")
 		if err != nil {
 			return err
 		}

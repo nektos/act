@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -61,7 +60,7 @@ func FindGitRevision(ctx context.Context, file string) (shortSha string, sha str
 		return "", "", err
 	}
 
-	bts, err := ioutil.ReadFile(filepath.Join(gitDir, "HEAD"))
+	bts, err := os.ReadFile(filepath.Join(gitDir, "HEAD"))
 	if err != nil {
 		return "", "", err
 	}
@@ -70,7 +69,7 @@ func FindGitRevision(ctx context.Context, file string) (shortSha string, sha str
 	var refBuf []byte
 	if strings.HasPrefix(ref, "refs/") {
 		// load commitid ref
-		refBuf, err = ioutil.ReadFile(filepath.Join(gitDir, ref))
+		refBuf, err = os.ReadFile(filepath.Join(gitDir, ref))
 		if err != nil {
 			return "", "", err
 		}
@@ -151,7 +150,7 @@ func findGitPrettyRef(ctx context.Context, head, root, sub string) (string, erro
 			return nil
 		}
 		var bts []byte
-		if bts, err = ioutil.ReadFile(path); err != nil {
+		if bts, err = os.ReadFile(path); err != nil {
 			return err
 		}
 		var pointsTo = strings.TrimSpace(string(bts))
