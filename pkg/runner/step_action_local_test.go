@@ -262,6 +262,7 @@ func TestStepActionLocalPost(t *testing.T) {
 				Step:   tt.stepModel,
 				action: tt.actionModel,
 			}
+			sal.RunContext.ExprEval = sal.RunContext.NewExpressionEvaluator(ctx)
 
 			if tt.mocks.env {
 				cm.On("UpdateFromImageEnv", &sal.env).Return(func(ctx context.Context) error { return nil })

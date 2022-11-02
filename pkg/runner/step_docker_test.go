@@ -25,6 +25,8 @@ func TestStepDockerMain(t *testing.T) {
 		ContainerNewContainer = origContainerNewContainer
 	})()
 
+	ctx := context.Background()
+
 	sd := &stepDocker{
 		RunContext: &RunContext{
 			StepResults: map[string]*model.StepResult{},
@@ -51,8 +53,7 @@ func TestStepDockerMain(t *testing.T) {
 			WorkingDirectory: "workdir",
 		},
 	}
-
-	ctx := context.Background()
+	sd.RunContext.ExprEval = sd.RunContext.NewExpressionEvaluator(ctx)
 
 	cm.On("UpdateFromImageEnv", mock.AnythingOfType("*map[string]string")).Return(func(ctx context.Context) error {
 		return nil
