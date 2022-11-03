@@ -1,0 +1,5 @@
+on: pull_request
+
+jobs:
+  reusable-workflow:
+    uses: ./.github/workflows/local-reusable-workflow.yml

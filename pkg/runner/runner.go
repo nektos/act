@@ -89,10 +89,6 @@ func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 				stageExecutor := make([]common.Executor, 0)
 				job := run.Job()
 
-				if job.Uses != "" {
-					return fmt.Errorf("reusable workflows are currently not supported (see https://github.com/nektos/act/issues/826 for updates)")
-				}
-
 				if job.Strategy != nil {
 					strategyRc := runner.newRunContext(ctx, run, nil)
 					if err := strategyRc.NewExpressionEvaluator(ctx).EvaluateYamlNode(ctx, &job.Strategy.RawMatrix); err != nil {

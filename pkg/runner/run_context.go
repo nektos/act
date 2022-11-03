@@ -369,16 +369,27 @@ func (rc *RunContext) steps() []*model.Step {
 
 // Executor returns a pipeline executor for all the steps in the job
 func (rc *RunContext) Executor() common.Executor {
+	var executor common.Executor
+
+	switch rc.Run.Job().Type() {
+	case model.JobTypeDefault:
+		executor = newJobExecutor(rc, &stepFactoryImpl{}, rc)
+	case model.JobTypeReusableWorkflowLocal:
+		executor = newLocalReusableWorkflowExecutor(rc)
+	case model.JobTypeReusableWorkflowRemote:
+		executor = common.NewErrorExecutor(fmt.Errorf("remote reusable workflows are currently not supported (see https://github.com/nektos/act/issues/826 for updates)"))
+	}
+
+	// todo: simplify
+	// return executor.If(rc.isEnabled)
 	return func(ctx context.Context) error {
-		isEnabled, err := rc.isEnabled(ctx)
+		res, err := rc.isEnabled(ctx)
 		if err != nil {
 			return err
 		}
-
-		if isEnabled {
-			return newJobExecutor(rc, &stepFactoryImpl{}, rc)(ctx)
+		if res {
+			return executor(ctx)
 		}
-
 		return nil
 	}
 }
@@ -426,6 +437,10 @@ func (rc *RunContext) isEnabled(ctx context.Context) (bool, error) {
 	if !runJob {
 		l.WithField("jobResult", "skipped").Debugf("Skipping job '%s' due to '%s'", job.Name, job.If.Value)
 		return false, nil
+	}
+
+	if job.Type() != model.JobTypeDefault {
+		return true, nil
 	}
 
 	img := rc.platformImage(ctx)
