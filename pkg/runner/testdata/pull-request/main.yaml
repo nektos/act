@@ -8,19 +8,19 @@ jobs:
       # test refs from event.json
       - run: echo '${{github.ref}}'
       - run: echo '${{github.head_ref}}' | grep sample-head-ref
-      - run: echo '${{github.base_ref}}' | grep sample-base-
+      - run: echo '${{github.base_ref}}' | grep sample-base-ref
       # test main/composite context equality with data from event.json
       - run: |
-        runs:
-          using: composite
-          steps:
-          - run: |
-              echo WORKFLOW_GITHUB_CONTEXT="$WORKFLOW_GITHUB_CONTEXT"
-              echo COMPOSITE_GITHUB_CONTEXT="$COMPOSITE_GITHUB_CONTEXT"
-              [[ "$WORKFLOW_GITHUB_CONTEXT" = "$COMPOSITE_GITHUB_CONTEXT" ]]
-            env:
-              WORKFLOW_GITHUB_CONTEXT: ${{ tojson(tojson(github.event)) }}
-              COMPOSITE_GITHUB_CONTEXT: ${{ '${{tojson(github.event)}}' }}
-            shell: bash
+          runs:
+            using: composite
+            steps:
+            - run: |
+                echo WORKFLOW_GITHUB_CONTEXT="$WORKFLOW_GITHUB_CONTEXT"
+                echo COMPOSITE_GITHUB_CONTEXT="$COMPOSITE_GITHUB_CONTEXT"
+                [[ "$WORKFLOW_GITHUB_CONTEXT" = "$COMPOSITE_GITHUB_CONTEXT" ]]
+              env:
+                WORKFLOW_GITHUB_CONTEXT: ${{ tojson(tojson(github.event)) }}
+                COMPOSITE_GITHUB_CONTEXT: ${{ '${{tojson(github.event)}}' }}
+              shell: bash
         shell: cp {0} action.yml
       - uses: ./
