@@ -187,6 +187,10 @@ func (rc *RunContext) startJobContainer() common.Executor {
 				Name: "workflow/paths.txt",
 				Mode: 0666,
 				Body: "",
+			}, &container.FileEntry{
+				Name: "workflow/outputs.txt",
+				Mode: 0666,
+				Body: "",
 			}),
 		)(ctx)
 	}
@@ -540,6 +544,7 @@ func (rc *RunContext) withGithubEnv(ctx context.Context, github *model.GithubCon
 	env["CI"] = "true"
 	env["GITHUB_ENV"] = ActPath + "/workflow/envs.txt"
 	env["GITHUB_PATH"] = ActPath + "/workflow/paths.txt"
+	env["GITHUB_OUTPUT"] = ActPath + "/workflow/outputs.txt"
 	env["GITHUB_WORKFLOW"] = github.Workflow
 	env["GITHUB_RUN_ID"] = github.RunID
 	env["GITHUB_RUN_NUMBER"] = github.RunNumber

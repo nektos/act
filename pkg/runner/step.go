@@ -117,6 +117,9 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 
 			logger.WithField("stepResult", rc.StepResults[rc.CurrentStep].Outcome).Errorf("  \u274C  Failure - %s %s", stage, stepString)
 		}
+
+		updateOutputsFromEnvFile(ctx, step)
+
 		return err
 	}
 }
@@ -172,6 +175,18 @@ func mergeEnv(ctx context.Context, step step) {
 	}
 
 	rc.withGithubEnv(ctx, step.getGithubContext(ctx), *env)
+}
+
+func updateOutputsFromEnvFile(ctx context.Context, step step) error {
+	rc := step.getRunContext()
+	stepResult := rc.StepResults[rc.CurrentStep]
+
+	err := rc.JobContainer.UpdateFromEnv((*step.getEnv())["GITHUB_OUTPUT"], &stepResult.Outputs)(ctx)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func isStepEnabled(ctx context.Context, expr string, step step, stage stepStage) (bool, error) {

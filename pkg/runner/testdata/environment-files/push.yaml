@@ -1,4 +1,4 @@
-name: env-and-path
+name: environment-files
 on: push
 
 jobs:
@@ -58,8 +58,8 @@ jobs:
       - name: "Write multiline env to $GITHUB_ENV"
         run: |
           echo 'KEY2<<EOF' >> $GITHUB_ENV
-                echo value2 >> $GITHUB_ENV
-                echo 'EOF' >> $GITHUB_ENV
+          echo value2 >> $GITHUB_ENV
+          echo 'EOF' >> $GITHUB_ENV
       - name: "Check multiline line env"
         run: |
           if [[ "${KEY2}" != "value2" ]]; then
@@ -69,11 +69,33 @@ jobs:
       - name: "Write multiline env with UUID to $GITHUB_ENV"
         run: |
           echo 'KEY3<<ghadelimiter_b8273c6d-d535-419a-a010-b0aaac240e36' >> $GITHUB_ENV
-                echo value3 >> $GITHUB_ENV
-                echo 'ghadelimiter_b8273c6d-d535-419a-a010-b0aaac240e36' >> $GITHUB_ENV
+          echo value3 >> $GITHUB_ENV
+          echo 'ghadelimiter_b8273c6d-d535-419a-a010-b0aaac240e36' >> $GITHUB_ENV
       - name: "Check multiline env with UUID to $GITHUB_ENV"
         run: |
           if [[ "${KEY3}" != "value3" ]]; then
             echo "${KEY3} doesn't == 'value3'"
+            exit 1
+          fi
+      - name: "Whrite single line output to $GITHUB_OUTPUT"
+        id: write-single-output
+        run: |
+          echo "KEY=value" >> $GITHUB_OUTPUT
+      - name: "Check single line output"
+        run: |
+          if [[ "${{ steps.write-single-output.outputs.KEY }}" != "value" ]]; then
+            echo "${{ steps.write-single-output.outputs.KEY }} doesn't == 'value'"
+            exit 1
+          fi
+      - name: "Write multiline output to $GITHUB_OUTPUT"
+        id: write-multi-output
+        run: |
+          echo 'KEY2<<EOF' >> $GITHUB_OUTPUT
+          echo value2 >> $GITHUB_OUTPUT
+          echo 'EOF' >> $GITHUB_OUTPUT
+      - name: "Check multiline output"
+        run: |
+          if [[ "${{ steps.write-multi-output.outputs.KEY2 }}" != "value2" ]]; then
+            echo "${{ steps.write-multi-output.outputs.KEY2 }} doesn't == 'value2'"
             exit 1
           fi
