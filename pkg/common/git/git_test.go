@@ -3,7 +3,6 @@ package git
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -45,7 +44,7 @@ func TestFindGitSlug(t *testing.T) {
 }
 
 func testDir(t *testing.T) string {
-	basedir, err := ioutil.TempDir("", "act-test")
+	basedir, err := os.MkdirTemp("", "act-test")
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = os.RemoveAll(basedir) })
 	return basedir
@@ -53,7 +52,7 @@ func testDir(t *testing.T) string {
 
 func cleanGitHooks(dir string) error {
 	hooksDir := filepath.Join(dir, ".git", "hooks")
-	files, err := ioutil.ReadDir(hooksDir)
+	files, err := os.ReadDir(hooksDir)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil
