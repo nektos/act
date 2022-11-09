@@ -331,15 +331,17 @@ func getEvaluatorInputs(ctx context.Context, rc *RunContext, step step, ghc *mod
 
 	if ghc.EventName == "workflow_dispatch" {
 		config := rc.Run.Workflow.WorkflowDispatchConfig()
-		for k, v := range config.Inputs {
-			value := nestedMapLookup(ghc.Event, "inputs", k)
-			if value == nil {
-				value = v.Default
-			}
-			if v.Type == "boolean" {
-				inputs[k] = value == "true"
-			} else {
-				inputs[k] = value
+		if config != nil && config.Inputs != nil {
+			for k, v := range config.Inputs {
+				value := nestedMapLookup(ghc.Event, "inputs", k)
+				if value == nil {
+					value = v.Default
+				}
+				if v.Type == "boolean" {
+					inputs[k] = value == "true"
+				} else {
+					inputs[k] = value
+				}
 			}
 		}
 	}
