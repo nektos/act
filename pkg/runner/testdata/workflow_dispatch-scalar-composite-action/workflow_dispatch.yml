@@ -1,0 +1,17 @@
+name: workflow_dispatch
+
+on: workflow_dispatch
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          runs:
+            using: composite
+            steps:
+            - run: |
+                exit 0
+              shell: bash
+        shell: cp {0} action.yml
+      - uses: ./

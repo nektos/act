@@ -45,8 +45,8 @@ func TestNewConditionalExecutor(t *testing.T) {
 	trueCount := 0
 	falseCount := 0
 
-	err := NewConditionalExecutor(func(ctx context.Context) bool {
-		return false
+	err := NewConditionalExecutor(func(ctx context.Context) (bool, error) {
+		return false, nil
 	}, func(ctx context.Context) error {
 		trueCount++
 		return nil
@@ -59,8 +59,8 @@ func TestNewConditionalExecutor(t *testing.T) {
 	assert.Equal(0, trueCount)
 	assert.Equal(1, falseCount)
 
-	err = NewConditionalExecutor(func(ctx context.Context) bool {
-		return true
+	err = NewConditionalExecutor(func(ctx context.Context) (bool, error) {
+		return true, nil
 	}, func(ctx context.Context) error {
 		trueCount++
 		return nil

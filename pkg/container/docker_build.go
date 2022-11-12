@@ -33,7 +33,11 @@ func NewDockerBuildExecutor(input NewDockerBuildExecutorInput) common.Executor {
 		} else {
 			logger.Infof("%sdocker build -t %s %s", logPrefix, input.ImageTag, input.ContextDir)
 		}
-		if common.Dryrun(ctx) {
+		dryRun, err := common.Dryrun(ctx)
+		if err != nil {
+			return err
+		}
+		if dryRun {
 			return nil
 		}
 

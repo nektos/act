@@ -33,7 +33,11 @@ func (sal *stepActionLocal) pre() common.Executor {
 
 func (sal *stepActionLocal) main() common.Executor {
 	return runStepExecutor(sal, stepStageMain, func(ctx context.Context) error {
-		if common.Dryrun(ctx) {
+		dryRun, err := common.Dryrun(ctx)
+		if err != nil {
+			return err
+		}
+		if dryRun {
 			return nil
 		}
 

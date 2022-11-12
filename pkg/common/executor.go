@@ -27,7 +27,7 @@ func Warningf(format string, args ...interface{}) Warning {
 type Executor func(ctx context.Context) error
 
 // Conditional define contract for the conditional predicate
-type Conditional func(ctx context.Context) bool
+type Conditional func(ctx context.Context) (bool, error)
 
 // NewInfoExecutor is an executor that logs messages
 func NewInfoExecutor(format string, args ...interface{}) Executor {
@@ -68,7 +68,12 @@ func NewPipelineExecutor(executors ...Executor) Executor {
 // NewConditionalExecutor creates a new executor based on conditions
 func NewConditionalExecutor(conditional Conditional, trueExecutor Executor, falseExecutor Executor) Executor {
 	return func(ctx context.Context) error {
-		if conditional(ctx) {
+		result, err := conditional(ctx)
+		if err != nil {
+			return err
+		}
+
+		if result {
 			if trueExecutor != nil {
 				return trueExecutor(ctx)
 			}
@@ -145,7 +150,11 @@ func (e Executor) Then(then Executor) Executor {
 // If only runs this executor if conditional is true
 func (e Executor) If(conditional Conditional) Executor {
 	return func(ctx context.Context) error {
-		if conditional(ctx) {
+		result, err := conditional(ctx)
+		if err != nil {
+			return err
+		}
+		if result {
 			return e(ctx)
 		}
 		return nil
@@ -155,7 +164,11 @@ func (e Executor) If(conditional Conditional) Executor {
 // IfNot only runs this executor if conditional is true
 func (e Executor) IfNot(conditional Conditional) Executor {
 	return func(ctx context.Context) error {
-		if !conditional(ctx) {
+		result, err := conditional(ctx)
+		if err != nil {
+			return err
+		}
+		if !result {
 			return e(ctx)
 		}
 		return nil
@@ -164,8 +177,8 @@ func (e Executor) IfNot(conditional Conditional) Executor {
 
 // IfBool only runs this executor if conditional is true
 func (e Executor) IfBool(conditional bool) Executor {
-	return e.If(func(ctx context.Context) bool {
-		return conditional
+	return e.If(func(ctx context.Context) (bool, error) {
+		return conditional, nil
 	})
 }
 
@@ -183,7 +196,8 @@ func (e Executor) Finally(finally Executor) Executor {
 
 // Not return an inverted conditional
 func (c Conditional) Not() Conditional {
-	return func(ctx context.Context) bool {
-		return !c(ctx)
+	return func(ctx context.Context) (bool, error) {
+		result, err := c(ctx)
+		return !result, err
 	}
 }
