@@ -82,10 +82,15 @@ func WithJobLogger(ctx context.Context, jobID string, jobName string, config *Co
 	logger.SetFormatter(formatter)
 	logger.SetOutput(os.Stdout)
 	logger.SetLevel(logrus.GetLevel())
+
+	dryRun, err := common.Dryrun(ctx)
+	if err != nil {
+		logger.Fatal("Failed to configure logger", err)
+	}
 	rtn := logger.WithFields(logrus.Fields{
 		"job":    jobName,
 		"jobID":  jobID,
-		"dryrun": common.Dryrun(ctx),
+		"dryrun": dryRun,
 		"matrix": matrix,
 	}).WithContext(ctx)
 

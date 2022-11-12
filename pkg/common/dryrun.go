@@ -9,14 +9,14 @@ type dryrunContextKey string
 const dryrunContextKeyVal = dryrunContextKey("dryrun")
 
 // Dryrun returns true if the current context is dryrun
-func Dryrun(ctx context.Context) bool {
+func Dryrun(ctx context.Context) (bool, error) {
 	val := ctx.Value(dryrunContextKeyVal)
 	if val != nil {
 		if dryrun, ok := val.(bool); ok {
-			return dryrun
+			return dryrun, nil
 		}
 	}
-	return false
+	return false, nil
 }
 
 // WithDryrun adds a value to the context for dryrun

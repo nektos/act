@@ -27,7 +27,11 @@ func NewDockerPullExecutor(input NewDockerPullExecutorInput) common.Executor {
 		logger := common.Logger(ctx)
 		logger.Debugf("%sdocker pull %v", logPrefix, input.Image)
 
-		if common.Dryrun(ctx) {
+		dryRun, err := common.Dryrun(ctx)
+		if err != nil {
+			return err
+		}
+		if dryRun {
 			return nil
 		}
 
