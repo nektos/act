@@ -183,6 +183,9 @@ func TestRunEvent(t *testing.T) {
 		{workdir, "evalenv", "push", "", platforms},
 		{workdir, "ensure-post-steps", "push", "Job 'second-post-step-should-fail' failed", platforms},
 		{workdir, "workflow_dispatch", "workflow_dispatch", "", platforms},
+		{workdir, "workflow_dispatch_no_inputs_mapping", "workflow_dispatch", "", platforms},
+		{workdir, "workflow_dispatch-scalar", "workflow_dispatch", "", platforms},
+		{workdir, "workflow_dispatch-scalar-composite-action", "workflow_dispatch", "", platforms},
 		{"../model/testdata", "strategy", "push", "", platforms}, // TODO: move all testdata into pkg so we can validate it with planner and runner
 		// {"testdata", "issue-228", "push", "", platforms, }, // TODO [igni]: Remove this once everything passes
 		{"../model/testdata", "container-volumes", "push", "", platforms},
