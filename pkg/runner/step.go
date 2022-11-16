@@ -97,7 +97,7 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 		logger.Infof("\u2B50 Run %s %s", stage, stepString)
 
 		// Prepare and clean Runner File Commands
-		actPath := ActPath
+		actPath := rc.JobContainer.GetActPath()
 		outputFileCommand := path.Join("workflow", "outputcmd.txt")
 		stateFileCommand := path.Join("workflow", "statecmd.txt")
 		(*step.getEnv())["GITHUB_OUTPUT"] = path.Join(actPath, outputFileCommand)
