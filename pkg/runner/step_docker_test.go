@@ -86,6 +86,18 @@ func TestStepDockerMain(t *testing.T) {
 		return nil
 	})
 
+	cm.On("Copy", "/var/run/act", mock.AnythingOfType("[]*container.FileEntry")).Return(func(ctx context.Context) error {
+		return nil
+	})
+
+	cm.On("UpdateFromEnv", "/var/run/act/workflow/statecmd.txt", mock.AnythingOfType("*map[string]string")).Return(func(ctx context.Context) error {
+		return nil
+	})
+
+	cm.On("UpdateFromEnv", "/var/run/act/workflow/outputcmd.txt", mock.AnythingOfType("*map[string]string")).Return(func(ctx context.Context) error {
+		return nil
+	})
+
 	err := sd.main()(ctx)
 	assert.Nil(t, err)
 
