@@ -155,6 +155,7 @@ func TestStepActionRemote(t *testing.T) {
 				readAction: sarm.readAction,
 				runAction:  sarm.runAction,
 			}
+			sar.RunContext.ExprEval = sar.RunContext.NewExpressionEvaluator(ctx)
 
 			suffixMatcher := func(suffix string) interface{} {
 				return mock.MatchedBy(func(actionDir string) bool {
@@ -586,6 +587,7 @@ func TestStepActionRemotePost(t *testing.T) {
 				Step:   tt.stepModel,
 				action: tt.actionModel,
 			}
+			sar.RunContext.ExprEval = sar.RunContext.NewExpressionEvaluator(ctx)
 
 			if tt.mocks.env {
 				cm.On("UpdateFromImageEnv", &sar.env).Return(func(ctx context.Context) error { return nil })

@@ -71,6 +71,7 @@ func newCompositeRunContext(ctx context.Context, parent *RunContext, step action
 		Parent:       parent,
 		EventJSON:    parent.EventJSON,
 	}
+	compositerc.ExprEval = compositerc.NewExpressionEvaluator(ctx)
 
 	return compositerc
 }
