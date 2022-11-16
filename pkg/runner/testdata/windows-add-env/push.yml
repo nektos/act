@@ -1,0 +1,27 @@
+on:
+  push:
+defaults:
+  run:
+    shell: pwsh
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+    - run: |
+        echo $env:GITHUB_ENV
+        echo "key=val" > $env:GITHUB_ENV
+        echo "key2<<EOF" >> $env:GITHUB_ENV
+        echo "line1" >> $env:GITHUB_ENV
+        echo "line2" >> $env:GITHUB_ENV
+        echo "EOF" >> $env:GITHUB_ENV
+        cat $env:GITHUB_ENV
+    - run: |
+        ls env:
+        if($env:key -ne 'val') {
+          echo "Unexpected value for `$env:key: $env:key"
+          exit 1
+        }
+        if($env:key2 -ne "line1`nline2") {
+          echo "Unexpected value for `$env:key2: $env:key2"
+          exit 1
+        }

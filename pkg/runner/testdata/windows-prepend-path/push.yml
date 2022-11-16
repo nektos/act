@@ -1,0 +1,25 @@
+on:
+  push:
+defaults:
+  run:
+    shell: pwsh
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+    - run: |
+        mkdir build
+        echo '@echo off' > build/test.cmd
+        echo 'echo Hi' >> build/test.cmd
+    - run: |
+        echo '${{ tojson(runner) }}'
+        ls
+        echo '${{ github.workspace }}'
+      working-directory: ${{ github.workspace }}\build
+    - run: |
+        echo $env:GITHUB_PATH
+        echo '${{ github.workspace }}\build' > $env:GITHUB_PATH
+        cat $env:GITHUB_PATH
+    - run: |
+        echo $env:PATH
+        test

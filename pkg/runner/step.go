@@ -3,9 +3,11 @@ package runner
 import (
 	"context"
 	"fmt"
+	"path"
 	"strings"
 
 	"github.com/nektos/act/pkg/common"
+	"github.com/nektos/act/pkg/container"
 	"github.com/nektos/act/pkg/exprparser"
 	"github.com/nektos/act/pkg/model"
 )
@@ -88,11 +90,25 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 			return nil
 		}
 
-		stepString := stepModel.String()
+		stepString := rc.ExprEval.Interpolate(ctx, stepModel.String())
 		if strings.Contains(stepString, "::add-mask::") {
 			stepString = "add-mask command"
 		}
 		logger.Infof("\u2B50 Run %s %s", stage, stepString)
+
+		// Prepare and clean Runner File Commands
+		actPath := rc.JobContainer.GetActPath()
+		outputFileCommand := path.Join("workflow", "outputcmd.txt")
+		stateFileCommand := path.Join("workflow", "statecmd.txt")
+		(*step.getEnv())["GITHUB_OUTPUT"] = path.Join(actPath, outputFileCommand)
+		(*step.getEnv())["GITHUB_STATE"] = path.Join(actPath, stateFileCommand)
+		_ = rc.JobContainer.Copy(actPath, &container.FileEntry{
+			Name: outputFileCommand,
+			Mode: 0666,
+		}, &container.FileEntry{
+			Name: stateFileCommand,
+			Mode: 0666,
+		})(ctx)
 
 		err = executor(ctx)
 
@@ -116,6 +132,27 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 			}
 
 			logger.WithField("stepResult", rc.StepResults[rc.CurrentStep].Outcome).Errorf("  \u274C  Failure - %s %s", stage, stepString)
+		}
+		// Process Runner File Commands
+		orgerr := err
+		state := map[string]string{}
+		err = rc.JobContainer.UpdateFromEnv(path.Join(actPath, stateFileCommand), &state)(ctx)
+		if err != nil {
+			return err
+		}
+		for k, v := range state {
+			rc.saveState(ctx, map[string]string{"name": k}, v)
+		}
+		output := map[string]string{}
+		err = rc.JobContainer.UpdateFromEnv(path.Join(actPath, outputFileCommand), &output)(ctx)
+		if err != nil {
+			return err
+		}
+		for k, v := range output {
+			rc.setOutput(ctx, map[string]string{"name": k}, v)
+		}
+		if orgerr != nil {
+			return orgerr
 		}
 		return err
 	}
@@ -162,13 +199,12 @@ func mergeEnv(ctx context.Context, step step) {
 		mergeIntoMap(env, rc.GetEnv())
 	}
 
-	if (*env)["PATH"] == "" {
-		(*env)["PATH"] = `/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin`
+	path := rc.JobContainer.GetPathVariableName()
+	if (*env)[path] == "" {
+		(*env)[path] = rc.JobContainer.DefaultPathVariable()
 	}
 	if rc.ExtraPath != nil && len(rc.ExtraPath) > 0 {
-		p := (*env)["PATH"]
-		(*env)["PATH"] = strings.Join(rc.ExtraPath, `:`)
-		(*env)["PATH"] += `:` + p
+		(*env)[path] = rc.JobContainer.JoinPathVariable(append(rc.ExtraPath, (*env)[path])...)
 	}
 
 	rc.withGithubEnv(ctx, step.getGithubContext(ctx), *env)

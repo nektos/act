@@ -352,7 +352,7 @@ func newStepContainer(ctx context.Context, step step, image string, cmd []string
 	stepContainer := container.NewContainer(&container.NewContainerInput{
 		Cmd:         cmd,
 		Entrypoint:  entrypoint,
-		WorkingDir:  rc.Config.ContainerWorkdir(),
+		WorkingDir:  rc.JobContainer.ToContainerPath(rc.Config.Workdir),
 		Image:       image,
 		Username:    rc.Config.Secrets["DOCKER_USERNAME"],
 		Password:    rc.Config.Secrets["DOCKER_PASSWORD"],
@@ -396,11 +396,11 @@ func getContainerActionPaths(step *model.Step, actionDir string, rc *RunContext)
 	containerActionDir := "."
 	if step.Type() != model.StepTypeUsesActionRemote {
 		actionName = getOsSafeRelativePath(actionDir, rc.Config.Workdir)
-		containerActionDir = rc.Config.ContainerWorkdir() + "/" + actionName
+		containerActionDir = rc.JobContainer.ToContainerPath(rc.Config.Workdir) + "/" + actionName
 		actionName = "./" + actionName
 	} else if step.Type() == model.StepTypeUsesActionRemote {
 		actionName = getOsSafeRelativePath(actionDir, rc.ActionCacheDir())
-		containerActionDir = ActPath + "/actions/" + actionName
+		containerActionDir = rc.JobContainer.GetActPath() + "/actions/" + actionName
 	}
 
 	if actionName == "" {

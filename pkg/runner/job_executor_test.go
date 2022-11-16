@@ -79,6 +79,7 @@ func (jim *jobInfoMock) result(result string) {
 
 type jobContainerMock struct {
 	container.Container
+	container.LinuxContainerEnvironmentExtensions
 }
 
 func (jcm *jobContainerMock) ReplaceLogWriter(stdout, stderr io.Writer) (io.Writer, io.Writer) {
@@ -248,7 +249,17 @@ func TestNewJobExecutor(t *testing.T) {
 			sfm := &stepFactoryMock{}
 			rc := &RunContext{
 				JobContainer: &jobContainerMock{},
+				Run: &model.Run{
+					JobID: "test",
+					Workflow: &model.Workflow{
+						Jobs: map[string]*model.Job{
+							"test": {},
+						},
+					},
+				},
+				Config: &Config{},
 			}
+			rc.ExprEval = rc.NewExpressionEvaluator(ctx)
 			executorOrder := make([]string, 0)
 
 			jim.On("steps").Return(tt.steps)

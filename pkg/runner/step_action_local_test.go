@@ -2,6 +2,7 @@ package runner
 
 import (
 	"context"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -63,7 +64,7 @@ func TestStepActionLocalTest(t *testing.T) {
 		},
 	}
 
-	salm.On("readAction", sal.Step, "/tmp/path/to/action", "", mock.Anything, mock.Anything).
+	salm.On("readAction", sal.Step, filepath.Clean("/tmp/path/to/action"), "", mock.Anything, mock.Anything).
 		Return(&model.Action{}, nil)
 
 	cm.On("UpdateFromImageEnv", mock.AnythingOfType("*map[string]string")).Return(func(ctx context.Context) error {
@@ -78,7 +79,19 @@ func TestStepActionLocalTest(t *testing.T) {
 		return nil
 	})
 
-	salm.On("runAction", sal, "/tmp/path/to/action", (*remoteAction)(nil)).Return(func(ctx context.Context) error {
+	cm.On("Copy", "/var/run/act", mock.AnythingOfType("[]*container.FileEntry")).Return(func(ctx context.Context) error {
+		return nil
+	})
+
+	cm.On("UpdateFromEnv", "/var/run/act/workflow/statecmd.txt", mock.AnythingOfType("*map[string]string")).Return(func(ctx context.Context) error {
+		return nil
+	})
+
+	cm.On("UpdateFromEnv", "/var/run/act/workflow/outputcmd.txt", mock.AnythingOfType("*map[string]string")).Return(func(ctx context.Context) error {
+		return nil
+	})
+
+	salm.On("runAction", sal, filepath.Clean("/tmp/path/to/action"), (*remoteAction)(nil)).Return(func(ctx context.Context) error {
 		return nil
 	})
 
@@ -262,6 +275,7 @@ func TestStepActionLocalPost(t *testing.T) {
 				Step:   tt.stepModel,
 				action: tt.actionModel,
 			}
+			sal.RunContext.ExprEval = sal.RunContext.NewExpressionEvaluator(ctx)
 
 			if tt.mocks.env {
 				cm.On("UpdateFromImageEnv", &sal.env).Return(func(ctx context.Context) error { return nil })
@@ -275,6 +289,18 @@ func TestStepActionLocalPost(t *testing.T) {
 					})
 				}
 				cm.On("Exec", suffixMatcher("pkg/runner/local/action/post.js"), sal.env, "", "").Return(func(ctx context.Context) error { return tt.err })
+
+				cm.On("Copy", "/var/run/act", mock.AnythingOfType("[]*container.FileEntry")).Return(func(ctx context.Context) error {
+					return nil
+				})
+
+				cm.On("UpdateFromEnv", "/var/run/act/workflow/statecmd.txt", mock.AnythingOfType("*map[string]string")).Return(func(ctx context.Context) error {
+					return nil
+				})
+
+				cm.On("UpdateFromEnv", "/var/run/act/workflow/outputcmd.txt", mock.AnythingOfType("*map[string]string")).Return(func(ctx context.Context) error {
+					return nil
+				})
 			}
 
 			err := sal.post()(ctx)

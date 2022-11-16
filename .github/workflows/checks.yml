@@ -19,10 +19,10 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
           check-latest: true
-      - uses: golangci/golangci-lint-action@v3.3.0
+      - uses: golangci/golangci-lint-action@v3.3.1
         with:
           version: v1.47.2
-      - uses: megalinter/megalinter/flavors/go@v6.13.0
+      - uses: megalinter/megalinter/flavors/go@v6.14.0
         env:
           DEFAULT_BRANCH: master
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -50,12 +50,31 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
-      - run: go test -v -cover -coverprofile=coverage.txt -covermode=atomic ./...
+      - run: go test -v -cover -coverprofile=coverage.txt -covermode=atomic -timeout 15m ./...
       - name: Upload Codecov report
         uses: codecov/codecov-action@v3.1.1
         with:
           files: coverage.txt
           fail_ci_if_error: true # optional (default = false)
+
+  test-host:
+    strategy:
+      matrix:
+        os:
+          - windows-latest
+          - macos-latest
+    name: test-${{matrix.os}}
+    runs-on: ${{matrix.os}}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 2
+      - uses: actions/setup-go@v3
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          check-latest: true
+      - run: go test -v -run ^TestRunEventHostEnvironment$ ./...
+    # TODO merge coverage with test-linux
 
   snapshot:
     name: snapshot

@@ -155,6 +155,7 @@ func TestStepActionRemote(t *testing.T) {
 				readAction: sarm.readAction,
 				runAction:  sarm.runAction,
 			}
+			sar.RunContext.ExprEval = sar.RunContext.NewExpressionEvaluator(ctx)
 
 			suffixMatcher := func(suffix string) interface{} {
 				return mock.MatchedBy(func(actionDir string) bool {
@@ -172,6 +173,18 @@ func TestStepActionRemote(t *testing.T) {
 			}
 			if tt.mocks.run {
 				sarm.On("runAction", sar, suffixMatcher("act/remote-action@v1"), newRemoteAction(sar.Step.Uses)).Return(func(ctx context.Context) error { return tt.runError })
+
+				cm.On("Copy", "/var/run/act", mock.AnythingOfType("[]*container.FileEntry")).Return(func(ctx context.Context) error {
+					return nil
+				})
+
+				cm.On("UpdateFromEnv", "/var/run/act/workflow/statecmd.txt", mock.AnythingOfType("*map[string]string")).Return(func(ctx context.Context) error {
+					return nil
+				})
+
+				cm.On("UpdateFromEnv", "/var/run/act/workflow/outputcmd.txt", mock.AnythingOfType("*map[string]string")).Return(func(ctx context.Context) error {
+					return nil
+				})
 			}
 
 			err := sar.pre()(ctx)
@@ -574,6 +587,7 @@ func TestStepActionRemotePost(t *testing.T) {
 				Step:   tt.stepModel,
 				action: tt.actionModel,
 			}
+			sar.RunContext.ExprEval = sar.RunContext.NewExpressionEvaluator(ctx)
 
 			if tt.mocks.env {
 				cm.On("UpdateFromImageEnv", &sar.env).Return(func(ctx context.Context) error { return nil })
@@ -582,6 +596,18 @@ func TestStepActionRemotePost(t *testing.T) {
 			}
 			if tt.mocks.exec {
 				cm.On("Exec", []string{"node", "/var/run/act/actions/remote-action@v1/post.js"}, sar.env, "", "").Return(func(ctx context.Context) error { return tt.err })
+
+				cm.On("Copy", "/var/run/act", mock.AnythingOfType("[]*container.FileEntry")).Return(func(ctx context.Context) error {
+					return nil
+				})
+
+				cm.On("UpdateFromEnv", "/var/run/act/workflow/statecmd.txt", mock.AnythingOfType("*map[string]string")).Return(func(ctx context.Context) error {
+					return nil
+				})
+
+				cm.On("UpdateFromEnv", "/var/run/act/workflow/outputcmd.txt", mock.AnythingOfType("*map[string]string")).Return(func(ctx context.Context) error {
+					return nil
+				})
 			}
 
 			err := sar.post()(ctx)
