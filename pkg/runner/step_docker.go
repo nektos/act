@@ -116,7 +116,7 @@ func (sd *stepDocker) newStepContainer(ctx context.Context, image string, cmd []
 	stepContainer := ContainerNewContainer(&container.NewContainerInput{
 		Cmd:         cmd,
 		Entrypoint:  entrypoint,
-		WorkingDir:  rc.Config.ContainerWorkdir(),
+		WorkingDir:  rc.JobContainer.ToContainerPath(rc.Config.Workdir),
 		Image:       image,
 		Username:    rc.Config.Secrets["DOCKER_USERNAME"],
 		Password:    rc.Config.Secrets["DOCKER_PASSWORD"],
