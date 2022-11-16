@@ -3,9 +3,11 @@ package runner
 import (
 	"context"
 	"fmt"
+	"path"
 	"strings"
 
 	"github.com/nektos/act/pkg/common"
+	"github.com/nektos/act/pkg/container"
 	"github.com/nektos/act/pkg/exprparser"
 	"github.com/nektos/act/pkg/model"
 )
@@ -94,6 +96,20 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 		}
 		logger.Infof("\u2B50 Run %s %s", stage, stepString)
 
+		// Prepare and clean Runner File Commands
+		actPath := rc.JobContainer.GetActPath()
+		outputFileCommand := path.Join("workflow", "outputcmd.txt")
+		stateFileCommand := path.Join("workflow", "statecmd.txt")
+		(*step.getEnv())["GITHUB_OUTPUT"] = path.Join(actPath, outputFileCommand)
+		(*step.getEnv())["GITHUB_STATE"] = path.Join(actPath, stateFileCommand)
+		_ = rc.JobContainer.Copy(actPath, &container.FileEntry{
+			Name: outputFileCommand,
+			Mode: 0666,
+		}, &container.FileEntry{
+			Name: stateFileCommand,
+			Mode: 0666,
+		})(ctx)
+
 		err = executor(ctx)
 
 		if err == nil {
@@ -116,6 +132,27 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 			}
 
 			logger.WithField("stepResult", rc.StepResults[rc.CurrentStep].Outcome).Errorf("  \u274C  Failure - %s %s", stage, stepString)
+		}
+		// Process Runner File Commands
+		orgerr := err
+		state := map[string]string{}
+		err = rc.JobContainer.UpdateFromEnv(path.Join(actPath, stateFileCommand), &state)(ctx)
+		if err != nil {
+			return err
+		}
+		for k, v := range state {
+			rc.saveState(ctx, map[string]string{"name": k}, v)
+		}
+		output := map[string]string{}
+		err = rc.JobContainer.UpdateFromEnv(path.Join(actPath, outputFileCommand), &output)(ctx)
+		if err != nil {
+			return err
+		}
+		for k, v := range output {
+			rc.setOutput(ctx, map[string]string{"name": k}, v)
+		}
+		if orgerr != nil {
+			return orgerr
 		}
 		return err
 	}
