@@ -17,7 +17,7 @@ func TestStepDockerMain(t *testing.T) {
 
 	// mock the new container call
 	origContainerNewContainer := ContainerNewContainer
-	ContainerNewContainer = func(containerInput *container.NewContainerInput) container.Container {
+	ContainerNewContainer = func(containerInput *container.NewContainerInput) container.ExecutionsEnvironment {
 		input = containerInput
 		return cm
 	}

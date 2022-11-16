@@ -57,6 +57,25 @@ jobs:
           files: coverage.txt
           fail_ci_if_error: true # optional (default = false)
 
+  test-host:
+    strategy:
+      matrix:
+        os:
+          - windows-latest
+          - macos-latest
+    name: test-${{matrix.os}}
+    runs-on: ${{matrix.os}}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 2
+      - uses: actions/setup-go@v3
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          check-latest: true
+      - run: go test -v -run ^TestRunEventHostEnvironment$ ./...
+    # TODO merge coverage with test-linux
+
   snapshot:
     name: snapshot
     runs-on: ubuntu-latest

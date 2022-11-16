@@ -199,13 +199,12 @@ func mergeEnv(ctx context.Context, step step) {
 		mergeIntoMap(env, rc.GetEnv())
 	}
 
-	if (*env)["PATH"] == "" {
-		(*env)["PATH"] = `/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin`
+	path := rc.JobContainer.GetPathVariableName()
+	if (*env)[path] == "" {
+		(*env)[path] = rc.JobContainer.DefaultPathVariable()
 	}
 	if rc.ExtraPath != nil && len(rc.ExtraPath) > 0 {
-		p := (*env)["PATH"]
-		(*env)["PATH"] = strings.Join(rc.ExtraPath, `:`)
-		(*env)["PATH"] += `:` + p
+		(*env)[path] = rc.JobContainer.JoinPathVariable(append(rc.ExtraPath, (*env)[path])...)
 	}
 
 	rc.withGithubEnv(ctx, step.getGithubContext(ctx), *env)
