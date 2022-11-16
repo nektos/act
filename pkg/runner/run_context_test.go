@@ -385,14 +385,12 @@ func TestGetGitHubContext(t *testing.T) {
 	}
 
 	assert.Equal(t, ghc.RunID, "1")
-	assert.Equal(t, ghc.Workspace, rc.Config.containerPath(cwd))
 	assert.Equal(t, ghc.RunNumber, "1")
 	assert.Equal(t, ghc.RetentionDays, "0")
 	assert.Equal(t, ghc.Actor, actor)
 	assert.Equal(t, ghc.Repository, repo)
 	assert.Equal(t, ghc.RepositoryOwner, owner)
 	assert.Equal(t, ghc.RunnerPerflog, "/dev/null")
-	assert.Equal(t, ghc.EventPath, ActPath+"/workflow/event.json")
 	assert.Equal(t, ghc.Token, rc.Config.Secrets["GITHUB_TOKEN"])
 }
 

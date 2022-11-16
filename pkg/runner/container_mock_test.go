@@ -11,6 +11,7 @@ import (
 type containerMock struct {
 	mock.Mock
 	container.Container
+	container.LinuxContainerEnvironmentExtensions
 }
 
 func (cm *containerMock) Create(capAdd []string, capDrop []string) common.Executor {

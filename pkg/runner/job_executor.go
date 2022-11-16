@@ -38,6 +38,20 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 		return common.NewDebugExecutor("No steps found")
 	}
 
+	preSteps = append(preSteps, func(ctx context.Context) error {
+		// Have to be skipped for some Tests
+		if rc.Run == nil {
+			return nil
+		}
+		rc.ExprEval = rc.NewExpressionEvaluator(ctx)
+		// evaluate environment variables since they can contain
+		// GitHub's special environment variables.
+		for k, v := range rc.GetEnv() {
+			rc.Env[k] = rc.ExprEval.Interpolate(ctx, v)
+		}
+		return nil
+	})
+
 	for i, stepModel := range infoSteps {
 		stepModel := stepModel
 		if stepModel == nil {

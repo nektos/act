@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/nektos/act/pkg/common"
-	"github.com/nektos/act/pkg/container"
 	"github.com/nektos/act/pkg/exprparser"
 	"github.com/nektos/act/pkg/model"
 	"gopkg.in/yaml.v3"
@@ -23,20 +22,22 @@ type ExpressionEvaluator interface {
 // NewExpressionEvaluator creates a new evaluator
 func (rc *RunContext) NewExpressionEvaluator(ctx context.Context) ExpressionEvaluator {
 	// todo: cleanup EvaluationEnvironment creation
-	job := rc.Run.Job()
-	strategy := make(map[string]interface{})
-	if job.Strategy != nil {
-		strategy["fail-fast"] = job.Strategy.FailFast
-		strategy["max-parallel"] = job.Strategy.MaxParallel
-	}
-
-	jobs := rc.Run.Workflow.Jobs
-	jobNeeds := rc.Run.Job().Needs()
-
 	using := make(map[string]map[string]map[string]string)
-	for _, needs := range jobNeeds {
-		using[needs] = map[string]map[string]string{
-			"outputs": jobs[needs].Outputs,
+	strategy := make(map[string]interface{})
+	if rc.Run != nil {
+		job := rc.Run.Job()
+		if job != nil && job.Strategy != nil {
+			strategy["fail-fast"] = job.Strategy.FailFast
+			strategy["max-parallel"] = job.Strategy.MaxParallel
+		}
+
+		jobs := rc.Run.Workflow.Jobs
+		jobNeeds := rc.Run.Job().Needs()
+
+		for _, needs := range jobNeeds {
+			using[needs] = map[string]map[string]string{
+				"outputs": jobs[needs].Outputs,
+			}
 		}
 	}
 
@@ -49,18 +50,15 @@ func (rc *RunContext) NewExpressionEvaluator(ctx context.Context) ExpressionEval
 		Job:    rc.getJobContext(),
 		// todo: should be unavailable
 		// but required to interpolate/evaluate the step outputs on the job
-		Steps: rc.getStepsContext(),
-		Runner: map[string]interface{}{
-			"os":         "Linux",
-			"arch":       container.RunnerArch(ctx),
-			"temp":       "/tmp",
-			"tool_cache": "/opt/hostedtoolcache",
-		},
+		Steps:    rc.getStepsContext(),
 		Secrets:  rc.Config.Secrets,
 		Strategy: strategy,
 		Matrix:   rc.Matrix,
 		Needs:    using,
 		Inputs:   inputs,
+	}
+	if rc.JobContainer != nil {
+		ee.Runner = rc.JobContainer.GetRunnerContext(ctx)
 	}
 	return expressionEvaluator{
 		interpreter: exprparser.NewInterpeter(ee, exprparser.Config{
@@ -95,16 +93,10 @@ func (rc *RunContext) NewStepExpressionEvaluator(ctx context.Context, step step)
 	inputs := getEvaluatorInputs(ctx, rc, step, ghc)
 
 	ee := &exprparser.EvaluationEnvironment{
-		Github: step.getGithubContext(ctx),
-		Env:    *step.getEnv(),
-		Job:    rc.getJobContext(),
-		Steps:  rc.getStepsContext(),
-		Runner: map[string]interface{}{
-			"os":         "Linux",
-			"arch":       container.RunnerArch(ctx),
-			"temp":       "/tmp",
-			"tool_cache": "/opt/hostedtoolcache",
-		},
+		Github:   step.getGithubContext(ctx),
+		Env:      *step.getEnv(),
+		Job:      rc.getJobContext(),
+		Steps:    rc.getStepsContext(),
 		Secrets:  rc.Config.Secrets,
 		Strategy: strategy,
 		Matrix:   rc.Matrix,
@@ -112,6 +104,9 @@ func (rc *RunContext) NewStepExpressionEvaluator(ctx context.Context, step step)
 		// todo: should be unavailable
 		// but required to interpolate/evaluate the inputs in actions/composite
 		Inputs: inputs,
+	}
+	if rc.JobContainer != nil {
+		ee.Runner = rc.JobContainer.GetRunnerContext(ctx)
 	}
 	return expressionEvaluator{
 		interpreter: exprparser.NewInterpeter(ee, exprparser.Config{
