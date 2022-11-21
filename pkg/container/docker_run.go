@@ -109,6 +109,8 @@ func supportsContainerImagePlatform(ctx context.Context, cli client.APIClient) b
 }
 
 func (cr *containerReference) Create(capAdd []string, capDrop []string) common.Executor {
+	// cr.input.Mounts["pkgs"] = "/home/vagrant/miniconda/pkgs:/root/miniconda3/pkgs"
+	cr.input.Binds = append(cr.input.Binds, "/home/vagrant/miniconda/pkgs:/pkgs")
 	return common.
 		NewInfoExecutor("%sdocker create image=%s platform=%s entrypoint=%+q cmd=%+q", logPrefix, cr.input.Image, cr.input.Platform, cr.input.Entrypoint, cr.input.Cmd).
 		Then(
