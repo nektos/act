@@ -56,6 +56,7 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.Flags().StringVarP(&input.eventPath, "eventpath", "e", "", "path to event JSON file")
 	rootCmd.Flags().StringVar(&input.defaultBranch, "defaultbranch", "", "the name of the main branch")
 	rootCmd.Flags().BoolVar(&input.privileged, "privileged", false, "use privileged mode")
+	rootCmd.Flags().BoolVar(&input.nodood, "no-dood", false, "do not use DooD")
 	rootCmd.Flags().StringVar(&input.usernsMode, "userns", "", "user namespace to use")
 	rootCmd.Flags().BoolVar(&input.useGitIgnore, "use-gitignore", true, "Controls whether paths specified in .gitignore should be copied into container")
 	rootCmd.Flags().StringArrayVarP(&input.containerCapAdd, "container-cap-add", "", []string{}, "kernel capabilities to add to the workflow containers (e.g. --container-cap-add SYS_PTRACE)")
@@ -434,6 +435,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			InsecureSecrets:                    input.insecureSecrets,
 			Platforms:                          input.newPlatforms(),
 			Privileged:                         input.privileged,
+			NoDooD:                             input.nodood,
 			UsernsMode:                         input.usernsMode,
 			ContainerArchitecture:              input.containerArchitecture,
 			ContainerDaemonSocket:              input.containerDaemonSocket,

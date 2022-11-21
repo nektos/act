@@ -89,6 +89,10 @@ func (rc *RunContext) GetBindsAndMounts() ([]string, map[string]string) {
 		fmt.Sprintf("%s:%s", rc.Config.ContainerDaemonSocket, "/var/run/docker.sock"),
 	}
 
+	if rc.Config.NoDooD {
+		binds = nil
+	}
+
 	ext := container.LinuxContainerEnvironmentExtensions{}
 
 	mounts := map[string]string{
@@ -238,9 +242,17 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			return nil
 		}
 
+		networkMode := "host"
+		entryPoint := []string{"/usr/bin/tail", "-f", "/dev/null"}
+
+		if rc.Config.NoDooD {
+			entryPoint = nil
+			networkMode = "default"
+		}
+
 		rc.JobContainer = container.NewContainer(&container.NewContainerInput{
 			Cmd:         nil,
-			Entrypoint:  []string{"/usr/bin/tail", "-f", "/dev/null"},
+			Entrypoint:  entryPoint,
 			WorkingDir:  ext.ToContainerPath(rc.Config.Workdir),
 			Image:       image,
 			Username:    username,
@@ -248,7 +260,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			Name:        name,
 			Env:         envList,
 			Mounts:      mounts,
-			NetworkMode: "host",
+			NetworkMode: networkMode,
 			Binds:       binds,
 			Stdout:      logWriter,
 			Stderr:      logWriter,

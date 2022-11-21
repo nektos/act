@@ -27,6 +27,7 @@ type Input struct {
 	insecureSecrets                    bool
 	defaultBranch                      string
 	privileged                         bool
+	nodood                             bool
 	usernsMode                         string
 	containerArchitecture              string
 	containerDaemonSocket              string

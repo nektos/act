@@ -37,6 +37,7 @@ type Config struct {
 	InsecureSecrets                    bool              // switch hiding output when printing to terminal
 	Platforms                          map[string]string // list of platforms
 	Privileged                         bool              // use privileged mode
+	NoDooD                             bool              // do not use Docker on top of Docker (DooD)
 	UsernsMode                         string            // user namespace to use
 	ContainerArchitecture              string            // Desired OS/architecture platform for running containers
 	ContainerDaemonSocket              string            // Path to Docker daemon socket
