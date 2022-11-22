@@ -84,7 +84,7 @@ type Container interface {
 }
 
 // NewContainer creates a reference to a container
-func NewContainer(input *NewContainerInput) Container {
+func NewContainer(input *NewContainerInput) ExecutionsEnvironment {
 	cr := new(containerReference)
 	cr.input = input
 	return cr
@@ -233,6 +233,7 @@ type containerReference struct {
 	input *NewContainerInput
 	UID   int
 	GID   int
+	LinuxContainerEnvironmentExtensions
 }
 
 func GetDockerClient(ctx context.Context) (cli client.APIClient, err error) {

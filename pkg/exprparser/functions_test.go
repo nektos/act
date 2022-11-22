@@ -188,7 +188,11 @@ func TestFunctionHashFiles(t *testing.T) {
 		{"hashFiles('**/non-extant-files') }}", "", "hash-non-existing-file"},
 		{"hashFiles('**/non-extant-files', '**/more-non-extant-files') }}", "", "hash-multiple-non-existing-files"},
 		{"hashFiles('./for-hashing-1.txt') }}", "66a045b452102c59d840ec097d59d9467e13a3f34f6494e539ffd32c1bb35f18", "hash-single-file"},
-		{"hashFiles('./for-hashing-*') }}", "8e5935e7e13368cd9688fe8f48a0955293676a021562582c7e848dafe13fb046", "hash-multiple-files"},
+		{"hashFiles('./for-hashing-*.txt') }}", "8e5935e7e13368cd9688fe8f48a0955293676a021562582c7e848dafe13fb046", "hash-multiple-files"},
+		{"hashFiles('./for-hashing-*.txt', '!./for-hashing-2.txt') }}", "66a045b452102c59d840ec097d59d9467e13a3f34f6494e539ffd32c1bb35f18", "hash-negative-pattern"},
+		{"hashFiles('./for-hashing-**') }}", "c418ba693753c84115ced0da77f876cddc662b9054f4b129b90f822597ee2f94", "hash-multiple-files-and-directories"},
+		{"hashFiles('./for-hashing-3/**') }}", "6f5696b546a7a9d6d42a449dc9a56bef244aaa826601ef27466168846139d2c2", "hash-nested-directories"},
+		{"hashFiles('./for-hashing-3/**/nested-data.txt') }}", "8ecadfb49f7f978d0a9f3a957e9c8da6cc9ab871f5203b5d9f9d1dc87d8af18c", "hash-nested-directories-2"},
 	}
 
 	env := &EvaluationEnvironment{}

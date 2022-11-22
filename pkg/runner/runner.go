@@ -4,10 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
-	"regexp"
-	"runtime"
-	"strings"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -56,46 +52,6 @@ type Config struct {
 	RemoteName                         string            // remote name in local git repo config
 	ReplaceGheActionWithGithubCom      []string          // Use actions from GitHub Enterprise instance to GitHub
 	ReplaceGheActionTokenWithGithubCom string            // Token of private action repo on GitHub.
-}
-
-// Resolves the equivalent host path inside the container
-// This is required for windows and WSL 2 to translate things like C:\Users\Myproject to /mnt/users/Myproject
-// For use in docker volumes and binds
-func (config *Config) containerPath(path string) string {
-	if runtime.GOOS == "windows" && strings.Contains(path, "/") {
-		log.Error("You cannot specify linux style local paths (/mnt/etc) on Windows as it does not understand them.")
-		return ""
-	}
-
-	abspath, err := filepath.Abs(path)
-	if err != nil {
-		log.Error(err)
-		return ""
-	}
-
-	// Test if the path is a windows path
-	windowsPathRegex := regexp.MustCompile(`^([a-zA-Z]):\\(.+)$`)
-	windowsPathComponents := windowsPathRegex.FindStringSubmatch(abspath)
-
-	// Return as-is if no match
-	if windowsPathComponents == nil {
-		return abspath
-	}
-
-	// Convert to WSL2-compatible path if it is a windows path
-	// NOTE: Cannot use filepath because it will use the wrong path separators assuming we want the path to be windows
-	// based if running on Windows, and because we are feeding this to Docker, GoLang auto-path-translate doesn't work.
-	driveLetter := strings.ToLower(windowsPathComponents[1])
-	translatedPath := strings.ReplaceAll(windowsPathComponents[2], `\`, `/`)
-	// Should make something like /mnt/c/Users/person/My Folder/MyActProject
-	result := strings.Join([]string{"/mnt", driveLetter, translatedPath}, `/`)
-	return result
-}
-
-// Resolves the equivalent host path inside the container
-// This is required for windows and WSL 2 to translate things like C:\Users\Myproject to /mnt/users/Myproject
-func (config *Config) ContainerWorkdir() string {
-	return config.containerPath(config.Workdir)
 }
 
 type runnerImpl struct {
@@ -163,11 +119,6 @@ func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 					rc.JobName = rc.Name
 					if len(matrixes) > 1 {
 						rc.Name = fmt.Sprintf("%s-%d", rc.Name, i+1)
-					}
-					// evaluate environment variables since they can contain
-					// GitHub's special environment variables.
-					for k, v := range rc.GetEnv() {
-						rc.Env[k] = rc.ExprEval.Interpolate(ctx, v)
 					}
 					if len(rc.String()) > maxJobNameLen {
 						maxJobNameLen = len(rc.String())

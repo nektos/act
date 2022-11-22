@@ -17,13 +17,15 @@ func TestStepDockerMain(t *testing.T) {
 
 	// mock the new container call
 	origContainerNewContainer := ContainerNewContainer
-	ContainerNewContainer = func(containerInput *container.NewContainerInput) container.Container {
+	ContainerNewContainer = func(containerInput *container.NewContainerInput) container.ExecutionsEnvironment {
 		input = containerInput
 		return cm
 	}
 	defer (func() {
 		ContainerNewContainer = origContainerNewContainer
 	})()
+
+	ctx := context.Background()
 
 	sd := &stepDocker{
 		RunContext: &RunContext{
@@ -51,8 +53,7 @@ func TestStepDockerMain(t *testing.T) {
 			WorkingDirectory: "workdir",
 		},
 	}
-
-	ctx := context.Background()
+	sd.RunContext.ExprEval = sd.RunContext.NewExpressionEvaluator(ctx)
 
 	cm.On("UpdateFromImageEnv", mock.AnythingOfType("*map[string]string")).Return(func(ctx context.Context) error {
 		return nil
@@ -83,6 +84,18 @@ func TestStepDockerMain(t *testing.T) {
 	})
 
 	cm.On("Close").Return(func(ctx context.Context) error {
+		return nil
+	})
+
+	cm.On("Copy", "/var/run/act", mock.AnythingOfType("[]*container.FileEntry")).Return(func(ctx context.Context) error {
+		return nil
+	})
+
+	cm.On("UpdateFromEnv", "/var/run/act/workflow/statecmd.txt", mock.AnythingOfType("*map[string]string")).Return(func(ctx context.Context) error {
+		return nil
+	})
+
+	cm.On("UpdateFromEnv", "/var/run/act/workflow/outputcmd.txt", mock.AnythingOfType("*map[string]string")).Return(func(ctx context.Context) error {
 		return nil
 	})
 

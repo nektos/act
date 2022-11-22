@@ -183,6 +183,9 @@ func TestRunEvent(t *testing.T) {
 		{workdir, "evalenv", "push", "", platforms},
 		{workdir, "ensure-post-steps", "push", "Job 'second-post-step-should-fail' failed", platforms},
 		{workdir, "workflow_dispatch", "workflow_dispatch", "", platforms},
+		{workdir, "workflow_dispatch_no_inputs_mapping", "workflow_dispatch", "", platforms},
+		{workdir, "workflow_dispatch-scalar", "workflow_dispatch", "", platforms},
+		{workdir, "workflow_dispatch-scalar-composite-action", "workflow_dispatch", "", platforms},
 		{"../model/testdata", "strategy", "push", "", platforms}, // TODO: move all testdata into pkg so we can validate it with planner and runner
 		// {"testdata", "issue-228", "push", "", platforms, }, // TODO [igni]: Remove this once everything passes
 		{"../model/testdata", "container-volumes", "push", "", platforms},
@@ -198,6 +201,95 @@ func TestRunEvent(t *testing.T) {
 			}
 
 			table.runTest(ctx, t, config)
+		})
+	}
+}
+
+func TestRunEventHostEnvironment(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	ctx := context.Background()
+
+	tables := []TestJobFileInfo{}
+
+	if runtime.GOOS == "linux" {
+		platforms := map[string]string{
+			"ubuntu-latest": "-self-hosted",
+		}
+
+		tables = append(tables, []TestJobFileInfo{
+			// Shells
+			{workdir, "shells/defaults", "push", "", platforms},
+			{workdir, "shells/pwsh", "push", "", platforms},
+			{workdir, "shells/bash", "push", "", platforms},
+			{workdir, "shells/python", "push", "", platforms},
+			{workdir, "shells/sh", "push", "", platforms},
+
+			// Local action
+			{workdir, "local-action-js", "push", "", platforms},
+
+			// Uses
+			{workdir, "uses-composite", "push", "", platforms},
+			{workdir, "uses-composite-with-error", "push", "Job 'failing-composite-action' failed", platforms},
+			{workdir, "uses-nested-composite", "push", "", platforms},
+			{workdir, "act-composite-env-test", "push", "", platforms},
+
+			// Eval
+			{workdir, "evalmatrix", "push", "", platforms},
+			{workdir, "evalmatrixneeds", "push", "", platforms},
+			{workdir, "evalmatrixneeds2", "push", "", platforms},
+			{workdir, "evalmatrix-merge-map", "push", "", platforms},
+			{workdir, "evalmatrix-merge-array", "push", "", platforms},
+			{workdir, "issue-1195", "push", "", platforms},
+
+			{workdir, "fail", "push", "exit with `FAILURE`: 1", platforms},
+			{workdir, "runs-on", "push", "", platforms},
+			{workdir, "checkout", "push", "", platforms},
+			{workdir, "remote-action-js", "push", "", platforms},
+			{workdir, "matrix", "push", "", platforms},
+			{workdir, "matrix-include-exclude", "push", "", platforms},
+			{workdir, "commands", "push", "", platforms},
+			{workdir, "defaults-run", "push", "", platforms},
+			{workdir, "composite-fail-with-output", "push", "", platforms},
+			{workdir, "issue-597", "push", "", platforms},
+			{workdir, "issue-598", "push", "", platforms},
+			{workdir, "if-env-act", "push", "", platforms},
+			{workdir, "env-and-path", "push", "", platforms},
+			{workdir, "non-existent-action", "push", "Job 'nopanic' failed", platforms},
+			{workdir, "outputs", "push", "", platforms},
+			{workdir, "steps-context/conclusion", "push", "", platforms},
+			{workdir, "steps-context/outcome", "push", "", platforms},
+			{workdir, "job-status-check", "push", "job 'fail' failed", platforms},
+			{workdir, "if-expressions", "push", "Job 'mytest' failed", platforms},
+			{workdir, "uses-action-with-pre-and-post-step", "push", "", platforms},
+			{workdir, "evalenv", "push", "", platforms},
+			{workdir, "ensure-post-steps", "push", "Job 'second-post-step-should-fail' failed", platforms},
+		}...)
+	}
+	if runtime.GOOS == "windows" {
+		platforms := map[string]string{
+			"windows-latest": "-self-hosted",
+		}
+
+		tables = append(tables, []TestJobFileInfo{
+			{workdir, "windows-prepend-path", "push", "", platforms},
+			{workdir, "windows-add-env", "push", "", platforms},
+		}...)
+	} else {
+		platforms := map[string]string{
+			"self-hosted": "-self-hosted",
+		}
+
+		tables = append(tables, []TestJobFileInfo{
+			{workdir, "nix-prepend-path", "push", "", platforms},
+		}...)
+	}
+
+	for _, table := range tables {
+		t.Run(table.workflowPath, func(t *testing.T) {
+			table.runTest(ctx, t, &Config{})
 		})
 	}
 }
@@ -316,61 +408,4 @@ func TestRunEventPullRequest(t *testing.T) {
 	}
 
 	tjfi.runTest(context.Background(), t, &Config{EventPath: filepath.Join(workdir, workflowPath, "event.json")})
-}
-
-func TestContainerPath(t *testing.T) {
-	type containerPathJob struct {
-		destinationPath string
-		sourcePath      string
-		workDir         string
-	}
-
-	if runtime.GOOS == "windows" {
-		cwd, err := os.Getwd()
-		if err != nil {
-			log.Error(err)
-		}
-
-		rootDrive := os.Getenv("SystemDrive")
-		rootDriveLetter := strings.ReplaceAll(strings.ToLower(rootDrive), `:`, "")
-		for _, v := range []containerPathJob{
-			{"/mnt/c/Users/act/go/src/github.com/nektos/act", "C:\\Users\\act\\go\\src\\github.com\\nektos\\act\\", ""},
-			{"/mnt/f/work/dir", `F:\work\dir`, ""},
-			{"/mnt/c/windows/to/unix", "windows\\to\\unix", fmt.Sprintf("%s\\", rootDrive)},
-			{fmt.Sprintf("/mnt/%v/act", rootDriveLetter), "act", fmt.Sprintf("%s\\", rootDrive)},
-		} {
-			if v.workDir != "" {
-				if err := os.Chdir(v.workDir); err != nil {
-					log.Error(err)
-					t.Fail()
-				}
-			}
-
-			runnerConfig := &Config{
-				Workdir: v.sourcePath,
-			}
-
-			assert.Equal(t, v.destinationPath, runnerConfig.containerPath(runnerConfig.Workdir))
-		}
-
-		if err := os.Chdir(cwd); err != nil {
-			log.Error(err)
-		}
-	} else {
-		cwd, err := os.Getwd()
-		if err != nil {
-			log.Error(err)
-		}
-		for _, v := range []containerPathJob{
-			{"/home/act/go/src/github.com/nektos/act", "/home/act/go/src/github.com/nektos/act", ""},
-			{"/home/act", `/home/act/`, ""},
-			{cwd, ".", ""},
-		} {
-			runnerConfig := &Config{
-				Workdir: v.sourcePath,
-			}
-
-			assert.Equal(t, v.destinationPath, runnerConfig.containerPath(runnerConfig.Workdir))
-		}
-	}
 }
