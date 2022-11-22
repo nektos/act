@@ -199,6 +199,7 @@ It will save that information to `~/.actrc`, please refer to [Configuration](#co
       --use-gitignore                               Controls whether paths specified in .gitignore should be copied into container (default true)
       --userns string                               user namespace to use
   -v, --verbose                                     verbose output
+      --volume stringArray                          volume to bind to container
   -w, --watch                                       watch the contents of the local repo and run when files change
   -W, --workflows string                            path to workflow file(s) (default "./.github/workflows/")
 ```

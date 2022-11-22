@@ -114,6 +114,10 @@ func (rc *RunContext) GetBindsAndMounts() ([]string, map[string]string) {
 		mounts[name] = rc.Config.ContainerWorkdir()
 	}
 
+	for _, vol := range rc.Config.Volumes {
+		binds = append(binds, vol)
+	}
+
 	return binds, mounts
 }
 

@@ -47,6 +47,7 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.Flags().StringVar(&input.remoteName, "remote-name", "origin", "git remote name that will be used to retrieve url of git repo")
 	rootCmd.Flags().StringArrayVarP(&input.secrets, "secret", "s", []string{}, "secret to make available to actions with optional value (e.g. -s mysecret=foo or -s mysecret)")
 	rootCmd.Flags().StringArrayVarP(&input.envs, "env", "", []string{}, "env to make available to actions with optional value (e.g. --env myenv=foo or --env myenv)")
+	rootCmd.Flags().StringArrayVarP(&input.volumes, "volume", "", []string{}, "volume to bind to container")
 	rootCmd.Flags().StringArrayVarP(&input.platforms, "platform", "P", []string{}, "custom image to use per platform (e.g. -P ubuntu-18.04=nektos/act-environments-ubuntu:18.04)")
 	rootCmd.Flags().BoolVarP(&input.reuseContainers, "reuse", "r", false, "don't remove container(s) on successfully completed workflow(s) to maintain state between runs")
 	rootCmd.Flags().BoolVarP(&input.bindWorkdir, "bind", "b", false, "bind working directory to container, rather than copy")
@@ -441,6 +442,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			GitHubInstance:                     input.githubInstance,
 			ContainerCapAdd:                    input.containerCapAdd,
 			ContainerCapDrop:                   input.containerCapDrop,
+			Volumes:                            input.volumes,
 			AutoRemove:                         input.autoRemove,
 			ArtifactServerPath:                 input.artifactServerPath,
 			ArtifactServerPort:                 input.artifactServerPort,

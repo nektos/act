@@ -17,6 +17,7 @@ type Input struct {
 	bindWorkdir                        bool
 	secrets                            []string
 	envs                               []string
+	volumes                            []string
 	platforms                          []string
 	dryrun                             bool
 	forcePull                          bool
