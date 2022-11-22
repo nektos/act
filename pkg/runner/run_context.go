@@ -124,9 +124,7 @@ func (rc *RunContext) GetBindsAndMounts() ([]string, map[string]string) {
 		mounts[name] = ext.ToContainerPath(rc.Config.Workdir)
 	}
 
-	for _, vol := range rc.Config.Volumes {
-		binds = append(binds, vol)
-	}
+	binds = append(binds, rc.Config.Volumes...)
 
 	return binds, mounts
 }
