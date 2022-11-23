@@ -284,16 +284,9 @@ func TestRunEventHostEnvironment(t *testing.T) {
 
 		tables = append(tables, []TestJobFileInfo{
 			{workdir, "nix-prepend-path", "push", "", platforms},
+			{workdir, "inputs-via-env-context", "push", "", platforms},
 		}...)
 	}
-
-	platforms := map[string]string{
-		"self-hosted": "-self-hosted",
-	}
-
-	tables = append(tables, []TestJobFileInfo{
-		{workdir, "inputs-via-env-context", "push", "", platforms},
-	}...)
 
 	for _, table := range tables {
 		t.Run(table.workflowPath, func(t *testing.T) {
