@@ -4,12 +4,24 @@ on:
       string_required:
         required: true
         type: string
+      string_optional:
+        required: false
+        type: string
+        default: string
       bool_required:
         required: true
         type: boolean
+      bool_optional:
+        required: false
+        type: boolean
+        default: true
       number_required:
         required: true
         type: number
+      number_optional:
+        required: false
+        type: number
+        default: 1
 
 jobs:
   reusable_workflow_job:
@@ -20,12 +32,27 @@ jobs:
         echo inputs.string_required=${{ inputs.string_required }}
         [[ "${{ inputs.string_required == 'string' }}" = "true" ]] || exit 1
 
+    - name: test optional string
+      run: |
+        echo inputs.string_optional=${{ inputs.string_optional }}
+        [[ "${{ inputs.string_optional == 'string' }}" = "true" ]] || exit 1
+
     - name: test required bool
       run: |
         echo inputs.bool_required=${{ inputs.bool_required }}
         [[ "${{ inputs.bool_required }}" = "true" ]] || exit 1
 
+    - name: test optional bool
+      run: |
+        echo inputs.bool_optional=${{ inputs.bool_optional }}
+        [[ "${{ inputs.bool_optional }}" = "true" ]] || exit 1
+
     - name: test required number
       run: |
         echo inputs.number_required=${{ inputs.number_required }}
         [[ "${{ inputs.number_required == 1 }}" = "true" ]] || exit 1
+
+    - name: test optional number
+      run: |
+        echo inputs.number_optional=${{ inputs.number_optional }}
+        [[ "${{ inputs.number_optional == 1 }}" = "true" ]] || exit 1

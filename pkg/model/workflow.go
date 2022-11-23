@@ -100,6 +100,38 @@ func (w *Workflow) WorkflowDispatchConfig() *WorkflowDispatch {
 	return &config
 }
 
+type WorkflowCallInput struct {
+	Description string `yaml:"description"`
+	Required    bool   `yaml:"required"`
+	Default     string `yaml:"default"`
+	Type        string `yaml:"type"`
+}
+
+type WorkflowCall struct {
+	Inputs map[string]WorkflowCallInput `yaml:"inputs"`
+}
+
+func (w *Workflow) WorkflowCallConfig() *WorkflowCall {
+	if w.RawOn.Kind != yaml.MappingNode {
+		return nil
+	}
+
+	var val map[string]yaml.Node
+	err := w.RawOn.Decode(&val)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	var config WorkflowCall
+	node := val["workflow_call"]
+	err = node.Decode(&config)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return &config
+}
+
 // Job is the structure of one job in a workflow
 type Job struct {
 	Name           string                    `yaml:"name"`

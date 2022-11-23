@@ -315,11 +315,7 @@ func rewriteSubExpression(ctx context.Context, in string, forceFormat bool) (str
 func getEvaluatorInputs(ctx context.Context, rc *RunContext, step step, ghc *model.GithubContext) map[string]interface{} {
 	inputs := map[string]interface{}{}
 
-	if rc.caller != nil {
-		for k, v := range rc.caller.With {
-			inputs[k] = v
-		}
-	}
+	setupWorkflowInputs(ctx, &inputs, rc)
 
 	var env map[string]string
 	if step != nil {
@@ -352,4 +348,18 @@ func getEvaluatorInputs(ctx context.Context, rc *RunContext, step step, ghc *mod
 	}
 
 	return inputs
+}
+
+func setupWorkflowInputs(ctx context.Context, inputs *map[string]interface{}, rc *RunContext) {
+	if rc.caller != nil {
+		config := rc.Run.Workflow.WorkflowCallConfig()
+
+		for name, input := range config.Inputs {
+			value := rc.caller.With[name]
+			if value == nil && config != nil && config.Inputs != nil {
+				value = input.Default
+			}
+			(*inputs)[name] = value
+		}
+	}
 }
