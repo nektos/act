@@ -21,6 +21,10 @@ type ExpressionEvaluator interface {
 
 // NewExpressionEvaluator creates a new evaluator
 func (rc *RunContext) NewExpressionEvaluator(ctx context.Context) ExpressionEvaluator {
+	return rc.NewExpressionEvaluatorWithEnv(ctx, rc.GetEnv())
+}
+
+func (rc *RunContext) NewExpressionEvaluatorWithEnv(ctx context.Context, env map[string]string) ExpressionEvaluator {
 	// todo: cleanup EvaluationEnvironment creation
 	using := make(map[string]map[string]map[string]string)
 	strategy := make(map[string]interface{})
@@ -46,7 +50,7 @@ func (rc *RunContext) NewExpressionEvaluator(ctx context.Context) ExpressionEval
 
 	ee := &exprparser.EvaluationEnvironment{
 		Github: ghc,
-		Env:    rc.GetEnv(),
+		Env:    env,
 		Job:    rc.getJobContext(),
 		// todo: should be unavailable
 		// but required to interpolate/evaluate the step outputs on the job
