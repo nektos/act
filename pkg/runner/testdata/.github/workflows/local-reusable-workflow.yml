@@ -15,6 +15,17 @@ jobs:
   reusable_workflow_job:
     runs-on: ubuntu-latest
     steps:
-    - run: echo ${{ inputs.string_required }}
-    - run: echo ${{ inputs.bool_required }}
-    - run: echo ${{ inputs.number_required }}
+    - name: test required string
+      run: |
+        echo inputs.string_required=${{ inputs.string_required }}
+        [[ "${{ inputs.string_required == 'string' }}" = "true" ]] || exit 1
+
+    - name: test required bool
+      run: |
+        echo inputs.bool_required=${{ inputs.bool_required }}
+        [[ "${{ inputs.bool_required }}" = "true" ]] || exit 1
+
+    - name: test required number
+      run: |
+        echo inputs.number_required=${{ inputs.number_required }}
+        [[ "${{ inputs.number_required == 1 }}" = "true" ]] || exit 1
