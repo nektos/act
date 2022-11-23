@@ -356,9 +356,17 @@ func setupWorkflowInputs(ctx context.Context, inputs *map[string]interface{}, rc
 
 		for name, input := range config.Inputs {
 			value := rc.caller.With[name]
+
 			if value == nil && config != nil && config.Inputs != nil {
 				value = input.Default
 			}
+
+			if rc.ExprEval != nil {
+				if str, ok := value.(string); ok {
+					value = rc.ExprEval.Interpolate(ctx, str)
+				}
+			}
+
 			(*inputs)[name] = value
 		}
 	}

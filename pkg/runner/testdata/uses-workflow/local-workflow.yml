@@ -5,5 +5,5 @@ jobs:
     uses: ./.github/workflows/local-reusable-workflow.yml
     with:
       string_required: string
-      bool_required: true
+      bool_required: ${{ true }}
       number_required: 1
