@@ -173,6 +173,7 @@ func TestRunEvent(t *testing.T) {
 		{workdir, "env-and-path", "push", "", platforms},
 		{workdir, "environment-files", "push", "", platforms},
 		{workdir, "GITHUB_STATE", "push", "", platforms},
+		{workdir, "environment-files-parser-bug", "push", "", platforms},
 		{workdir, "non-existent-action", "push", "Job 'nopanic' failed", platforms},
 		{workdir, "outputs", "push", "", platforms},
 		{workdir, "networking", "push", "", platforms},
