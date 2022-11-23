@@ -1,7 +1,20 @@
-on: workflow_call
+on:
+  workflow_call:
+    inputs:
+      string_required:
+        required: true
+        type: string
+      bool_required:
+        required: true
+        type: boolean
+      number_required:
+        required: true
+        type: number
 
 jobs:
   reusable_workflow_job:
     runs-on: ubuntu-latest
     steps:
-    - run: echo hello
+    - run: echo ${{ inputs.string_required }}
+    - run: echo ${{ inputs.bool_required }}
+    - run: echo ${{ inputs.number_required }}

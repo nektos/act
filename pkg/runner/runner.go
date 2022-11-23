@@ -56,6 +56,7 @@ type Config struct {
 type runnerImpl struct {
 	config    *Config
 	eventJSON string
+	caller    *model.Job // the job calling this runner (caller of a reusable workflow)
 }
 
 // New Creates a new Runner
@@ -64,8 +65,12 @@ func New(runnerConfig *Config) (Runner, error) {
 		config: runnerConfig,
 	}
 
+	return runner.configure()
+}
+
+func (runner *runnerImpl) configure() (Runner, error) {
 	runner.eventJSON = "{}"
-	if runnerConfig.EventPath != "" {
+	if runner.config.EventPath != "" {
 		log.Debugf("Reading event.json from %s", runner.config.EventPath)
 		eventJSONBytes, err := os.ReadFile(runner.config.EventPath)
 		if err != nil {
@@ -157,6 +162,7 @@ func (runner *runnerImpl) newRunContext(ctx context.Context, run *model.Run, mat
 		EventJSON:   runner.eventJSON,
 		StepResults: make(map[string]*model.StepResult),
 		Matrix:      matrix,
+		caller:      runner.caller,
 	}
 	rc.ExprEval = rc.NewExpressionEvaluator(ctx)
 	rc.Name = rc.ExprEval.Interpolate(ctx, run.String())

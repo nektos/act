@@ -1,7 +1,6 @@
 package runner
 
 import (
-	"context"
 	"path"
 
 	"github.com/nektos/act/pkg/common"
@@ -9,21 +8,28 @@ import (
 )
 
 func newLocalReusableWorkflowExecutor(rc *RunContext) common.Executor {
-	return func(ctx context.Context) error {
-		planner, err := model.NewWorkflowPlanner(path.Join(rc.Config.Workdir, rc.Run.Job().Uses), true)
-		if err != nil {
-			return err
-		}
+	job := rc.Run.Job()
 
-		plan := planner.PlanEvent("workflow_call")
-
-		r, err := New(rc.Config)
-		if err != nil {
-			return err
-		}
-
-		executor := r.NewPlanExecutor(plan)
-
-		return executor(ctx)
+	planner, err := model.NewWorkflowPlanner(path.Join(rc.Config.Workdir, job.Uses), true)
+	if err != nil {
+		return common.NewErrorExecutor(err)
 	}
+
+	plan := planner.PlanEvent("workflow_call")
+
+	runner, err := NewReusableWorkflowRunner(rc.Config, job)
+	if err != nil {
+		return common.NewErrorExecutor(err)
+	}
+
+	return runner.NewPlanExecutor(plan)
+}
+
+func NewReusableWorkflowRunner(runnerConfig *Config, caller *model.Job) (Runner, error) {
+	runner := &runnerImpl{
+		config: runnerConfig,
+		caller: caller,
+	}
+
+	return runner.configure()
 }

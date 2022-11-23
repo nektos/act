@@ -115,6 +115,7 @@ type Job struct {
 	Defaults       Defaults                  `yaml:"defaults"`
 	Outputs        map[string]string         `yaml:"outputs"`
 	Uses           string                    `yaml:"uses"`
+	With           map[string]interface{}    `yaml:"with"`
 	Result         string
 }
 
