@@ -355,15 +355,21 @@ func setupWorkflowInputs(ctx context.Context, inputs *map[string]interface{}, rc
 		config := rc.Run.Workflow.WorkflowCallConfig()
 
 		for name, input := range config.Inputs {
-			value := rc.caller.With[name]
+			value := rc.caller.job.With[name]
+			if value != nil {
+				if str, ok := value.(string); ok {
+					// evaluate using the calling RunContext (outside)
+					value = rc.caller.runContext.ExprEval.Interpolate(ctx, str)
+				}
+			}
 
 			if value == nil && config != nil && config.Inputs != nil {
 				value = input.Default
-			}
-
-			if rc.ExprEval != nil {
-				if str, ok := value.(string); ok {
-					value = rc.ExprEval.Interpolate(ctx, str)
+				if rc.ExprEval != nil {
+					if str, ok := value.(string); ok {
+						// evaluate using the called RunContext (inside)
+						value = rc.ExprEval.Interpolate(ctx, str)
+					}
 				}
 			}
 

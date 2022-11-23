@@ -25,10 +25,12 @@ func newLocalReusableWorkflowExecutor(rc *RunContext) common.Executor {
 	return runner.NewPlanExecutor(plan)
 }
 
-func NewReusableWorkflowRunner(runnerConfig *Config, caller *model.Job) (Runner, error) {
+func NewReusableWorkflowRunner(runnerConfig *Config, job *model.Job) (Runner, error) {
 	runner := &runnerImpl{
 		config: runnerConfig,
-		caller: caller,
+		caller: &caller{
+			job: job,
+		},
 	}
 
 	return runner.configure()

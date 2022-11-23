@@ -21,7 +21,7 @@ on:
       number_optional:
         required: false
         type: number
-        default: 1
+        default: ${{ 1 }}
 
 jobs:
   reusable_workflow_job:

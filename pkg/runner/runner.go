@@ -53,10 +53,15 @@ type Config struct {
 	ReplaceGheActionTokenWithGithubCom string            // Token of private action repo on GitHub.
 }
 
+type caller struct {
+	job        *model.Job
+	runContext *RunContext
+}
+
 type runnerImpl struct {
 	config    *Config
 	eventJSON string
-	caller    *model.Job // the job calling this runner (caller of a reusable workflow)
+	caller    *caller // the job calling this runner (caller of a reusable workflow)
 }
 
 // New Creates a new Runner
@@ -162,9 +167,14 @@ func (runner *runnerImpl) newRunContext(ctx context.Context, run *model.Run, mat
 		EventJSON:   runner.eventJSON,
 		StepResults: make(map[string]*model.StepResult),
 		Matrix:      matrix,
-		caller:      runner.caller,
 	}
 	rc.ExprEval = rc.NewExpressionEvaluator(ctx)
 	rc.Name = rc.ExprEval.Interpolate(ctx, run.String())
+
+	if runner.caller != nil {
+		rc.caller = runner.caller
+		rc.caller.runContext = rc
+	}
+
 	return rc
 }
