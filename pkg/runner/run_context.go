@@ -378,11 +378,9 @@ func (rc *RunContext) Executor() common.Executor {
 	case model.JobTypeReusableWorkflowLocal:
 		executor = newLocalReusableWorkflowExecutor(rc)
 	case model.JobTypeReusableWorkflowRemote:
-		executor = common.NewErrorExecutor(fmt.Errorf("remote reusable workflows are currently not supported (see https://github.com/nektos/act/issues/826 for updates)"))
+		executor = newRemoteReusableWorkflowExecutor(rc)
 	}
 
-	// todo: simplify
-	// return executor.If(rc.isEnabled)
 	return func(ctx context.Context) error {
 		res, err := rc.isEnabled(ctx)
 		if err != nil {

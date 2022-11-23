@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"fmt"
 	"path"
 
 	"github.com/nektos/act/pkg/common"
@@ -8,9 +9,17 @@ import (
 )
 
 func newLocalReusableWorkflowExecutor(rc *RunContext) common.Executor {
+	return newReusableWorkflowExecutor(rc, rc.Config.Workdir)
+}
+
+func newRemoteReusableWorkflowExecutor(rc *RunContext) common.Executor {
+	return common.NewErrorExecutor(fmt.Errorf("remote reusable workflows are currently not supported (see https://github.com/nektos/act/issues/826 for updates)"))
+}
+
+func newReusableWorkflowExecutor(rc *RunContext, directory string) common.Executor {
 	job := rc.Run.Job()
 
-	planner, err := model.NewWorkflowPlanner(path.Join(rc.Config.Workdir, job.Uses), true)
+	planner, err := model.NewWorkflowPlanner(path.Join(directory, job.Uses), true)
 	if err != nil {
 		return common.NewErrorExecutor(err)
 	}
