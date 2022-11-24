@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"time"
 
 	log "github.com/sirupsen/logrus"
 
@@ -84,11 +83,10 @@ func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 
 	stagePipeline := make([]common.Executor, 0)
 	for i := range plan.Stages {
-		s := i
 		stage := plan.Stages[i]
 		stagePipeline = append(stagePipeline, func(ctx context.Context) error {
 			pipeline := make([]common.Executor, 0)
-			for r, run := range stage.Runs {
+			for _, run := range stage.Runs {
 				stageExecutor := make([]common.Executor, 0)
 				job := run.Job()
 
@@ -123,29 +121,8 @@ func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 						maxJobNameLen = len(rc.String())
 					}
 					stageExecutor = append(stageExecutor, func(ctx context.Context) error {
-						logger := common.Logger(ctx)
 						jobName := fmt.Sprintf("%-*s", maxJobNameLen, rc.String())
-						return rc.Executor().Finally(func(ctx context.Context) error {
-							isLastRunningContainer := func(currentStage int, currentRun int) bool {
-								return currentStage == len(plan.Stages)-1 && currentRun == len(stage.Runs)-1
-							}
-
-							if runner.config.AutoRemove && isLastRunningContainer(s, r) {
-								var cancel context.CancelFunc
-								if ctx.Err() == context.Canceled {
-									ctx, cancel = context.WithTimeout(context.Background(), 5*time.Minute)
-									defer cancel()
-								}
-
-								log.Infof("Cleaning up container for job %s", rc.JobName)
-
-								if err := rc.stopJobContainer()(ctx); err != nil {
-									logger.Errorf("Error while cleaning container: %v", err)
-								}
-							}
-
-							return nil
-						})(common.WithJobErrorContainer(WithJobLogger(ctx, rc.Run.JobID, jobName, rc.Config, &rc.Masks, matrix)))
+						return rc.Executor()(common.WithJobErrorContainer(WithJobLogger(ctx, rc.Run.JobID, jobName, rc.Config, &rc.Masks, matrix)))
 					})
 				}
 				pipeline = append(pipeline, common.NewParallelExecutor(maxParallel, stageExecutor...))
