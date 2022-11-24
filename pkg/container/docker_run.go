@@ -411,8 +411,10 @@ func (cr *containerReference) mergeContainerConfigs(ctx context.Context, config 
 
 	logger.Debugf("Custom container.HostConfig from options ==> %+v", containerConfig.HostConfig)
 
-	binds := append(hostConfig.Binds, containerConfig.HostConfig.Binds...)
-	mounts := append(hostConfig.Mounts, containerConfig.HostConfig.Mounts...)
+	hostConfig.Binds = append(hostConfig.Binds, containerConfig.HostConfig.Binds...)
+	hostConfig.Mounts = append(hostConfig.Mounts, containerConfig.HostConfig.Mounts...)
+	binds := hostConfig.Binds
+	mounts := hostConfig.Mounts
 	err = mergo.Merge(hostConfig, containerConfig.HostConfig, mergo.WithOverride)
 	if err != nil {
 		return nil, nil, fmt.Errorf("Cannot merge container.HostConfig options: '%s': '%w'", input.Options, err)
