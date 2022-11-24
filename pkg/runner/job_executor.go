@@ -98,6 +98,12 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 		logger := common.Logger(ctx)
 		jobError := common.JobError(ctx)
 		if jobError != nil {
+			if rc.Config.AutoRemove {
+				err := info.stopContainer()(ctx)
+				if err != nil {
+					return err
+				}
+			}
 			info.result("failure")
 			logger.WithField("jobResult", "failure").Infof("\U0001F3C1  Job failed")
 		} else {
@@ -128,24 +134,6 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 			return postExecutor(ctx)
 		}).
 		Finally(info.interpolateOutputs()).
-		Finally(func(ctx context.Context) error {
-			logger := common.Logger(ctx)
-			if rc.Config.AutoRemove {
-				var cancel context.CancelFunc
-				if ctx.Err() == context.Canceled {
-					ctx, cancel = context.WithTimeout(context.Background(), 5*time.Minute)
-					defer cancel()
-				}
-
-				logger.Infof("Cleaning up container for job %s", rc.JobName)
-
-				if err := rc.stopJobContainer()(ctx); err != nil {
-					logger.Errorf("Error while cleaning container: %v", err)
-				}
-			}
-
-			return nil
-		}).
 		Finally(info.closeContainer()))
 }
 
