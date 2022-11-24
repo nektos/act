@@ -95,27 +95,13 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 	}
 
 	postExecutor = postExecutor.Finally(func(ctx context.Context) error {
-		logger := common.Logger(ctx)
 		jobError := common.JobError(ctx)
-		if jobError != nil {
-			if rc.Config.AutoRemove {
-				err := info.stopContainer()(ctx)
-				if err != nil {
-					return err
-				}
-			}
-			info.result("failure")
-			logger.WithField("jobResult", "failure").Infof("\U0001F3C1  Job failed")
-		} else {
-			err := info.stopContainer()(ctx)
-			if err != nil {
-				return err
-			}
-			info.result("success")
-			logger.WithField("jobResult", "success").Infof("\U0001F3C1  Job succeeded")
+		var err error
+		if rc.Config.AutoRemove || jobError == nil {
+			err = info.stopContainer()(ctx)
 		}
-
-		return nil
+		setJobResult(ctx, info, rc, jobError == nil)
+		return err
 	})
 
 	pipeline := make([]common.Executor, 0)
@@ -135,6 +121,18 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 		}).
 		Finally(info.interpolateOutputs()).
 		Finally(info.closeContainer()))
+}
+
+func setJobResult(ctx context.Context, info jobInfo, rc *RunContext, success bool) {
+	logger := common.Logger(ctx)
+	jobResult := "success"
+	jobResultMessage := "succeeded"
+	if !success {
+		jobResult = "failure"
+		jobResultMessage = "failed"
+	}
+	info.result(jobResult)
+	logger.WithField("jobResult", jobResult).Infof("\U0001F3C1  Job %s", jobResultMessage)
 }
 
 func useStepLogger(rc *RunContext, stepModel *model.Step, stage stepStage, executor common.Executor) common.Executor {
