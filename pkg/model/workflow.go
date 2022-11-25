@@ -495,7 +495,7 @@ func (s *Step) ShellCommand() string {
 	case "python":
 		shellCommand = "python {0}"
 	case "sh":
-		shellCommand = "sh -e -c {0}"
+		shellCommand = "sh -e {0}"
 	case "cmd":
 		shellCommand = "%ComSpec% /D /E:ON /V:OFF /S /C \"CALL \"{0}\"\""
 	case "powershell":
