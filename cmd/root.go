@@ -415,6 +415,22 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 				input.platforms = readArgsFile(cfgLocations[0], true)
 			}
 		}
+		deprecationWarning := "--%s is deprecated and will be removed soon, please switch to cli: `--container-options \"%[2]s\"` or `.actrc`: `--container-options %[2]s`."
+		if input.privileged {
+			log.Warnf(deprecationWarning, "privileged", "--privileged")
+		}
+		if len(input.usernsMode) > 0 {
+			log.Warnf(deprecationWarning, "userns", fmt.Sprintf("--userns=%s", input.usernsMode))
+		}
+		if len(input.containerArchitecture) > 0 {
+			log.Warnf(deprecationWarning, "container-architecture", fmt.Sprintf("--platform=%s", input.containerArchitecture))
+		}
+		if len(input.containerCapAdd) > 0 {
+			log.Warnf(deprecationWarning, "container-cap-add", fmt.Sprintf("--cap-add=%s", input.containerCapAdd))
+		}
+		if len(input.containerCapDrop) > 0 {
+			log.Warnf(deprecationWarning, "container-cap-drop", fmt.Sprintf("--cap-drop=%s", input.containerCapDrop))
+		}
 
 		// run the plan
 		config := &runner.Config{
