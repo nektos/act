@@ -416,6 +416,7 @@ func TestStepActionRemotePost(t *testing.T) {
 		stepModel              *model.Step
 		actionModel            *model.Action
 		initialStepResults     map[string]*model.StepResult
+		interActionState       map[string]map[string]string
 		expectedEnv            map[string]string
 		expectedPostStepResult *model.StepResult
 		err                    error
@@ -442,9 +443,11 @@ func TestStepActionRemotePost(t *testing.T) {
 					Conclusion: model.StepStatusSuccess,
 					Outcome:    model.StepStatusSuccess,
 					Outputs:    map[string]string{},
-					State: map[string]string{
-						"key": "value",
-					},
+				},
+			},
+			interActionState: map[string]map[string]string{
+				"step": {
+					"key": "value",
 				},
 			},
 			expectedEnv: map[string]string{
@@ -582,7 +585,8 @@ func TestStepActionRemotePost(t *testing.T) {
 							},
 						},
 					},
-					StepResults: tt.initialStepResults,
+					StepResults:      tt.initialStepResults,
+					InterActionState: tt.interActionState,
 				},
 				Step:   tt.stepModel,
 				action: tt.actionModel,

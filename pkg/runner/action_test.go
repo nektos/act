@@ -201,10 +201,11 @@ func TestActionRunner(t *testing.T) {
 					},
 					CurrentStep: "post-step",
 					StepResults: map[string]*model.StepResult{
+						"step": {},
+					},
+					InterActionState: map[string]map[string]string{
 						"step": {
-							State: map[string]string{
-								"name": "state value",
-							},
+							"name": "state value",
 						},
 					},
 				},

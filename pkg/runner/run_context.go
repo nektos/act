@@ -35,6 +35,7 @@ type RunContext struct {
 	ExtraPath           []string
 	CurrentStep         string
 	StepResults         map[string]*model.StepResult
+	InterActionState    map[string]map[string]string
 	ExprEval            ExpressionEvaluator
 	JobContainer        container.ExecutionsEnvironment
 	OutputMappings      map[MappableOutput]MappableOutput

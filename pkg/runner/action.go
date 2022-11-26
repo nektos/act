@@ -371,11 +371,14 @@ func newStepContainer(ctx context.Context, step step, image string, cmd []string
 }
 
 func populateEnvsFromSavedState(env *map[string]string, step actionStep, rc *RunContext) {
-	stepResult := rc.StepResults[step.getStepModel().ID]
-	if stepResult != nil {
-		for name, value := range stepResult.State {
-			envName := fmt.Sprintf("STATE_%s", name)
-			(*env)[envName] = value
+	// design problem: you can create steps with an id prefixed with pre-
+	for _, id := range []string{"pre-" + step.getStepModel().ID, step.getStepModel().ID} {
+		state, ok := rc.InterActionState[id]
+		if ok {
+			for name, value := range state {
+				envName := fmt.Sprintf("STATE_%s", name)
+				(*env)[envName] = value
+			}
 		}
 	}
 }
