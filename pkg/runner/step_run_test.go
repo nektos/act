@@ -74,7 +74,7 @@ func TestStepRun(t *testing.T) {
 		return nil
 	})
 
-	cm.On("GetContainerArchive", "/var/run/act/workflow/pathcmd.txt").Return(&bytes.Buffer{})
+	cm.On("GetContainerArchive", "/var/run/act/workflow/pathcmd.txt").Return(&bytes.Buffer{}, nil)
 
 	ctx := context.Background()
 
