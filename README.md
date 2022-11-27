@@ -148,6 +148,9 @@ act pull_request
 # Run a specific job:
 act -j test
 
+# Run a job in a specific workflow (useful if you have duplicate job names)
+act -j lint -W .github/workflows/checks.yml
+
 # Run in dry-run mode:
 act -n
 
