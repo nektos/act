@@ -153,7 +153,6 @@ func TestSetupEnv(t *testing.T) {
 
 	cm.On("UpdateFromImageEnv", &env).Return(func(ctx context.Context) error { return nil })
 	cm.On("UpdateFromEnv", "/var/run/act/workflow/envs.txt", &env).Return(func(ctx context.Context) error { return nil })
-	cm.On("UpdateFromPath", &env).Return(func(ctx context.Context) error { return nil })
 
 	err := setupEnv(context.Background(), sm)
 	assert.Nil(t, err)

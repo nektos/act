@@ -179,10 +179,6 @@ func setupEnv(ctx context.Context, step step) error {
 	if err != nil {
 		return err
 	}
-	err = rc.JobContainer.UpdateFromPath(step.getEnv())(ctx)
-	if err != nil {
-		return err
-	}
 	// merge step env last, since it should not be overwritten
 	mergeIntoMap(step.getEnv(), step.getStepModel().GetEnv())
 

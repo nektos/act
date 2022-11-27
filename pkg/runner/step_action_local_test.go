@@ -76,10 +76,6 @@ func TestStepActionLocalTest(t *testing.T) {
 		return nil
 	})
 
-	cm.On("UpdateFromPath", mock.AnythingOfType("*map[string]string")).Return(func(ctx context.Context) error {
-		return nil
-	})
-
 	cm.On("Copy", "/var/run/act", mock.AnythingOfType("[]*container.FileEntry")).Return(func(ctx context.Context) error {
 		return nil
 	})
@@ -283,7 +279,6 @@ func TestStepActionLocalPost(t *testing.T) {
 			if tt.mocks.env {
 				cm.On("UpdateFromImageEnv", &sal.env).Return(func(ctx context.Context) error { return nil })
 				cm.On("UpdateFromEnv", "/var/run/act/workflow/envs.txt", &sal.env).Return(func(ctx context.Context) error { return nil })
-				cm.On("UpdateFromPath", &sal.env).Return(func(ctx context.Context) error { return nil })
 			}
 			if tt.mocks.exec {
 				suffixMatcher := func(suffix string) interface{} {

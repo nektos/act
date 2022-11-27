@@ -64,10 +64,6 @@ func TestStepDockerMain(t *testing.T) {
 		return nil
 	})
 
-	cm.On("UpdateFromPath", mock.AnythingOfType("*map[string]string")).Return(func(ctx context.Context) error {
-		return nil
-	})
-
 	cm.On("Pull", false).Return(func(ctx context.Context) error {
 		return nil
 	})
