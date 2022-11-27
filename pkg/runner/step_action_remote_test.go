@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"strings"
@@ -185,6 +186,8 @@ func TestStepActionRemote(t *testing.T) {
 				cm.On("UpdateFromEnv", "/var/run/act/workflow/outputcmd.txt", mock.AnythingOfType("*map[string]string")).Return(func(ctx context.Context) error {
 					return nil
 				})
+
+				cm.On("GetContainerArchive", "/var/run/act/workflow/pathcmd.txt").Return(&bytes.Buffer{})
 			}
 
 			err := sar.pre()(ctx)
@@ -608,6 +611,8 @@ func TestStepActionRemotePost(t *testing.T) {
 				cm.On("UpdateFromEnv", "/var/run/act/workflow/outputcmd.txt", mock.AnythingOfType("*map[string]string")).Return(func(ctx context.Context) error {
 					return nil
 				})
+
+				cm.On("GetContainerArchive", "/var/run/act/workflow/pathcmd.txt").Return(&bytes.Buffer{})
 			}
 
 			err := sar.post()(ctx)

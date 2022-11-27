@@ -1,12 +1,15 @@
 package runner
 
 import (
+	"archive/tar"
+	"bufio"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -289,6 +292,38 @@ func (rc *RunContext) execJobContainer(cmd []string, env map[string]string, user
 	return func(ctx context.Context) error {
 		return rc.JobContainer.Exec(cmd, env, user, workdir)(ctx)
 	}
+}
+
+func (rc *RunContext) ApplyExtraPath(env *map[string]string) {
+	if rc.ExtraPath != nil && len(rc.ExtraPath) > 0 {
+		path := rc.JobContainer.GetPathVariableName()
+		if (*env)[path] == "" {
+			(*env)[path] = rc.JobContainer.DefaultPathVariable()
+		}
+		(*env)[path] = rc.JobContainer.JoinPathVariable(append(rc.ExtraPath, (*env)[path])...)
+	}
+}
+
+func (rc *RunContext) UpdateExtraPath(ctx context.Context, githubEnvPath string) error {
+	pathTar, err := rc.JobContainer.GetContainerArchive(ctx, githubEnvPath)
+	if err != nil {
+		return err
+	}
+	defer pathTar.Close()
+
+	reader := tar.NewReader(pathTar)
+	_, err = reader.Next()
+	if err != nil && err != io.EOF {
+		return err
+	}
+	s := bufio.NewScanner(reader)
+	for s.Scan() {
+		line := s.Text()
+		if len(line) > 0 {
+			rc.addPath(ctx, line)
+		}
+	}
+	return nil
 }
 
 // stopJobContainer removes the job container (if it exists) and its volume (if it exists) if !rc.Config.ReuseContainers
@@ -638,7 +673,6 @@ func nestedMapLookup(m map[string]interface{}, ks ...string) (rval interface{}) 
 func (rc *RunContext) withGithubEnv(ctx context.Context, github *model.GithubContext, env map[string]string) map[string]string {
 	env["CI"] = "true"
 	env["GITHUB_ENV"] = rc.JobContainer.GetActPath() + "/workflow/envs.txt"
-	env["GITHUB_PATH"] = rc.JobContainer.GetActPath() + "/workflow/paths.txt"
 	env["GITHUB_WORKFLOW"] = github.Workflow
 	env["GITHUB_RUN_ID"] = github.RunID
 	env["GITHUB_RUN_NUMBER"] = github.RunNumber
