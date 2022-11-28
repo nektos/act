@@ -186,7 +186,7 @@ func TestStepActionRemote(t *testing.T) {
 					return nil
 				})
 
-				cm.On("GetContainerArchive", "/var/run/act/workflow/pathcmd.txt").Return(&bytes.Buffer{}, nil)
+				cm.On("GetContainerArchive", mock.AnythingOfType("context.Context"), "/var/run/act/workflow/pathcmd.txt").Return(&bytes.Buffer{}, nil)
 			}
 
 			err := sar.pre()(ctx)
@@ -610,7 +610,7 @@ func TestStepActionRemotePost(t *testing.T) {
 					return nil
 				})
 
-				cm.On("GetContainerArchive", "/var/run/act/workflow/pathcmd.txt").Return(&bytes.Buffer{}, nil)
+				cm.On("GetContainerArchive", mock.AnythingOfType("context.Context"), "/var/run/act/workflow/pathcmd.txt").Return(&bytes.Buffer{}, nil)
 			}
 
 			err := sar.post()(ctx)

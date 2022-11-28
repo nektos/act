@@ -88,7 +88,7 @@ func TestStepActionLocalTest(t *testing.T) {
 		return nil
 	})
 
-	cm.On("GetContainerArchive", "/var/run/act/workflow/pathcmd.txt").Return(&bytes.Buffer{}, nil)
+	cm.On("GetContainerArchive", mock.AnythingOfType("context.Context"), "/var/run/act/workflow/pathcmd.txt").Return(&bytes.Buffer{}, nil)
 
 	salm.On("runAction", sal, filepath.Clean("/tmp/path/to/action"), (*remoteAction)(nil)).Return(func(ctx context.Context) error {
 		return nil
@@ -300,7 +300,7 @@ func TestStepActionLocalPost(t *testing.T) {
 					return nil
 				})
 
-				cm.On("GetContainerArchive", "/var/run/act/workflow/pathcmd.txt").Return(&bytes.Buffer{}, nil)
+				cm.On("GetContainerArchive", mock.AnythingOfType("context.Context"), "/var/run/act/workflow/pathcmd.txt").Return(&bytes.Buffer{}, nil)
 			}
 
 			err := sal.post()(ctx)
