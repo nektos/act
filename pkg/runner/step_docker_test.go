@@ -3,6 +3,7 @@ package runner
 import (
 	"bytes"
 	"context"
+	"io"
 	"testing"
 
 	"github.com/nektos/act/pkg/container"
@@ -96,7 +97,7 @@ func TestStepDockerMain(t *testing.T) {
 		return nil
 	})
 
-	cm.On("GetContainerArchive", mock.AnythingOfType("context.Context"), "/var/run/act/workflow/pathcmd.txt").Return(&bytes.Buffer{}, nil)
+	cm.On("GetContainerArchive", ctx, "/var/run/act/workflow/pathcmd.txt").Return(io.NopCloser(&bytes.Buffer{}), nil)
 
 	err := sd.main()(ctx)
 	assert.Nil(t, err)
