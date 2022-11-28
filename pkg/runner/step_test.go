@@ -134,7 +134,6 @@ func TestSetupEnv(t *testing.T) {
 		Env: map[string]string{
 			"RC_KEY": "rcvalue",
 		},
-		ExtraPath:    []string{"/path/to/extra/file"},
 		JobContainer: cm,
 	}
 	step := &model.Step{
@@ -142,9 +141,7 @@ func TestSetupEnv(t *testing.T) {
 			"STEP_WITH": "with-value",
 		},
 	}
-	env := map[string]string{
-		"PATH": "",
-	}
+	env := map[string]string{}
 
 	sm.On("getRunContext").Return(rc)
 	sm.On("getGithubContext").Return(rc)
@@ -183,7 +180,6 @@ func TestSetupEnv(t *testing.T) {
 		"GITHUB_GRAPHQL_URL":       "https:///api/graphql",
 		"GITHUB_HEAD_REF":          "",
 		"GITHUB_JOB":               "",
-		"GITHUB_PATH":              "/var/run/act/workflow/paths.txt",
 		"GITHUB_RETENTION_DAYS":    "0",
 		"GITHUB_RUN_ID":            "runId",
 		"GITHUB_RUN_NUMBER":        "1",
@@ -191,7 +187,6 @@ func TestSetupEnv(t *testing.T) {
 		"GITHUB_TOKEN":             "",
 		"GITHUB_WORKFLOW":          "",
 		"INPUT_STEP_WITH":          "with-value",
-		"PATH":                     "/path/to/extra/file:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
 		"RC_KEY":                   "rcvalue",
 		"RUNNER_PERFLOG":           "/dev/null",
 		"RUNNER_TRACKING_ID":       "",
