@@ -297,6 +297,9 @@ func (rc *RunContext) ApplyExtraPath(env *map[string]string) {
 }
 
 func (rc *RunContext) UpdateExtraPath(ctx context.Context, githubEnvPath string) error {
+	if common.Dryrun(ctx) {
+		return nil
+	}
 	pathTar, err := rc.JobContainer.GetContainerArchive(ctx, githubEnvPath)
 	if err != nil {
 		return err
