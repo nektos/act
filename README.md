@@ -366,7 +366,7 @@ And use this `event.json` file with act otherwise the Job will run:
 
 Run act like
 
-```
+```sh
 act -e event.json
 ```
 
