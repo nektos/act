@@ -343,6 +343,7 @@ MY_2ND_ENV_VAR="my 2nd env var value"
 ```
 
 # Skipping jobs
+
 You cannot use the `env` context in job level if conditions, but you can add a custom event property to the `github` context. You can use this method also on step level if conditions.
 
 ```yml
@@ -354,16 +355,21 @@ jobs:
     steps:
     - run: exit 0
 ```
+
 And use this `event.json` file with act otherwise the Job will run:
+
 ```json
 {
     "act": true
 }
 ```
+
 Run act like
+
 ```
 act -e event.json
 ```
+
 _Hint: you can add / append `-e event.json` as a line into `./.actrc`_
 
 # Skipping steps
