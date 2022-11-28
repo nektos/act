@@ -96,6 +96,8 @@ func (j *Job) UnmarshalYAML(value *yaml.Node) error {
 				valueEnd := strings.Index(comment[valueStart:], "\n")
 				if valueEnd != -1 {
 					valueEnd += valueStart
+				} else {
+					valueEnd = len(comment)
 				}
 				var key string
 				err = djob.Outputs.Content[i].Decode(&key)

@@ -25,6 +25,7 @@ func TestPlanner(t *testing.T) {
 		{"empty-workflow", "unable to read workflow 'push.yml': file is empty: EOF", false},
 		{"nested", "unable to read workflow 'fail.yml': file is empty: EOF", false},
 		{"nested", "", true},
+		{"dryrunoutputcomment", "", false},
 	}
 
 	workdir, err := filepath.Abs("testdata")

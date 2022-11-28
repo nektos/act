@@ -1,0 +1,27 @@
+on: push
+jobs:
+  list-manifests:
+    runs-on: ubuntu-latest
+    outputs:
+      # Comment for this output
+      # DRYRUN: ["7.3", "7.4"]
+      # Another Comment for this output
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      # DRYRUN: ["7.3", "7.4"]
+      out2: test
+      # DRYRUN: ["7.3", "7.4"]
+      # This is another comment
+      out4: val
+      # first line
+      # DRYRUN: ["7.3", "7.4"]
+      out3: o
+    steps:
+    - run: echo Hi
+  otherjob:
+    needs: list-manifests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        X: ${{ fromjson(needs.list-manifests.outputs.matrix) }}
+    steps:
+    - run: echo Hi
