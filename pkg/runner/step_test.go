@@ -196,7 +196,6 @@ func TestSetupEnv(t *testing.T) {
 		"RC_KEY":                   "rcvalue",
 		"RUNNER_PERFLOG":           "/dev/null",
 		"RUNNER_TRACKING_ID":       "",
-		"LANG":                     "C.UTF-8",
 	}, env)
 
 	cm.AssertExpectations(t)
