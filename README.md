@@ -148,6 +148,9 @@ act pull_request
 # Run a specific job:
 act -j test
 
+# Run a job in a specific workflow (useful if you have duplicate job names)
+act -j lint -W .github/workflows/checks.yml
+
 # Run in dry-run mode:
 act -n
 
@@ -339,10 +342,41 @@ MY_ENV_VAR=MY_ENV_VAR_VALUE
 MY_2ND_ENV_VAR="my 2nd env var value"
 ```
 
+# Skipping jobs
+
+You cannot use the `env` context in job level if conditions, but you can add a custom event property to the `github` context. You can use this method also on step level if conditions.
+
+```yml
+on: push
+jobs:
+  deploy:
+    if: ${{ !github.event.act }} # skip during local actions testing
+    runs-on: ubuntu-latest
+    steps:
+    - run: exit 0
+```
+
+And use this `event.json` file with act otherwise the Job will run:
+
+```json
+{
+    "act": true
+}
+```
+
+Run act like
+
+```sh
+act -e event.json
+```
+
+_Hint: you can add / append `-e event.json` as a line into `./.actrc`_
+
 # Skipping steps
 
 Act adds a special environment variable `ACT` that can be used to skip a step that you
 don't want to run locally. E.g. a step that posts a Slack message or bumps a version number.
+**You cannot use this method in job level if conditions, see [Skipping jobs](#skipping-jobs)**
 
 ```yml
 - name: Some step
