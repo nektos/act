@@ -201,7 +201,9 @@ func TestRunEvent(t *testing.T) {
 
 	for _, table := range tables {
 		t.Run(table.workflowPath, func(t *testing.T) {
-			config := &Config{}
+			config := &Config{
+				Secrets: table.secrets,
+			}
 
 			eventFile := filepath.Join(workdir, table.workflowPath, "event.json")
 			if _, err := os.Stat(eventFile); err == nil {
