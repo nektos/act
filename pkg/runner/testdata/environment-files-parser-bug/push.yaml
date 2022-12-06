@@ -1,0 +1,13 @@
+on: push
+jobs:
+  _:
+    runs-on: ubuntu-latest
+    steps:
+    - run: |
+        echo "test<<World" > $GITHUB_ENV
+        echo "x=Thats really Weird" >> $GITHUB_ENV
+        echo "World" >> $GITHUB_ENV
+    - if: env.test != 'x=Thats really Weird'
+      run: exit 1
+    - if: env.x == 'Thats really Weird' # This assert is triggered by the broken impl of act
+      run: exit 1

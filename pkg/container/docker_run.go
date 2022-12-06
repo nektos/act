@@ -188,7 +188,7 @@ func (cr *containerReference) GetContainerArchive(ctx context.Context, srcPath s
 }
 
 func (cr *containerReference) UpdateFromEnv(srcPath string, env *map[string]string) common.Executor {
-	return cr.extractEnv(srcPath, env).IfNot(common.Dryrun)
+	return parseEnvFile(cr, srcPath, env).IfNot(common.Dryrun)
 }
 
 func (cr *containerReference) UpdateFromImageEnv(env *map[string]string) common.Executor {
@@ -411,10 +411,16 @@ func (cr *containerReference) mergeContainerConfigs(ctx context.Context, config 
 
 	logger.Debugf("Custom container.HostConfig from options ==> %+v", containerConfig.HostConfig)
 
+	hostConfig.Binds = append(hostConfig.Binds, containerConfig.HostConfig.Binds...)
+	hostConfig.Mounts = append(hostConfig.Mounts, containerConfig.HostConfig.Mounts...)
+	binds := hostConfig.Binds
+	mounts := hostConfig.Mounts
 	err = mergo.Merge(hostConfig, containerConfig.HostConfig, mergo.WithOverride)
 	if err != nil {
 		return nil, nil, fmt.Errorf("Cannot merge container.HostConfig options: '%s': '%w'", input.Options, err)
 	}
+	hostConfig.Binds = binds
+	hostConfig.Mounts = mounts
 	logger.Debugf("Merged container.HostConfig ==> %+v", hostConfig)
 
 	return config, hostConfig, nil
@@ -493,59 +499,6 @@ func (cr *containerReference) create(capAdd []string, capDrop []string) common.E
 		logger.Debugf("ENV ==> %v", input.Env)
 
 		cr.id = resp.ID
-		return nil
-	}
-}
-
-var singleLineEnvPattern, multiLineEnvPattern *regexp.Regexp
-
-func (cr *containerReference) extractEnv(srcPath string, env *map[string]string) common.Executor {
-	if singleLineEnvPattern == nil {
-		// Single line pattern matches:
-		// SOME_VAR=data=moredata
-		// SOME_VAR=datamoredata
-		singleLineEnvPattern = regexp.MustCompile(`^([^=]*)\=(.*)$`)
-		multiLineEnvPattern = regexp.MustCompile(`^([^<]+)<<([\w-]+)$`)
-	}
-
-	localEnv := *env
-	return func(ctx context.Context) error {
-		envTar, _, err := cr.cli.CopyFromContainer(ctx, cr.id, srcPath)
-		if err != nil {
-			return nil
-		}
-		defer envTar.Close()
-
-		reader := tar.NewReader(envTar)
-		_, err = reader.Next()
-		if err != nil && err != io.EOF {
-			return fmt.Errorf("failed to read tar archive: %w", err)
-		}
-		s := bufio.NewScanner(reader)
-		multiLineEnvKey := ""
-		multiLineEnvDelimiter := ""
-		multiLineEnvContent := ""
-		for s.Scan() {
-			line := s.Text()
-			if singleLineEnv := singleLineEnvPattern.FindStringSubmatch(line); singleLineEnv != nil {
-				localEnv[singleLineEnv[1]] = singleLineEnv[2]
-			}
-			if line == multiLineEnvDelimiter {
-				localEnv[multiLineEnvKey] = multiLineEnvContent
-				multiLineEnvKey, multiLineEnvDelimiter, multiLineEnvContent = "", "", ""
-			}
-			if multiLineEnvKey != "" && multiLineEnvDelimiter != "" {
-				if multiLineEnvContent != "" {
-					multiLineEnvContent += "\n"
-				}
-				multiLineEnvContent += line
-			}
-			if multiLineEnvStart := multiLineEnvPattern.FindStringSubmatch(line); multiLineEnvStart != nil {
-				multiLineEnvKey = multiLineEnvStart[1]
-				multiLineEnvDelimiter = multiLineEnvStart[2]
-			}
-		}
-		env = &localEnv
 		return nil
 	}
 }
