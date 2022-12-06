@@ -225,6 +225,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 		envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_OS", "Linux"))
 		envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_ARCH", container.RunnerArch(ctx)))
 		envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_TEMP", "/tmp"))
+		envList = append(envList, fmt.Sprintf("%s=%s", "LANG", "C.UTF-8")) // Use same locale as GitHub Actions
 
 		ext := container.LinuxContainerEnvironmentExtensions{}
 		binds, mounts := rc.GetBindsAndMounts()
