@@ -287,6 +287,7 @@ func TestRunEventHostEnvironment(t *testing.T) {
 
 		tables = append(tables, []TestJobFileInfo{
 			{workdir, "nix-prepend-path", "push", "", platforms},
+			{workdir, "inputs-via-env-context", "push", "", platforms},
 		}...)
 	}
 
