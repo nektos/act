@@ -1,0 +1,8 @@
+inputs:
+  test-env-input: {}
+runs:
+  using: composite
+  steps:
+  - run: |
+      exit ${{ inputs.test-env-input == env.test-env-input && '0' || '1'}}
+    shell: bash

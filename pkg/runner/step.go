@@ -184,7 +184,17 @@ func setupEnv(ctx context.Context, step step) error {
 
 	exprEval := rc.NewExpressionEvaluator(ctx)
 	for k, v := range *step.getEnv() {
-		(*step.getEnv())[k] = exprEval.Interpolate(ctx, v)
+		if !strings.HasPrefix(k, "INPUT_") {
+			(*step.getEnv())[k] = exprEval.Interpolate(ctx, v)
+		}
+	}
+	// after we have an evaluated step context, update the expresson evaluator with a new env context
+	// you can use step level env in the with property of a uses construct
+	exprEval = rc.NewExpressionEvaluatorWithEnv(ctx, *step.getEnv())
+	for k, v := range *step.getEnv() {
+		if strings.HasPrefix(k, "INPUT_") {
+			(*step.getEnv())[k] = exprEval.Interpolate(ctx, v)
+		}
 	}
 
 	common.Logger(ctx).Debugf("setupEnv => %v", *step.getEnv())
