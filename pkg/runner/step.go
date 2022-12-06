@@ -63,12 +63,15 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 		stepModel := step.getStepModel()
 
 		ifExpression := step.getIfExpression(ctx, stage)
-		rc.CurrentStep = stage.getStepName(stepModel)
+		rc.CurrentStep = stepModel.ID
 
-		rc.StepResults[rc.CurrentStep] = &model.StepResult{
+		stepResult := &model.StepResult{
 			Outcome:    model.StepStatusSuccess,
 			Conclusion: model.StepStatusSuccess,
 			Outputs:    make(map[string]string),
+		}
+		if stage == stepStageMain {
+			rc.StepResults[rc.CurrentStep] = stepResult
 		}
 
 		err := setupEnv(ctx, step)
@@ -78,15 +81,15 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 
 		runStep, err := isStepEnabled(ctx, ifExpression, step, stage)
 		if err != nil {
-			rc.StepResults[rc.CurrentStep].Conclusion = model.StepStatusFailure
-			rc.StepResults[rc.CurrentStep].Outcome = model.StepStatusFailure
+			stepResult.Conclusion = model.StepStatusFailure
+			stepResult.Outcome = model.StepStatusFailure
 			return err
 		}
 
 		if !runStep {
-			rc.StepResults[rc.CurrentStep].Conclusion = model.StepStatusSkipped
-			rc.StepResults[rc.CurrentStep].Outcome = model.StepStatusSkipped
-			logger.WithField("stepResult", rc.StepResults[rc.CurrentStep].Outcome).Debugf("Skipping step '%s' due to '%s'", stepModel, ifExpression)
+			stepResult.Conclusion = model.StepStatusSkipped
+			stepResult.Outcome = model.StepStatusSkipped
+			logger.WithField("stepResult", stepResult.Outcome).Debugf("Skipping step '%s' due to '%s'", stepModel, ifExpression)
 			return nil
 		}
 
@@ -113,25 +116,25 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 		err = executor(ctx)
 
 		if err == nil {
-			logger.WithField("stepResult", rc.StepResults[rc.CurrentStep].Outcome).Infof("  \u2705  Success - %s %s", stage, stepString)
+			logger.WithField("stepResult", stepResult.Outcome).Infof("  \u2705  Success - %s %s", stage, stepString)
 		} else {
-			rc.StepResults[rc.CurrentStep].Outcome = model.StepStatusFailure
+			stepResult.Outcome = model.StepStatusFailure
 
 			continueOnError, parseErr := isContinueOnError(ctx, stepModel.RawContinueOnError, step, stage)
 			if parseErr != nil {
-				rc.StepResults[rc.CurrentStep].Conclusion = model.StepStatusFailure
+				stepResult.Conclusion = model.StepStatusFailure
 				return parseErr
 			}
 
 			if continueOnError {
 				logger.Infof("Failed but continue next step")
 				err = nil
-				rc.StepResults[rc.CurrentStep].Conclusion = model.StepStatusSuccess
+				stepResult.Conclusion = model.StepStatusSuccess
 			} else {
-				rc.StepResults[rc.CurrentStep].Conclusion = model.StepStatusFailure
+				stepResult.Conclusion = model.StepStatusFailure
 			}
 
-			logger.WithField("stepResult", rc.StepResults[rc.CurrentStep].Outcome).Errorf("  \u274C  Failure - %s %s", stage, stepString)
+			logger.WithField("stepResult", stepResult.Outcome).Errorf("  \u274C  Failure - %s %s", stage, stepString)
 		}
 		// Process Runner File Commands
 		orgerr := err
