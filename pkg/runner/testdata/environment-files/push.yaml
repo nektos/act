@@ -1,0 +1,101 @@
+name: environment-files
+on: push
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Append to $GITHUB_PATH"
+        run: |
+          echo "$HOME/someFolder" >> $GITHUB_PATH
+      - name: "Append some more to $GITHUB_PATH"
+        run: |
+          echo "$HOME/someOtherFolder" >> $GITHUB_PATH
+      - name: "Check PATH"
+        run: |
+          echo "${PATH}"
+          if [[ ! "${PATH}" =~ .*"$HOME/"someOtherFolder.*"$HOME/"someFolder.* ]]; then
+            echo "${PATH} doesn't match .*someOtherFolder.*someFolder.*"
+            exit 1
+          fi
+      - name: "Prepend"
+        run: |
+          if ls | grep -q 'called ls' ; then
+            echo 'ls was overridden already?'
+            exit 2
+          fi
+          path_add=$(mktemp -d)
+          cat > $path_add/ls <<LS
+          #!/bin/sh
+          echo 'called ls'
+          LS
+          chmod +x $path_add/ls
+          echo $path_add >> $GITHUB_PATH
+      - name: "Verify prepend"
+        run: |
+          if ! ls | grep -q 'called ls' ; then
+            echo 'ls was not overridden'
+            exit 2
+          fi
+      - name: "Write single line env to $GITHUB_ENV"
+        run: |
+          echo "KEY=value" >> $GITHUB_ENV
+      - name: "Check single line env"
+        run: |
+          if [[ "${KEY}" != "value" ]]; then
+            echo "${KEY} doesn't == 'value'"
+            exit 1
+          fi
+      - name: "Write single line env with more than one 'equals' signs to $GITHUB_ENV"
+        run: |
+          echo "KEY=value=anothervalue" >> $GITHUB_ENV
+      - name: "Check single line env"
+        run: |
+          if [[ "${KEY}" != "value=anothervalue" ]]; then
+            echo "${KEY} doesn't == 'value=anothervalue'"
+            exit 1
+          fi
+      - name: "Write multiline env to $GITHUB_ENV"
+        run: |
+          echo 'KEY2<<EOF' >> $GITHUB_ENV
+          echo value2 >> $GITHUB_ENV
+          echo 'EOF' >> $GITHUB_ENV
+      - name: "Check multiline line env"
+        run: |
+          if [[ "${KEY2}" != "value2" ]]; then
+            echo "${KEY2} doesn't == 'value'"
+            exit 1
+          fi
+      - name: "Write multiline env with UUID to $GITHUB_ENV"
+        run: |
+          echo 'KEY3<<ghadelimiter_b8273c6d-d535-419a-a010-b0aaac240e36' >> $GITHUB_ENV
+          echo value3 >> $GITHUB_ENV
+          echo 'ghadelimiter_b8273c6d-d535-419a-a010-b0aaac240e36' >> $GITHUB_ENV
+      - name: "Check multiline env with UUID to $GITHUB_ENV"
+        run: |
+          if [[ "${KEY3}" != "value3" ]]; then
+            echo "${KEY3} doesn't == 'value3'"
+            exit 1
+          fi
+      - name: "Write single line output to $GITHUB_OUTPUT"
+        id: write-single-output
+        run: |
+          echo "KEY=value" >> $GITHUB_OUTPUT
+      - name: "Check single line output"
+        run: |
+          if [[ "${{ steps.write-single-output.outputs.KEY }}" != "value" ]]; then
+            echo "${{ steps.write-single-output.outputs.KEY }} doesn't == 'value'"
+            exit 1
+          fi
+      - name: "Write multiline output to $GITHUB_OUTPUT"
+        id: write-multi-output
+        run: |
+          echo 'KEY2<<EOF' >> $GITHUB_OUTPUT
+          echo value2 >> $GITHUB_OUTPUT
+          echo 'EOF' >> $GITHUB_OUTPUT
+      - name: "Check multiline output"
+        run: |
+          if [[ "${{ steps.write-multi-output.outputs.KEY2 }}" != "value2" ]]; then
+            echo "${{ steps.write-multi-output.outputs.KEY2 }} doesn't == 'value2'"
+            exit 1
+          fi
