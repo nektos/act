@@ -17,16 +17,14 @@ func newRemoteReusableWorkflowExecutor(rc *RunContext) common.Executor {
 }
 
 func newReusableWorkflowExecutor(rc *RunContext, directory string) common.Executor {
-	job := rc.Run.Job()
-
-	planner, err := model.NewWorkflowPlanner(path.Join(directory, job.Uses), true)
+	planner, err := model.NewWorkflowPlanner(path.Join(directory, rc.Run.Job().Uses), true)
 	if err != nil {
 		return common.NewErrorExecutor(err)
 	}
 
 	plan := planner.PlanEvent("workflow_call")
 
-	runner, err := NewReusableWorkflowRunner(rc.Config, job)
+	runner, err := NewReusableWorkflowRunner(rc)
 	if err != nil {
 		return common.NewErrorExecutor(err)
 	}
@@ -34,11 +32,12 @@ func newReusableWorkflowExecutor(rc *RunContext, directory string) common.Execut
 	return runner.NewPlanExecutor(plan)
 }
 
-func NewReusableWorkflowRunner(runnerConfig *Config, job *model.Job) (Runner, error) {
+func NewReusableWorkflowRunner(rc *RunContext) (Runner, error) {
 	runner := &runnerImpl{
-		config: runnerConfig,
+		config:    rc.Config,
+		eventJSON: rc.EventJSON,
 		caller: &caller{
-			job: job,
+			runContext: rc,
 		},
 	}
 

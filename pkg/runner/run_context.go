@@ -56,7 +56,13 @@ type MappableOutput struct {
 }
 
 func (rc *RunContext) String() string {
-	return fmt.Sprintf("%s/%s", rc.Run.Workflow.Name, rc.Name)
+	name := fmt.Sprintf("%s/%s", rc.Run.Workflow.Name, rc.Name)
+	if rc.caller != nil {
+		// prefix the reusable workflow with the caller job
+		// this is required to create unique container names
+		name = fmt.Sprintf("%s/%s", rc.caller.runContext.Run.JobID, name)
+	}
+	return name
 }
 
 // GetEnv returns the env for the context

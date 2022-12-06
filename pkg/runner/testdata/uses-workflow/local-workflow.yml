@@ -1,3 +1,4 @@
+name: local-reusable-workflows
 on: pull_request
 
 jobs:
@@ -7,3 +8,13 @@ jobs:
       string_required: string
       bool_required: ${{ true }}
       number_required: 1
+    secrets:
+      secret: keep_it_private
+
+  reusable-workflow-with-inherited-secrets:
+    uses: ./.github/workflows/local-reusable-workflow.yml
+    with:
+      string_required: string
+      bool_required: ${{ true }}
+      number_required: 1
+    secrets: inherit

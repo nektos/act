@@ -148,6 +148,7 @@ type Job struct {
 	Outputs        map[string]string         `yaml:"outputs"`
 	Uses           string                    `yaml:"uses"`
 	With           map[string]interface{}    `yaml:"with"`
+	RawSecrets     yaml.Node                 `yaml:"secrets"`
 	Result         string
 }
 
@@ -200,6 +201,34 @@ func (s Strategy) GetFailFast() bool {
 		}
 	}
 	return failFast
+}
+
+func (j *Job) InheritSecrets() bool {
+	if j.RawSecrets.Kind != yaml.ScalarNode {
+		return false
+	}
+
+	var val string
+	err := j.RawSecrets.Decode(&val)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return val == "inherit"
+}
+
+func (j *Job) Secrets() map[string]string {
+	if j.RawSecrets.Kind != yaml.MappingNode {
+		return nil
+	}
+
+	var val map[string]string
+	err := j.RawSecrets.Decode(&val)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return val
 }
 
 // Container details for the job

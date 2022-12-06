@@ -54,7 +54,6 @@ type Config struct {
 }
 
 type caller struct {
-	job        *model.Job
 	runContext *RunContext
 }
 
@@ -167,14 +166,10 @@ func (runner *runnerImpl) newRunContext(ctx context.Context, run *model.Run, mat
 		EventJSON:   runner.eventJSON,
 		StepResults: make(map[string]*model.StepResult),
 		Matrix:      matrix,
+		caller:      runner.caller,
 	}
 	rc.ExprEval = rc.NewExpressionEvaluator(ctx)
 	rc.Name = rc.ExprEval.Interpolate(ctx, run.String())
-
-	if runner.caller != nil {
-		rc.caller = runner.caller
-		rc.caller.runContext = rc
-	}
 
 	return rc
 }

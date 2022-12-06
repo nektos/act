@@ -55,7 +55,7 @@ func (rc *RunContext) NewExpressionEvaluatorWithEnv(ctx context.Context, env map
 		// todo: should be unavailable
 		// but required to interpolate/evaluate the step outputs on the job
 		Steps:    rc.getStepsContext(),
-		Secrets:  rc.Config.Secrets,
+		Secrets:  getWorkflowSecrets(ctx, rc),
 		Strategy: strategy,
 		Matrix:   rc.Matrix,
 		Needs:    using,
@@ -101,7 +101,7 @@ func (rc *RunContext) NewStepExpressionEvaluator(ctx context.Context, step step)
 		Env:      *step.getEnv(),
 		Job:      rc.getJobContext(),
 		Steps:    rc.getStepsContext(),
-		Secrets:  rc.Config.Secrets,
+		Secrets:  getWorkflowSecrets(ctx, rc),
 		Strategy: strategy,
 		Matrix:   rc.Matrix,
 		Needs:    using,
@@ -355,7 +355,7 @@ func setupWorkflowInputs(ctx context.Context, inputs *map[string]interface{}, rc
 		config := rc.Run.Workflow.WorkflowCallConfig()
 
 		for name, input := range config.Inputs {
-			value := rc.caller.job.With[name]
+			value := rc.caller.runContext.Run.Job().With[name]
 			if value != nil {
 				if str, ok := value.(string); ok {
 					// evaluate using the calling RunContext (outside)
@@ -376,4 +376,27 @@ func setupWorkflowInputs(ctx context.Context, inputs *map[string]interface{}, rc
 			(*inputs)[name] = value
 		}
 	}
+}
+
+func getWorkflowSecrets(ctx context.Context, rc *RunContext) map[string]string {
+	if rc.caller != nil {
+		job := rc.caller.runContext.Run.Job()
+		secrets := job.Secrets()
+
+		if secrets == nil && job.InheritSecrets() {
+			secrets = rc.caller.runContext.Config.Secrets
+		}
+
+		if secrets == nil {
+			secrets = map[string]string{}
+		}
+
+		for k, v := range secrets {
+			secrets[k] = rc.caller.runContext.ExprEval.Interpolate(ctx, v)
+		}
+
+		return secrets
+	}
+
+	return rc.Config.Secrets
 }
