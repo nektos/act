@@ -107,8 +107,14 @@ type WorkflowCallInput struct {
 	Type        string `yaml:"type"`
 }
 
+type WorkflowCallOutput struct {
+	Description string `yaml:"description"`
+	Value       string `yaml:"value"`
+}
+
 type WorkflowCall struct {
-	Inputs map[string]WorkflowCallInput `yaml:"inputs"`
+	Inputs  map[string]WorkflowCallInput  `yaml:"inputs"`
+	Outputs map[string]WorkflowCallOutput `yaml:"outputs"`
 }
 
 func (w *Workflow) WorkflowCallConfig() *WorkflowCall {

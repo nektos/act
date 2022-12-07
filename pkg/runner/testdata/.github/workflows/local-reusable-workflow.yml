@@ -24,6 +24,10 @@ on:
         required: false
         type: number
         default: ${{ 1 }}
+    outputs:
+      output:
+        description: "A workflow output"
+        value: ${{ jobs.reusable_workflow_job.outputs.output }}
 
 jobs:
   reusable_workflow_job:
@@ -63,3 +67,11 @@ jobs:
       run: |
         echo secrets.secret=${{ secrets.secret }}
         [[ "${{ secrets.secret == 'keep_it_private' }}" = "true" ]] || exit 1
+
+    - name: test output
+      id: output_test
+      run: |
+        echo "value=${{ inputs.string_required }}" >> $GITHUB_OUTPUT
+
+    outputs:
+      output: ${{ steps.output_test.outputs.value }}
