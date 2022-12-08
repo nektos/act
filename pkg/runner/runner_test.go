@@ -1,8 +1,10 @@
 package runner
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -343,6 +345,17 @@ func TestRunDifferentArchitecture(t *testing.T) {
 	tjfi.runTest(context.Background(), t, &Config{ContainerArchitecture: "linux/arm64"})
 }
 
+type maskJobLoggerFactory struct {
+	Output bytes.Buffer
+}
+
+func (f *maskJobLoggerFactory) WithJobLogger() *log.Logger {
+	logger := log.New()
+	logger.SetOutput(io.MultiWriter(&f.Output, os.Stdout))
+	logger.SetLevel(log.DebugLevel)
+	return logger
+}
+
 func TestMaskValues(t *testing.T) {
 	assertNoSecret := func(text string, secret string) {
 		index := strings.Index(text, "composite secret")
@@ -366,9 +379,9 @@ func TestMaskValues(t *testing.T) {
 		platforms:    platforms,
 	}
 
-	output := captureOutput(t, func() {
-		tjfi.runTest(context.Background(), t, &Config{})
-	})
+	logger := &maskJobLoggerFactory{}
+	tjfi.runTest(WithJobLoggerFactory(common.WithLogger(context.Background(), logger.WithJobLogger()), logger), t, &Config{})
+	output := logger.Output.String()
 
 	assertNoSecret(output, "secret value")
 	assertNoSecret(output, "YWJjCg==")
