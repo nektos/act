@@ -57,31 +57,48 @@ func WithMasks(ctx context.Context, masks *[]string) context.Context {
 	return context.WithValue(ctx, masksContextKeyVal, masks)
 }
 
+type JobLoggerFactory interface {
+	WithJobLogger() *logrus.Logger
+}
+
+type jobLoggerFactoryContextKey string
+
+var jobLoggerFactoryContextKeyVal = (jobLoggerFactoryContextKey)("jobloggerkey")
+
+func WithJobLoggerFactory(ctx context.Context, factory JobLoggerFactory) context.Context {
+	return context.WithValue(ctx, jobLoggerFactoryContextKeyVal, factory)
+}
+
 // WithJobLogger attaches a new logger to context that is aware of steps
 func WithJobLogger(ctx context.Context, jobID string, jobName string, config *Config, masks *[]string, matrix map[string]interface{}) context.Context {
-	mux.Lock()
-	defer mux.Unlock()
-
-	var formatter logrus.Formatter
-	if config.JSONLogger {
-		formatter = &jobLogJSONFormatter{
-			formatter: &logrus.JSONFormatter{},
-			masker:    valueMasker(config.InsecureSecrets, config.Secrets),
-		}
-	} else {
-		formatter = &jobLogFormatter{
-			color:  colors[nextColor%len(colors)],
-			masker: valueMasker(config.InsecureSecrets, config.Secrets),
-		}
-	}
-
-	nextColor++
 	ctx = WithMasks(ctx, masks)
 
-	logger := logrus.New()
-	logger.SetFormatter(formatter)
-	logger.SetOutput(os.Stdout)
-	logger.SetLevel(logrus.GetLevel())
+	var logger *logrus.Logger
+	if jobLoggerFactory, ok := ctx.Value(jobLoggerFactoryContextKeyVal).(JobLoggerFactory); ok && jobLoggerFactory != nil {
+		logger = jobLoggerFactory.WithJobLogger()
+	} else {
+		var formatter logrus.Formatter
+		if config.JSONLogger {
+			formatter = &logrus.JSONFormatter{}
+		} else {
+			mux.Lock()
+			defer mux.Unlock()
+			nextColor++
+			formatter = &jobLogFormatter{
+				color: colors[nextColor%len(colors)],
+			}
+		}
+
+		logger = logrus.New()
+		logger.SetOutput(os.Stdout)
+		logger.SetLevel(logrus.GetLevel())
+		logger.SetFormatter(formatter)
+	}
+
+	logger.SetFormatter(&maskedFormatter{
+		Formatter: logger.Formatter,
+		masker:    valueMasker(config.InsecureSecrets, config.Secrets),
+	})
 	rtn := logger.WithFields(logrus.Fields{
 		"job":    jobName,
 		"jobID":  jobID,
@@ -149,15 +166,21 @@ func valueMasker(insecureSecrets bool, secrets map[string]string) entryProcessor
 	}
 }
 
-type jobLogFormatter struct {
-	color  int
+type maskedFormatter struct {
+	logrus.Formatter
 	masker entryProcessor
+}
+
+func (f *maskedFormatter) Format(entry *logrus.Entry) ([]byte, error) {
+	return f.Formatter.Format(f.masker(entry))
+}
+
+type jobLogFormatter struct {
+	color int
 }
 
 func (f *jobLogFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	b := &bytes.Buffer{}
-
-	entry = f.masker(entry)
 
 	if f.isColored(entry) {
 		f.printColored(b, entry)
@@ -224,13 +247,4 @@ func checkIfTerminal(w io.Writer) bool {
 	default:
 		return false
 	}
-}
-
-type jobLogJSONFormatter struct {
-	masker    entryProcessor
-	formatter *logrus.JSONFormatter
-}
-
-func (f *jobLogJSONFormatter) Format(entry *logrus.Entry) ([]byte, error) {
-	return f.formatter.Format(f.masker(entry))
 }
