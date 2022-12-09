@@ -594,12 +594,12 @@ func TestContexts(t *testing.T) {
 		Matrix: map[string]interface{}{
 			"os": "Linux",
 		},
-		Needs: map[string]map[string]interface{}{
+		Needs: map[string]Needs{
 			"job-id": {
-				"outputs": map[string]string{
+				Outputs: map[string]string{
 					"output-name": "value",
 				},
-				"result": "success",
+				Result: "success",
 			},
 		},
 		Inputs: map[string]interface{}{

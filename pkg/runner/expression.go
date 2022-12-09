@@ -26,7 +26,7 @@ func (rc *RunContext) NewExpressionEvaluator(ctx context.Context) ExpressionEval
 
 func (rc *RunContext) NewExpressionEvaluatorWithEnv(ctx context.Context, env map[string]string) ExpressionEvaluator {
 	// todo: cleanup EvaluationEnvironment creation
-	using := make(map[string]map[string]interface{})
+	using := make(map[string]exprparser.Needs)
 	strategy := make(map[string]interface{})
 	if rc.Run != nil {
 		job := rc.Run.Job()
@@ -39,9 +39,9 @@ func (rc *RunContext) NewExpressionEvaluatorWithEnv(ctx context.Context, env map
 		jobNeeds := rc.Run.Job().Needs()
 
 		for _, needs := range jobNeeds {
-			using[needs] = map[string]interface{}{
-				"outputs": jobs[needs].Outputs,
-				"result":  jobs[needs].Result,
+			using[needs] = exprparser.Needs{
+				Outputs: jobs[needs].Outputs,
+				Result:  jobs[needs].Result,
 			}
 		}
 	}
@@ -87,11 +87,11 @@ func (rc *RunContext) NewStepExpressionEvaluator(ctx context.Context, step step)
 	jobs := rc.Run.Workflow.Jobs
 	jobNeeds := rc.Run.Job().Needs()
 
-	using := make(map[string]map[string]interface{})
+	using := make(map[string]exprparser.Needs)
 	for _, needs := range jobNeeds {
-		using[needs] = map[string]interface{}{
-			"outputs": jobs[needs].Outputs,
-			"result":  jobs[needs].Result,
+		using[needs] = exprparser.Needs{
+			Outputs: jobs[needs].Outputs,
+			Result:  jobs[needs].Result,
 		}
 	}
 
