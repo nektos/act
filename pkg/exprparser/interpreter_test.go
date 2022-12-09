@@ -555,6 +555,7 @@ func TestContexts(t *testing.T) {
 		{"strategy.fail-fast", true, "strategy-context"},
 		{"matrix.os", "Linux", "matrix-context"},
 		{"needs.job-id.outputs.output-name", "value", "needs-context"},
+		{"needs.job-id.result", "success", "needs-context"},
 		{"inputs.name", "value", "inputs-context"},
 	}
 
@@ -593,11 +594,12 @@ func TestContexts(t *testing.T) {
 		Matrix: map[string]interface{}{
 			"os": "Linux",
 		},
-		Needs: map[string]map[string]map[string]string{
+		Needs: map[string]map[string]interface{}{
 			"job-id": {
-				"outputs": {
+				"outputs": map[string]string{
 					"output-name": "value",
 				},
+				"result": "success",
 			},
 		},
 		Inputs: map[string]interface{}{

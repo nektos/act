@@ -20,7 +20,7 @@ type EvaluationEnvironment struct {
 	Secrets  map[string]string
 	Strategy map[string]interface{}
 	Matrix   map[string]interface{}
-	Needs    map[string]map[string]map[string]string
+	Needs    map[string]map[string]interface{}
 	Inputs   map[string]interface{}
 }
 
