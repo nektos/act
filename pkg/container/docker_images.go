@@ -22,7 +22,7 @@ func ImageExistsLocally(ctx context.Context, imageName string, platform string) 
 		return false, "", err
 	}
 
-	if platform != "" && platform != "any" && fmt.Sprintf("%s/%s", inspectImage.Os, inspectImage.Architecture) == platform {
+	if platform == "" || platform == "any" || fmt.Sprintf("%s/%s", inspectImage.Os, inspectImage.Architecture) == platform {
 		return true, inspectImage.ID, nil
 	}
 
