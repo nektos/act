@@ -33,7 +33,7 @@ func NewDockerPullExecutor(input NewDockerPullExecutorInput) common.Executor {
 
 		pull := input.ForcePull
 		if !pull {
-			imageExists, err := ImageExistsLocally(ctx, input.Image, input.Platform)
+			imageExists, _, err := ImageExistsLocally(ctx, input.Image, input.Platform)
 			logger.Debugf("Image exists? %v", imageExists)
 			if err != nil {
 				return fmt.Errorf("unable to determine if image already exists for image '%s' (%s): %w", input.Image, input.Platform, err)
