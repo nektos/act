@@ -91,13 +91,18 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 		actPath := rc.JobContainer.GetActPath()
 		outputFileCommand := path.Join("workflow", "outputcmd.txt")
 		stateFileCommand := path.Join("workflow", "statecmd.txt")
+		pathFileCommand := path.Join("workflow", "pathcmd.txt")
 		(*step.getEnv())["GITHUB_OUTPUT"] = path.Join(actPath, outputFileCommand)
 		(*step.getEnv())["GITHUB_STATE"] = path.Join(actPath, stateFileCommand)
+		(*step.getEnv())["GITHUB_PATH"] = path.Join(actPath, pathFileCommand)
 		_ = rc.JobContainer.Copy(actPath, &container.FileEntry{
 			Name: outputFileCommand,
 			Mode: 0666,
 		}, &container.FileEntry{
 			Name: stateFileCommand,
+			Mode: 0666,
+		}, &container.FileEntry{
+			Name: pathFileCommand,
 			Mode: 0666,
 		})(ctx)
 
@@ -142,6 +147,10 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 		for k, v := range output {
 			rc.setOutput(ctx, map[string]string{"name": k}, v)
 		}
+		err = rc.UpdateExtraPath(ctx, path.Join(actPath, pathFileCommand))
+		if err != nil {
+			return err
+		}
 		if orgerr != nil {
 			return orgerr
 		}
@@ -161,16 +170,22 @@ func setupEnv(ctx context.Context, step step) error {
 	if err != nil {
 		return err
 	}
-	err = rc.JobContainer.UpdateFromPath(step.getEnv())(ctx)
-	if err != nil {
-		return err
-	}
 	// merge step env last, since it should not be overwritten
 	mergeIntoMap(step.getEnv(), step.getStepModel().GetEnv())
 
 	exprEval := rc.NewExpressionEvaluator(ctx)
 	for k, v := range *step.getEnv() {
-		(*step.getEnv())[k] = exprEval.Interpolate(ctx, v)
+		if !strings.HasPrefix(k, "INPUT_") {
+			(*step.getEnv())[k] = exprEval.Interpolate(ctx, v)
+		}
+	}
+	// after we have an evaluated step context, update the expressions evaluator with a new env context
+	// you can use step level env in the with property of a uses construct
+	exprEval = rc.NewExpressionEvaluatorWithEnv(ctx, *step.getEnv())
+	for k, v := range *step.getEnv() {
+		if strings.HasPrefix(k, "INPUT_") {
+			(*step.getEnv())[k] = exprEval.Interpolate(ctx, v)
+		}
 	}
 
 	common.Logger(ctx).Debugf("setupEnv => %v", *step.getEnv())
@@ -188,14 +203,6 @@ func mergeEnv(ctx context.Context, step step) {
 		mergeIntoMap(env, rc.GetEnv(), c.Env)
 	} else {
 		mergeIntoMap(env, rc.GetEnv())
-	}
-
-	path := rc.JobContainer.GetPathVariableName()
-	if (*env)[path] == "" {
-		(*env)[path] = rc.JobContainer.DefaultPathVariable()
-	}
-	if rc.ExtraPath != nil && len(rc.ExtraPath) > 0 {
-		(*env)[path] = rc.JobContainer.JoinPathVariable(append(rc.ExtraPath, (*env)[path])...)
 	}
 
 	rc.withGithubEnv(ctx, step.getGithubContext(ctx), *env)

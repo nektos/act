@@ -64,7 +64,7 @@ func TestAddpath(t *testing.T) {
 	a.Equal("/zoo", rc.ExtraPath[0])
 
 	handler("::add-path::/boo\n")
-	a.Equal("/boo", rc.ExtraPath[1])
+	a.Equal("/boo", rc.ExtraPath[0])
 }
 
 func TestStopCommands(t *testing.T) {
@@ -102,7 +102,7 @@ func TestAddpathADO(t *testing.T) {
 	a.Equal("/zoo", rc.ExtraPath[0])
 
 	handler("##[add-path]/boo\n")
-	a.Equal("/boo", rc.ExtraPath[1])
+	a.Equal("/boo", rc.ExtraPath[0])
 }
 
 func TestAddmask(t *testing.T) {

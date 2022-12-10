@@ -1,8 +1,10 @@
 package runner
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -171,6 +173,9 @@ func TestRunEvent(t *testing.T) {
 		{workdir, "issue-598", "push", "", platforms},
 		{workdir, "if-env-act", "push", "", platforms},
 		{workdir, "env-and-path", "push", "", platforms},
+		{workdir, "environment-files", "push", "", platforms},
+		{workdir, "GITHUB_STATE", "push", "", platforms},
+		{workdir, "environment-files-parser-bug", "push", "", platforms},
 		{workdir, "non-existent-action", "push", "Job 'nopanic' failed", platforms},
 		{workdir, "outputs", "push", "", platforms},
 		{workdir, "networking", "push", "", platforms},
@@ -284,6 +289,7 @@ func TestRunEventHostEnvironment(t *testing.T) {
 
 		tables = append(tables, []TestJobFileInfo{
 			{workdir, "nix-prepend-path", "push", "", platforms},
+			{workdir, "inputs-via-env-context", "push", "", platforms},
 		}...)
 	}
 
@@ -339,6 +345,17 @@ func TestRunDifferentArchitecture(t *testing.T) {
 	tjfi.runTest(context.Background(), t, &Config{ContainerArchitecture: "linux/arm64"})
 }
 
+type maskJobLoggerFactory struct {
+	Output bytes.Buffer
+}
+
+func (f *maskJobLoggerFactory) WithJobLogger() *log.Logger {
+	logger := log.New()
+	logger.SetOutput(io.MultiWriter(&f.Output, os.Stdout))
+	logger.SetLevel(log.DebugLevel)
+	return logger
+}
+
 func TestMaskValues(t *testing.T) {
 	assertNoSecret := func(text string, secret string) {
 		index := strings.Index(text, "composite secret")
@@ -362,9 +379,9 @@ func TestMaskValues(t *testing.T) {
 		platforms:    platforms,
 	}
 
-	output := captureOutput(t, func() {
-		tjfi.runTest(context.Background(), t, &Config{})
-	})
+	logger := &maskJobLoggerFactory{}
+	tjfi.runTest(WithJobLoggerFactory(common.WithLogger(context.Background(), logger.WithJobLogger()), logger), t, &Config{})
+	output := logger.Output.String()
 
 	assertNoSecret(output, "secret value")
 	assertNoSecret(output, "YWJjCg==")

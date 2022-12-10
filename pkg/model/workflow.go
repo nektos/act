@@ -458,16 +458,8 @@ func (s *Step) String() string {
 }
 
 // Environments returns string-based key=value map for a step
-// Note: all keys are uppercase
 func (s *Step) Environment() map[string]string {
-	env := environment(s.Env)
-
-	for k, v := range env {
-		delete(env, k)
-		env[strings.ToUpper(k)] = v
-	}
-
-	return env
+	return environment(s.Env)
 }
 
 // GetEnv gets the env for a step
@@ -495,7 +487,7 @@ func (s *Step) ShellCommand() string {
 	case "python":
 		shellCommand = "python {0}"
 	case "sh":
-		shellCommand = "sh -e -c {0}"
+		shellCommand = "sh -e {0}"
 	case "cmd":
 		shellCommand = "%ComSpec% /D /E:ON /V:OFF /S /C \"CALL \"{0}\"\""
 	case "powershell":

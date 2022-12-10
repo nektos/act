@@ -1,7 +1,9 @@
 package runner
 
 import (
+	"bytes"
 	"context"
+	"io"
 	"testing"
 
 	"github.com/nektos/act/pkg/container"
@@ -61,10 +63,6 @@ func TestStepRun(t *testing.T) {
 		return nil
 	})
 
-	cm.On("UpdateFromPath", mock.AnythingOfType("*map[string]string")).Return(func(ctx context.Context) error {
-		return nil
-	})
-
 	cm.On("Copy", "/var/run/act", mock.AnythingOfType("[]*container.FileEntry")).Return(func(ctx context.Context) error {
 		return nil
 	})
@@ -78,6 +76,8 @@ func TestStepRun(t *testing.T) {
 	})
 
 	ctx := context.Background()
+
+	cm.On("GetContainerArchive", ctx, "/var/run/act/workflow/pathcmd.txt").Return(io.NopCloser(&bytes.Buffer{}), nil)
 
 	err := sr.main()(ctx)
 	assert.Nil(t, err)

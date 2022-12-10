@@ -154,6 +154,8 @@ func runActionImpl(step actionStep, actionDir string, remoteAction *remoteAction
 			containerArgs := []string{"node", path.Join(containerActionDir, action.Runs.Main)}
 			logger.Debugf("executing remote job container: %s", containerArgs)
 
+			rc.ApplyExtraPath(step.getEnv())
+
 			return rc.execJobContainer(containerArgs, *step.getEnv(), "", "")(ctx)
 		case model.ActionRunsUsingDocker:
 			location := actionLocation
@@ -366,6 +368,7 @@ func newStepContainer(ctx context.Context, step step, image string, cmd []string
 		Privileged:  rc.Config.Privileged,
 		UsernsMode:  rc.Config.UsernsMode,
 		Platform:    rc.Config.ContainerArchitecture,
+		Options:     rc.Config.ContainerOptions,
 	})
 	return stepContainer
 }
@@ -486,6 +489,8 @@ func runPreStep(step actionStep) common.Executor {
 			containerArgs := []string{"node", path.Join(containerActionDir, action.Runs.Pre)}
 			logger.Debugf("executing remote job container: %s", containerArgs)
 
+			rc.ApplyExtraPath(step.getEnv())
+
 			return rc.execJobContainer(containerArgs, *step.getEnv(), "", "")(ctx)
 
 		case model.ActionRunsUsingComposite:
@@ -572,6 +577,8 @@ func runPostStep(step actionStep) common.Executor {
 
 			containerArgs := []string{"node", path.Join(containerActionDir, action.Runs.Post)}
 			logger.Debugf("executing remote job container: %s", containerArgs)
+
+			rc.ApplyExtraPath(step.getEnv())
 
 			return rc.execJobContainer(containerArgs, *step.getEnv(), "", "")(ctx)
 
