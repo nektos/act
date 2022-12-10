@@ -26,6 +26,7 @@ type Config struct {
 	EventPath                          string            // path to JSON file to use for event.json in containers
 	DefaultBranch                      string            // name of the main branch for this repository
 	ReuseContainers                    bool              // reuse containers to maintain state
+	MaxParallel                        int               // number of jobs to run in parallel
 	ForcePull                          bool              // force pulling of the image, even if already present
 	ForceRebuild                       bool              // force rebuilding local docker image action
 	LogOutput                          bool              // log the output from docker run
@@ -100,8 +101,8 @@ func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 					}
 				}
 				matrixes := job.GetMatrixes()
-				maxParallel := 4
-				if job.Strategy != nil {
+				maxParallel := runner.config.MaxParallel
+				if job.Strategy != nil && job.Strategy.MaxParallel > 0 {
 					maxParallel = job.Strategy.MaxParallel
 				}
 

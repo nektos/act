@@ -140,12 +140,7 @@ type RunDefaults struct {
 
 // GetMaxParallel sets default and returns value for `max-parallel`
 func (s Strategy) GetMaxParallel() int {
-	// MaxParallel default value is `GitHub will maximize the number of jobs run in parallel depending on the available runners on GitHub-hosted virtual machines`
-	// So I take the liberty to hardcode default limit to 4 and this is because:
-	// 1: tl;dr: self-hosted does only 1 parallel job - https://github.com/actions/runner/issues/639#issuecomment-825212735
-	// 2: GH has 20 parallel job limit (for free tier) - https://github.com/github/docs/blob/3ae84420bd10997bb5f35f629ebb7160fe776eae/content/actions/reference/usage-limits-billing-and-administration.md?plain=1#L45
-	// 3: I want to add support for MaxParallel to act and 20! parallel jobs is a bit overkill IMHO
-	maxParallel := 4
+	maxParallel := 0
 	if s.MaxParallelString != "" {
 		var err error
 		if maxParallel, err = strconv.Atoi(s.MaxParallelString); err != nil {

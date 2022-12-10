@@ -14,6 +14,7 @@ type Input struct {
 	autodetectEvent                    bool
 	eventPath                          string
 	reuseContainers                    bool
+	maxParallel                        int
 	bindWorkdir                        bool
 	secrets                            []string
 	envs                               []string

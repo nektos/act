@@ -49,6 +49,7 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.Flags().StringArrayVarP(&input.envs, "env", "", []string{}, "env to make available to actions with optional value (e.g. --env myenv=foo or --env myenv)")
 	rootCmd.Flags().StringArrayVarP(&input.platforms, "platform", "P", []string{}, "custom image to use per platform (e.g. -P ubuntu-18.04=nektos/act-environments-ubuntu:18.04)")
 	rootCmd.Flags().BoolVarP(&input.reuseContainers, "reuse", "r", false, "don't remove container(s) on successfully completed workflow(s) to maintain state between runs")
+	rootCmd.Flags().IntVarP(&input.maxParallel, "max-parallel", "", 4, "number of maximum parallel jobs to run")
 	rootCmd.Flags().BoolVarP(&input.bindWorkdir, "bind", "b", false, "bind working directory to container, rather than copy")
 	rootCmd.Flags().BoolVarP(&input.forcePull, "pull", "p", false, "pull docker image(s) even if already present")
 	rootCmd.Flags().BoolVarP(&input.forceRebuild, "rebuild", "", false, "rebuild local action docker image(s) even if already present")
@@ -441,6 +442,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			ForcePull:                          input.forcePull,
 			ForceRebuild:                       input.forceRebuild,
 			ReuseContainers:                    input.reuseContainers,
+			MaxParallel:                        input.maxParallel,
 			Workdir:                            input.Workdir(),
 			BindWorkdir:                        input.bindWorkdir,
 			LogOutput:                          !input.noOutput,
