@@ -44,18 +44,6 @@ func (s stepStage) String() string {
 	return "Unknown"
 }
 
-func (s stepStage) getStepName(stepModel *model.Step) string {
-	switch s {
-	case stepStagePre:
-		return fmt.Sprintf("pre-%s", stepModel.ID)
-	case stepStageMain:
-		return stepModel.ID
-	case stepStagePost:
-		return fmt.Sprintf("post-%s", stepModel.ID)
-	}
-	return "unknown"
-}
-
 func runStepExecutor(step step, stage stepStage, executor common.Executor) common.Executor {
 	return func(ctx context.Context) error {
 		logger := common.Logger(ctx)
