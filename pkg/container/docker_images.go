@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/client"
 )
 
 // ImageExistsLocally returns a boolean indicating if an image with the
@@ -17,11 +18,11 @@ func ImageExistsLocally(ctx context.Context, imageName string, platform string) 
 	defer cli.Close()
 
 	inspectImage, _, err := cli.ImageInspectWithRaw(ctx, imageName)
-	if err != nil {
+	if err != nil && !client.IsErrNotFound(err) {
 		return false, "", err
 	}
 
-	if fmt.Sprintf("%s/%s", inspectImage.Os, inspectImage.Architecture) == platform {
+	if platform != "" && platform != "any" && fmt.Sprintf("%s/%s", inspectImage.Os, inspectImage.Architecture) == platform {
 		return true, inspectImage.ID, nil
 	}
 
@@ -40,6 +41,7 @@ func RemoveImage(ctx context.Context, imageName string, force bool, pruneChildre
 	if err != nil {
 		return false, err
 	}
+	defer cli.Close()
 
 	if _, err = cli.ImageRemove(ctx, id, types.ImageRemoveOptions{
 		Force:         force,
