@@ -18,7 +18,9 @@ func ImageExistsLocally(ctx context.Context, imageName string, platform string) 
 	defer cli.Close()
 
 	inspectImage, _, err := cli.ImageInspectWithRaw(ctx, imageName)
-	if err != nil && !client.IsErrNotFound(err) {
+	if client.IsErrNotFound(err) {
+		return false, "", nil
+	} else if err != nil {
 		return false, "", err
 	}
 
