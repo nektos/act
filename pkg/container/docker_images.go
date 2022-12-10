@@ -52,5 +52,5 @@ func RemoveImage(ctx context.Context, imageName string, force bool, pruneChildre
 		return false, err
 	}
 
-	return false, nil
+	return true, nil
 }
