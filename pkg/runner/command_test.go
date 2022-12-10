@@ -185,5 +185,5 @@ func TestSaveState(t *testing.T) {
 	handler := rc.commandHandler(ctx)
 	handler("::save-state name=state-name::state-value\n")
 
-	assert.Equal(t, "state-value", rc.InterActionState["step"]["state-name"])
+	assert.Equal(t, "state-value", rc.IntraActionState["step"]["state-name"])
 }

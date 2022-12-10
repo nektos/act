@@ -155,13 +155,13 @@ func unescapeKvPairs(kvPairs map[string]string) map[string]string {
 func (rc *RunContext) saveState(ctx context.Context, kvPairs map[string]string, arg string) {
 	stepID := rc.CurrentStep
 	if stepID != "" {
-		if rc.InterActionState == nil {
-			rc.InterActionState = map[string]map[string]string{}
+		if rc.IntraActionState == nil {
+			rc.IntraActionState = map[string]map[string]string{}
 		}
-		state, ok := rc.InterActionState[stepID]
+		state, ok := rc.IntraActionState[stepID]
 		if !ok {
 			state = map[string]string{}
-			rc.InterActionState[stepID] = state
+			rc.IntraActionState[stepID] = state
 		}
 		state[kvPairs["name"]] = arg
 	}

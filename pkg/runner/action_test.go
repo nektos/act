@@ -203,7 +203,7 @@ func TestActionRunner(t *testing.T) {
 					StepResults: map[string]*model.StepResult{
 						"step": {},
 					},
-					InterActionState: map[string]map[string]string{
+					IntraActionState: map[string]map[string]string{
 						"step": {
 							"name": "state value",
 						},

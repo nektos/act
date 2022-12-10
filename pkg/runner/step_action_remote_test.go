@@ -419,7 +419,7 @@ func TestStepActionRemotePost(t *testing.T) {
 		stepModel          *model.Step
 		actionModel        *model.Action
 		initialStepResults map[string]*model.StepResult
-		interActionState   map[string]map[string]string
+		IntraActionState   map[string]map[string]string
 		expectedEnv        map[string]string
 		err                error
 		mocks              struct {
@@ -447,7 +447,7 @@ func TestStepActionRemotePost(t *testing.T) {
 					Outputs:    map[string]string{},
 				},
 			},
-			interActionState: map[string]map[string]string{
+			IntraActionState: map[string]map[string]string{
 				"step": {
 					"key": "value",
 				},
@@ -572,7 +572,7 @@ func TestStepActionRemotePost(t *testing.T) {
 						},
 					},
 					StepResults:      tt.initialStepResults,
-					InterActionState: tt.interActionState,
+					IntraActionState: tt.IntraActionState,
 				},
 				Step:   tt.stepModel,
 				action: tt.actionModel,
