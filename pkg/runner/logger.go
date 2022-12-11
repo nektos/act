@@ -17,7 +17,6 @@ import (
 
 const (
 	// nocolor = 0
-	red     = 31
 	green   = 32
 	yellow  = 33
 	blue    = 34
@@ -33,7 +32,7 @@ var mux sync.Mutex
 func init() {
 	nextColor = 0
 	colors = []int{
-		blue, yellow, green, magenta, red, gray, cyan,
+		blue, yellow, green, magenta, gray, cyan,
 	}
 }
 
