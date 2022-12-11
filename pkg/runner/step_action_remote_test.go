@@ -165,10 +165,6 @@ func TestStepActionRemote(t *testing.T) {
 				})
 			}
 
-			if tt.mocks.env {
-				cm.On("UpdateFromImageEnv", &sar.env).Return(func(ctx context.Context) error { return nil })
-				cm.On("UpdateFromEnv", "/var/run/act/workflow/envs.txt", &sar.env).Return(func(ctx context.Context) error { return nil })
-			}
 			if tt.mocks.read {
 				sarm.On("readAction", sar.Step, suffixMatcher("act/remote-action@v1"), "", mock.Anything, mock.Anything).Return(&model.Action{}, nil)
 			}
@@ -176,6 +172,10 @@ func TestStepActionRemote(t *testing.T) {
 				sarm.On("runAction", sar, suffixMatcher("act/remote-action@v1"), newRemoteAction(sar.Step.Uses)).Return(func(ctx context.Context) error { return tt.runError })
 
 				cm.On("Copy", "/var/run/act", mock.AnythingOfType("[]*container.FileEntry")).Return(func(ctx context.Context) error {
+					return nil
+				})
+
+				cm.On("UpdateFromEnv", "/var/run/act/workflow/envs.txt", mock.AnythingOfType("*map[string]string")).Return(func(ctx context.Context) error {
 					return nil
 				})
 
@@ -592,14 +592,14 @@ func TestStepActionRemotePost(t *testing.T) {
 			}
 			sar.RunContext.ExprEval = sar.RunContext.NewExpressionEvaluator(ctx)
 
-			if tt.mocks.env {
-				cm.On("UpdateFromImageEnv", &sar.env).Return(func(ctx context.Context) error { return nil })
-				cm.On("UpdateFromEnv", "/var/run/act/workflow/envs.txt", &sar.env).Return(func(ctx context.Context) error { return nil })
-			}
 			if tt.mocks.exec {
 				cm.On("Exec", []string{"node", "/var/run/act/actions/remote-action@v1/post.js"}, sar.env, "", "").Return(func(ctx context.Context) error { return tt.err })
 
 				cm.On("Copy", "/var/run/act", mock.AnythingOfType("[]*container.FileEntry")).Return(func(ctx context.Context) error {
+					return nil
+				})
+
+				cm.On("UpdateFromEnv", "/var/run/act/workflow/envs.txt", mock.AnythingOfType("*map[string]string")).Return(func(ctx context.Context) error {
 					return nil
 				})
 

@@ -162,7 +162,7 @@ func TestRunEvent(t *testing.T) {
 		{workdir, "container-hostname", "push", "", platforms},
 		{workdir, "remote-action-docker", "push", "", platforms},
 		{workdir, "remote-action-js", "push", "", platforms},
-		{workdir, "remote-action-js", "push", "", map[string]string{"ubuntu-latest": "catthehacker/ubuntu:runner-latest"}}, // Test if this works with non root container
+		{workdir, "remote-action-js-node-user", "push", "", platforms}, // Test if this works with non root container
 		{workdir, "matrix", "push", "", platforms},
 		{workdir, "matrix-include-exclude", "push", "", platforms},
 		{workdir, "commands", "push", "", platforms},
@@ -186,6 +186,8 @@ func TestRunEvent(t *testing.T) {
 		{workdir, "actions-environment-and-context-tests", "push", "", platforms},
 		{workdir, "uses-action-with-pre-and-post-step", "push", "", platforms},
 		{workdir, "evalenv", "push", "", platforms},
+		{workdir, "docker-action-custom-path", "push", "", platforms},
+		{workdir, "GITHUB_ENV-use-in-env-ctx", "push", "", platforms},
 		{workdir, "ensure-post-steps", "push", "Job 'second-post-step-should-fail' failed", platforms},
 		{workdir, "workflow_dispatch", "workflow_dispatch", "", platforms},
 		{workdir, "workflow_dispatch_no_inputs_mapping", "workflow_dispatch", "", platforms},

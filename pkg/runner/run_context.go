@@ -15,6 +15,7 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/mitchellh/go-homedir"
 	"github.com/opencontainers/selinux/go-selinux"
@@ -266,8 +267,6 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			rc.stopJobContainer(),
 			rc.JobContainer.Create(rc.Config.ContainerCapAdd, rc.Config.ContainerCapDrop),
 			rc.JobContainer.Start(false),
-			rc.JobContainer.UpdateFromImageEnv(&rc.Env),
-			rc.JobContainer.UpdateFromEnv("/etc/environment", &rc.Env),
 			rc.JobContainer.Copy(rc.JobContainer.GetActPath()+"/", &container.FileEntry{
 				Name: "workflow/event.json",
 				Mode: 0644,
@@ -291,7 +290,19 @@ func (rc *RunContext) ApplyExtraPath(env *map[string]string) {
 	if rc.ExtraPath != nil && len(rc.ExtraPath) > 0 {
 		path := rc.JobContainer.GetPathVariableName()
 		if (*env)[path] == "" {
-			(*env)[path] = rc.JobContainer.DefaultPathVariable()
+			cenv := map[string]string{}
+			var cpath string
+			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+			defer cancel()
+			if err := rc.JobContainer.UpdateFromImageEnv(&cenv)(ctx); err == nil {
+				if p, ok := cenv[path]; ok {
+					cpath = p
+				}
+			}
+			if len(cpath) == 0 {
+				cpath = rc.JobContainer.DefaultPathVariable()
+			}
+			(*env)[path] = cpath
 		}
 		(*env)[path] = rc.JobContainer.JoinPathVariable(append(rc.ExtraPath, (*env)[path])...)
 	}
@@ -668,7 +679,6 @@ func nestedMapLookup(m map[string]interface{}, ks ...string) (rval interface{}) 
 
 func (rc *RunContext) withGithubEnv(ctx context.Context, github *model.GithubContext, env map[string]string) map[string]string {
 	env["CI"] = "true"
-	env["GITHUB_ENV"] = rc.JobContainer.GetActPath() + "/workflow/envs.txt"
 	env["GITHUB_WORKFLOW"] = github.Workflow
 	env["GITHUB_RUN_ID"] = github.RunID
 	env["GITHUB_RUN_NUMBER"] = github.RunNumber

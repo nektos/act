@@ -99,6 +99,7 @@ func execAsComposite(step actionStep) common.Executor {
 
 		rc.Masks = append(rc.Masks, compositeRC.Masks...)
 		rc.ExtraPath = compositeRC.ExtraPath
+		rc.Env = compositeRC.Env
 
 		return err
 	}

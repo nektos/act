@@ -57,14 +57,6 @@ func TestStepDockerMain(t *testing.T) {
 	}
 	sd.RunContext.ExprEval = sd.RunContext.NewExpressionEvaluator(ctx)
 
-	cm.On("UpdateFromImageEnv", mock.AnythingOfType("*map[string]string")).Return(func(ctx context.Context) error {
-		return nil
-	})
-
-	cm.On("UpdateFromEnv", "/var/run/act/workflow/envs.txt", mock.AnythingOfType("*map[string]string")).Return(func(ctx context.Context) error {
-		return nil
-	})
-
 	cm.On("Pull", false).Return(func(ctx context.Context) error {
 		return nil
 	})
@@ -86,6 +78,10 @@ func TestStepDockerMain(t *testing.T) {
 	})
 
 	cm.On("Copy", "/var/run/act", mock.AnythingOfType("[]*container.FileEntry")).Return(func(ctx context.Context) error {
+		return nil
+	})
+
+	cm.On("UpdateFromEnv", "/var/run/act/workflow/envs.txt", mock.AnythingOfType("*map[string]string")).Return(func(ctx context.Context) error {
 		return nil
 	})
 
