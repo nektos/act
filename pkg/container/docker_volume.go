@@ -1,4 +1,4 @@
-//go:build !(WITHOUT_DOCKER || !(linux || macos || windows))
+//go:build !(WITHOUT_DOCKER || !(linux || darwin || windows))
 
 package container
 
