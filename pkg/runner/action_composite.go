@@ -99,7 +99,12 @@ func execAsComposite(step actionStep) common.Executor {
 
 		rc.Masks = append(rc.Masks, compositeRC.Masks...)
 		rc.ExtraPath = compositeRC.ExtraPath
-		rc.Env = compositeRC.Env
+		// Drop INPUT_... envs, otherwise could just assign rc.Env = compositeRC.Env
+		for k, v := range compositeRC.Env {
+			if !strings.HasPrefix(k, "INPUT_") {
+				rc.Env[k] = v
+			}
+		}
 
 		return err
 	}
