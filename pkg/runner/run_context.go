@@ -15,7 +15,6 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
-	"time"
 
 	"github.com/mitchellh/go-homedir"
 	"github.com/opencontainers/selinux/go-selinux"
@@ -286,14 +285,12 @@ func (rc *RunContext) execJobContainer(cmd []string, env map[string]string, user
 	}
 }
 
-func (rc *RunContext) ApplyExtraPath(env *map[string]string) {
+func (rc *RunContext) ApplyExtraPath(ctx context.Context, env *map[string]string) {
 	if rc.ExtraPath != nil && len(rc.ExtraPath) > 0 {
 		path := rc.JobContainer.GetPathVariableName()
 		if (*env)[path] == "" {
 			cenv := map[string]string{}
 			var cpath string
-			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-			defer cancel()
 			if err := rc.JobContainer.UpdateFromImageEnv(&cenv)(ctx); err == nil {
 				if p, ok := cenv[path]; ok {
 					cpath = p
