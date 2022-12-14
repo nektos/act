@@ -173,7 +173,7 @@ func (rc *RunContext) startHostEnvironment() common.Executor {
 		rc.cleanUpJobContainer = rc.JobContainer.Remove()
 		for k, v := range rc.JobContainer.GetRunnerContext(ctx) {
 			if v, ok := v.(string); ok {
-				rc.Env[fmt.Sprintf("RUNNER_%s", strings.ToUpper(k)] = v
+				rc.Env[fmt.Sprintf("RUNNER_%s", strings.ToUpper(k))] = v
 			}
 		}
 		for _, env := range os.Environ() {
