@@ -410,10 +410,32 @@ func (*HostEnvironment) JoinPathVariable(paths ...string) string {
 	return strings.Join(paths, string(filepath.ListSeparator))
 }
 
+func goArchToActionArch(arch string) string {
+	archMapper := map[string]string{
+		"x86_64":  "X64",
+		"386":     "x86",
+		"aarch64": "arm64",
+	}
+	if arch, ok := archMapper[arch]; ok {
+		return arch
+	}
+	return arch
+}
+
+func goOsToActionOs(os string) string {
+	osMapper := map[string]string{
+		"darwin":  "macOS",
+	}
+	if os, ok := osMapper[os]; ok {
+		return os
+	}
+	return os
+}
+
 func (e *HostEnvironment) GetRunnerContext(ctx context.Context) map[string]interface{} {
 	return map[string]interface{}{
-		"os":         runtime.GOOS,
-		"arch":       runtime.GOARCH,
+		"os":         goOsToActionOs(runtime.GOOS),
+		"arch":       goArchToActionArch(runtime.GOARCH),
 		"temp":       e.TmpDir,
 		"tool_cache": e.ToolCache,
 	}
