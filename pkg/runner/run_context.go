@@ -248,7 +248,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 
 		rc.JobContainer = container.NewContainer(&container.NewContainerInput{
 			Cmd:         nil,
-			Entrypoint:  []string{"/usr/bin/tail", "-f", "/dev/null"},
+			Entrypoint:  []string{"tail", "-f", "/dev/null"},
 			WorkingDir:  ext.ToContainerPath(rc.Config.Workdir),
 			Image:       image,
 			Username:    username,
