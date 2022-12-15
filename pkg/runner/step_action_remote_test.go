@@ -415,14 +415,14 @@ func TestStepActionRemotePreThroughActionToken(t *testing.T) {
 
 func TestStepActionRemotePost(t *testing.T) {
 	table := []struct {
-		name                   string
-		stepModel              *model.Step
-		actionModel            *model.Action
-		initialStepResults     map[string]*model.StepResult
-		expectedEnv            map[string]string
-		expectedPostStepResult *model.StepResult
-		err                    error
-		mocks                  struct {
+		name               string
+		stepModel          *model.Step
+		actionModel        *model.Action
+		initialStepResults map[string]*model.StepResult
+		IntraActionState   map[string]map[string]string
+		expectedEnv        map[string]string
+		err                error
+		mocks              struct {
 			env  bool
 			exec bool
 		}
@@ -445,18 +445,15 @@ func TestStepActionRemotePost(t *testing.T) {
 					Conclusion: model.StepStatusSuccess,
 					Outcome:    model.StepStatusSuccess,
 					Outputs:    map[string]string{},
-					State: map[string]string{
-						"key": "value",
-					},
+				},
+			},
+			IntraActionState: map[string]map[string]string{
+				"step": {
+					"key": "value",
 				},
 			},
 			expectedEnv: map[string]string{
 				"STATE_key": "value",
-			},
-			expectedPostStepResult: &model.StepResult{
-				Conclusion: model.StepStatusSuccess,
-				Outcome:    model.StepStatusSuccess,
-				Outputs:    map[string]string{},
 			},
 			mocks: struct {
 				env  bool
@@ -486,11 +483,6 @@ func TestStepActionRemotePost(t *testing.T) {
 					Outputs:    map[string]string{},
 				},
 			},
-			expectedPostStepResult: &model.StepResult{
-				Conclusion: model.StepStatusSuccess,
-				Outcome:    model.StepStatusSuccess,
-				Outputs:    map[string]string{},
-			},
 			mocks: struct {
 				env  bool
 				exec bool
@@ -518,11 +510,6 @@ func TestStepActionRemotePost(t *testing.T) {
 					Outcome:    model.StepStatusFailure,
 					Outputs:    map[string]string{},
 				},
-			},
-			expectedPostStepResult: &model.StepResult{
-				Conclusion: model.StepStatusSkipped,
-				Outcome:    model.StepStatusSkipped,
-				Outputs:    map[string]string{},
 			},
 			mocks: struct {
 				env  bool
@@ -553,7 +540,6 @@ func TestStepActionRemotePost(t *testing.T) {
 					Outputs:    map[string]string{},
 				},
 			},
-			expectedPostStepResult: nil,
 			mocks: struct {
 				env  bool
 				exec bool
@@ -585,7 +571,8 @@ func TestStepActionRemotePost(t *testing.T) {
 							},
 						},
 					},
-					StepResults: tt.initialStepResults,
+					StepResults:      tt.initialStepResults,
+					IntraActionState: tt.IntraActionState,
 				},
 				Step:   tt.stepModel,
 				action: tt.actionModel,
@@ -622,7 +609,8 @@ func TestStepActionRemotePost(t *testing.T) {
 					assert.Equal(t, value, sar.env[key])
 				}
 			}
-			assert.Equal(t, tt.expectedPostStepResult, sar.RunContext.StepResults["post-step"])
+			// Enshure that StepResults is nil in this test
+			assert.Equal(t, sar.RunContext.StepResults["post-step"], (*model.StepResult)(nil))
 			cm.AssertExpectations(t)
 		})
 	}
