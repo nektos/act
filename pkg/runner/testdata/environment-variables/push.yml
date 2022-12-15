@@ -1,0 +1,33 @@
+name: environment variables
+on: push
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Test on job level
+        run: |
+          echo \$UPPER=$UPPER
+          echo \$upper=$upper
+          echo \$LOWER=$LOWER
+          echo \$lower=$lower
+          [[ "$UPPER" = "UPPER" ]] || exit 1
+          [[ "$upper" = "" ]] || exit 1
+          [[ "$LOWER" = "" ]] || exit 1
+          [[ "$lower" = "lower" ]] || exit 1
+      - name: Test on step level
+        run: |
+          echo \$UPPER=$UPPER
+          echo \$upper=$upper
+          echo \$LOWER=$LOWER
+          echo \$lower=$lower
+          [[ "$UPPER" = "upper" ]] || exit 1
+          [[ "$upper" = "" ]] || exit 1
+          [[ "$LOWER" = "" ]] || exit 1
+          [[ "$lower" = "LOWER" ]] || exit 1
+        env:
+          UPPER: upper
+          lower: LOWER
+    env:
+      UPPER: UPPER
+      lower: lower
