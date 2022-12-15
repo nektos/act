@@ -104,6 +104,8 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 			err = info.stopContainer()(ctx)
 		}
 		setJobResult(ctx, info, rc, jobError == nil)
+		setJobOutputs(ctx, rc)
+
 		return err
 	})
 
@@ -135,7 +137,25 @@ func setJobResult(ctx context.Context, info jobInfo, rc *RunContext, success boo
 		jobResultMessage = "failed"
 	}
 	info.result(jobResult)
+	if rc.caller != nil {
+		// set reusable workflow job result
+		rc.caller.runContext.result(jobResult)
+	}
 	logger.WithField("jobResult", jobResult).Infof("\U0001F3C1  Job %s", jobResultMessage)
+}
+
+func setJobOutputs(ctx context.Context, rc *RunContext) {
+	if rc.caller != nil {
+		// map outputs for reusable workflows
+		callerOutputs := make(map[string]string)
+
+		ee := rc.NewExpressionEvaluator(ctx)
+		for k, v := range rc.Run.Job().Outputs {
+			callerOutputs[k] = ee.Interpolate(ctx, v)
+		}
+
+		rc.caller.runContext.Run.Job().Outputs = callerOutputs
+	}
 }
 
 func useStepLogger(rc *RunContext, stepModel *model.Step, stage stepStage, executor common.Executor) common.Executor {
