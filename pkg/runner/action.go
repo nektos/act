@@ -230,12 +230,12 @@ func execAsDocker(ctx context.Context, step actionStep, actionName string, based
 		image = strings.ToLower(image)
 		contextDir := filepath.Join(basedir, action.Runs.Main)
 
-		anyArchExists, _, err := container.ImageExistsLocally(ctx, image, "any")
+		anyArchExists, err := container.ImageExistsLocally(ctx, image, "any")
 		if err != nil {
 			return err
 		}
 
-		correctArchExists, _, err := container.ImageExistsLocally(ctx, image, rc.Config.ContainerArchitecture)
+		correctArchExists, err := container.ImageExistsLocally(ctx, image, rc.Config.ContainerArchitecture)
 		if err != nil {
 			return err
 		}

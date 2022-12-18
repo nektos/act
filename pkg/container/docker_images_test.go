@@ -24,12 +24,12 @@ func TestImageExistsLocally(t *testing.T) {
 	// an image that will exist, and onew that won't exist
 
 	// Test if image exists with specific tag
-	invalidImageTag, _, err := ImageExistsLocally(ctx, "library/alpine:this-random-tag-will-never-exist", "linux/amd64")
+	invalidImageTag, err := ImageExistsLocally(ctx, "library/alpine:this-random-tag-will-never-exist", "linux/amd64")
 	assert.Nil(t, err)
 	assert.Equal(t, false, invalidImageTag)
 
 	// Test if image exists with specific architecture (image platform)
-	invalidImagePlatform, _, err := ImageExistsLocally(ctx, "alpine:latest", "windows/amd64")
+	invalidImagePlatform, err := ImageExistsLocally(ctx, "alpine:latest", "windows/amd64")
 	assert.Nil(t, err)
 	assert.Equal(t, false, invalidImagePlatform)
 
@@ -48,7 +48,7 @@ func TestImageExistsLocally(t *testing.T) {
 	_, err = io.ReadAll(readerDefault)
 	assert.Nil(t, err)
 
-	imageDefaultArchExists, _, err := ImageExistsLocally(ctx, "node:16-buster-slim", "linux/amd64")
+	imageDefaultArchExists, err := ImageExistsLocally(ctx, "node:16-buster-slim", "linux/amd64")
 	assert.Nil(t, err)
 	assert.Equal(t, true, imageDefaultArchExists)
 
@@ -61,7 +61,7 @@ func TestImageExistsLocally(t *testing.T) {
 	_, err = io.ReadAll(readerArm64)
 	assert.Nil(t, err)
 
-	imageArm64Exists, _, err := ImageExistsLocally(ctx, "node:16-buster-slim", "linux/arm64")
+	imageArm64Exists, err := ImageExistsLocally(ctx, "node:16-buster-slim", "linux/arm64")
 	assert.Nil(t, err)
 	assert.Equal(t, true, imageArm64Exists)
 }
