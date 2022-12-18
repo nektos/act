@@ -103,13 +103,12 @@ func TestStepActionLocalTest(t *testing.T) {
 
 func TestStepActionLocalPost(t *testing.T) {
 	table := []struct {
-		name                   string
-		stepModel              *model.Step
-		actionModel            *model.Action
-		initialStepResults     map[string]*model.StepResult
-		expectedPostStepResult *model.StepResult
-		err                    error
-		mocks                  struct {
+		name               string
+		stepModel          *model.Step
+		actionModel        *model.Action
+		initialStepResults map[string]*model.StepResult
+		err                error
+		mocks              struct {
 			env  bool
 			exec bool
 		}
@@ -133,11 +132,6 @@ func TestStepActionLocalPost(t *testing.T) {
 					Outcome:    model.StepStatusSuccess,
 					Outputs:    map[string]string{},
 				},
-			},
-			expectedPostStepResult: &model.StepResult{
-				Conclusion: model.StepStatusSuccess,
-				Outcome:    model.StepStatusSuccess,
-				Outputs:    map[string]string{},
 			},
 			mocks: struct {
 				env  bool
@@ -167,11 +161,6 @@ func TestStepActionLocalPost(t *testing.T) {
 					Outputs:    map[string]string{},
 				},
 			},
-			expectedPostStepResult: &model.StepResult{
-				Conclusion: model.StepStatusSuccess,
-				Outcome:    model.StepStatusSuccess,
-				Outputs:    map[string]string{},
-			},
 			mocks: struct {
 				env  bool
 				exec bool
@@ -199,11 +188,6 @@ func TestStepActionLocalPost(t *testing.T) {
 					Outcome:    model.StepStatusFailure,
 					Outputs:    map[string]string{},
 				},
-			},
-			expectedPostStepResult: &model.StepResult{
-				Conclusion: model.StepStatusSkipped,
-				Outcome:    model.StepStatusSkipped,
-				Outputs:    map[string]string{},
 			},
 			mocks: struct {
 				env  bool
@@ -234,7 +218,6 @@ func TestStepActionLocalPost(t *testing.T) {
 					Outputs:    map[string]string{},
 				},
 			},
-			expectedPostStepResult: nil,
 			mocks: struct {
 				env  bool
 				exec bool
@@ -303,7 +286,7 @@ func TestStepActionLocalPost(t *testing.T) {
 			err := sal.post()(ctx)
 
 			assert.Equal(t, tt.err, err)
-			assert.Equal(t, tt.expectedPostStepResult, sal.RunContext.StepResults["post-step"])
+			assert.Equal(t, sal.RunContext.StepResults["post-step"], (*model.StepResult)(nil))
 			cm.AssertExpectations(t)
 		})
 	}

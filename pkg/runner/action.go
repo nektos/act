@@ -374,9 +374,9 @@ func newStepContainer(ctx context.Context, step step, image string, cmd []string
 }
 
 func populateEnvsFromSavedState(env *map[string]string, step actionStep, rc *RunContext) {
-	stepResult := rc.StepResults[step.getStepModel().ID]
-	if stepResult != nil {
-		for name, value := range stepResult.State {
+	state, ok := rc.IntraActionState[step.getStepModel().ID]
+	if ok {
+		for name, value := range state {
 			envName := fmt.Sprintf("STATE_%s", name)
 			(*env)[envName] = value
 		}
