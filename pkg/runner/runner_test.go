@@ -88,6 +88,7 @@ func (j *TestJobFileInfo) runTest(ctx context.Context, t *testing.T, cfg *Config
 		ReuseContainers:       false,
 		Env:                   cfg.Env,
 		Secrets:               cfg.Secrets,
+		Inputs:                cfg.Inputs,
 		GitHubInstance:        "github.com",
 		ContainerArchitecture: cfg.ContainerArchitecture,
 	}
@@ -390,6 +391,27 @@ func TestRunEventSecrets(t *testing.T) {
 	assert.NoError(t, err, "Failed to read .secrets")
 
 	tjfi.runTest(context.Background(), t, &Config{Secrets: secrets, Env: env})
+}
+
+func TestRunActionInputs(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+	workflowPath := "input-from-cli"
+
+	tjfi := TestJobFileInfo{
+		workdir:      workdir,
+		workflowPath: workflowPath,
+		eventName:    "workflow_dispatch",
+		errorMessage: "",
+		platforms:    platforms,
+	}
+
+	inputs := map[string]string{
+		"SOME_INPUT": "input",
+	}
+
+	tjfi.runTest(context.Background(), t, &Config{Inputs: inputs})
 }
 
 func TestRunEventPullRequest(t *testing.T) {
