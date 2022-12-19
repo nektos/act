@@ -47,6 +47,7 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.Flags().StringVar(&input.remoteName, "remote-name", "origin", "git remote name that will be used to retrieve url of git repo")
 	rootCmd.Flags().StringArrayVarP(&input.secrets, "secret", "s", []string{}, "secret to make available to actions with optional value (e.g. -s mysecret=foo or -s mysecret)")
 	rootCmd.Flags().StringArrayVarP(&input.envs, "env", "", []string{}, "env to make available to actions with optional value (e.g. --env myenv=foo or --env myenv)")
+	rootCmd.Flags().StringArrayVarP(&input.inputs, "input", "", []string{}, "action input to make available to actions (e.g. --input myinput=foo)")
 	rootCmd.Flags().StringArrayVarP(&input.platforms, "platform", "P", []string{}, "custom image to use per platform (e.g. -P ubuntu-18.04=nektos/act-environments-ubuntu:18.04)")
 	rootCmd.Flags().BoolVarP(&input.reuseContainers, "reuse", "r", false, "don't remove container(s) on successfully completed workflow(s) to maintain state between runs")
 	rootCmd.Flags().BoolVarP(&input.bindWorkdir, "bind", "b", false, "bind working directory to container, rather than copy")
@@ -74,6 +75,7 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.PersistentFlags().StringVarP(&input.secretfile, "secret-file", "", ".secrets", "file with list of secrets to read from (e.g. --secret-file .secrets)")
 	rootCmd.PersistentFlags().BoolVarP(&input.insecureSecrets, "insecure-secrets", "", false, "NOT RECOMMENDED! Doesn't hide secrets while printing logs.")
 	rootCmd.PersistentFlags().StringVarP(&input.envfile, "env-file", "", ".env", "environment file to read and use as env in the containers")
+	rootCmd.PersistentFlags().StringVarP(&input.inputfile, "input-file", "", ".input", "input file to read and use as action input")
 	rootCmd.PersistentFlags().StringVarP(&input.containerArchitecture, "container-architecture", "", "", "Architecture which should be used to run containers, e.g.: linux/amd64. If not specified, will use host default architecture. Requires Docker server API Version 1.41+. Ignored on earlier Docker server platforms.")
 	rootCmd.PersistentFlags().StringVarP(&input.containerDaemonSocket, "container-daemon-socket", "", "/var/run/docker.sock", "Path to Docker daemon socket which will be mounted to containers")
 	rootCmd.PersistentFlags().StringVarP(&input.githubInstance, "github-instance", "", "github.com", "GitHub instance to use. Don't use this if you are not using GitHub Enterprise Server.")
@@ -248,6 +250,21 @@ func setupLogging(cmd *cobra.Command, _ []string) {
 	}
 }
 
+func parseEnvs(env []string, envs map[string]string) bool {
+	if env != nil {
+		for _, envVar := range env {
+			e := strings.SplitN(envVar, `=`, 2)
+			if len(e) == 2 {
+				envs[e[0]] = e[1]
+			} else {
+				envs[e[0]] = ""
+			}
+		}
+		return true
+	}
+	return false
+}
+
 func readEnvs(path string, envs map[string]string) bool {
 	if _, err := os.Stat(path); err == nil {
 		env, err := godotenv.Read(path)
@@ -284,17 +301,13 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 
 		log.Debugf("Loading environment from %s", input.Envfile())
 		envs := make(map[string]string)
-		if input.envs != nil {
-			for _, envVar := range input.envs {
-				e := strings.SplitN(envVar, `=`, 2)
-				if len(e) == 2 {
-					envs[e[0]] = e[1]
-				} else {
-					envs[e[0]] = ""
-				}
-			}
-		}
+		_ = parseEnvs(input.envs, envs)
 		_ = readEnvs(input.Envfile(), envs)
+
+		log.Debugf("Loading action inputs from %s", input.Inputfile())
+		inputs := make(map[string]string)
+		_ = parseEnvs(input.inputs, inputs)
+		_ = readEnvs(input.Inputfile(), inputs)
 
 		log.Debugf("Loading secrets from %s", input.Secretfile())
 		secrets := newSecrets(input.secrets)
@@ -430,6 +443,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			JSONLogger:                         input.jsonLogger,
 			Env:                                envs,
 			Secrets:                            secrets,
+			Inputs:                             inputs,
 			Token:                              secrets["GITHUB_TOKEN"],
 			InsecureSecrets:                    input.insecureSecrets,
 			Platforms:                          input.newPlatforms(),
