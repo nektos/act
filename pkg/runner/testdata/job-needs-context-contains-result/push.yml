@@ -1,0 +1,15 @@
+on:
+  push:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - run: exit 0
+  assert:
+    needs: test
+    if: |
+      ( always() && !cancelled() ) && (
+      ( needs.test.result != 'success' || !success() ) )
+    runs-on: ubuntu-latest
+    steps:
+    - run: exit 1
