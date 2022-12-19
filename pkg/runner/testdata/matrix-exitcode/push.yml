@@ -9,7 +9,6 @@ jobs:
       matrix:
         val: ["success", "failure"]
       fail-fast: false
-    continue-on-error: true
     steps:
       - name: test
         run: |
