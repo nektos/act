@@ -38,6 +38,7 @@ type RunContext struct {
 	ExtraPath           []string
 	CurrentStep         string
 	StepResults         map[string]*model.StepResult
+	IntraActionState    map[string]map[string]string
 	ExprEval            ExpressionEvaluator
 	JobContainer        container.ExecutionsEnvironment
 	OutputMappings      map[MappableOutput]MappableOutput
@@ -46,6 +47,7 @@ type RunContext struct {
 	Parent              *RunContext
 	Masks               []string
 	cleanUpJobContainer common.Executor
+	caller              *caller // job calling this RunContext (reusable workflows)
 }
 
 func (rc *RunContext) AddMask(mask string) {
@@ -58,7 +60,13 @@ type MappableOutput struct {
 }
 
 func (rc *RunContext) String() string {
-	return fmt.Sprintf("%s/%s", rc.Run.Workflow.Name, rc.Name)
+	name := fmt.Sprintf("%s/%s", rc.Run.Workflow.Name, rc.Name)
+	if rc.caller != nil {
+		// prefix the reusable workflow with the caller job
+		// this is required to create unique container names
+		name = fmt.Sprintf("%s/%s", rc.caller.runContext.Run.JobID, name)
+	}
+	return name
 }
 
 // GetEnv returns the env for the context
@@ -241,7 +249,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 
 		rc.JobContainer = container.NewContainer(&container.NewContainerInput{
 			Cmd:         nil,
-			Entrypoint:  []string{"/usr/bin/tail", "-f", "/dev/null"},
+			Entrypoint:  []string{"tail", "-f", "/dev/null"},
 			WorkingDir:  ext.ToContainerPath(rc.Config.Workdir),
 			Image:       image,
 			Username:    username,
@@ -400,16 +408,25 @@ func (rc *RunContext) steps() []*model.Step {
 
 // Executor returns a pipeline executor for all the steps in the job
 func (rc *RunContext) Executor() common.Executor {
+	var executor common.Executor
+
+	switch rc.Run.Job().Type() {
+	case model.JobTypeDefault:
+		executor = newJobExecutor(rc, &stepFactoryImpl{}, rc)
+	case model.JobTypeReusableWorkflowLocal:
+		executor = newLocalReusableWorkflowExecutor(rc)
+	case model.JobTypeReusableWorkflowRemote:
+		executor = newRemoteReusableWorkflowExecutor(rc)
+	}
+
 	return func(ctx context.Context) error {
-		isEnabled, err := rc.isEnabled(ctx)
+		res, err := rc.isEnabled(ctx)
 		if err != nil {
 			return err
 		}
-
-		if isEnabled {
-			return newJobExecutor(rc, &stepFactoryImpl{}, rc)(ctx)
+		if res {
+			return executor(ctx)
 		}
-
 		return nil
 	}
 }
@@ -457,6 +474,10 @@ func (rc *RunContext) isEnabled(ctx context.Context) (bool, error) {
 	if !runJob {
 		l.WithField("jobResult", "skipped").Debugf("Skipping job '%s' due to '%s'", job.Name, job.If.Value)
 		return false, nil
+	}
+
+	if job.Type() != model.JobTypeDefault {
+		return true, nil
 	}
 
 	img := rc.platformImage(ctx)

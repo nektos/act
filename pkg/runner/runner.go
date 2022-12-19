@@ -53,9 +53,14 @@ type Config struct {
 	ReplaceGheActionTokenWithGithubCom string            // Token of private action repo on GitHub.
 }
 
+type caller struct {
+	runContext *RunContext
+}
+
 type runnerImpl struct {
 	config    *Config
 	eventJSON string
+	caller    *caller // the job calling this runner (caller of a reusable workflow)
 }
 
 // New Creates a new Runner
@@ -64,8 +69,12 @@ func New(runnerConfig *Config) (Runner, error) {
 		config: runnerConfig,
 	}
 
+	return runner.configure()
+}
+
+func (runner *runnerImpl) configure() (Runner, error) {
 	runner.eventJSON = "{}"
-	if runnerConfig.EventPath != "" {
+	if runner.config.EventPath != "" {
 		log.Debugf("Reading event.json from %s", runner.config.EventPath)
 		eventJSONBytes, err := os.ReadFile(runner.config.EventPath)
 		if err != nil {
@@ -88,10 +97,6 @@ func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 			for _, run := range stage.Runs {
 				stageExecutor := make([]common.Executor, 0)
 				job := run.Job()
-
-				if job.Uses != "" {
-					return fmt.Errorf("reusable workflows are currently not supported (see https://github.com/nektos/act/issues/826 for updates)")
-				}
 
 				if job.Strategy != nil {
 					strategyRc := runner.newRunContext(ctx, run, nil)
@@ -161,8 +166,10 @@ func (runner *runnerImpl) newRunContext(ctx context.Context, run *model.Run, mat
 		EventJSON:   runner.eventJSON,
 		StepResults: make(map[string]*model.StepResult),
 		Matrix:      matrix,
+		caller:      runner.caller,
 	}
 	rc.ExprEval = rc.NewExpressionEvaluator(ctx)
 	rc.Name = rc.ExprEval.Interpolate(ctx, run.String())
+
 	return rc
 }
