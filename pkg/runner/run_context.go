@@ -179,10 +179,11 @@ func (rc *RunContext) startHostEnvironment() common.Executor {
 			StdOut: logWriter,
 		}
 		rc.cleanUpJobContainer = rc.JobContainer.Remove()
-		rc.Env["RUNNER_TOOL_CACHE"] = toolCache
-		rc.Env["RUNNER_OS"] = runtime.GOOS
-		rc.Env["RUNNER_ARCH"] = runtime.GOARCH
-		rc.Env["RUNNER_TEMP"] = runnerTmp
+		for k, v := range rc.JobContainer.GetRunnerContext(ctx) {
+			if v, ok := v.(string); ok {
+				rc.Env[fmt.Sprintf("RUNNER_%s", strings.ToUpper(k))] = v
+			}
+		}
 		for _, env := range os.Environ() {
 			i := strings.Index(env, "=")
 			if i > 0 {
