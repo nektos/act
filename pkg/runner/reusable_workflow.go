@@ -1,10 +1,15 @@
 package runner
 
 import (
+	"context"
+	"errors"
 	"fmt"
+	"io/fs"
+	"os"
 	"path"
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/common/git"
@@ -22,39 +27,62 @@ func newRemoteReusableWorkflowExecutor(rc *RunContext) common.Executor {
 	if remoteReusableWorkflow == nil {
 		return common.NewErrorExecutor(fmt.Errorf("expected format {owner}/{repo}/.github/workflows/{filename}@{ref}. Actual '%s' Input string was not in a correct format", uses))
 	}
-
 	remoteReusableWorkflow.URL = rc.Config.GitHubInstance
 
-	// todo: really use rc.ActionCacheDir()?
 	workflowDir := fmt.Sprintf("%s/%s", rc.ActionCacheDir(), strings.ReplaceAll(uses, "/", "-"))
 
-	gitClone := git.NewGitCloneExecutor(git.NewGitCloneExecutorInput{
-		URL:   remoteReusableWorkflow.CloneURL(),
-		Ref:   remoteReusableWorkflow.Ref,
-		Dir:   workflowDir,
-		Token: rc.Config.Token,
-	})
-
 	return common.NewPipelineExecutor(
-		gitClone,
+		newMutexExecutor(cloneIfRequired(rc, *remoteReusableWorkflow, workflowDir)),
 		newReusableWorkflowExecutor(rc, workflowDir, fmt.Sprintf("./.github/workflows/%s", remoteReusableWorkflow.Filename)),
 	)
 }
 
+var (
+	executorLock sync.Mutex
+)
+
+func newMutexExecutor(executor common.Executor) common.Executor {
+	return func(ctx context.Context) error {
+		executorLock.Lock()
+		defer executorLock.Unlock()
+
+		return executor(ctx)
+	}
+}
+
+func cloneIfRequired(rc *RunContext, remoteReusableWorkflow remoteReusableWorkflow, targetDirectory string) common.Executor {
+	return common.NewConditionalExecutor(
+		func(ctx context.Context) bool {
+			_, err := os.Stat(targetDirectory)
+			notExists := errors.Is(err, fs.ErrNotExist)
+			return notExists
+		},
+		git.NewGitCloneExecutor(git.NewGitCloneExecutorInput{
+			URL:   remoteReusableWorkflow.CloneURL(),
+			Ref:   remoteReusableWorkflow.Ref,
+			Dir:   targetDirectory,
+			Token: rc.Config.Token,
+		}),
+		nil,
+	)
+}
+
 func newReusableWorkflowExecutor(rc *RunContext, directory string, workflow string) common.Executor {
-	planner, err := model.NewWorkflowPlanner(path.Join(directory, workflow), true)
-	if err != nil {
-		return common.NewErrorExecutor(err)
+	return func(ctx context.Context) error {
+		planner, err := model.NewWorkflowPlanner(path.Join(directory, workflow), true)
+		if err != nil {
+			return err
+		}
+
+		plan := planner.PlanEvent("workflow_call")
+
+		runner, err := NewReusableWorkflowRunner(rc)
+		if err != nil {
+			return err
+		}
+
+		return runner.NewPlanExecutor(plan)(ctx)
 	}
-
-	plan := planner.PlanEvent("workflow_call")
-
-	runner, err := NewReusableWorkflowRunner(rc)
-	if err != nil {
-		return common.NewErrorExecutor(err)
-	}
-
-	return runner.NewPlanExecutor(plan)
 }
 
 func NewReusableWorkflowRunner(rc *RunContext) (Runner, error) {
