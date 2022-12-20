@@ -16,22 +16,27 @@ func init() {
 	commandPatternADO = regexp.MustCompile("^##\\[([^ ]+)( (.+))?]([^\r\n]*)[\r\n]+$")
 }
 
+func tryParseRawActionCommand(line string) (command string, kvPairs map[string]string, arg string, ok bool) {
+	if m := commandPatternGA.FindStringSubmatch(line); m != nil {
+		command = m[1]
+		kvPairs = parseKeyValuePairs(m[3], ",")
+		arg = m[4]
+		ok = true
+	} else if m := commandPatternADO.FindStringSubmatch(line); m != nil {
+		command = m[1]
+		kvPairs = parseKeyValuePairs(m[3], ";")
+		arg = m[4]
+		ok = true
+	}
+	return
+}
+
 func (rc *RunContext) commandHandler(ctx context.Context) common.LineHandler {
 	logger := common.Logger(ctx)
 	resumeCommand := ""
 	return func(line string) bool {
-		var command string
-		var kvPairs map[string]string
-		var arg string
-		if m := commandPatternGA.FindStringSubmatch(line); m != nil {
-			command = m[1]
-			kvPairs = parseKeyValuePairs(m[3], ",")
-			arg = m[4]
-		} else if m := commandPatternADO.FindStringSubmatch(line); m != nil {
-			command = m[1]
-			kvPairs = parseKeyValuePairs(m[3], ";")
-			arg = m[4]
-		} else {
+		command, kvPairs, arg, ok := tryParseRawActionCommand(line)
+		if !ok {
 			return true
 		}
 
