@@ -11,8 +11,8 @@ jobs:
           node-version: 18
       - name: test path (after setup)
         run: |
-          if ! echo "$PATH" |grep "/opt/hostedtoolcache/node/18.*/x64/bin" ; then
-            echo "Node binaries not in path"
+          if ! echo "$PATH" |grep "/opt/hostedtoolcache/node/18.*/\(x64\|arm64\)/bin" ; then
+            echo "Node binaries not in path: $PATH"
             exit 1
           fi
 
@@ -21,8 +21,8 @@ jobs:
 
       - name: test path (after local action)
         run: |
-          if ! echo "$PATH" |grep "/opt/hostedtoolcache/node/18.*/x64/bin" ; then
-            echo "Node binaries not in path"
+          if ! echo "$PATH" |grep "/opt/hostedtoolcache/node/18.*/\(x64\|arm64\)/bin" ; then
+            echo "Node binaries not in path: $PATH"
             exit 1
           fi
 
@@ -32,7 +32,7 @@ jobs:
 
       - name: test path (after remote action)
         run: |
-          if ! echo "$PATH" |grep "/opt/hostedtoolcache/node/18.*/x64/bin" ; then
+          if ! echo "$PATH" |grep "/opt/hostedtoolcache/node/18.*/\(x64\|arm64\)/bin" ; then
             echo "Node binaries not in path: $PATH"
             exit 1
           fi
