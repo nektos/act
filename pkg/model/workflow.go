@@ -117,6 +117,10 @@ type WorkflowCall struct {
 	Outputs map[string]WorkflowCallOutput `yaml:"outputs"`
 }
 
+type WorkflowCallResult struct {
+	Outputs map[string]string
+}
+
 func (w *Workflow) WorkflowCallConfig() *WorkflowCall {
 	if w.RawOn.Kind != yaml.MappingNode {
 		return nil

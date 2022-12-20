@@ -15,6 +15,7 @@ type EvaluationEnvironment struct {
 	Github   *model.GithubContext
 	Env      map[string]string
 	Job      *model.JobContext
+	Jobs     *map[string]*model.WorkflowCallResult
 	Steps    map[string]*model.StepResult
 	Runner   map[string]interface{}
 	Secrets  map[string]string
@@ -155,6 +156,11 @@ func (impl *interperterImpl) evaluateVariable(variableNode *actionlint.VariableN
 		return impl.env.Env, nil
 	case "job":
 		return impl.env.Job, nil
+	case "jobs":
+		if impl.env.Jobs == nil {
+			return nil, fmt.Errorf("Unavailable context: jobs")
+		}
+		return impl.env.Jobs, nil
 	case "steps":
 		return impl.env.Steps, nil
 	case "runner":

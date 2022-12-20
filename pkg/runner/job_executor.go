@@ -150,8 +150,9 @@ func setJobOutputs(ctx context.Context, rc *RunContext) {
 		callerOutputs := make(map[string]string)
 
 		ee := rc.NewExpressionEvaluator(ctx)
-		for k, v := range rc.Run.Job().Outputs {
-			callerOutputs[k] = ee.Interpolate(ctx, v)
+
+		for k, v := range rc.Run.Workflow.WorkflowCallConfig().Outputs {
+			callerOutputs[k] = ee.Interpolate(ctx, ee.Interpolate(ctx, v.Value))
 		}
 
 		rc.caller.runContext.Run.Job().Outputs = callerOutputs

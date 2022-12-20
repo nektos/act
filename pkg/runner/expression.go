@@ -25,6 +25,8 @@ func (rc *RunContext) NewExpressionEvaluator(ctx context.Context) ExpressionEval
 }
 
 func (rc *RunContext) NewExpressionEvaluatorWithEnv(ctx context.Context, env map[string]string) ExpressionEvaluator {
+	var workflowCallResult map[string]*model.WorkflowCallResult
+
 	// todo: cleanup EvaluationEnvironment creation
 	using := make(map[string]exprparser.Needs)
 	strategy := make(map[string]interface{})
@@ -44,6 +46,23 @@ func (rc *RunContext) NewExpressionEvaluatorWithEnv(ctx context.Context, env map
 				Result:  jobs[needs].Result,
 			}
 		}
+
+		// only setup jobs context in case of workflow_call
+		// and existing expression evaluator (this means, jobs are at
+		// least ready to run)
+		if rc.caller != nil && rc.ExprEval != nil {
+			workflowCallResult = map[string]*model.WorkflowCallResult{}
+
+			for jobName, job := range jobs {
+				result := model.WorkflowCallResult{
+					Outputs: map[string]string{},
+				}
+				for k, v := range job.Outputs {
+					result.Outputs[k] = rc.ExprEval.Interpolate(ctx, v)
+				}
+				workflowCallResult[jobName] = &result
+			}
+		}
 	}
 
 	ghc := rc.getGithubContext(ctx)
@@ -53,6 +72,7 @@ func (rc *RunContext) NewExpressionEvaluatorWithEnv(ctx context.Context, env map
 		Github: ghc,
 		Env:    env,
 		Job:    rc.getJobContext(),
+		Jobs:   &workflowCallResult,
 		// todo: should be unavailable
 		// but required to interpolate/evaluate the step outputs on the job
 		Steps:    rc.getStepsContext(),
