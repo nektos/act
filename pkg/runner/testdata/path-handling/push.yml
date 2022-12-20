@@ -6,9 +6,10 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - uses: actions/setup-node@v3
-        with:
-          node-version: 18
+     - name: "Append to $GITHUB_PATH"
+        run: |
+          echo "/opt/hostedtoolcache/node/18.99/x64/bin" >> $GITHUB_PATH
+ 
       - name: test path (after setup)
         run: |
           if ! echo "$PATH" |grep "/opt/hostedtoolcache/node/18.*/\(x64\|arm64\)/bin" ; then
