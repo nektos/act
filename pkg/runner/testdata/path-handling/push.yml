@@ -1,0 +1,38 @@
+name: path tests
+on: push
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 18
+      - name: test path (after setup)
+        run: |
+          if ! echo "$PATH" |grep "/opt/hostedtoolcache/node/18.*/x64/bin" ; then
+            echo "Node binaries not in path"
+            exit 1
+          fi
+
+      - id: action-with-output
+        uses: ./path-handling/
+
+      - name: test path (after local action)
+        run: |
+          if ! echo "$PATH" |grep "/opt/hostedtoolcache/node/18.*/x64/bin" ; then
+            echo "Node binaries not in path"
+            exit 1
+          fi
+
+      - uses: nektos/act-test-actions/composite@main
+        with:
+          input: some input
+
+      - name: test path (after remote action)
+        run: |
+          if ! echo "$PATH" |grep "/opt/hostedtoolcache/node/18.*/x64/bin" ; then
+            echo "Node binaries not in path: $PATH"
+            exit 1
+          fi
