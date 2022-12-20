@@ -6,8 +6,8 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-     - name: "Append to $GITHUB_PATH"
-       run: |
+      - name: "Append to $GITHUB_PATH"
+        run: |
           echo "/opt/hostedtoolcache/node/18.99/x64/bin" >> $GITHUB_PATH
  
       - name: test path (after setup)
