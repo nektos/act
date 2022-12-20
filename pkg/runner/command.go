@@ -66,6 +66,8 @@ func (rc *RunContext) commandHandler(ctx context.Context) common.LineHandler {
 		case "save-state":
 			logger.Infof("  \U0001f4be  %s", line)
 			rc.saveState(ctx, kvPairs, arg)
+		case "add-matcher":
+			logger.Infof("  \U00002753 add-matcher %s", arg)
 		default:
 			logger.Infof("  \U00002753  %s", line)
 		}
