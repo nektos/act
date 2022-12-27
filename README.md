@@ -374,6 +374,8 @@ act pull_request -e pull-request.json
 
 Act will properly provide `github.head_ref` and `github.base_ref` to the action as expected.
 
+**Note**: act does not override `GITHUB_REF` based-on the values in an event file. Rather, it falls-back on the real local branch.
+
 ## Pass Inputs to Manually Triggered Workflows
 
 Example workflow file
