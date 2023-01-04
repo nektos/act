@@ -64,7 +64,7 @@ func TestAddpath(t *testing.T) {
 	a.Equal("/zoo", rc.ExtraPath[0])
 
 	handler("::add-path::/boo\n")
-	a.Equal("/boo", rc.ExtraPath[1])
+	a.Equal("/boo", rc.ExtraPath[0])
 }
 
 func TestStopCommands(t *testing.T) {
@@ -102,7 +102,7 @@ func TestAddpathADO(t *testing.T) {
 	a.Equal("/zoo", rc.ExtraPath[0])
 
 	handler("##[add-path]/boo\n")
-	a.Equal("/boo", rc.ExtraPath[1])
+	a.Equal("/boo", rc.ExtraPath[0])
 }
 
 func TestAddmask(t *testing.T) {
@@ -177,11 +177,7 @@ func TestAddmaskUsemask(t *testing.T) {
 func TestSaveState(t *testing.T) {
 	rc := &RunContext{
 		CurrentStep: "step",
-		StepResults: map[string]*model.StepResult{
-			"step": {
-				State: map[string]string{},
-			},
-		},
+		StepResults: map[string]*model.StepResult{},
 	}
 
 	ctx := context.Background()
@@ -189,5 +185,5 @@ func TestSaveState(t *testing.T) {
 	handler := rc.commandHandler(ctx)
 	handler("::save-state name=state-name::state-value\n")
 
-	assert.Equal(t, "state-value", rc.StepResults["step"].State["state-name"])
+	assert.Equal(t, "state-value", rc.IntraActionState["step"]["state-name"])
 }

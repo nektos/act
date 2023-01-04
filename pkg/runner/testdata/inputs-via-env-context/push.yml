@@ -1,0 +1,15 @@
+on: push
+jobs:
+  test-inputs-via-env-context:
+    runs-on: self-hosted
+    steps:
+    - uses: actions/checkout@v3
+    - uses: ./inputs-via-env-context
+      with:
+        test-env-input: ${{ env.test-env-input }}
+      env:
+        test-env-input: ${{ github.event_name }}/${{ github.run_id }}
+    - run: |
+        exit ${{ env.test-env-input == format('{0}/{1}', github.event_name, github.run_id) && '0' || '1' }}
+      env:
+        test-env-input: ${{ github.event_name }}/${{ github.run_id }}

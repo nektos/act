@@ -44,18 +44,6 @@ func (s stepStage) String() string {
 	return "Unknown"
 }
 
-func (s stepStage) getStepName(stepModel *model.Step) string {
-	switch s {
-	case stepStagePre:
-		return fmt.Sprintf("pre-%s", stepModel.ID)
-	case stepStageMain:
-		return stepModel.ID
-	case stepStagePost:
-		return fmt.Sprintf("post-%s", stepModel.ID)
-	}
-	return "unknown"
-}
-
 func runStepExecutor(step step, stage stepStage, executor common.Executor) common.Executor {
 	return func(ctx context.Context) error {
 		logger := common.Logger(ctx)
@@ -63,12 +51,15 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 		stepModel := step.getStepModel()
 
 		ifExpression := step.getIfExpression(ctx, stage)
-		rc.CurrentStep = stage.getStepName(stepModel)
+		rc.CurrentStep = stepModel.ID
 
-		rc.StepResults[rc.CurrentStep] = &model.StepResult{
+		stepResult := &model.StepResult{
 			Outcome:    model.StepStatusSuccess,
 			Conclusion: model.StepStatusSuccess,
 			Outputs:    make(map[string]string),
+		}
+		if stage == stepStageMain {
+			rc.StepResults[rc.CurrentStep] = stepResult
 		}
 
 		err := setupEnv(ctx, step)
@@ -78,15 +69,15 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 
 		runStep, err := isStepEnabled(ctx, ifExpression, step, stage)
 		if err != nil {
-			rc.StepResults[rc.CurrentStep].Conclusion = model.StepStatusFailure
-			rc.StepResults[rc.CurrentStep].Outcome = model.StepStatusFailure
+			stepResult.Conclusion = model.StepStatusFailure
+			stepResult.Outcome = model.StepStatusFailure
 			return err
 		}
 
 		if !runStep {
-			rc.StepResults[rc.CurrentStep].Conclusion = model.StepStatusSkipped
-			rc.StepResults[rc.CurrentStep].Outcome = model.StepStatusSkipped
-			logger.WithField("stepResult", rc.StepResults[rc.CurrentStep].Outcome).Debugf("Skipping step '%s' due to '%s'", stepModel, ifExpression)
+			stepResult.Conclusion = model.StepStatusSkipped
+			stepResult.Outcome = model.StepStatusSkipped
+			logger.WithField("stepResult", stepResult.Outcome).Debugf("Skipping step '%s' due to '%s'", stepModel, ifExpression)
 			return nil
 		}
 
@@ -100,38 +91,43 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 		actPath := rc.JobContainer.GetActPath()
 		outputFileCommand := path.Join("workflow", "outputcmd.txt")
 		stateFileCommand := path.Join("workflow", "statecmd.txt")
+		pathFileCommand := path.Join("workflow", "pathcmd.txt")
 		(*step.getEnv())["GITHUB_OUTPUT"] = path.Join(actPath, outputFileCommand)
 		(*step.getEnv())["GITHUB_STATE"] = path.Join(actPath, stateFileCommand)
+		(*step.getEnv())["GITHUB_PATH"] = path.Join(actPath, pathFileCommand)
 		_ = rc.JobContainer.Copy(actPath, &container.FileEntry{
 			Name: outputFileCommand,
 			Mode: 0666,
 		}, &container.FileEntry{
 			Name: stateFileCommand,
 			Mode: 0666,
+		}, &container.FileEntry{
+			Name: pathFileCommand,
+			Mode: 0666,
 		})(ctx)
 
 		err = executor(ctx)
 
 		if err == nil {
-			logger.WithField("stepResult", rc.StepResults[rc.CurrentStep].Outcome).Infof("  \u2705  Success - %s %s", stage, stepString)
+			logger.WithField("stepResult", stepResult.Outcome).Infof("  \u2705  Success - %s %s", stage, stepString)
 		} else {
-			rc.StepResults[rc.CurrentStep].Outcome = model.StepStatusFailure
+			stepResult.Outcome = model.StepStatusFailure
 
 			continueOnError, parseErr := isContinueOnError(ctx, stepModel.RawContinueOnError, step, stage)
 			if parseErr != nil {
-				rc.StepResults[rc.CurrentStep].Conclusion = model.StepStatusFailure
+				stepResult.Conclusion = model.StepStatusFailure
 				return parseErr
 			}
 
 			if continueOnError {
 				logger.Infof("Failed but continue next step")
 				err = nil
-				rc.StepResults[rc.CurrentStep].Conclusion = model.StepStatusSuccess
+				stepResult.Conclusion = model.StepStatusSuccess
 			} else {
-				rc.StepResults[rc.CurrentStep].Conclusion = model.StepStatusFailure
+				stepResult.Conclusion = model.StepStatusFailure
 			}
 
-			logger.WithField("stepResult", rc.StepResults[rc.CurrentStep].Outcome).Errorf("  \u274C  Failure - %s %s", stage, stepString)
+			logger.WithField("stepResult", stepResult.Outcome).Errorf("  \u274C  Failure - %s %s", stage, stepString)
 		}
 		// Process Runner File Commands
 		orgerr := err
@@ -150,6 +146,10 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 		}
 		for k, v := range output {
 			rc.setOutput(ctx, map[string]string{"name": k}, v)
+		}
+		err = rc.UpdateExtraPath(ctx, path.Join(actPath, pathFileCommand))
+		if err != nil {
+			return err
 		}
 		if orgerr != nil {
 			return orgerr
@@ -170,16 +170,22 @@ func setupEnv(ctx context.Context, step step) error {
 	if err != nil {
 		return err
 	}
-	err = rc.JobContainer.UpdateFromPath(step.getEnv())(ctx)
-	if err != nil {
-		return err
-	}
 	// merge step env last, since it should not be overwritten
 	mergeIntoMap(step.getEnv(), step.getStepModel().GetEnv())
 
 	exprEval := rc.NewExpressionEvaluator(ctx)
 	for k, v := range *step.getEnv() {
-		(*step.getEnv())[k] = exprEval.Interpolate(ctx, v)
+		if !strings.HasPrefix(k, "INPUT_") {
+			(*step.getEnv())[k] = exprEval.Interpolate(ctx, v)
+		}
+	}
+	// after we have an evaluated step context, update the expressions evaluator with a new env context
+	// you can use step level env in the with property of a uses construct
+	exprEval = rc.NewExpressionEvaluatorWithEnv(ctx, *step.getEnv())
+	for k, v := range *step.getEnv() {
+		if strings.HasPrefix(k, "INPUT_") {
+			(*step.getEnv())[k] = exprEval.Interpolate(ctx, v)
+		}
 	}
 
 	common.Logger(ctx).Debugf("setupEnv => %v", *step.getEnv())
@@ -197,14 +203,6 @@ func mergeEnv(ctx context.Context, step step) {
 		mergeIntoMap(env, rc.GetEnv(), c.Env)
 	} else {
 		mergeIntoMap(env, rc.GetEnv())
-	}
-
-	path := rc.JobContainer.GetPathVariableName()
-	if (*env)[path] == "" {
-		(*env)[path] = rc.JobContainer.DefaultPathVariable()
-	}
-	if rc.ExtraPath != nil && len(rc.ExtraPath) > 0 {
-		(*env)[path] = rc.JobContainer.JoinPathVariable(append(rc.ExtraPath, (*env)[path])...)
 	}
 
 	rc.withGithubEnv(ctx, step.getGithubContext(ctx), *env)

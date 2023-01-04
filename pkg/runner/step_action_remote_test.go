@@ -1,8 +1,10 @@
 package runner
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"io"
 	"strings"
 	"testing"
 
@@ -166,7 +168,6 @@ func TestStepActionRemote(t *testing.T) {
 			if tt.mocks.env {
 				cm.On("UpdateFromImageEnv", &sar.env).Return(func(ctx context.Context) error { return nil })
 				cm.On("UpdateFromEnv", "/var/run/act/workflow/envs.txt", &sar.env).Return(func(ctx context.Context) error { return nil })
-				cm.On("UpdateFromPath", &sar.env).Return(func(ctx context.Context) error { return nil })
 			}
 			if tt.mocks.read {
 				sarm.On("readAction", sar.Step, suffixMatcher("act/remote-action@v1"), "", mock.Anything, mock.Anything).Return(&model.Action{}, nil)
@@ -185,6 +186,8 @@ func TestStepActionRemote(t *testing.T) {
 				cm.On("UpdateFromEnv", "/var/run/act/workflow/outputcmd.txt", mock.AnythingOfType("*map[string]string")).Return(func(ctx context.Context) error {
 					return nil
 				})
+
+				cm.On("GetContainerArchive", ctx, "/var/run/act/workflow/pathcmd.txt").Return(io.NopCloser(&bytes.Buffer{}), nil)
 			}
 
 			err := sar.pre()(ctx)
@@ -412,14 +415,14 @@ func TestStepActionRemotePreThroughActionToken(t *testing.T) {
 
 func TestStepActionRemotePost(t *testing.T) {
 	table := []struct {
-		name                   string
-		stepModel              *model.Step
-		actionModel            *model.Action
-		initialStepResults     map[string]*model.StepResult
-		expectedEnv            map[string]string
-		expectedPostStepResult *model.StepResult
-		err                    error
-		mocks                  struct {
+		name               string
+		stepModel          *model.Step
+		actionModel        *model.Action
+		initialStepResults map[string]*model.StepResult
+		IntraActionState   map[string]map[string]string
+		expectedEnv        map[string]string
+		err                error
+		mocks              struct {
 			env  bool
 			exec bool
 		}
@@ -442,18 +445,15 @@ func TestStepActionRemotePost(t *testing.T) {
 					Conclusion: model.StepStatusSuccess,
 					Outcome:    model.StepStatusSuccess,
 					Outputs:    map[string]string{},
-					State: map[string]string{
-						"key": "value",
-					},
+				},
+			},
+			IntraActionState: map[string]map[string]string{
+				"step": {
+					"key": "value",
 				},
 			},
 			expectedEnv: map[string]string{
 				"STATE_key": "value",
-			},
-			expectedPostStepResult: &model.StepResult{
-				Conclusion: model.StepStatusSuccess,
-				Outcome:    model.StepStatusSuccess,
-				Outputs:    map[string]string{},
 			},
 			mocks: struct {
 				env  bool
@@ -483,11 +483,6 @@ func TestStepActionRemotePost(t *testing.T) {
 					Outputs:    map[string]string{},
 				},
 			},
-			expectedPostStepResult: &model.StepResult{
-				Conclusion: model.StepStatusSuccess,
-				Outcome:    model.StepStatusSuccess,
-				Outputs:    map[string]string{},
-			},
 			mocks: struct {
 				env  bool
 				exec bool
@@ -515,11 +510,6 @@ func TestStepActionRemotePost(t *testing.T) {
 					Outcome:    model.StepStatusFailure,
 					Outputs:    map[string]string{},
 				},
-			},
-			expectedPostStepResult: &model.StepResult{
-				Conclusion: model.StepStatusSkipped,
-				Outcome:    model.StepStatusSkipped,
-				Outputs:    map[string]string{},
 			},
 			mocks: struct {
 				env  bool
@@ -550,7 +540,6 @@ func TestStepActionRemotePost(t *testing.T) {
 					Outputs:    map[string]string{},
 				},
 			},
-			expectedPostStepResult: nil,
 			mocks: struct {
 				env  bool
 				exec bool
@@ -582,7 +571,8 @@ func TestStepActionRemotePost(t *testing.T) {
 							},
 						},
 					},
-					StepResults: tt.initialStepResults,
+					StepResults:      tt.initialStepResults,
+					IntraActionState: tt.IntraActionState,
 				},
 				Step:   tt.stepModel,
 				action: tt.actionModel,
@@ -592,7 +582,6 @@ func TestStepActionRemotePost(t *testing.T) {
 			if tt.mocks.env {
 				cm.On("UpdateFromImageEnv", &sar.env).Return(func(ctx context.Context) error { return nil })
 				cm.On("UpdateFromEnv", "/var/run/act/workflow/envs.txt", &sar.env).Return(func(ctx context.Context) error { return nil })
-				cm.On("UpdateFromPath", &sar.env).Return(func(ctx context.Context) error { return nil })
 			}
 			if tt.mocks.exec {
 				cm.On("Exec", []string{"node", "/var/run/act/actions/remote-action@v1/post.js"}, sar.env, "", "").Return(func(ctx context.Context) error { return tt.err })
@@ -608,6 +597,8 @@ func TestStepActionRemotePost(t *testing.T) {
 				cm.On("UpdateFromEnv", "/var/run/act/workflow/outputcmd.txt", mock.AnythingOfType("*map[string]string")).Return(func(ctx context.Context) error {
 					return nil
 				})
+
+				cm.On("GetContainerArchive", ctx, "/var/run/act/workflow/pathcmd.txt").Return(io.NopCloser(&bytes.Buffer{}), nil)
 			}
 
 			err := sar.post()(ctx)
@@ -618,7 +609,8 @@ func TestStepActionRemotePost(t *testing.T) {
 					assert.Equal(t, value, sar.env[key])
 				}
 			}
-			assert.Equal(t, tt.expectedPostStepResult, sar.RunContext.StepResults["post-step"])
+			// Enshure that StepResults is nil in this test
+			assert.Equal(t, sar.RunContext.StepResults["post-step"], (*model.StepResult)(nil))
 			cm.AssertExpectations(t)
 		})
 	}

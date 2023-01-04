@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"time"
 
 	log "github.com/sirupsen/logrus"
 
@@ -40,6 +39,7 @@ type Config struct {
 	UsernsMode                         string            // user namespace to use
 	ContainerArchitecture              string            // Desired OS/architecture platform for running containers
 	ContainerDaemonSocket              string            // Path to Docker daemon socket
+	ContainerOptions                   string            // Options for the job container
 	UseGitIgnore                       bool              // controls if paths in .gitignore should not be copied into container, default true
 	GitHubInstance                     string            // GitHub instance to use, default "github.com"
 	ContainerCapAdd                    []string          // list of kernel capabilities to add to the containers
@@ -53,9 +53,14 @@ type Config struct {
 	ReplaceGheActionTokenWithGithubCom string            // Token of private action repo on GitHub.
 }
 
+type caller struct {
+	runContext *RunContext
+}
+
 type runnerImpl struct {
 	config    *Config
 	eventJSON string
+	caller    *caller // the job calling this runner (caller of a reusable workflow)
 }
 
 // New Creates a new Runner
@@ -64,8 +69,12 @@ func New(runnerConfig *Config) (Runner, error) {
 		config: runnerConfig,
 	}
 
+	return runner.configure()
+}
+
+func (runner *runnerImpl) configure() (Runner, error) {
 	runner.eventJSON = "{}"
-	if runnerConfig.EventPath != "" {
+	if runner.config.EventPath != "" {
 		log.Debugf("Reading event.json from %s", runner.config.EventPath)
 		eventJSONBytes, err := os.ReadFile(runner.config.EventPath)
 		if err != nil {
@@ -77,24 +86,17 @@ func New(runnerConfig *Config) (Runner, error) {
 }
 
 // NewPlanExecutor ...
-//
-//nolint:gocyclo
 func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 	maxJobNameLen := 0
 
 	stagePipeline := make([]common.Executor, 0)
 	for i := range plan.Stages {
-		s := i
 		stage := plan.Stages[i]
 		stagePipeline = append(stagePipeline, func(ctx context.Context) error {
 			pipeline := make([]common.Executor, 0)
-			for r, run := range stage.Runs {
+			for _, run := range stage.Runs {
 				stageExecutor := make([]common.Executor, 0)
 				job := run.Job()
-
-				if job.Uses != "" {
-					return fmt.Errorf("reusable workflows are currently not supported (see https://github.com/nektos/act/issues/826 for updates)")
-				}
 
 				if job.Strategy != nil {
 					strategyRc := runner.newRunContext(ctx, run, nil)
@@ -123,29 +125,8 @@ func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 						maxJobNameLen = len(rc.String())
 					}
 					stageExecutor = append(stageExecutor, func(ctx context.Context) error {
-						logger := common.Logger(ctx)
 						jobName := fmt.Sprintf("%-*s", maxJobNameLen, rc.String())
-						return rc.Executor().Finally(func(ctx context.Context) error {
-							isLastRunningContainer := func(currentStage int, currentRun int) bool {
-								return currentStage == len(plan.Stages)-1 && currentRun == len(stage.Runs)-1
-							}
-
-							if runner.config.AutoRemove && isLastRunningContainer(s, r) {
-								var cancel context.CancelFunc
-								if ctx.Err() == context.Canceled {
-									ctx, cancel = context.WithTimeout(context.Background(), 5*time.Minute)
-									defer cancel()
-								}
-
-								log.Infof("Cleaning up container for job %s", rc.JobName)
-
-								if err := rc.stopJobContainer()(ctx); err != nil {
-									logger.Errorf("Error while cleaning container: %v", err)
-								}
-							}
-
-							return nil
-						})(common.WithJobErrorContainer(WithJobLogger(ctx, rc.Run.JobID, jobName, rc.Config, &rc.Masks, matrix)))
+						return rc.Executor()(common.WithJobErrorContainer(WithJobLogger(ctx, rc.Run.JobID, jobName, rc.Config, &rc.Masks, matrix)))
 					})
 				}
 				pipeline = append(pipeline, common.NewParallelExecutor(maxParallel, stageExecutor...))
@@ -185,8 +166,10 @@ func (runner *runnerImpl) newRunContext(ctx context.Context, run *model.Run, mat
 		EventJSON:   runner.eventJSON,
 		StepResults: make(map[string]*model.StepResult),
 		Matrix:      matrix,
+		caller:      runner.caller,
 	}
 	rc.ExprEval = rc.NewExpressionEvaluator(ctx)
 	rc.Name = rc.ExprEval.Interpolate(ctx, run.String())
+
 	return rc
 }

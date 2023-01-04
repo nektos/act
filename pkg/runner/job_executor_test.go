@@ -15,15 +15,15 @@ import (
 
 func TestJobExecutor(t *testing.T) {
 	tables := []TestJobFileInfo{
-		{workdir, "uses-and-run-in-one-step", "push", "Invalid run/uses syntax for job:test step:Test", platforms},
-		{workdir, "uses-github-empty", "push", "Expected format {org}/{repo}[/path]@ref", platforms},
-		{workdir, "uses-github-noref", "push", "Expected format {org}/{repo}[/path]@ref", platforms},
-		{workdir, "uses-github-root", "push", "", platforms},
-		{workdir, "uses-github-path", "push", "", platforms},
-		{workdir, "uses-docker-url", "push", "", platforms},
-		{workdir, "uses-github-full-sha", "push", "", platforms},
-		{workdir, "uses-github-short-sha", "push", "Unable to resolve action `actions/hello-world-docker-action@b136eb8`, the provided ref `b136eb8` is the shortened version of a commit SHA, which is not supported. Please use the full commit SHA `b136eb8894c5cb1dd5807da824be97ccdf9b5423` instead", platforms},
-		{workdir, "job-nil-step", "push", "invalid Step 0: missing run or uses key", platforms},
+		{workdir, "uses-and-run-in-one-step", "push", "Invalid run/uses syntax for job:test step:Test", platforms, secrets},
+		{workdir, "uses-github-empty", "push", "Expected format {org}/{repo}[/path]@ref", platforms, secrets},
+		{workdir, "uses-github-noref", "push", "Expected format {org}/{repo}[/path]@ref", platforms, secrets},
+		{workdir, "uses-github-root", "push", "", platforms, secrets},
+		{workdir, "uses-github-path", "push", "", platforms, secrets},
+		{workdir, "uses-docker-url", "push", "", platforms, secrets},
+		{workdir, "uses-github-full-sha", "push", "", platforms, secrets},
+		{workdir, "uses-github-short-sha", "push", "Unable to resolve action `actions/hello-world-docker-action@b136eb8`, the provided ref `b136eb8` is the shortened version of a commit SHA, which is not supported. Please use the full commit SHA `b136eb8894c5cb1dd5807da824be97ccdf9b5423` instead", platforms, secrets},
+		{workdir, "job-nil-step", "push", "invalid Step 0: missing run or uses key", platforms, secrets},
 	}
 	// These tests are sufficient to only check syntax.
 	ctx := common.WithDryrun(context.Background(), true)

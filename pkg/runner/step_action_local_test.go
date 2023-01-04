@@ -1,7 +1,9 @@
 package runner
 
 import (
+	"bytes"
 	"context"
+	"io"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -75,10 +77,6 @@ func TestStepActionLocalTest(t *testing.T) {
 		return nil
 	})
 
-	cm.On("UpdateFromPath", mock.AnythingOfType("*map[string]string")).Return(func(ctx context.Context) error {
-		return nil
-	})
-
 	cm.On("Copy", "/var/run/act", mock.AnythingOfType("[]*container.FileEntry")).Return(func(ctx context.Context) error {
 		return nil
 	})
@@ -90,6 +88,8 @@ func TestStepActionLocalTest(t *testing.T) {
 	cm.On("UpdateFromEnv", "/var/run/act/workflow/outputcmd.txt", mock.AnythingOfType("*map[string]string")).Return(func(ctx context.Context) error {
 		return nil
 	})
+
+	cm.On("GetContainerArchive", ctx, "/var/run/act/workflow/pathcmd.txt").Return(io.NopCloser(&bytes.Buffer{}), nil)
 
 	salm.On("runAction", sal, filepath.Clean("/tmp/path/to/action"), (*remoteAction)(nil)).Return(func(ctx context.Context) error {
 		return nil
@@ -107,13 +107,12 @@ func TestStepActionLocalTest(t *testing.T) {
 
 func TestStepActionLocalPost(t *testing.T) {
 	table := []struct {
-		name                   string
-		stepModel              *model.Step
-		actionModel            *model.Action
-		initialStepResults     map[string]*model.StepResult
-		expectedPostStepResult *model.StepResult
-		err                    error
-		mocks                  struct {
+		name               string
+		stepModel          *model.Step
+		actionModel        *model.Action
+		initialStepResults map[string]*model.StepResult
+		err                error
+		mocks              struct {
 			env  bool
 			exec bool
 		}
@@ -137,11 +136,6 @@ func TestStepActionLocalPost(t *testing.T) {
 					Outcome:    model.StepStatusSuccess,
 					Outputs:    map[string]string{},
 				},
-			},
-			expectedPostStepResult: &model.StepResult{
-				Conclusion: model.StepStatusSuccess,
-				Outcome:    model.StepStatusSuccess,
-				Outputs:    map[string]string{},
 			},
 			mocks: struct {
 				env  bool
@@ -171,11 +165,6 @@ func TestStepActionLocalPost(t *testing.T) {
 					Outputs:    map[string]string{},
 				},
 			},
-			expectedPostStepResult: &model.StepResult{
-				Conclusion: model.StepStatusSuccess,
-				Outcome:    model.StepStatusSuccess,
-				Outputs:    map[string]string{},
-			},
 			mocks: struct {
 				env  bool
 				exec bool
@@ -203,11 +192,6 @@ func TestStepActionLocalPost(t *testing.T) {
 					Outcome:    model.StepStatusFailure,
 					Outputs:    map[string]string{},
 				},
-			},
-			expectedPostStepResult: &model.StepResult{
-				Conclusion: model.StepStatusSkipped,
-				Outcome:    model.StepStatusSkipped,
-				Outputs:    map[string]string{},
 			},
 			mocks: struct {
 				env  bool
@@ -238,7 +222,6 @@ func TestStepActionLocalPost(t *testing.T) {
 					Outputs:    map[string]string{},
 				},
 			},
-			expectedPostStepResult: nil,
 			mocks: struct {
 				env  bool
 				exec bool
@@ -280,7 +263,6 @@ func TestStepActionLocalPost(t *testing.T) {
 			if tt.mocks.env {
 				cm.On("UpdateFromImageEnv", &sal.env).Return(func(ctx context.Context) error { return nil })
 				cm.On("UpdateFromEnv", "/var/run/act/workflow/envs.txt", &sal.env).Return(func(ctx context.Context) error { return nil })
-				cm.On("UpdateFromPath", &sal.env).Return(func(ctx context.Context) error { return nil })
 			}
 			if tt.mocks.exec {
 				suffixMatcher := func(suffix string) interface{} {
@@ -301,12 +283,14 @@ func TestStepActionLocalPost(t *testing.T) {
 				cm.On("UpdateFromEnv", "/var/run/act/workflow/outputcmd.txt", mock.AnythingOfType("*map[string]string")).Return(func(ctx context.Context) error {
 					return nil
 				})
+
+				cm.On("GetContainerArchive", ctx, "/var/run/act/workflow/pathcmd.txt").Return(io.NopCloser(&bytes.Buffer{}), nil)
 			}
 
 			err := sal.post()(ctx)
 
 			assert.Equal(t, tt.err, err)
-			assert.Equal(t, tt.expectedPostStepResult, sal.RunContext.StepResults["post-step"])
+			assert.Equal(t, sal.RunContext.StepResults["post-step"], (*model.StepResult)(nil))
 			cm.AssertExpectations(t)
 		})
 	}
