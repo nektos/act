@@ -115,7 +115,7 @@ nix run nixpkgs#act
 Run this command in your terminal:
 
 ```shell
-curl https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash
+curl -s https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash
 ```
 
 ### Manual download
