@@ -167,12 +167,12 @@ type Strategy struct {
 	RawMatrix         yaml.Node `yaml:"matrix"`
 }
 
-// Default settings that will apply to all steps in the job or workflow
+// Defaults has default settings that will apply to all steps in the job or workflow
 type Defaults struct {
 	Run RunDefaults `yaml:"run"`
 }
 
-// Defaults for all run steps in the job or workflow
+// RunDefaults has defaults for all run steps in the job or workflow
 type RunDefaults struct {
 	Shell            string `yaml:"shell"`
 	WorkingDirectory string `yaml:"working-directory"`
@@ -309,7 +309,7 @@ func environment(yml yaml.Node) map[string]string {
 	return env
 }
 
-// Environments returns string-based key=value map for a job
+// Environment returns string-based key=value map for a job
 func (j *Job) Environment() map[string]string {
 	return environment(j.Env)
 }
@@ -452,10 +452,10 @@ func commonKeysMatch2(a map[string]interface{}, b map[string]interface{}, m map[
 type JobType int
 
 const (
-	// StepTypeRun is all steps that have a `run` attribute
+	// JobTypeDefault is all steps that have a `run` attribute
 	JobTypeDefault JobType = iota
 
-	// StepTypeReusableWorkflowLocal is all steps that have a `uses` that is a local workflow in the .github/workflows directory
+	// JobTypeReusableWorkflowLocal is all steps that have a `uses` that is a local workflow in the .github/workflows directory
 	JobTypeReusableWorkflowLocal
 
 	// JobTypeReusableWorkflowRemote is all steps that have a `uses` that references a workflow file in a github repo
@@ -525,7 +525,7 @@ func (s *Step) String() string {
 	return s.ID
 }
 
-// Environments returns string-based key=value map for a step
+// Environment returns string-based key=value map for a step
 func (s *Step) Environment() map[string]string {
 	return environment(s.Env)
 }
@@ -546,7 +546,7 @@ func (s *Step) GetEnv() map[string]string {
 func (s *Step) ShellCommand() string {
 	shellCommand := ""
 
-	//Reference: https://github.com/actions/runner/blob/8109c962f09d9acc473d92c595ff43afceddb347/src/Runner.Worker/Handlers/ScriptHandlerHelpers.cs#L9-L17
+	// Reference: https://github.com/actions/runner/blob/8109c962f09d9acc473d92c595ff43afceddb347/src/Runner.Worker/Handlers/ScriptHandlerHelpers.cs#L9-L17
 	switch s.Shell {
 	case "", "bash":
 		shellCommand = "bash --noprofile --norc -e -o pipefail {0}"

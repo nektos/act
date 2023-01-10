@@ -330,7 +330,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 		var filterPlan *model.Plan
 
 		// Determine the event name to be filtered
-		var filterEventName string = ""
+		var filterEventName string
 
 		if len(args) > 0 {
 			log.Debugf("Using first passed in arguments event for filtering: %s", args[0])

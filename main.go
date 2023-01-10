@@ -12,8 +12,7 @@ import (
 var version = "v0.2.27-dev" // Manually bump after tagging next release
 
 func main() {
-	ctx := context.Background()
-	ctx, cancel := context.WithCancel(ctx)
+	ctx, cancel := context.WithCancel(context.Background())
 
 	// trap Ctrl+C and call cancel on the context
 	c := make(chan os.Signal, 1)

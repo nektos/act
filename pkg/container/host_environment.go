@@ -5,6 +5,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -14,8 +15,6 @@ import (
 	"runtime"
 	"strings"
 	"time"
-
-	"errors"
 
 	"github.com/go-git/go-billy/v5/helper/polyfill"
 	"github.com/go-git/go-billy/v5/osfs"
@@ -395,7 +394,8 @@ func (e *HostEnvironment) GetActPath() string {
 func (*HostEnvironment) GetPathVariableName() string {
 	if runtime.GOOS == "plan9" {
 		return "path"
-	} else if runtime.GOOS == "windows" {
+	}
+	if runtime.GOOS == "windows" {
 		return "Path" // Actually we need a case insensitive map
 	}
 	return "PATH"

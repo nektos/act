@@ -26,7 +26,7 @@ func findExecutable(file string) error {
 	return fs.ErrPermission
 }
 
-// LookPath searches for an executable named file in the
+// LookPath2 searches for an executable named file in the
 // directories named by the path environment variable.
 // If file begins with "/", "#", "./", or "../", it is tried
 // directly and the path is not consulted.

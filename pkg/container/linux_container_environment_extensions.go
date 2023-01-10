@@ -13,7 +13,7 @@ import (
 type LinuxContainerEnvironmentExtensions struct {
 }
 
-// Resolves the equivalent host path inside the container
+// ToContainerPath resolves the equivalent host path inside the container
 // This is required for windows and WSL 2 to translate things like C:\Users\Myproject to /mnt/users/Myproject
 // For use in docker volumes and binds
 func (*LinuxContainerEnvironmentExtensions) ToContainerPath(path string) string {

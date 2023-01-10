@@ -36,7 +36,7 @@ func (a *ActionRunsUsing) UnmarshalYAML(unmarshal func(interface{}) error) error
 const (
 	// ActionRunsUsingNode12 for running with node12
 	ActionRunsUsingNode12 = "node12"
-	// ActionRunsUsingNode12 for running with node16
+	// ActionRunsUsingNode16 for running with node16
 	ActionRunsUsingNode16 = "node16"
 	// ActionRunsUsingDocker for running with docker
 	ActionRunsUsingDocker = "docker"

@@ -41,7 +41,7 @@ type masksContextKey string
 
 const masksContextKeyVal = masksContextKey("logrus.FieldLogger")
 
-// Logger returns the appropriate logger for current context
+// Masks returns the appropriate logger for current context
 func Masks(ctx context.Context) *[]string {
 	val := ctx.Value(masksContextKeyVal)
 	if val != nil {
@@ -52,7 +52,7 @@ func Masks(ctx context.Context) *[]string {
 	return &[]string{}
 }
 
-// WithLogger adds a value to the context for the logger
+// WithMasks adds a value to the context for the logger
 func WithMasks(ctx context.Context, masks *[]string) context.Context {
 	return context.WithValue(ctx, masksContextKeyVal, masks)
 }

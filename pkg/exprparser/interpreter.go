@@ -63,19 +63,19 @@ type Interpreter interface {
 	Evaluate(input string, defaultStatusCheck DefaultStatusCheck) (interface{}, error)
 }
 
-type interperterImpl struct {
+type interpreterImpl struct {
 	env    *EvaluationEnvironment
 	config Config
 }
 
-func NewInterpeter(env *EvaluationEnvironment, config Config) Interpreter {
-	return &interperterImpl{
+func NewInterpreter(env *EvaluationEnvironment, config Config) Interpreter {
+	return &interpreterImpl{
 		env:    env,
 		config: config,
 	}
 }
 
-func (impl *interperterImpl) Evaluate(input string, defaultStatusCheck DefaultStatusCheck) (interface{}, error) {
+func (impl *interpreterImpl) Evaluate(input string, defaultStatusCheck DefaultStatusCheck) (interface{}, error) {
 	input = strings.TrimPrefix(input, "${{")
 	if defaultStatusCheck != DefaultStatusCheckNone && input == "" {
 		input = "success()"
@@ -114,7 +114,7 @@ func (impl *interperterImpl) Evaluate(input string, defaultStatusCheck DefaultSt
 	return result, err2
 }
 
-func (impl *interperterImpl) evaluateNode(exprNode actionlint.ExprNode) (interface{}, error) {
+func (impl *interpreterImpl) evaluateNode(exprNode actionlint.ExprNode) (interface{}, error) {
 	switch node := exprNode.(type) {
 	case *actionlint.VariableNode:
 		return impl.evaluateVariable(node)
@@ -147,7 +147,7 @@ func (impl *interperterImpl) evaluateNode(exprNode actionlint.ExprNode) (interfa
 	}
 }
 
-func (impl *interperterImpl) evaluateVariable(variableNode *actionlint.VariableNode) (interface{}, error) {
+func (impl *interpreterImpl) evaluateVariable(variableNode *actionlint.VariableNode) (interface{}, error) {
 	switch strings.ToLower(variableNode.Name) {
 	case "github":
 		return impl.env.Github, nil
@@ -178,7 +178,7 @@ func (impl *interperterImpl) evaluateVariable(variableNode *actionlint.VariableN
 	}
 }
 
-func (impl *interperterImpl) evaluateIndexAccess(indexAccessNode *actionlint.IndexAccessNode) (interface{}, error) {
+func (impl *interpreterImpl) evaluateIndexAccess(indexAccessNode *actionlint.IndexAccessNode) (interface{}, error) {
 	left, err := impl.evaluateNode(indexAccessNode.Operand)
 	if err != nil {
 		return nil, err
@@ -213,7 +213,7 @@ func (impl *interperterImpl) evaluateIndexAccess(indexAccessNode *actionlint.Ind
 	}
 }
 
-func (impl *interperterImpl) evaluateObjectDeref(objectDerefNode *actionlint.ObjectDerefNode) (interface{}, error) {
+func (impl *interpreterImpl) evaluateObjectDeref(objectDerefNode *actionlint.ObjectDerefNode) (interface{}, error) {
 	left, err := impl.evaluateNode(objectDerefNode.Receiver)
 	if err != nil {
 		return nil, err
@@ -222,7 +222,7 @@ func (impl *interperterImpl) evaluateObjectDeref(objectDerefNode *actionlint.Obj
 	return impl.getPropertyValue(reflect.ValueOf(left), objectDerefNode.Property)
 }
 
-func (impl *interperterImpl) evaluateArrayDeref(arrayDerefNode *actionlint.ArrayDerefNode) (interface{}, error) {
+func (impl *interpreterImpl) evaluateArrayDeref(arrayDerefNode *actionlint.ArrayDerefNode) (interface{}, error) {
 	left, err := impl.evaluateNode(arrayDerefNode.Receiver)
 	if err != nil {
 		return nil, err
@@ -231,7 +231,7 @@ func (impl *interperterImpl) evaluateArrayDeref(arrayDerefNode *actionlint.Array
 	return impl.getSafeValue(reflect.ValueOf(left)), nil
 }
 
-func (impl *interperterImpl) getPropertyValue(left reflect.Value, property string) (value interface{}, err error) {
+func (impl *interpreterImpl) getPropertyValue(left reflect.Value, property string) (value interface{}, err error) {
 	switch left.Kind() {
 	case reflect.Ptr:
 		return impl.getPropertyValue(left.Elem(), property)
@@ -302,7 +302,7 @@ func (impl *interperterImpl) getPropertyValue(left reflect.Value, property strin
 	return nil, nil
 }
 
-func (impl *interperterImpl) getMapValue(value reflect.Value) (interface{}, error) {
+func (impl *interpreterImpl) getMapValue(value reflect.Value) (interface{}, error) {
 	if value.Kind() == reflect.Ptr {
 		return impl.getMapValue(value.Elem())
 	}
@@ -310,7 +310,7 @@ func (impl *interperterImpl) getMapValue(value reflect.Value) (interface{}, erro
 	return value.Interface(), nil
 }
 
-func (impl *interperterImpl) evaluateNot(notNode *actionlint.NotOpNode) (interface{}, error) {
+func (impl *interpreterImpl) evaluateNot(notNode *actionlint.NotOpNode) (interface{}, error) {
 	operand, err := impl.evaluateNode(notNode.Operand)
 	if err != nil {
 		return nil, err
@@ -319,7 +319,7 @@ func (impl *interperterImpl) evaluateNot(notNode *actionlint.NotOpNode) (interfa
 	return !IsTruthy(operand), nil
 }
 
-func (impl *interperterImpl) evaluateCompare(compareNode *actionlint.CompareOpNode) (interface{}, error) {
+func (impl *interpreterImpl) evaluateCompare(compareNode *actionlint.CompareOpNode) (interface{}, error) {
 	left, err := impl.evaluateNode(compareNode.Left)
 	if err != nil {
 		return nil, err
@@ -336,7 +336,7 @@ func (impl *interperterImpl) evaluateCompare(compareNode *actionlint.CompareOpNo
 	return impl.compareValues(leftValue, rightValue, compareNode.Kind)
 }
 
-func (impl *interperterImpl) compareValues(leftValue reflect.Value, rightValue reflect.Value, kind actionlint.CompareOpNodeKind) (interface{}, error) {
+func (impl *interpreterImpl) compareValues(leftValue reflect.Value, rightValue reflect.Value, kind actionlint.CompareOpNodeKind) (interface{}, error) {
 	if leftValue.Kind() != rightValue.Kind() {
 		if !impl.isNumber(leftValue) {
 			leftValue = impl.coerceToNumber(leftValue)
@@ -371,7 +371,7 @@ func (impl *interperterImpl) compareValues(leftValue reflect.Value, rightValue r
 	}
 }
 
-func (impl *interperterImpl) coerceToNumber(value reflect.Value) reflect.Value {
+func (impl *interpreterImpl) coerceToNumber(value reflect.Value) reflect.Value {
 	switch value.Kind() {
 	case reflect.Invalid:
 		return reflect.ValueOf(0)
@@ -403,7 +403,7 @@ func (impl *interperterImpl) coerceToNumber(value reflect.Value) reflect.Value {
 	return reflect.ValueOf(math.NaN())
 }
 
-func (impl *interperterImpl) coerceToString(value reflect.Value) reflect.Value {
+func (impl *interpreterImpl) coerceToString(value reflect.Value) reflect.Value {
 	switch value.Kind() {
 	case reflect.Invalid:
 		return reflect.ValueOf("")
@@ -440,7 +440,7 @@ func (impl *interperterImpl) coerceToString(value reflect.Value) reflect.Value {
 	return value
 }
 
-func (impl *interperterImpl) compareString(left string, right string, kind actionlint.CompareOpNodeKind) (bool, error) {
+func (impl *interpreterImpl) compareString(left string, right string, kind actionlint.CompareOpNodeKind) (bool, error) {
 	switch kind {
 	case actionlint.CompareOpNodeKindLess:
 		return left < right, nil
@@ -459,7 +459,7 @@ func (impl *interperterImpl) compareString(left string, right string, kind actio
 	}
 }
 
-func (impl *interperterImpl) compareNumber(left float64, right float64, kind actionlint.CompareOpNodeKind) (bool, error) {
+func (impl *interpreterImpl) compareNumber(left float64, right float64, kind actionlint.CompareOpNodeKind) (bool, error) {
 	switch kind {
 	case actionlint.CompareOpNodeKindLess:
 		return left < right, nil
@@ -505,7 +505,7 @@ func IsTruthy(input interface{}) bool {
 	}
 }
 
-func (impl *interperterImpl) isNumber(value reflect.Value) bool {
+func (impl *interpreterImpl) isNumber(value reflect.Value) bool {
 	switch value.Kind() {
 	case reflect.Int, reflect.Float64:
 		return true
@@ -514,7 +514,7 @@ func (impl *interperterImpl) isNumber(value reflect.Value) bool {
 	}
 }
 
-func (impl *interperterImpl) getSafeValue(value reflect.Value) interface{} {
+func (impl *interpreterImpl) getSafeValue(value reflect.Value) interface{} {
 	switch value.Kind() {
 	case reflect.Invalid:
 		return nil
@@ -528,7 +528,7 @@ func (impl *interperterImpl) getSafeValue(value reflect.Value) interface{} {
 	return value.Interface()
 }
 
-func (impl *interperterImpl) evaluateLogicalCompare(compareNode *actionlint.LogicalOpNode) (interface{}, error) {
+func (impl *interpreterImpl) evaluateLogicalCompare(compareNode *actionlint.LogicalOpNode) (interface{}, error) {
 	left, err := impl.evaluateNode(compareNode.Left)
 	if err != nil {
 		return nil, err
@@ -563,7 +563,7 @@ func (impl *interperterImpl) evaluateLogicalCompare(compareNode *actionlint.Logi
 }
 
 //nolint:gocyclo
-func (impl *interperterImpl) evaluateFuncCall(funcCallNode *actionlint.FuncCallNode) (interface{}, error) {
+func (impl *interpreterImpl) evaluateFuncCall(funcCallNode *actionlint.FuncCallNode) (interface{}, error) {
 	args := make([]reflect.Value, 0)
 
 	for _, arg := range funcCallNode.Args {

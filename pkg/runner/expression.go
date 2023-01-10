@@ -66,7 +66,7 @@ func (rc *RunContext) NewExpressionEvaluatorWithEnv(ctx context.Context, env map
 		ee.Runner = rc.JobContainer.GetRunnerContext(ctx)
 	}
 	return expressionEvaluator{
-		interpreter: exprparser.NewInterpeter(ee, exprparser.Config{
+		interpreter: exprparser.NewInterpreter(ee, exprparser.Config{
 			Run:        rc.Run,
 			WorkingDir: rc.Config.Workdir,
 			Context:    "job",
@@ -74,7 +74,7 @@ func (rc *RunContext) NewExpressionEvaluatorWithEnv(ctx context.Context, env map
 	}
 }
 
-// NewExpressionEvaluator creates a new evaluator
+// NewStepExpressionEvaluator creates a new evaluator
 func (rc *RunContext) NewStepExpressionEvaluator(ctx context.Context, step step) ExpressionEvaluator {
 	// todo: cleanup EvaluationEnvironment creation
 	job := rc.Run.Job()
@@ -115,7 +115,7 @@ func (rc *RunContext) NewStepExpressionEvaluator(ctx context.Context, step step)
 		ee.Runner = rc.JobContainer.GetRunnerContext(ctx)
 	}
 	return expressionEvaluator{
-		interpreter: exprparser.NewInterpeter(ee, exprparser.Config{
+		interpreter: exprparser.NewInterpreter(ee, exprparser.Config{
 			Run:        rc.Run,
 			WorkingDir: rc.Config.Workdir,
 			Context:    "step",

@@ -51,10 +51,10 @@ func findExecutable(file string, exts []string) (string, error) {
 	return "", fs.ErrNotExist
 }
 
-// LookPath searches for an executable named file in the
+// LookPath2 searches for an executable named file in the
 // directories named by the PATH environment variable.
 // If file contains a slash, it is tried directly and the PATH is not consulted.
-// LookPath also uses PATHEXT environment variable to match
+// LookPath2 also uses PATHEXT environment variable to match
 // a suitable candidate.
 // The result may be an absolute path or a path relative to the current directory.
 func LookPath2(file string, lenv Env) (string, error) {

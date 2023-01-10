@@ -214,7 +214,7 @@ func downloads(router *httprouter.Router, fsys fs.FS) {
 					panic(err)
 				}
 
-				// if it was upload as gzip
+				// if it was uploaded as gzip
 				rel = strings.TrimSuffix(rel, gzipExtension)
 
 				files = append(files, ContainerItem{

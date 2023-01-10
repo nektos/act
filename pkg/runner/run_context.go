@@ -88,7 +88,7 @@ func (rc *RunContext) jobContainerName() string {
 	return createContainerName("act", rc.String())
 }
 
-// Returns the binds and mounts for the container, resolving paths as appopriate
+// GetBindsAndMounts returns the binds and mounts for the container, resolving paths as appropriate
 func (rc *RunContext) GetBindsAndMounts() ([]string, map[string]string) {
 	name := rc.jobContainerName()
 

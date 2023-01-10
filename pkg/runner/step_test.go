@@ -9,7 +9,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	yaml "gopkg.in/yaml.v3"
+	"gopkg.in/yaml.v3"
 )
 
 func TestMergeIntoMap(t *testing.T) {
@@ -316,7 +316,7 @@ func TestIsContinueOnError(t *testing.T) {
 	assertObject.False(continueOnError)
 	assertObject.Nil(err)
 
-	// explcit true
+	// explicit true
 	step = createTestStep(t, "continue-on-error: true")
 	continueOnError, err = isContinueOnError(context.Background(), step.getStepModel().RawContinueOnError, step, stepStageMain)
 	assertObject.True(continueOnError)
