@@ -422,9 +422,6 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 		if len(input.usernsMode) > 0 {
 			log.Warnf(deprecationWarning, "userns", fmt.Sprintf("--userns=%s", input.usernsMode))
 		}
-		if len(input.containerArchitecture) > 0 {
-			log.Warnf(deprecationWarning, "container-architecture", fmt.Sprintf("--platform=%s", input.containerArchitecture))
-		}
 		if len(input.containerCapAdd) > 0 {
 			log.Warnf(deprecationWarning, "container-cap-add", fmt.Sprintf("--cap-add=%s", input.containerCapAdd))
 		}
