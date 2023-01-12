@@ -38,3 +38,24 @@ func LoadDockerAuthConfig(ctx context.Context, image string) (types.AuthConfig, 
 
 	return types.AuthConfig(authConfig), nil
 }
+
+func LoadDockerAuthConfigs(ctx context.Context) map[string]types.AuthConfig {
+	logger := common.Logger(ctx)
+	config, err := config.Load(config.Dir())
+	if err != nil {
+		logger.Warnf("Could not load docker config: %v", err)
+		return nil
+	}
+
+	if !config.ContainsAuth() {
+		config.CredentialsStore = credentials.DetectDefaultStore(config.CredentialsStore)
+	}
+
+	creds, _ := config.GetAllCredentials()
+	authConfigs := make(map[string]types.AuthConfig, len(creds))
+	for k, v := range creds {
+		authConfigs[k] = types.AuthConfig(v)
+	}
+
+	return authConfigs
+}
