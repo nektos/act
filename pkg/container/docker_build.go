@@ -41,9 +41,10 @@ func NewDockerBuildExecutor(input NewDockerBuildExecutorInput) common.Executor {
 
 		tags := []string{input.ImageTag}
 		options := types.ImageBuildOptions{
-			Tags:     tags,
-			Remove:   true,
-			Platform: input.Platform,
+			Tags:        tags,
+			Remove:      true,
+			Platform:    input.Platform,
+			AuthConfigs: LoadDockerAuthConfigs(ctx),
 		}
 		var buildContext io.ReadCloser
 		if input.Container != nil {
