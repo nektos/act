@@ -20,8 +20,13 @@ type EvaluationEnvironment struct {
 	Secrets  map[string]string
 	Strategy map[string]interface{}
 	Matrix   map[string]interface{}
-	Needs    map[string]map[string]map[string]string
+	Needs    map[string]Needs
 	Inputs   map[string]interface{}
+}
+
+type Needs struct {
+	Outputs map[string]string `json:"outputs"`
+	Result  string            `json:"result"`
 }
 
 type Config struct {

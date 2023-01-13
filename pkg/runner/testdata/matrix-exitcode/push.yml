@@ -1,0 +1,16 @@
+name: test
+
+on: push
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        val: ["success", "failure"]
+      fail-fast: false
+    steps:
+      - name: test
+        run: |
+          echo "Expected job result: ${{ matrix.val }}"
+          [[ "${{ matrix.val }}" = "success" ]] || exit 1
