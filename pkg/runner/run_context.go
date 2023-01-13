@@ -1,12 +1,15 @@
 package runner
 
 import (
+	"archive/tar"
+	"bufio"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -35,6 +38,7 @@ type RunContext struct {
 	ExtraPath           []string
 	CurrentStep         string
 	StepResults         map[string]*model.StepResult
+	IntraActionState    map[string]map[string]string
 	ExprEval            ExpressionEvaluator
 	JobContainer        container.ExecutionsEnvironment
 	OutputMappings      map[MappableOutput]MappableOutput
@@ -43,6 +47,7 @@ type RunContext struct {
 	Parent              *RunContext
 	Masks               []string
 	cleanUpJobContainer common.Executor
+	caller              *caller // job calling this RunContext (reusable workflows)
 }
 
 func (rc *RunContext) AddMask(mask string) {
@@ -55,7 +60,13 @@ type MappableOutput struct {
 }
 
 func (rc *RunContext) String() string {
-	return fmt.Sprintf("%s/%s", rc.Run.Workflow.Name, rc.Name)
+	name := fmt.Sprintf("%s/%s", rc.Run.Workflow.Name, rc.Name)
+	if rc.caller != nil {
+		// prefix the reusable workflow with the caller job
+		// this is required to create unique container names
+		name = fmt.Sprintf("%s/%s", rc.caller.runContext.Run.JobID, name)
+	}
+	return name
 }
 
 // GetEnv returns the env for the context
@@ -168,10 +179,11 @@ func (rc *RunContext) startHostEnvironment() common.Executor {
 			StdOut: logWriter,
 		}
 		rc.cleanUpJobContainer = rc.JobContainer.Remove()
-		rc.Env["RUNNER_TOOL_CACHE"] = toolCache
-		rc.Env["RUNNER_OS"] = runtime.GOOS
-		rc.Env["RUNNER_ARCH"] = runtime.GOARCH
-		rc.Env["RUNNER_TEMP"] = runnerTmp
+		for k, v := range rc.JobContainer.GetRunnerContext(ctx) {
+			if v, ok := v.(string); ok {
+				rc.Env[fmt.Sprintf("RUNNER_%s", strings.ToUpper(k))] = v
+			}
+		}
 		for _, env := range os.Environ() {
 			i := strings.Index(env, "=")
 			if i > 0 {
@@ -186,10 +198,6 @@ func (rc *RunContext) startHostEnvironment() common.Executor {
 				Body: rc.EventJSON,
 			}, &container.FileEntry{
 				Name: "workflow/envs.txt",
-				Mode: 0666,
-				Body: "",
-			}, &container.FileEntry{
-				Name: "workflow/paths.txt",
 				Mode: 0666,
 				Body: "",
 			}),
@@ -225,6 +233,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 		envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_OS", "Linux"))
 		envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_ARCH", container.RunnerArch(ctx)))
 		envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_TEMP", "/tmp"))
+		envList = append(envList, fmt.Sprintf("%s=%s", "LANG", "C.UTF-8")) // Use same locale as GitHub Actions
 
 		ext := container.LinuxContainerEnvironmentExtensions{}
 		binds, mounts := rc.GetBindsAndMounts()
@@ -240,7 +249,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 
 		rc.JobContainer = container.NewContainer(&container.NewContainerInput{
 			Cmd:         nil,
-			Entrypoint:  []string{"/usr/bin/tail", "-f", "/dev/null"},
+			Entrypoint:  []string{"tail", "-f", "/dev/null"},
 			WorkingDir:  ext.ToContainerPath(rc.Config.Workdir),
 			Image:       image,
 			Username:    username,
@@ -276,10 +285,6 @@ func (rc *RunContext) startJobContainer() common.Executor {
 				Name: "workflow/envs.txt",
 				Mode: 0666,
 				Body: "",
-			}, &container.FileEntry{
-				Name: "workflow/paths.txt",
-				Mode: 0666,
-				Body: "",
 			}),
 		)(ctx)
 	}
@@ -289,6 +294,41 @@ func (rc *RunContext) execJobContainer(cmd []string, env map[string]string, user
 	return func(ctx context.Context) error {
 		return rc.JobContainer.Exec(cmd, env, user, workdir)(ctx)
 	}
+}
+
+func (rc *RunContext) ApplyExtraPath(env *map[string]string) {
+	if rc.ExtraPath != nil && len(rc.ExtraPath) > 0 {
+		path := rc.JobContainer.GetPathVariableName()
+		if (*env)[path] == "" {
+			(*env)[path] = rc.JobContainer.DefaultPathVariable()
+		}
+		(*env)[path] = rc.JobContainer.JoinPathVariable(append(rc.ExtraPath, (*env)[path])...)
+	}
+}
+
+func (rc *RunContext) UpdateExtraPath(ctx context.Context, githubEnvPath string) error {
+	if common.Dryrun(ctx) {
+		return nil
+	}
+	pathTar, err := rc.JobContainer.GetContainerArchive(ctx, githubEnvPath)
+	if err != nil {
+		return err
+	}
+	defer pathTar.Close()
+
+	reader := tar.NewReader(pathTar)
+	_, err = reader.Next()
+	if err != nil && err != io.EOF {
+		return err
+	}
+	s := bufio.NewScanner(reader)
+	for s.Scan() {
+		line := s.Text()
+		if len(line) > 0 {
+			rc.addPath(ctx, line)
+		}
+	}
+	return nil
 }
 
 // stopJobContainer removes the job container (if it exists) and its volume (if it exists) if !rc.Config.ReuseContainers
@@ -368,16 +408,25 @@ func (rc *RunContext) steps() []*model.Step {
 
 // Executor returns a pipeline executor for all the steps in the job
 func (rc *RunContext) Executor() common.Executor {
+	var executor common.Executor
+
+	switch rc.Run.Job().Type() {
+	case model.JobTypeDefault:
+		executor = newJobExecutor(rc, &stepFactoryImpl{}, rc)
+	case model.JobTypeReusableWorkflowLocal:
+		executor = newLocalReusableWorkflowExecutor(rc)
+	case model.JobTypeReusableWorkflowRemote:
+		executor = newRemoteReusableWorkflowExecutor(rc)
+	}
+
 	return func(ctx context.Context) error {
-		isEnabled, err := rc.isEnabled(ctx)
+		res, err := rc.isEnabled(ctx)
 		if err != nil {
 			return err
 		}
-
-		if isEnabled {
-			return newJobExecutor(rc, &stepFactoryImpl{}, rc)(ctx)
+		if res {
+			return executor(ctx)
 		}
-
 		return nil
 	}
 }
@@ -409,7 +458,7 @@ func (rc *RunContext) options(ctx context.Context) string {
 	job := rc.Run.Job()
 	c := job.Container()
 	if c == nil {
-		return ""
+		return rc.Config.ContainerOptions
 	}
 
 	return c.Options
@@ -425,6 +474,10 @@ func (rc *RunContext) isEnabled(ctx context.Context) (bool, error) {
 	if !runJob {
 		l.WithField("jobResult", "skipped").Debugf("Skipping job '%s' due to '%s'", job.Name, job.If.Value)
 		return false, nil
+	}
+
+	if job.Type() != model.JobTypeDefault {
+		return true, nil
 	}
 
 	img := rc.platformImage(ctx)
@@ -638,7 +691,6 @@ func nestedMapLookup(m map[string]interface{}, ks ...string) (rval interface{}) 
 func (rc *RunContext) withGithubEnv(ctx context.Context, github *model.GithubContext, env map[string]string) map[string]string {
 	env["CI"] = "true"
 	env["GITHUB_ENV"] = rc.JobContainer.GetActPath() + "/workflow/envs.txt"
-	env["GITHUB_PATH"] = rc.JobContainer.GetActPath() + "/workflow/paths.txt"
 	env["GITHUB_WORKFLOW"] = github.Workflow
 	env["GITHUB_RUN_ID"] = github.RunID
 	env["GITHUB_RUN_NUMBER"] = github.RunNumber

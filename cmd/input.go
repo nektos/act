@@ -32,6 +32,7 @@ type Input struct {
 	usernsMode                         string
 	containerArchitecture              string
 	containerDaemonSocket              string
+	containerOptions                   string
 	noWorkflowRecurse                  bool
 	useGitIgnore                       bool
 	githubInstance                     string

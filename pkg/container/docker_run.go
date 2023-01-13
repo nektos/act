@@ -1,3 +1,5 @@
+//go:build !(WITHOUT_DOCKER || !(linux || darwin || windows))
+
 package container
 
 import (
@@ -37,51 +39,6 @@ import (
 
 	"github.com/nektos/act/pkg/common"
 )
-
-// NewContainerInput the input for the New function
-type NewContainerInput struct {
-	Image       string
-	Username    string
-	Password    string
-	Entrypoint  []string
-	Cmd         []string
-	WorkingDir  string
-	Env         []string
-	Binds       []string
-	Mounts      map[string]string
-	Name        string
-	Stdout      io.Writer
-	Stderr      io.Writer
-	NetworkMode string
-	Privileged  bool
-	UsernsMode  string
-	Platform    string
-	Options     string
-}
-
-// FileEntry is a file to copy to a container
-type FileEntry struct {
-	Name string
-	Mode int64
-	Body string
-}
-
-// Container for managing docker run containers
-type Container interface {
-	Create(capAdd []string, capDrop []string) common.Executor
-	Copy(destPath string, files ...*FileEntry) common.Executor
-	CopyDir(destPath string, srcPath string, useGitIgnore bool) common.Executor
-	GetContainerArchive(ctx context.Context, srcPath string) (io.ReadCloser, error)
-	Pull(forcePull bool) common.Executor
-	Start(attach bool) common.Executor
-	Exec(command []string, env map[string]string, user, workdir string) common.Executor
-	UpdateFromEnv(srcPath string, env *map[string]string) common.Executor
-	UpdateFromImageEnv(env *map[string]string) common.Executor
-	UpdateFromPath(env *map[string]string) common.Executor
-	Remove() common.Executor
-	Close() common.Executor
-	ReplaceLogWriter(io.Writer, io.Writer) (io.Writer, io.Writer)
-}
 
 // NewContainer creates a reference to a container
 func NewContainer(input *NewContainerInput) ExecutionsEnvironment {
@@ -188,7 +145,7 @@ func (cr *containerReference) GetContainerArchive(ctx context.Context, srcPath s
 }
 
 func (cr *containerReference) UpdateFromEnv(srcPath string, env *map[string]string) common.Executor {
-	return cr.extractEnv(srcPath, env).IfNot(common.Dryrun)
+	return parseEnvFile(cr, srcPath, env).IfNot(common.Dryrun)
 }
 
 func (cr *containerReference) UpdateFromImageEnv(env *map[string]string) common.Executor {
@@ -411,10 +368,16 @@ func (cr *containerReference) mergeContainerConfigs(ctx context.Context, config 
 
 	logger.Debugf("Custom container.HostConfig from options ==> %+v", containerConfig.HostConfig)
 
+	hostConfig.Binds = append(hostConfig.Binds, containerConfig.HostConfig.Binds...)
+	hostConfig.Mounts = append(hostConfig.Mounts, containerConfig.HostConfig.Mounts...)
+	binds := hostConfig.Binds
+	mounts := hostConfig.Mounts
 	err = mergo.Merge(hostConfig, containerConfig.HostConfig, mergo.WithOverride)
 	if err != nil {
 		return nil, nil, fmt.Errorf("Cannot merge container.HostConfig options: '%s': '%w'", input.Options, err)
 	}
+	hostConfig.Binds = binds
+	hostConfig.Mounts = mounts
 	logger.Debugf("Merged container.HostConfig ==> %+v", hostConfig)
 
 	return config, hostConfig, nil
@@ -493,59 +456,6 @@ func (cr *containerReference) create(capAdd []string, capDrop []string) common.E
 		logger.Debugf("ENV ==> %v", input.Env)
 
 		cr.id = resp.ID
-		return nil
-	}
-}
-
-var singleLineEnvPattern, multiLineEnvPattern *regexp.Regexp
-
-func (cr *containerReference) extractEnv(srcPath string, env *map[string]string) common.Executor {
-	if singleLineEnvPattern == nil {
-		// Single line pattern matches:
-		// SOME_VAR=data=moredata
-		// SOME_VAR=datamoredata
-		singleLineEnvPattern = regexp.MustCompile(`^([^=]*)\=(.*)$`)
-		multiLineEnvPattern = regexp.MustCompile(`^([^<]+)<<([\w-]+)$`)
-	}
-
-	localEnv := *env
-	return func(ctx context.Context) error {
-		envTar, _, err := cr.cli.CopyFromContainer(ctx, cr.id, srcPath)
-		if err != nil {
-			return nil
-		}
-		defer envTar.Close()
-
-		reader := tar.NewReader(envTar)
-		_, err = reader.Next()
-		if err != nil && err != io.EOF {
-			return fmt.Errorf("failed to read tar archive: %w", err)
-		}
-		s := bufio.NewScanner(reader)
-		multiLineEnvKey := ""
-		multiLineEnvDelimiter := ""
-		multiLineEnvContent := ""
-		for s.Scan() {
-			line := s.Text()
-			if singleLineEnv := singleLineEnvPattern.FindStringSubmatch(line); singleLineEnv != nil {
-				localEnv[singleLineEnv[1]] = singleLineEnv[2]
-			}
-			if line == multiLineEnvDelimiter {
-				localEnv[multiLineEnvKey] = multiLineEnvContent
-				multiLineEnvKey, multiLineEnvDelimiter, multiLineEnvContent = "", "", ""
-			}
-			if multiLineEnvKey != "" && multiLineEnvDelimiter != "" {
-				if multiLineEnvContent != "" {
-					multiLineEnvContent += "\n"
-				}
-				multiLineEnvContent += line
-			}
-			if multiLineEnvStart := multiLineEnvPattern.FindStringSubmatch(line); multiLineEnvStart != nil {
-				multiLineEnvKey = multiLineEnvStart[1]
-				multiLineEnvDelimiter = multiLineEnvStart[2]
-			}
-		}
-		env = &localEnv
 		return nil
 	}
 }

@@ -1,0 +1,48 @@
+on: push
+jobs:
+  _:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: nektos/act-test-actions/script@main
+      with:
+        pre: |
+          env
+          echo mystate0=mystateval > $GITHUB_STATE
+          echo "::save-state name=mystate1::mystateval"
+        main: |
+          env
+          echo mystate2=mystateval > $GITHUB_STATE
+          echo "::save-state name=mystate3::mystateval"
+        post: |
+          env
+          [ "$STATE_mystate0" = "mystateval" ]
+          [ "$STATE_mystate1" = "mystateval" ]
+          [ "$STATE_mystate2" = "mystateval" ]
+          [ "$STATE_mystate3" = "mystateval" ]
+  test-id-collision-bug:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: nektos/act-test-actions/script@main
+      id: script
+      with:
+        pre: |
+          env
+          echo mystate0=mystateval > $GITHUB_STATE
+          echo "::save-state name=mystate1::mystateval"
+        main: |
+          env
+          echo mystate2=mystateval > $GITHUB_STATE
+          echo "::save-state name=mystate3::mystateval"
+        post: |
+          env
+          [ "$STATE_mystate0" = "mystateval" ]
+          [ "$STATE_mystate1" = "mystateval" ]
+          [ "$STATE_mystate2" = "mystateval" ]
+          [ "$STATE_mystate3" = "mystateval" ]
+    - uses: nektos/act-test-actions/script@main
+      id: pre-script
+      with:
+        main: |
+          env
+          echo mystate0=mystateerror > $GITHUB_STATE
+          echo "::save-state name=mystate1::mystateerror"
