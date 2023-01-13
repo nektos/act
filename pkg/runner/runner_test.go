@@ -170,6 +170,7 @@ func TestRunEvent(t *testing.T) {
 		{workdir, "remote-action-js", "push", "", map[string]string{"ubuntu-latest": "catthehacker/ubuntu:runner-latest"}, secrets}, // Test if this works with non root container
 		{workdir, "matrix", "push", "", platforms, secrets},
 		{workdir, "matrix-include-exclude", "push", "", platforms, secrets},
+		{workdir, "matrix-exitcode", "push", "Job 'test' failed", platforms, secrets},
 		{workdir, "commands", "push", "", platforms, secrets},
 		{workdir, "workdir", "push", "", platforms, secrets},
 		{workdir, "defaults-run", "push", "", platforms, secrets},
@@ -200,6 +201,7 @@ func TestRunEvent(t *testing.T) {
 		{"../model/testdata", "strategy", "push", "", platforms, secrets}, // TODO: move all testdata into pkg so we can validate it with planner and runner
 		// {"testdata", "issue-228", "push", "", platforms, }, // TODO [igni]: Remove this once everything passes
 		{"../model/testdata", "container-volumes", "push", "", platforms, secrets},
+		{workdir, "path-handling", "push", "", platforms, secrets},
 	}
 
 	for _, table := range tables {
