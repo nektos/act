@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/filters"
+	"github.com/docker/docker/client"
 )
 
 // ImageExistsLocally returns a boolean indicating if an image with the
@@ -19,33 +19,15 @@ func ImageExistsLocally(ctx context.Context, imageName string, platform string) 
 	}
 	defer cli.Close()
 
-	filters := filters.NewArgs()
-	filters.Add("reference", imageName)
-
-	imageListOptions := types.ImageListOptions{
-		Filters: filters,
-	}
-
-	images, err := cli.ImageList(ctx, imageListOptions)
-	if err != nil {
+	inspectImage, _, err := cli.ImageInspectWithRaw(ctx, imageName)
+	if client.IsErrNotFound(err) {
+		return false, nil
+	} else if err != nil {
 		return false, err
 	}
 
-	if len(images) > 0 {
-		if platform == "any" || platform == "" {
-			return true, nil
-		}
-		for _, v := range images {
-			inspectImage, _, err := cli.ImageInspectWithRaw(ctx, v.ID)
-			if err != nil {
-				return false, err
-			}
-
-			if fmt.Sprintf("%s/%s", inspectImage.Os, inspectImage.Architecture) == platform {
-				return true, nil
-			}
-		}
-		return false, nil
+	if platform == "" || platform == "any" || fmt.Sprintf("%s/%s", inspectImage.Os, inspectImage.Architecture) == platform {
+		return true, nil
 	}
 
 	return false, nil
@@ -54,38 +36,25 @@ func ImageExistsLocally(ctx context.Context, imageName string, platform string) 
 // RemoveImage removes image from local store, the function is used to run different
 // container image architectures
 func RemoveImage(ctx context.Context, imageName string, force bool, pruneChildren bool) (bool, error) {
-	if exists, err := ImageExistsLocally(ctx, imageName, "any"); !exists {
-		return false, err
-	}
-
 	cli, err := GetDockerClient(ctx)
 	if err != nil {
 		return false, err
 	}
+	defer cli.Close()
 
-	filters := filters.NewArgs()
-	filters.Add("reference", imageName)
-
-	imageListOptions := types.ImageListOptions{
-		Filters: filters,
-	}
-
-	images, err := cli.ImageList(ctx, imageListOptions)
-	if err != nil {
+	inspectImage, _, err := cli.ImageInspectWithRaw(ctx, imageName)
+	if client.IsErrNotFound(err) {
+		return false, nil
+	} else if err != nil {
 		return false, err
 	}
 
-	if len(images) > 0 {
-		for _, v := range images {
-			if _, err = cli.ImageRemove(ctx, v.ID, types.ImageRemoveOptions{
-				Force:         force,
-				PruneChildren: pruneChildren,
-			}); err != nil {
-				return false, err
-			}
-		}
-		return true, nil
+	if _, err = cli.ImageRemove(ctx, inspectImage.ID, types.ImageRemoveOptions{
+		Force:         force,
+		PruneChildren: pruneChildren,
+	}); err != nil {
+		return false, err
 	}
 
-	return false, nil
+	return true, nil
 }
