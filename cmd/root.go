@@ -81,7 +81,8 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.PersistentFlags().StringVarP(&input.containerOptions, "container-options", "", "", "Custom docker container options for the job container without an options property in the job definition")
 	rootCmd.PersistentFlags().StringVarP(&input.githubInstance, "github-instance", "", "github.com", "GitHub instance to use. Don't use this if you are not using GitHub Enterprise Server.")
 	rootCmd.PersistentFlags().StringVarP(&input.artifactServerPath, "artifact-server-path", "", "", "Defines the path where the artifact server stores uploads and retrieves downloads from. If not specified the artifact server will not start.")
-	rootCmd.PersistentFlags().StringVarP(&input.artifactServerPort, "artifact-server-port", "", "34567", "Defines the port where the artifact server listens (will only bind to localhost).")
+	rootCmd.PersistentFlags().StringVarP(&input.artifactServerAddr, "artifact-server-addr", "", common.GetOutboundIP().String(), "Defines the address to which the artifact server binds.")
+	rootCmd.PersistentFlags().StringVarP(&input.artifactServerPort, "artifact-server-port", "", "34567", "Defines the port where the artifact server listens.")
 	rootCmd.PersistentFlags().BoolVarP(&input.noSkipCheckout, "no-skip-checkout", "", false, "Do not skip actions/checkout")
 	rootCmd.SetArgs(args())
 
@@ -472,6 +473,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			ContainerCapDrop:                   input.containerCapDrop,
 			AutoRemove:                         input.autoRemove,
 			ArtifactServerPath:                 input.artifactServerPath,
+			ArtifactServerAddr:                 input.artifactServerAddr,
 			ArtifactServerPort:                 input.artifactServerPort,
 			NoSkipCheckout:                     input.noSkipCheckout,
 			RemoteName:                         input.remoteName,
@@ -483,7 +485,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			return err
 		}
 
-		cancel := artifacts.Serve(ctx, input.artifactServerPath, input.artifactServerPort)
+		cancel := artifacts.Serve(ctx, input.artifactServerPath, input.artifactServerAddr, input.artifactServerPort)
 
 		ctx = common.WithDryrun(ctx, input.dryrun)
 		if watch, err := cmd.Flags().GetBool("watch"); err != nil {
