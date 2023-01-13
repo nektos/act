@@ -186,6 +186,8 @@ It will save that information to `~/.actrc`, please refer to [Configuration](#co
       --github-instance string                      GitHub instance to use. Don't use this if you are not using GitHub Enterprise Server. (default "github.com")
   -g, --graph                                       draw workflows
   -h, --help                                        help for act
+      --input stringArray                           action input to make available to actions (e.g. --input myinput=foo)
+      --input-file string                           input file to read and use as action input (default ".input")
       --insecure-secrets                            NOT RECOMMENDED! Doesn't hide secrets while printing logs.
   -j, --job string                                  run job
   -l, --list                                        list workflows
@@ -408,7 +410,7 @@ act pull_request -e pull-request.json
 
 Act will properly provide `github.head_ref` and `github.base_ref` to the action as expected.
 
-## Pass Inputs to Manually Triggered Workflows
+# Pass Inputs to Manually Triggered Workflows
 
 Example workflow file
 
@@ -433,6 +435,14 @@ jobs:
         run: |
           echo "Hello ${{ github.event.inputs.NAME }} and ${{ github.event.inputs.SOME_VALUE }}!"
 ```
+
+## via input or input-file flag
+
+- `act --input NAME=somevalue` - use `somevalue` as the value for `NAME` input.
+- `act --input-file my.input` - load input values from `my.input` file.
+  - input file format is the same as `.env` format
+
+## via JSON
 
 Example JSON payload file conveniently named `payload.json`
 

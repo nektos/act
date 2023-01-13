@@ -17,12 +17,14 @@ type Input struct {
 	bindWorkdir                        bool
 	secrets                            []string
 	envs                               []string
+	inputs                             []string
 	platforms                          []string
 	dryrun                             bool
 	forcePull                          bool
 	forceRebuild                       bool
 	noOutput                           bool
 	envfile                            string
+	inputfile                          string
 	secretfile                         string
 	insecureSecrets                    bool
 	defaultBranch                      string
@@ -83,4 +85,9 @@ func (i *Input) WorkflowsPath() string {
 // EventPath returns the path to events file
 func (i *Input) EventPath() string {
 	return i.resolve(i.eventPath)
+}
+
+// Inputfile returns the path to the input file
+func (i *Input) Inputfile() string {
+	return i.resolve(i.inputfile)
 }
