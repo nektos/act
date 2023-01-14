@@ -2,6 +2,7 @@ package runner
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 
@@ -31,6 +32,7 @@ type Config struct {
 	LogOutput                          bool              // log the output from docker run
 	JSONLogger                         bool              // use json or text logger
 	Env                                map[string]string // env for containers
+	Inputs                             map[string]string // manually passed action inputs
 	Secrets                            map[string]string // list of secrets
 	Token                              string            // GitHub token
 	InsecureSecrets                    bool              // switch hiding output when printing to terminal
@@ -81,6 +83,15 @@ func (runner *runnerImpl) configure() (Runner, error) {
 			return nil, err
 		}
 		runner.eventJSON = string(eventJSONBytes)
+	} else if len(runner.config.Inputs) != 0 {
+		eventMap := map[string]map[string]string{
+			"inputs": runner.config.Inputs,
+		}
+		eventJSON, err := json.Marshal(eventMap)
+		if err != nil {
+			return nil, err
+		}
+		runner.eventJSON = string(eventJSON)
 	}
 	return runner, nil
 }
