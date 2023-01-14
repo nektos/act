@@ -22,11 +22,15 @@ func displayNotices(input *Input) {
 	case notices := <-noticesLoaded:
 		if len(notices) > 0 {
 			noticeLogger := log.New()
-			noticeLogger.SetFormatter(&log.TextFormatter{
-				DisableQuote:     true,
-				DisableTimestamp: true,
-				PadLevelText:     true,
-			})
+			if input.jsonLogger {
+				noticeLogger.SetFormatter(&log.JSONFormatter{})
+			} else {
+				noticeLogger.SetFormatter(&log.TextFormatter{
+					DisableQuote:     true,
+					DisableTimestamp: true,
+					PadLevelText:     true,
+				})
+			}
 
 			fmt.Printf("\n")
 			for _, notice := range notices {
