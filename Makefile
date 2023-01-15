@@ -108,3 +108,5 @@ snapshot:
 		--rm-dist \
 		--single-target \
 		--snapshot
+
+.PHONY: clean all
