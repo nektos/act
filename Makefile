@@ -98,7 +98,7 @@ ifneq ($(shell git status -s),)
 endif
 	echo -n $(NEW_VERSION) > VERSION
 	git add VERSION
-	git commit -m "chore: bump VERSION"
+	git commit -m "chore: bump VERSION to $(NEW_VERSION)"
 	git tag -a -m "releasing v$(NEW_VERSION)" v$(NEW_VERSION)
 	git push --follow-tags
 
