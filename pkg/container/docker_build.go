@@ -10,10 +10,10 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/pkg/archive"
-	"github.com/docker/docker/pkg/fileutils"
 
 	// github.com/docker/docker/builder/dockerignore is deprecated
 	"github.com/moby/buildkit/frontend/dockerfile/dockerignore"
+	"github.com/moby/patternmatcher"
 
 	"github.com/nektos/act/pkg/common"
 )
@@ -96,8 +96,8 @@ func createBuildContext(ctx context.Context, contextDir string, relDockerfile st
 	// parses the Dockerfile. Ignore errors here, as they will have been
 	// caught by validateContextDirectory above.
 	var includes = []string{"."}
-	keepThem1, _ := fileutils.Matches(".dockerignore", excludes)
-	keepThem2, _ := fileutils.Matches(relDockerfile, excludes)
+	keepThem1, _ := patternmatcher.Matches(".dockerignore", excludes)
+	keepThem2, _ := patternmatcher.Matches(relDockerfile, excludes)
 	if keepThem1 || keepThem2 {
 		includes = append(includes, ".dockerignore", relDockerfile)
 	}
