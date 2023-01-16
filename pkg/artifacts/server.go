@@ -262,7 +262,7 @@ func downloads(router *httprouter.Router, fsys fs.FS) {
 	})
 }
 
-func Serve(ctx context.Context, artifactPath string, port string) context.CancelFunc {
+func Serve(ctx context.Context, artifactPath string, addr string, port string) context.CancelFunc {
 	serverContext, cancel := context.WithCancel(ctx)
 	logger := common.Logger(serverContext)
 
@@ -276,17 +276,16 @@ func Serve(ctx context.Context, artifactPath string, port string) context.Cancel
 	fs := os.DirFS(artifactPath)
 	uploads(router, MkdirFsImpl{artifactPath, fs})
 	downloads(router, fs)
-	ip := common.GetOutboundIP().String()
 
 	server := &http.Server{
-		Addr:              fmt.Sprintf("%s:%s", ip, port),
+		Addr:              fmt.Sprintf("%s:%s", addr, port),
 		ReadHeaderTimeout: 2 * time.Second,
 		Handler:           router,
 	}
 
 	// run server
 	go func() {
-		logger.Infof("Start server on http://%s:%s", ip, port)
+		logger.Infof("Start server on http://%s:%s", addr, port)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			logger.Fatal(err)
 		}

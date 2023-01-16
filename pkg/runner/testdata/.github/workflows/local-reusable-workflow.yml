@@ -68,6 +68,11 @@ jobs:
         echo secrets.secret=${{ secrets.secret }}
         [[ "${{ secrets.secret == 'keep_it_private' }}" = "true" ]] || exit 1
 
+    - name: test github.event_name is never workflow_call
+      run: |
+        echo github.event_name=${{ github.event_name }}
+        [[ "${{ github.event_name != 'workflow_call' }}" = "true" ]] || exit 1
+
     - name: test output
       id: output_test
       run: |

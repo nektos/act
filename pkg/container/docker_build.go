@@ -1,3 +1,5 @@
+//go:build !(WITHOUT_DOCKER || !(linux || darwin || windows))
+
 package container
 
 import (
@@ -15,14 +17,6 @@ import (
 
 	"github.com/nektos/act/pkg/common"
 )
-
-// NewDockerBuildExecutorInput the input for the NewDockerBuildExecutor function
-type NewDockerBuildExecutorInput struct {
-	ContextDir string
-	Container  Container
-	ImageTag   string
-	Platform   string
-}
 
 // NewDockerBuildExecutor function to create a run executor for the container
 func NewDockerBuildExecutor(input NewDockerBuildExecutorInput) common.Executor {
@@ -47,9 +41,10 @@ func NewDockerBuildExecutor(input NewDockerBuildExecutorInput) common.Executor {
 
 		tags := []string{input.ImageTag}
 		options := types.ImageBuildOptions{
-			Tags:     tags,
-			Remove:   true,
-			Platform: input.Platform,
+			Tags:        tags,
+			Remove:      true,
+			Platform:    input.Platform,
+			AuthConfigs: LoadDockerAuthConfigs(ctx),
 		}
 		var buildContext io.ReadCloser
 		if input.Container != nil {
