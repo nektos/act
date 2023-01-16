@@ -54,30 +54,33 @@ func (e *Error) Commit() string {
 // FindGitRevision get the current git revision
 func FindGitRevision(ctx context.Context, file string) (shortSha string, sha string, err error) {
 	logger := common.Logger(ctx)
-	gitDir, err := findGitDirectory(file)
+
+	gitDir, err := git.PlainOpenWithOptions(
+		file,
+		&git.PlainOpenOptions{
+			DetectDotGit:          true,
+			EnableDotGitCommonDir: true,
+		},
+	)
+
+	if err != nil {
+		logger.WithError(err).Error("path", file, "not located inside a git repository")
+		return "", "", err
+	}
+
+	head, err := gitDir.Reference(plumbing.HEAD, true)
 	if err != nil {
 		return "", "", err
 	}
 
-	bts, err := os.ReadFile(filepath.Join(gitDir, "HEAD"))
-	if err != nil {
-		return "", "", err
+	if head.Hash().IsZero() {
+		return "", "", fmt.Errorf("HEAD sha1 could not be resolved")
 	}
 
-	var ref = strings.TrimSpace(strings.TrimPrefix(string(bts), "ref:"))
-	var refBuf []byte
-	if strings.HasPrefix(ref, "refs/") {
-		// load commitid ref
-		refBuf, err = os.ReadFile(filepath.Join(gitDir, ref))
-		if err != nil {
-			return "", "", err
-		}
-	} else {
-		refBuf = []byte(ref)
-	}
+	hash := head.Hash().String()
 
-	logger.Debugf("Found revision: %s", refBuf)
-	return string(refBuf[:7]), strings.TrimSpace(string(refBuf)), nil
+	logger.Debugf("Found revision: %s", hash)
+	return hash[:7], strings.TrimSpace(hash), nil
 }
 
 // FindGitRef get the current git ref
