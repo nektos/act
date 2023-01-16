@@ -169,8 +169,9 @@ It will save that information to `~/.actrc`, please refer to [Configuration](#co
   -a, --actor string                                user that triggered the event (default "nektos/act")
       --replace-ghe-action-with-github-com          If you are using GitHub Enterprise Server and allow specified actions from GitHub (github.com), you can set actions on this. (e.g. --replace-ghe-action-with-github-com=github/super-linter)
       --replace-ghe-action-token-with-github-com    If you are using replace-ghe-action-with-github-com and you want to use private actions on GitHub, you have to set personal access token
+      --artifact-server-addr string                 Defines the address to which the artifact server binds. (default "<default-outbound-IP>")
       --artifact-server-path string                 Defines the path where the artifact server stores uploads and retrieves downloads from. If not specified the artifact server will not start.
-      --artifact-server-port string                 Defines the port where the artifact server listens (will only bind to localhost). (default "34567")
+      --artifact-server-port string                 Defines the port where the artifact server listens. (default "34567")
   -b, --bind                                        bind working directory to container, rather than copy
       --container-architecture string               Architecture which should be used to run containers, e.g.: linux/amd64. If not specified, will use host default architecture. Requires Docker server API Version 1.41+. Ignored on earlier Docker server platforms.
       --container-cap-add stringArray               kernel capabilities to add to the workflow containers (e.g. --container-cap-add SYS_PTRACE)

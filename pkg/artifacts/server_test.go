@@ -240,7 +240,8 @@ type TestJobFileInfo struct {
 	containerArchitecture string
 }
 
-var aritfactsPath = path.Join(os.TempDir(), "test-artifacts")
+var artifactsPath = path.Join(os.TempDir(), "test-artifacts")
+var artifactsAddr = "127.0.0.1"
 var artifactsPort = "12345"
 
 func TestArtifactFlow(t *testing.T) {
@@ -250,7 +251,7 @@ func TestArtifactFlow(t *testing.T) {
 
 	ctx := context.Background()
 
-	cancel := Serve(ctx, aritfactsPath, artifactsPort)
+	cancel := Serve(ctx, artifactsPath, artifactsAddr, artifactsPort)
 	defer cancel()
 
 	platforms := map[string]string{
@@ -271,7 +272,7 @@ func runTestJobFile(ctx context.Context, t *testing.T, tjfi TestJobFileInfo) {
 	t.Run(tjfi.workflowPath, func(t *testing.T) {
 		fmt.Printf("::group::%s\n", tjfi.workflowPath)
 
-		if err := os.RemoveAll(aritfactsPath); err != nil {
+		if err := os.RemoveAll(artifactsPath); err != nil {
 			panic(err)
 		}
 
@@ -286,7 +287,8 @@ func runTestJobFile(ctx context.Context, t *testing.T, tjfi TestJobFileInfo) {
 			ReuseContainers:       false,
 			ContainerArchitecture: tjfi.containerArchitecture,
 			GitHubInstance:        "github.com",
-			ArtifactServerPath:    aritfactsPath,
+			ArtifactServerPath:    artifactsPath,
+			ArtifactServerAddr:    artifactsAddr,
 			ArtifactServerPort:    artifactsPort,
 		}
 
