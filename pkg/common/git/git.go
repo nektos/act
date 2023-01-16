@@ -18,7 +18,6 @@ import (
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
-	"github.com/go-ini/ini"
 	"github.com/mattn/go-isatty"
 	log "github.com/sirupsen/logrus"
 )
@@ -179,26 +178,27 @@ func FindGithubRepo(ctx context.Context, file, githubInstance, remoteName string
 }
 
 func findGitRemoteURL(ctx context.Context, file, remoteName string) (string, error) {
-	gitDir, err := findGitDirectory(file)
+	repo, err := git.PlainOpenWithOptions(
+		file,
+		&git.PlainOpenOptions{
+			DetectDotGit:          true,
+			EnableDotGitCommonDir: true,
+		},
+	)
 	if err != nil {
 		return "", err
 	}
-	common.Logger(ctx).Debugf("Loading slug from git directory '%s'", gitDir)
 
-	gitconfig, err := ini.InsensitiveLoad(fmt.Sprintf("%s/config", gitDir))
+	remote, err := repo.Remote(remoteName)
 	if err != nil {
 		return "", err
 	}
-	remote, err := gitconfig.GetSection(fmt.Sprintf(`remote "%s"`, remoteName))
-	if err != nil {
-		return "", err
+
+	if len(remote.Config().URLs) < 1 {
+		return "", fmt.Errorf("remote '%s' exists but has no URL", remoteName)
 	}
-	urlKey, err := remote.GetKey("url")
-	if err != nil {
-		return "", err
-	}
-	url := urlKey.String()
-	return url, nil
+
+	return remote.Config().URLs[0], nil
 }
 
 func findGitSlug(url string, githubInstance string) (string, string, error) {
