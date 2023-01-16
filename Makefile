@@ -100,7 +100,7 @@ endif
 	git add VERSION
 	git commit -m "chore: bump VERSION"
 	git tag -a -m "releasing v$(NEW_VERSION)" v$(NEW_VERSION)
-	git push origin v$(NEW_VERSION)
+	git push --follow-tags
 
 .PHONY: snapshot
 snapshot:
