@@ -17,6 +17,7 @@ import (
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/storer"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/mattn/go-isatty"
 	log "github.com/sirupsen/logrus"
@@ -86,12 +87,8 @@ func FindGitRevision(ctx context.Context, file string) (shortSha string, sha str
 // FindGitRef get the current git ref
 func FindGitRef(ctx context.Context, file string) (string, error) {
 	logger := common.Logger(ctx)
-	gitDir, err := findGitDirectory(file)
-	if err != nil {
-		return "", err
-	}
-	logger.Debugf("Loading revision from git directory '%s'", gitDir)
 
+	logger.Debugf("Loading revision from git directory")
 	_, ref, err := FindGitRevision(ctx, file)
 	if err != nil {
 		return "", err
@@ -102,28 +99,58 @@ func FindGitRef(ctx context.Context, file string) (string, error) {
 	// Prefer the git library to iterate over the references and find a matching tag or branch.
 	var refTag = ""
 	var refBranch = ""
-	r, err := git.PlainOpen(filepath.Join(gitDir, ".."))
-	if err == nil {
-		iter, err := r.References()
-		if err == nil {
-			for {
-				r, err := iter.Next()
-				if r == nil || err != nil {
-					break
-				}
-				// logger.Debugf("Reference: name=%s sha=%s", r.Name().String(), r.Hash().String())
-				if r.Hash().String() == ref {
-					if r.Name().IsTag() {
-						refTag = r.Name().String()
-					}
-					if r.Name().IsBranch() {
-						refBranch = r.Name().String()
-					}
-				}
-			}
-			iter.Close()
-		}
+	repo, err := git.PlainOpenWithOptions(
+		file,
+		&git.PlainOpenOptions{
+			DetectDotGit:          true,
+			EnableDotGitCommonDir: true,
+		},
+	)
+
+	if err != nil {
+		return "", err
 	}
+
+	iter, err := repo.References()
+	if err != nil {
+		return "", err
+	}
+
+	// find the reference that matches the revision's has
+	err = iter.ForEach(func(r *plumbing.Reference) error {
+		/* tags and branches will have the same hash
+		 * when a user checks out a tag, it is not mentioned explicitly
+		 * in the go-git package, we must identify the revision
+		 * then check if any tag matches that revision,
+		 * if so then we checked out a tag
+		 * else we look for branches and if matches,
+		 * it means we checked out a branch
+		 *
+		 * If a branches matches first we must continue and check all tags (all references)
+		 * in case we match with a tag later in the interation
+		 */
+		if r.Hash().String() == ref {
+			if r.Name().IsTag() {
+				refTag = r.Name().String()
+			}
+			if r.Name().IsBranch() {
+				refBranch = r.Name().String()
+			}
+		}
+
+		// we found what we where looking for
+		if refTag != "" && refBranch != "" {
+			return storer.ErrStop
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return "", err
+	}
+
+	// order matters here see above comment.
 	if refTag != "" {
 		return refTag, nil
 	}
@@ -131,15 +158,7 @@ func FindGitRef(ctx context.Context, file string) (string, error) {
 		return refBranch, nil
 	}
 
-	// If the above doesn't work, fall back to the old way
-
-	// try tags first
-	tag, err := findGitPrettyRef(ctx, ref, gitDir, "refs/tags")
-	if err != nil || tag != "" {
-		return tag, err
-	}
-	// and then branches
-	return findGitPrettyRef(ctx, ref, gitDir, "refs/heads")
+	return "", fmt.Errorf("failed to identify reference (tag/branch) for the checked-out revision '%s'", ref)
 }
 
 func findGitPrettyRef(ctx context.Context, head, root, sub string) (string, error) {
