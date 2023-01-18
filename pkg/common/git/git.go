@@ -7,7 +7,6 @@ import (
 	"io"
 	"os"
 	"path"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
@@ -161,30 +160,6 @@ func FindGitRef(ctx context.Context, file string) (string, error) {
 	return "", fmt.Errorf("failed to identify reference (tag/branch) for the checked-out revision '%s'", ref)
 }
 
-func findGitPrettyRef(ctx context.Context, head, root, sub string) (string, error) {
-	var name string
-	var err = filepath.Walk(filepath.Join(root, sub), func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if name != "" || info.IsDir() {
-			return nil
-		}
-		var bts []byte
-		if bts, err = os.ReadFile(path); err != nil {
-			return err
-		}
-		var pointsTo = strings.TrimSpace(string(bts))
-		if head == pointsTo {
-			// On Windows paths are separated with backslash character so they should be replaced to provide proper git refs format
-			name = strings.TrimPrefix(strings.ReplaceAll(strings.Replace(path, root, "", 1), `\`, `/`), "/")
-			common.Logger(ctx).Debugf("HEAD matches %s", name)
-		}
-		return nil
-	})
-	return name, err
-}
-
 // FindGithubRepo get the repo
 func FindGithubRepo(ctx context.Context, file, githubInstance, remoteName string) (string, error) {
 	if remoteName == "" {
@@ -242,35 +217,6 @@ func findGitSlug(url string, githubInstance string) (string, string, error) {
 		}
 	}
 	return "", url, nil
-}
-
-func findGitDirectory(fromFile string) (string, error) {
-	absPath, err := filepath.Abs(fromFile)
-	if err != nil {
-		return "", err
-	}
-
-	fi, err := os.Stat(absPath)
-	if err != nil {
-		return "", err
-	}
-
-	var dir string
-	if fi.Mode().IsDir() {
-		dir = absPath
-	} else {
-		dir = filepath.Dir(absPath)
-	}
-
-	gitPath := filepath.Join(dir, ".git")
-	fi, err = os.Stat(gitPath)
-	if err == nil && fi.Mode().IsDir() {
-		return gitPath, nil
-	} else if dir == "/" || dir == "C:\\" || dir == "c:\\" {
-		return "", &Error{err: ErrNoRepo}
-	}
-
-	return findGitDirectory(filepath.Dir(dir))
 }
 
 // NewGitCloneExecutorInput the input for the NewGitCloneExecutor
