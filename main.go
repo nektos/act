@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	_ "embed"
 	"os"
 	"os/signal"
 	"syscall"
@@ -9,7 +10,8 @@ import (
 	"github.com/nektos/act/cmd"
 )
 
-var version = "v0.2.27-dev" // Manually bump after tagging next release
+//go:embed VERSION
+var version string
 
 func main() {
 	ctx := context.Background()
