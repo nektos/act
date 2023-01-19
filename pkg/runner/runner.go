@@ -2,6 +2,7 @@ package runner
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 
@@ -31,6 +32,7 @@ type Config struct {
 	LogOutput                          bool              // log the output from docker run
 	JSONLogger                         bool              // use json or text logger
 	Env                                map[string]string // env for containers
+	Inputs                             map[string]string // manually passed action inputs
 	Secrets                            map[string]string // list of secrets
 	Token                              string            // GitHub token
 	InsecureSecrets                    bool              // switch hiding output when printing to terminal
@@ -46,6 +48,7 @@ type Config struct {
 	ContainerCapDrop                   []string          // list of kernel capabilities to remove from the containers
 	AutoRemove                         bool              // controls if the container is automatically removed upon workflow completion
 	ArtifactServerPath                 string            // the path where the artifact server stores uploads
+	ArtifactServerAddr                 string            // the address the artifact server binds to
 	ArtifactServerPort                 string            // the port the artifact server binds to
 	NoSkipCheckout                     bool              // do not skip actions/checkout
 	RemoteName                         string            // remote name in local git repo config
@@ -81,6 +84,15 @@ func (runner *runnerImpl) configure() (Runner, error) {
 			return nil, err
 		}
 		runner.eventJSON = string(eventJSONBytes)
+	} else if len(runner.config.Inputs) != 0 {
+		eventMap := map[string]map[string]string{
+			"inputs": runner.config.Inputs,
+		}
+		eventJSON, err := json.Marshal(eventMap)
+		if err != nil {
+			return nil, err
+		}
+		runner.eventJSON = string(eventJSON)
 	}
 	return runner, nil
 }

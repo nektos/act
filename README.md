@@ -115,7 +115,7 @@ nix run nixpkgs#act
 Run this command in your terminal:
 
 ```shell
-curl https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash
+curl -s https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash
 ```
 
 ### Manual download
@@ -169,8 +169,9 @@ It will save that information to `~/.actrc`, please refer to [Configuration](#co
   -a, --actor string                                user that triggered the event (default "nektos/act")
       --replace-ghe-action-with-github-com          If you are using GitHub Enterprise Server and allow specified actions from GitHub (github.com), you can set actions on this. (e.g. --replace-ghe-action-with-github-com=github/super-linter)
       --replace-ghe-action-token-with-github-com    If you are using replace-ghe-action-with-github-com and you want to use private actions on GitHub, you have to set personal access token
+      --artifact-server-addr string                 Defines the address to which the artifact server binds. (default "<default-outbound-IP>")
       --artifact-server-path string                 Defines the path where the artifact server stores uploads and retrieves downloads from. If not specified the artifact server will not start.
-      --artifact-server-port string                 Defines the port where the artifact server listens (will only bind to localhost). (default "34567")
+      --artifact-server-port string                 Defines the port where the artifact server listens. (default "34567")
   -b, --bind                                        bind working directory to container, rather than copy
       --container-architecture string               Architecture which should be used to run containers, e.g.: linux/amd64. If not specified, will use host default architecture. Requires Docker server API Version 1.41+. Ignored on earlier Docker server platforms.
       --container-cap-add stringArray               kernel capabilities to add to the workflow containers (e.g. --container-cap-add SYS_PTRACE)
@@ -186,6 +187,8 @@ It will save that information to `~/.actrc`, please refer to [Configuration](#co
       --github-instance string                      GitHub instance to use. Don't use this if you are not using GitHub Enterprise Server. (default "github.com")
   -g, --graph                                       draw workflows
   -h, --help                                        help for act
+      --input stringArray                           action input to make available to actions (e.g. --input myinput=foo)
+      --input-file string                           input file to read and use as action input (default ".input")
       --insecure-secrets                            NOT RECOMMENDED! Doesn't hide secrets while printing logs.
   -j, --job string                                  run job
   -l, --list                                        list workflows
@@ -408,7 +411,7 @@ act pull_request -e pull-request.json
 
 Act will properly provide `github.head_ref` and `github.base_ref` to the action as expected.
 
-## Pass Inputs to Manually Triggered Workflows
+# Pass Inputs to Manually Triggered Workflows
 
 Example workflow file
 
@@ -433,6 +436,14 @@ jobs:
         run: |
           echo "Hello ${{ github.event.inputs.NAME }} and ${{ github.event.inputs.SOME_VALUE }}!"
 ```
+
+## via input or input-file flag
+
+- `act --input NAME=somevalue` - use `somevalue` as the value for `NAME` input.
+- `act --input-file my.input` - load input values from `my.input` file.
+  - input file format is the same as `.env` format
+
+## via JSON
 
 Example JSON payload file conveniently named `payload.json`
 
