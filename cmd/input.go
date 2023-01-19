@@ -20,8 +20,8 @@ type Input struct {
 	inputs                             []string
 	platforms                          []string
 	dryrun                             bool
-	forcePull                          bool
-	forceRebuild                       bool
+	noPull                          bool
+	noRebuild                       bool
 	noOutput                           bool
 	envfile                            string
 	inputfile                          string

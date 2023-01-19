@@ -195,9 +195,9 @@ It will save that information to `~/.actrc`, please refer to [Configuration](#co
       --no-recurse                                  Flag to disable running workflows from subdirectories of specified path in '--workflows'/'-W' flag
   -P, --platform stringArray                        custom image to use per platform (e.g. -P ubuntu-18.04=nektos/act-environments-ubuntu:18.04)
       --privileged                                  use privileged mode
-  -p, --pull                                        pull docker image(s) even if already present
+      --no-pull                                     don't pull docker image(s) even if already present
   -q, --quiet                                       disable logging of output from steps
-      --rebuild                                     rebuild local action docker image(s) even if already present
+      --no-rebuild                                  don't rebuild local action docker image(s) even if already present
   -r, --reuse                                       don't remove container(s) on successfully completed workflow(s) to maintain state between runs
       --rm                                          automatically remove container(s)/volume(s) after a workflow(s) failure
   -s, --secret stringArray                          secret to make available to actions with optional value (e.g. -s mysecret=foo or -s mysecret)
