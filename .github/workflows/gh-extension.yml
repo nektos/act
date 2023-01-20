@@ -1,0 +1,25 @@
+name: gh-extension
+on:
+  workflow_dispatch
+
+jobs:
+  release:
+    name: release
+    runs-on: ubuntu-latest
+    steps:
+    - name: Release extension
+      uses: actions/github-script@v5
+      with:
+        github-token: ${{ secrets.GORELEASER_GITHUB_TOKEN }}
+        script: |
+          const mainRef = github.rest.git.getRef({
+            owner: 'nektos',
+            repo: 'gh-act',
+            ref: 'heads/main',
+          });
+          github.rest.git.createRef({
+            owner: 'nektos',
+            repo: 'gh-act',
+            ref: 'refs/tags/v0.2.39',
+            sha: mainRef.object.sha,
+          });
