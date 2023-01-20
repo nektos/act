@@ -108,6 +108,14 @@ Using the latest [Nix command](https://nixos.wiki/wiki/Nix_command), you can run
 nix run nixpkgs#act
 ```
 
+## Installation as GitHub CLI extension
+
+Act can be installed as a [GitHub CLI](https://cli.github.com/) extension:
+
+```sh
+gh extension install nektos/gh-act
+```
+
 ## Other install options
 
 ### Bash script
