@@ -12,11 +12,12 @@ jobs:
       with:
         github-token: ${{ secrets.GORELEASER_GITHUB_TOKEN }}
         script: |
-          const mainRef = github.rest.git.getRef({
+          const mainRef = await github.rest.git.getRef({
             owner: 'nektos',
             repo: 'gh-act',
             ref: 'heads/main',
           });
+          console.log(mainRef);
           github.rest.git.createRef({
             owner: 'nektos',
             repo: 'gh-act',
