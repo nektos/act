@@ -2,8 +2,34 @@ on: push
 
 jobs:
   reusable-workflow:
-    uses: nektos/act-tests/.github/workflows/reusable-workflow.yml@master
+    uses: nektos/act-test-actions/.github/workflows/reusable-workflow.yml@main
     with:
-      username: mona
+      string_required: string
+      bool_required: ${{ true }}
+      number_required: 1
     secrets:
-      envPATH: ${{ secrets.envPAT }}
+      secret: keep_it_private
+
+  reusable-workflow-with-inherited-secrets:
+    uses: nektos/act-test-actions/.github/workflows/reusable-workflow.yml@main
+    with:
+      string_required: string
+      bool_required: ${{ true }}
+      number_required: 1
+    secrets: inherit
+
+  output-test:
+    runs-on: ubuntu-latest
+    needs:
+      - reusable-workflow
+      - reusable-workflow-with-inherited-secrets
+    steps:
+      - name: output with secrets map
+        run: |
+          echo reusable-workflow.output=${{ needs.reusable-workflow.outputs.output }}
+          [[ "${{ needs.reusable-workflow.outputs.output == 'string' }}" = "true" ]] || exit 1
+
+      - name: output with inherited secrets
+        run: |
+          echo reusable-workflow-with-inherited-secrets.output=${{ needs.reusable-workflow-with-inherited-secrets.outputs.output }}
+          [[ "${{ needs.reusable-workflow-with-inherited-secrets.outputs.output == 'string' }}" = "true" ]] || exit 1
