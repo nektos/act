@@ -55,20 +55,26 @@ jobs:
           github-token: none # No reason to grant access to the GITHUB_TOKEN
           script: |
             let myOutput = '';
-            const options = {};
-            options.listeners = {
-              stdout: (data) => {
-                for(line of data.toString().split('\n')) {
-                  if(/^\s*(===\s[^\s]+\s|---\s[^\s]+:\s)/.test(line)) {
-                    myOutput += line + "\n";
+            var exitcode = 0;
+            try {
+              const options = {};
+              options.listeners = {
+                stdout: (data) => {
+                  for(line of data.toString().split('\n')) {
+                    if(/^\s*(===\s[^\s]+\s|---\s[^\s]+:\s)/.test(line)) {
+                      myOutput += line + "\n";
+                    }
                   }
                 }
-              }
-            };
-            await exec.exec('go', ['test', '-v', '-cover', '-coverprofile=coverage.txt', '-covermode=atomic', '-timeout', '15m', './...'], options);
-            core.summary.addRaw(process.env.GITHUB_JOB, true);
-            core.summary.addCodeBlock(myOutput);
-            core.summary.write()
+              };
+              await exec.exec('go', ['test', '-v', '-cover', '-coverprofile=coverage.txt', '-covermode=atomic', '-timeout', '15m', './...'], options);
+            } catch(error) {
+              exitcode = 1;
+            } finally {
+              core.summary.addCodeBlock(myOutput);
+              core.summary.write();
+            }
+            process.exit(exitcode);
       - run: go test -v -cover -coverprofile=coverage.txt -covermode=atomic -timeout 15m ./...
       - name: Upload Codecov report
         uses: codecov/codecov-action@v3.1.1
@@ -97,20 +103,26 @@ jobs:
           github-token: none # No reason to grant access to the GITHUB_TOKEN
           script: |
             let myOutput = '';
-            const options = {};
-            options.listeners = {
-              stdout: (data) => {
-                for(line of data.toString().split('\n')) {
-                  if(/^\s*(===\s[^\s]+\s|---\s[^\s]+:\s)/.test(line)) {
-                    myOutput += line + "\n";
+            var exitcode = 0;
+            try {
+              const options = {};
+              options.listeners = {
+                stdout: (data) => {
+                  for(line of data.toString().split('\n')) {
+                    if(/^\s*(===\s[^\s]+\s|---\s[^\s]+:\s)/.test(line)) {
+                      myOutput += line + "\n";
+                    }
                   }
                 }
-              }
-            };
-            await exec.exec('go', ['test', '-v', '-run', '^TestRunEventHostEnvironment$', './...'], options);
-            core.summary.addRaw(process.env.GITHUB_JOB, true);
-            core.summary.addCodeBlock(myOutput);
-            core.summary.write()
+              };
+              await exec.exec('go', ['test', '-v', '-run', '^TestRunEventHostEnvironment$', './...'], options);
+            } catch(error) {
+              exitcode = 1;
+            } finally {
+              core.summary.addCodeBlock(myOutput);
+              core.summary.write();
+            }
+            process.exit(exitcode);
     # TODO merge coverage with test-linux
 
   snapshot:
