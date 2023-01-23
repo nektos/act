@@ -88,6 +88,7 @@ jobs:
             await core.summary.write();
             process.exit(exitcode);
       - uses: actions/upload-artifact@v3
+        if: always()
         with:
           name: logs-linux
           path: logs
@@ -152,6 +153,7 @@ jobs:
             process.exit(exitcode);
       # TODO merge coverage with test-linux
       - uses: actions/upload-artifact@v3
+        if: always()
         with:
           name: logs-${{ matrix.os }}
           path: logs
