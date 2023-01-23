@@ -56,13 +56,26 @@ jobs:
           script: |
             let myOutput = '';
             var exitcode = 0;
+            var fs = require('fs');
+            await io.mkdirP('logs');
+            var filename = null;
             try {
               const options = {};
               options.listeners = {
                 stdout: (data) => {
                   for(line of data.toString().split('\n')) {
                     if(/^\s*(===\s[^\s]+\s|---\s[^\s]+:\s)/.test(line)) {
+                      var runprefix = "=== RUN   ";
+                      if(line.startsWith(runprefix)) {
+                        filename = "logs/" + line.substring(runprefix.length).replace(/[^A-Za-z0-9]/g, '-') + ".txt";
+                        fs.writeFileSync(filename, line + "\n");
+                      } else if(filename) {
+                        fs.appendFileSync(filename, line + "\n");
+                        filename = null;
+                      }
                       myOutput += line + "\n";
+                    } else if(filename) {
+                      fs.appendFileSync(filename, line + "\n");
                     }
                   }
                 }
@@ -70,12 +83,14 @@ jobs:
               await exec.exec('go', ['test', '-v', '-cover', '-coverprofile=coverage.txt', '-covermode=atomic', '-timeout', '15m', './...'], options);
             } catch(error) {
               exitcode = 1;
-            } finally {
-              core.summary.addCodeBlock(myOutput);
-              core.summary.write();
             }
+            core.summary.addCodeBlock(myOutput);
+            await core.summary.write();
             process.exit(exitcode);
-      - run: go test -v -cover -coverprofile=coverage.txt -covermode=atomic -timeout 15m ./...
+      - uses: actions/upload-artifact@v3
+        with:
+          name: logs
+          path: logs
       - name: Upload Codecov report
         uses: codecov/codecov-action@v3.1.1
         with:
@@ -104,13 +119,26 @@ jobs:
           script: |
             let myOutput = '';
             var exitcode = 0;
+            var fs = require('fs');
+            await io.mkdirP('logs');
+            var filename = null;
             try {
               const options = {};
               options.listeners = {
                 stdout: (data) => {
                   for(line of data.toString().split('\n')) {
                     if(/^\s*(===\s[^\s]+\s|---\s[^\s]+:\s)/.test(line)) {
+                      var runprefix = "=== RUN   ";
+                      if(line.startsWith(runprefix)) {
+                        filename = "logs/" + line.substring(runprefix.length).replace(/[^A-Za-z0-9]/g, '-') + ".txt";
+                        fs.writeFileSync(filename, line + "\n");
+                      } else if(filename) {
+                        fs.appendFileSync(filename, line + "\n");
+                        filename = null;
+                      }
                       myOutput += line + "\n";
+                    } else if(filename) {
+                      fs.appendFileSync(filename, line + "\n");
                     }
                   }
                 }
@@ -118,12 +146,15 @@ jobs:
               await exec.exec('go', ['test', '-v', '-run', '^TestRunEventHostEnvironment$', './...'], options);
             } catch(error) {
               exitcode = 1;
-            } finally {
-              core.summary.addCodeBlock(myOutput);
-              core.summary.write();
             }
+            core.summary.addCodeBlock(myOutput);
+            await core.summary.write();
             process.exit(exitcode);
-    # TODO merge coverage with test-linux
+      # TODO merge coverage with test-linux
+      - uses: actions/upload-artifact@v3
+        with:
+          name: logs
+          path: logs
 
   snapshot:
     name: snapshot
