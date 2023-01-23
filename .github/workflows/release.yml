@@ -40,7 +40,7 @@ jobs:
           apiKey: ${{ secrets.CHOCO_APIKEY }}
           push: true
       - name: GitHub CLI extension
-        uses: actions/github-script@v5
+        uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.GORELEASER_GITHUB_TOKEN }}
           script: |
