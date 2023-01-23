@@ -9,7 +9,7 @@ require (
 	github.com/creack/pty v1.1.18
 	github.com/docker/cli v23.0.0-rc.1+incompatible
 	github.com/docker/distribution v2.8.1+incompatible
-	github.com/docker/docker v23.0.0-rc.1+incompatible
+	github.com/docker/docker v23.0.0-rc.3+incompatible
 	github.com/docker/go-connections v0.4.0
 	github.com/go-git/go-billy/v5 v5.4.0
 	github.com/go-git/go-git/v5 v5.4.2
@@ -24,7 +24,7 @@ require (
 	github.com/opencontainers/image-spec v1.0.3-0.20220303224323-02efb9a75ee1
 	github.com/opencontainers/selinux v1.10.2
 	github.com/pkg/errors v0.9.1
-	github.com/rhysd/actionlint v1.6.22
+	github.com/rhysd/actionlint v1.6.23
 	github.com/sabhiram/go-gitignore v0.0.0-20210923224102-525f6e181f06
 	github.com/sirupsen/logrus v1.9.0
 	github.com/spf13/cobra v1.6.1
@@ -54,7 +54,7 @@ require (
 	github.com/kevinburke/ssh_config v1.2.0 // indirect
 	github.com/klauspost/compress v1.15.12 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
-	github.com/mattn/go-runewidth v0.0.13 // indirect
+	github.com/mattn/go-runewidth v0.0.14 // indirect
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d // indirect
 	github.com/mitchellh/mapstructure v1.1.2 // indirect
 	github.com/moby/sys/sequential v0.5.0 // indirect
@@ -62,7 +62,7 @@ require (
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/runc v1.1.3 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/rivo/uniseg v0.3.4 // indirect
+	github.com/rivo/uniseg v0.4.3 // indirect
 	github.com/robfig/cron v1.2.0 // indirect
 	github.com/sergi/go-diff v1.2.0 // indirect
 	github.com/stretchr/objx v0.5.0 // indirect
