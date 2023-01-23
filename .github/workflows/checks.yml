@@ -89,7 +89,7 @@ jobs:
             process.exit(exitcode);
       - uses: actions/upload-artifact@v3
         with:
-          name: logs
+          name: logs-linux
           path: logs
       - name: Upload Codecov report
         uses: codecov/codecov-action@v3.1.1
@@ -153,7 +153,7 @@ jobs:
       # TODO merge coverage with test-linux
       - uses: actions/upload-artifact@v3
         with:
-          name: logs
+          name: logs-${{ matrix.os }}
           path: logs
 
   snapshot:
