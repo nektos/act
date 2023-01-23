@@ -50,6 +50,25 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
+      - uses: actions/github-script@v6
+        with:
+          github-token: none # No reason to grant access to the GITHUB_TOKEN
+          script: |
+              let myOutput = '';
+              const options = {};
+              options.listeners = {
+                stdout: (data) => {
+                  for(line of data.toString().split('\n')) {
+                    if(/^\s*(===\s[^\s]+\s|---\s[^\s]+:\s)/.test(line)) {
+                      myOutput += line + "\n";
+                    }
+                  }
+                }
+              };
+              await exec.exec('go', ['test', '-v', '-cover', '-coverprofile=coverage.txt', '-covermode=atomic', '-timeout', '15m', './...'], options);
+              core.summary.addRaw(process.env.GITHUB_JOB, true);
+              core.summary.addCodeBlock(myOutput);
+              core.summary.write()
       - run: go test -v -cover -coverprofile=coverage.txt -covermode=atomic -timeout 15m ./...
       - name: Upload Codecov report
         uses: codecov/codecov-action@v3.1.1
@@ -73,7 +92,25 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
           check-latest: true
-      - run: go test -v -run ^TestRunEventHostEnvironment$ ./...
+      - uses: actions/github-script@v6
+        with:
+          github-token: none # No reason to grant access to the GITHUB_TOKEN
+          script: |
+              let myOutput = '';
+              const options = {};
+              options.listeners = {
+                stdout: (data) => {
+                  for(line of data.toString().split('\n')) {
+                    if(/^\s*(===\s[^\s]+\s|---\s[^\s]+:\s)/.test(line)) {
+                      myOutput += line + "\n";
+                    }
+                  }
+                }
+              };
+              await exec.exec('go', ['test', '-v', '-run', '^TestRunEventHostEnvironment$', './...'], options);
+              core.summary.addRaw(process.env.GITHUB_JOB, true);
+              core.summary.addCodeBlock(myOutput);
+              core.summary.write()
     # TODO merge coverage with test-linux
 
   snapshot:
