@@ -198,14 +198,15 @@ func mergeEnv(ctx context.Context, step step) {
 	rc := step.getRunContext()
 	job := rc.Run.Job()
 
+	// loading GITHUB_ env variables before so that they can be overridden by user if needed
+	rc.withGithubEnv(ctx, step.getGithubContext(ctx), *env)
+
 	c := job.Container()
 	if c != nil {
 		mergeIntoMap(env, rc.GetEnv(), c.Env)
 	} else {
 		mergeIntoMap(env, rc.GetEnv())
 	}
-
-	rc.withGithubEnv(ctx, step.getGithubContext(ctx), *env)
 }
 
 func isStepEnabled(ctx context.Context, expr string, step step, stage stepStage) (bool, error) {
