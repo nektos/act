@@ -61,7 +61,7 @@ runs:
           args.push(filter);
         }
         args.push('./...');
-        var exitcode = await exec.exec('go', ['test', '-v', '-cover', '-coverprofile=coverage.txt', '-covermode=atomic', '-timeout', '15m', './...'], options);
+        var exitcode = await exec.exec('go', args, options);
         if(process.env.GITHUB_STEP_SUMMARY) {
           core.summary.addCodeBlock(myOutput);
           await core.summary.write();
