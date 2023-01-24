@@ -50,50 +50,10 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
-      - uses: actions/github-script@v6
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
         with:
-          github-token: none # No reason to grant access to the GITHUB_TOKEN
-          script: |
-            let myOutput = '';
-            var fs = require('fs');
-            await io.mkdirP('logs');
-            var filename = null;
-            const options = {};
-            options.ignoreReturnCode = true;
-            options.env = Object.assign({}, process.env);
-            delete options.env.ACTIONS_RUNTIME_URL;
-            delete options.env.ACTIONS_RUNTIME_TOKEN;
-            delete options.env.ACTIONS_CACHE_URL;
-            options.listeners = {
-              stdout: (data) => {
-                for(line of data.toString().split('\n')) {
-                  if(/^\s*(===\s[^\s]+\s|---\s[^\s]+:\s)/.test(line)) {
-                    var runprefix = "=== RUN   ";
-                    if(line.startsWith(runprefix)) {
-                      filename = "logs/" + line.substring(runprefix.length).replace(/[^A-Za-z0-9]/g, '-') + ".txt";
-                      fs.writeFileSync(filename, line + "\n");
-                    } else if(filename) {
-                      fs.appendFileSync(filename, line + "\n");
-                      filename = null;
-                    }
-                    myOutput += line + "\n";
-                  } else if(filename) {
-                    fs.appendFileSync(filename, line + "\n");
-                  }
-                }
-              }
-            };
-            var exitcode = await exec.exec('go', ['test', '-v', '-cover', '-coverprofile=coverage.txt', '-covermode=atomic', '-timeout', '15m', './...'], options);
-            if(process.env.GITHUB_STEP_SUMMARY) {
-              core.summary.addCodeBlock(myOutput);
-              await core.summary.write();
-            }
-            process.exit(exitcode);
-      - uses: actions/upload-artifact@v3
-        if: always() && !env.ACT
-        with:
-          name: logs-linux
-          path: logs
+          upload-logs-name: logs-linux
       - name: Upload Codecov report
         uses: codecov/codecov-action@v3.1.1
         with:
@@ -116,51 +76,11 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
           check-latest: true
-      - uses: actions/github-script@v6
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
         with:
-          github-token: none # No reason to grant access to the GITHUB_TOKEN
-          script: |
-            let myOutput = '';
-            var fs = require('fs');
-            await io.mkdirP('logs');
-            var filename = null;
-            const options = {};
-            options.ignoreReturnCode = true;
-            options.env = Object.assign({}, process.env);
-            delete options.env.ACTIONS_RUNTIME_URL;
-            delete options.env.ACTIONS_RUNTIME_TOKEN;
-            delete options.env.ACTIONS_CACHE_URL;
-            options.listeners = {
-              stdout: (data) => {
-                for(line of data.toString().split('\n')) {
-                  if(/^\s*(===\s[^\s]+\s|---\s[^\s]+:\s)/.test(line)) {
-                    var runprefix = "=== RUN   ";
-                    if(line.startsWith(runprefix)) {
-                      filename = "logs/" + line.substring(runprefix.length).replace(/[^A-Za-z0-9]/g, '-') + ".txt";
-                      fs.writeFileSync(filename, line + "\n");
-                    } else if(filename) {
-                      fs.appendFileSync(filename, line + "\n");
-                      filename = null;
-                    }
-                    myOutput += line + "\n";
-                  } else if(filename) {
-                    fs.appendFileSync(filename, line + "\n");
-                  }
-                }
-              }
-            };
-            var exitcode = await exec.exec('go', ['test', '-v', '-run', '^TestRunEventHostEnvironment$', './...'], options);
-            if(process.env.GITHUB_STEP_SUMMARY) {
-              core.summary.addCodeBlock(myOutput);
-              await core.summary.write();
-            }
-            process.exit(exitcode);
-      # TODO merge coverage with test-linux
-      - uses: actions/upload-artifact@v3
-        if: always() && !env.ACT
-        with:
-          name: logs-${{ matrix.os }}
-          path: logs
+          filter: "^TestRunEventHostEnvironment$"
+          upload-logs-name: logs-${{ matrix.os }}
 
   snapshot:
     name: snapshot
