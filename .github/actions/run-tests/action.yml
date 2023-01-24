@@ -1,18 +1,18 @@
-name: "run-tests"
-description: "Runs go test and upload a step summary"
+name: 'run-tests'
+description: 'Runs go test and upload a step summary'
 inputs:
   filter:
-    description: "The go test pattern for the tests to run"
+    description: 'The go test pattern for the tests to run'
     required: false
-    default: ""
+    default: ''
   upload-logs-name:
-    description: "Choose the name of the log artifact"
+    description: 'Choose the name of the log artifact'
     required: false
     default: logs-${{ github.job }}-${{ strategy.job-index }}
   upload-logs:
-    description: "If true uploads logs of each tests as an artifact"
+    description: 'If true uploads logs of each tests as an artifact'
     required: false
-    default: "true"
+    default: 'true'
 runs:
   using: composite
   steps:

@@ -79,7 +79,7 @@ jobs:
       - name: Run Tests
         uses: ./.github/actions/run-tests
         with:
-          filter: "^TestRunEventHostEnvironment$"
+          filter: '^TestRunEventHostEnvironment$'
           upload-logs-name: logs-${{ matrix.os }}
 
   snapshot:
