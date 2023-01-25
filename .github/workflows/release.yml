@@ -39,3 +39,20 @@ jobs:
           version: ${{ github.ref }}
           apiKey: ${{ secrets.CHOCO_APIKEY }}
           push: true
+      - name: GitHub CLI extension
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GORELEASER_GITHUB_TOKEN }}
+          script: |
+            const mainRef = (await github.rest.git.getRef({
+              owner: 'nektos',
+              repo: 'gh-act',
+              ref: 'heads/main',
+            })).data;
+            console.log(mainRef);
+            github.rest.git.createRef({
+              owner: 'nektos',
+              repo: 'gh-act',
+              ref: `refs/tags/${context.ref}`,
+              sha: mainRef.object.sha,
+            });

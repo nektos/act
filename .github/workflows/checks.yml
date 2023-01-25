@@ -50,7 +50,10 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
-      - run: go test -v -cover -coverprofile=coverage.txt -covermode=atomic -timeout 15m ./...
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          upload-logs-name: logs-linux
       - name: Upload Codecov report
         uses: codecov/codecov-action@v3.1.1
         with:
@@ -73,8 +76,11 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
           check-latest: true
-      - run: go test -v -run ^TestRunEventHostEnvironment$ ./...
-    # TODO merge coverage with test-linux
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          filter: '^TestRunEventHostEnvironment$'
+          upload-logs-name: logs-${{ matrix.os }}
 
   snapshot:
     name: snapshot
