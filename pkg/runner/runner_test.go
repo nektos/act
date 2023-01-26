@@ -296,7 +296,7 @@ func TestRunEventHostEnvironment(t *testing.T) {
 		}...)
 	} else {
 		platforms := map[string]string{
-			"self-hosted": "-self-hosted",
+			"self-hosted":   "-self-hosted",
 			"ubuntu-latest": "-self-hosted",
 		}
 
