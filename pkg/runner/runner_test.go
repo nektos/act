@@ -203,6 +203,7 @@ func TestRunEvent(t *testing.T) {
 		// {"testdata", "issue-228", "push", "", platforms, }, // TODO [igni]: Remove this once everything passes
 		{"../model/testdata", "container-volumes", "push", "", platforms, secrets},
 		{workdir, "path-handling", "push", "", platforms, secrets},
+		{workdir, "do-not-leak-step-env-in-composite", "push", "", platforms, secrets},
 	}
 
 	for _, table := range tables {
@@ -296,11 +297,13 @@ func TestRunEventHostEnvironment(t *testing.T) {
 	} else {
 		platforms := map[string]string{
 			"self-hosted": "-self-hosted",
+			"ubuntu-latest": "-self-hosted",
 		}
 
 		tables = append(tables, []TestJobFileInfo{
 			{workdir, "nix-prepend-path", "push", "", platforms, secrets},
 			{workdir, "inputs-via-env-context", "push", "", platforms, secrets},
+			{workdir, "do-not-leak-step-env-in-composite", "push", "", platforms, secrets},
 		}...)
 	}
 
