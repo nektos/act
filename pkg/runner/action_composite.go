@@ -66,6 +66,7 @@ func newCompositeRunContext(ctx context.Context, parent *RunContext, step action
 		JobContainer: parent.JobContainer,
 		ActionPath:   actionPath,
 		Env:          env,
+		GlobalEnv:    parent.GlobalEnv,
 		Masks:        parent.Masks,
 		ExtraPath:    parent.ExtraPath,
 		Parent:       parent,
@@ -99,11 +100,13 @@ func execAsComposite(step actionStep) common.Executor {
 
 		rc.Masks = append(rc.Masks, compositeRC.Masks...)
 		rc.ExtraPath = compositeRC.ExtraPath
-		// Drop INPUT_... envs, otherwise could just assign rc.Env = compositeRC.Env
-		for k, v := range compositeRC.Env {
-			if !strings.HasPrefix(k, "INPUT_") {
-				rc.Env[k] = v
+		// compositeRC.Env is dirty, contains INPUT_ and merged step env, only rely on compositeRC.GlobalEnv
+		for k, v := range compositeRC.GlobalEnv {
+			rc.Env[k] = v
+			if rc.GlobalEnv == nil {
+				rc.GlobalEnv = map[string]string{}
 			}
+			rc.GlobalEnv[k] = v
 		}
 
 		return err
