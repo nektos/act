@@ -1,0 +1,17 @@
+on: push
+jobs:
+  _:
+    runs-on: ubuntu-latest
+    steps:
+    - run: |
+        runs:
+          using: composite
+          steps:
+          - run: exit 1
+            if: env.LEAK_ENV != 'val'
+      shell: cp {0} action.yml
+    - uses: ./
+      env:
+        LEAK_ENV: val
+    - run: exit 1
+      if: env.LEAK_ENV == 'val'
