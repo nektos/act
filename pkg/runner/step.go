@@ -204,9 +204,8 @@ func mergeEnv(ctx context.Context, step step) {
 	} else {
 		mergeIntoMap(env, rc.GetEnv())
 	}
+
 	rc.withGithubEnv(ctx, step.getGithubContext(ctx), *env)
-	// override any system variables with non-empty user defined env
-	overrideEnv(env, rc.GetEnv())
 }
 
 func isStepEnabled(ctx context.Context, expr string, step step, stage stepStage) (bool, error) {
@@ -246,14 +245,6 @@ func isContinueOnError(ctx context.Context, expr string, step step, stage stepSt
 func mergeIntoMap(target *map[string]string, maps ...map[string]string) {
 	for _, m := range maps {
 		for k, v := range m {
-			(*target)[k] = v
-		}
-	}
-}
-
-func overrideEnv(target *map[string]string, maps map[string]string) {
-	for k, v := range maps {
-		if v != "" {
 			(*target)[k] = v
 		}
 	}
