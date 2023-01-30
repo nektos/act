@@ -193,3 +193,15 @@ func (ghc *GithubContext) SetRefTypeAndName() {
 		ghc.RefName = refName
 	}
 }
+
+func (ghc *GithubContext) SetBaseAndHeadRef() {
+	if ghc.EventName == "pull_request" || ghc.EventName == "pull_request_target" {
+		if ghc.BaseRef == "" {
+			ghc.BaseRef = asString(nestedMapLookup(ghc.Event, "pull_request", "base", "ref"))
+		}
+
+		if ghc.HeadRef == "" {
+			ghc.HeadRef = asString(nestedMapLookup(ghc.Event, "pull_request", "head", "ref"))
+		}
+	}
+}

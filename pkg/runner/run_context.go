@@ -613,11 +613,7 @@ func (rc *RunContext) getGithubContext(ctx context.Context) *model.GithubContext
 		}
 	}
 
-	if ghc.EventName == "pull_request" || ghc.EventName == "pull_request_target" {
-		ghc.BaseRef = asString(nestedMapLookup(ghc.Event, "pull_request", "base", "ref"))
-		ghc.HeadRef = asString(nestedMapLookup(ghc.Event, "pull_request", "head", "ref"))
-	}
-
+	ghc.SetBaseAndHeadRef()
 	repoPath := rc.Config.Workdir
 	ghc.SetRepositoryAndOwner(ctx, rc.Config.GitHubInstance, rc.Config.RemoteName, repoPath)
 	if ghc.Ref == "" {
@@ -656,15 +652,6 @@ func isLocalCheckout(ghc *model.GithubContext, step *model.Step) bool {
 		return false
 	}
 	return true
-}
-
-func asString(v interface{}) string {
-	if v == nil {
-		return ""
-	} else if s, ok := v.(string); ok {
-		return s
-	}
-	return ""
 }
 
 func nestedMapLookup(m map[string]interface{}, ks ...string) (rval interface{}) {
@@ -710,6 +697,8 @@ func (rc *RunContext) withGithubEnv(ctx context.Context, github *model.GithubCon
 	env["GITHUB_RETENTION_DAYS"] = github.RetentionDays
 	env["RUNNER_PERFLOG"] = github.RunnerPerflog
 	env["RUNNER_TRACKING_ID"] = github.RunnerTrackingID
+	env["GITHUB_BASE_REF"] = github.BaseRef
+	env["GITHUB_HEAD_REF"] = github.HeadRef
 
 	defaultServerURL := "https://github.com"
 	defaultAPIURL := "https://api.github.com"
