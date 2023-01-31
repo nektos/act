@@ -206,6 +206,8 @@ func TestRunEvent(t *testing.T) {
 		{"../model/testdata", "container-volumes", "push", "", platforms, secrets},
 		{workdir, "path-handling", "push", "", platforms, secrets},
 		{workdir, "do-not-leak-step-env-in-composite", "push", "", platforms, secrets},
+		{workdir, "set-env-step-env-override", "push", "", platforms, secrets},
+		{workdir, "set-env-new-env-file-per-step", "push", "", platforms, secrets},
 	}
 
 	for _, table := range tables {
@@ -306,6 +308,8 @@ func TestRunEventHostEnvironment(t *testing.T) {
 			{workdir, "nix-prepend-path", "push", "", platforms, secrets},
 			{workdir, "inputs-via-env-context", "push", "", platforms, secrets},
 			{workdir, "do-not-leak-step-env-in-composite", "push", "", platforms, secrets},
+			{workdir, "set-env-step-env-override", "push", "", platforms, secrets},
+			{workdir, "set-env-new-env-file-per-step", "push", "", platforms, secrets},
 		}...)
 	}
 
