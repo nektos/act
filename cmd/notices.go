@@ -3,12 +3,16 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 
+	"github.com/mitchellh/go-homedir"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -73,10 +77,27 @@ func getVersionNotices(version string) []Notice {
 
 	noticeURL.RawQuery = query.Encode()
 
-	resp, err := http.Get(noticeURL.String())
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", noticeURL.String(), nil)
 	if err != nil {
 		log.Debug(err)
 		return nil
+	}
+
+	etag := loadNoticesEtag()
+	if etag != "" {
+		req.Header.Set("If-None-Match", etag)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Debug(err)
+		return nil
+	}
+
+	newEtag := resp.Header.Get("ETag")
+	if newEtag != "" {
+		saveNoticesEtag(newEtag)
 	}
 
 	defer resp.Body.Close()
@@ -87,4 +108,38 @@ func getVersionNotices(version string) []Notice {
 	}
 
 	return notices
+}
+
+func loadNoticesEtag() string {
+	p := etagPath()
+	content, err := ioutil.ReadFile(p)
+	if err != nil {
+		log.Debugf("Unable to load etag from %s: %e", p, err)
+	}
+	return strings.TrimSuffix(string(content), "\n")
+}
+
+func saveNoticesEtag(etag string) {
+	p := etagPath()
+	err := os.WriteFile(p, []byte(strings.TrimSuffix(etag, "\n")), 0644)
+	if err != nil {
+		log.Debugf("Unable to save etag to %s: %e", p, err)
+	}
+}
+
+func etagPath() string {
+	var xdgCache string
+	var ok bool
+	if xdgCache, ok = os.LookupEnv("XDG_CACHE_HOME"); !ok || xdgCache == "" {
+		if home, err := homedir.Dir(); err == nil {
+			xdgCache = filepath.Join(home, ".cache")
+		} else if xdgCache, err = filepath.Abs("."); err != nil {
+			log.Fatal(err)
+		}
+	}
+	dir := filepath.Join(xdgCache, "act")
+	if err := os.MkdirAll(dir, 0777); err != nil {
+		log.Fatal(err)
+	}
+	return filepath.Join(dir, ".notices.etag")
 }
