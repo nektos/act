@@ -121,7 +121,7 @@ func loadNoticesEtag() string {
 
 func saveNoticesEtag(etag string) {
 	p := etagPath()
-	err := os.WriteFile(p, []byte(strings.TrimSuffix(etag, "\n")), 0644)
+	err := os.WriteFile(p, []byte(strings.TrimSuffix(etag, "\n")), 0600)
 	if err != nil {
 		log.Debugf("Unable to save etag to %s: %e", p, err)
 	}
