@@ -85,6 +85,7 @@ func getVersionNotices(version string) []Notice {
 
 	etag := loadNoticesEtag()
 	if etag != "" {
+		log.Debugf("Conditional GET for notices etag=%s", etag)
 		req.Header.Set("If-None-Match", etag)
 	}
 
@@ -94,13 +95,18 @@ func getVersionNotices(version string) []Notice {
 		return nil
 	}
 
-	newEtag := resp.Header.Get("ETag")
+	newEtag := resp.Header.Get("Etag")
 	if newEtag != "" {
+		log.Debugf("Saving notices etag=%s", newEtag)
 		saveNoticesEtag(newEtag)
 	}
 
 	defer resp.Body.Close()
 	notices := []Notice{}
+	if resp.StatusCode == 304 {
+		log.Debug("No new notices")
+		return nil
+	}
 	if err := json.NewDecoder(resp.Body).Decode(&notices); err != nil {
 		log.Debug(err)
 		return nil
