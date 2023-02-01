@@ -53,6 +53,6 @@ jobs:
             github.rest.git.createRef({
               owner: 'nektos',
               repo: 'gh-act',
-              ref: `refs/tags/${context.ref}`,
+              ref: context.ref,
               sha: mainRef.object.sha,
             });
