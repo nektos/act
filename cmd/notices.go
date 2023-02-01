@@ -3,7 +3,6 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
@@ -112,7 +111,7 @@ func getVersionNotices(version string) []Notice {
 
 func loadNoticesEtag() string {
 	p := etagPath()
-	content, err := ioutil.ReadFile(p)
+	content, err := os.ReadFile(p)
 	if err != nil {
 		log.Debugf("Unable to load etag from %s: %e", p, err)
 	}
