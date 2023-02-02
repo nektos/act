@@ -266,6 +266,12 @@ You can work around this by setting `DOCKER_HOST` before running `act`, with e.g
 export DOCKER_HOST=$(docker context inspect --format '{{.Endpoints.docker.Host}}')
 ```
 
+If your other host requires client certificates, the `DOCKER_CERT_PATH` environment variable *is* respected.
+
+```bash
+export DOCKER_CERT_PATH=$(docker context inspect --format '{{.Storage.TLSPath}}')/docker
+```
+
 # Runners
 
 GitHub Actions offers managed [virtual environments](https://help.github.com/en/actions/reference/virtual-environments-for-github-hosted-runners) for running workflows. In order for `act` to run your workflows locally, it must run a container for the runner defined in your workflow file. Here are the images that `act` uses for each runner type and size:
