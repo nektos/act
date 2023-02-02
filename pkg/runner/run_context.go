@@ -508,7 +508,7 @@ func mergeMaps(maps ...map[string]string) map[string]string {
 func createContainerName(parts ...string) string {
 	name := make([]string, 0)
 	pattern := regexp.MustCompile("[^a-zA-Z0-9]")
-	partLen := (30 / len(parts)) - 1
+	partLen := (128 / len(parts)) - 1
 	for i, part := range parts {
 		if i == len(parts)-1 {
 			name = append(name, pattern.ReplaceAllString(part, "-"))
