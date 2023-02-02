@@ -221,8 +221,11 @@ func execAsDocker(ctx context.Context, step actionStep, actionName string, based
 
 	var prepImage common.Executor
 	var image string
+	forcePull := false
 	if strings.HasPrefix(action.Runs.Image, "docker://") {
 		image = strings.TrimPrefix(action.Runs.Image, "docker://")
+		// Apply forcePull only for prebuild docker images
+		forcePull = rc.Config.ForcePull
 	} else {
 		// "-dockeraction" enshures that "./", "./test " won't get converted to "act-:latest", "act-test-:latest" which are invalid docker image names
 		image = fmt.Sprintf("%s-dockeraction:%s", regexp.MustCompile("[^a-zA-Z0-9]").ReplaceAllString(actionName, "-"), "latest")
@@ -289,7 +292,7 @@ func execAsDocker(ctx context.Context, step actionStep, actionName string, based
 	stepContainer := newStepContainer(ctx, step, image, cmd, entrypoint)
 	return common.NewPipelineExecutor(
 		prepImage,
-		stepContainer.Pull(rc.Config.ForcePull),
+		stepContainer.Pull(forcePull),
 		stepContainer.Remove().IfBool(!rc.Config.ReuseContainers),
 		stepContainer.Create(rc.Config.ContainerCapAdd, rc.Config.ContainerCapDrop),
 		stepContainer.Start(true),
