@@ -58,7 +58,7 @@ func (rc *RunContext) NewExpressionEvaluatorWithEnv(ctx context.Context, env map
 					Outputs: map[string]string{},
 				}
 				for k, v := range job.Outputs {
-					result.Outputs[k] = rc.ExprEval.Interpolate(ctx, v)
+					result.Outputs[k] = v
 				}
 				workflowCallResult[jobName] = &result
 			}
