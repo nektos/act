@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestSetRefAndSha(t *testing.T) {
+func TestSetRef(t *testing.T) {
 	log.SetLevel(log.DebugLevel)
 
 	oldFindGitRef := findGitRef
@@ -29,19 +29,11 @@ func TestSetRefAndSha(t *testing.T) {
 		eventName string
 		event     map[string]interface{}
 		ref       string
-		sha       string
 	}{
 		{
 			eventName: "pull_request_target",
-			event: map[string]interface{}{
-				"pull_request": map[string]interface{}{
-					"base": map[string]interface{}{
-						"sha": "pr-base-sha",
-					},
-				},
-			},
-			ref: "refs/heads/master",
-			sha: "pr-base-sha",
+			event:     map[string]interface{}{},
+			ref:       "refs/heads/master",
 		},
 		{
 			eventName: "pull_request",
@@ -49,18 +41,15 @@ func TestSetRefAndSha(t *testing.T) {
 				"number": 1234.,
 			},
 			ref: "refs/pull/1234/merge",
-			sha: "1234fakesha",
 		},
 		{
 			eventName: "deployment",
 			event: map[string]interface{}{
 				"deployment": map[string]interface{}{
 					"ref": "refs/heads/somebranch",
-					"sha": "deployment-sha",
 				},
 			},
 			ref: "refs/heads/somebranch",
-			sha: "deployment-sha",
 		},
 		{
 			eventName: "release",
@@ -70,17 +59,13 @@ func TestSetRefAndSha(t *testing.T) {
 				},
 			},
 			ref: "v1.0.0",
-			sha: "1234fakesha",
 		},
 		{
 			eventName: "push",
 			event: map[string]interface{}{
-				"ref":     "refs/heads/somebranch",
-				"after":   "push-sha",
-				"deleted": false,
+				"ref": "refs/heads/somebranch",
 			},
 			ref: "refs/heads/somebranch",
-			sha: "push-sha",
 		},
 		{
 			eventName: "unknown",
@@ -90,13 +75,11 @@ func TestSetRefAndSha(t *testing.T) {
 				},
 			},
 			ref: "refs/heads/main",
-			sha: "1234fakesha",
 		},
 		{
 			eventName: "no-event",
 			event:     map[string]interface{}{},
 			ref:       "refs/heads/master",
-			sha:       "1234fakesha",
 		},
 	}
 
@@ -108,10 +91,9 @@ func TestSetRefAndSha(t *testing.T) {
 				Event:     table.event,
 			}
 
-			ghc.SetRefAndSha(context.Background(), "main", "/some/dir")
+			ghc.SetRef(context.Background(), "main", "/some/dir")
 
 			assert.Equal(t, table.ref, ghc.Ref)
-			assert.Equal(t, table.sha, ghc.Sha)
 		})
 	}
 
@@ -125,9 +107,96 @@ func TestSetRefAndSha(t *testing.T) {
 			Event:     map[string]interface{}{},
 		}
 
-		ghc.SetRefAndSha(context.Background(), "", "/some/dir")
+		ghc.SetRef(context.Background(), "", "/some/dir")
 
 		assert.Equal(t, "refs/heads/master", ghc.Ref)
-		assert.Equal(t, "1234fakesha", ghc.Sha)
 	})
+}
+
+func TestSetSha(t *testing.T) {
+	log.SetLevel(log.DebugLevel)
+
+	oldFindGitRef := findGitRef
+	oldFindGitRevision := findGitRevision
+	defer func() { findGitRef = oldFindGitRef }()
+	defer func() { findGitRevision = oldFindGitRevision }()
+
+	findGitRef = func(ctx context.Context, file string) (string, error) {
+		return "refs/heads/master", nil
+	}
+
+	findGitRevision = func(ctx context.Context, file string) (string, string, error) {
+		return "", "1234fakesha", nil
+	}
+
+	tables := []struct {
+		eventName string
+		event     map[string]interface{}
+		sha       string
+	}{
+		{
+			eventName: "pull_request_target",
+			event: map[string]interface{}{
+				"pull_request": map[string]interface{}{
+					"base": map[string]interface{}{
+						"sha": "pr-base-sha",
+					},
+				},
+			},
+			sha: "pr-base-sha",
+		},
+		{
+			eventName: "pull_request",
+			event: map[string]interface{}{
+				"number": 1234.,
+			},
+			sha: "1234fakesha",
+		},
+		{
+			eventName: "deployment",
+			event: map[string]interface{}{
+				"deployment": map[string]interface{}{
+					"sha": "deployment-sha",
+				},
+			},
+			sha: "deployment-sha",
+		},
+		{
+			eventName: "release",
+			event:     map[string]interface{}{},
+			sha:       "1234fakesha",
+		},
+		{
+			eventName: "push",
+			event: map[string]interface{}{
+				"after":   "push-sha",
+				"deleted": false,
+			},
+			sha: "push-sha",
+		},
+		{
+			eventName: "unknown",
+			event:     map[string]interface{}{},
+			sha:       "1234fakesha",
+		},
+		{
+			eventName: "no-event",
+			event:     map[string]interface{}{},
+			sha:       "1234fakesha",
+		},
+	}
+
+	for _, table := range tables {
+		t.Run(table.eventName, func(t *testing.T) {
+			ghc := &GithubContext{
+				EventName: table.eventName,
+				BaseRef:   "master",
+				Event:     table.event,
+			}
+
+			ghc.SetSha(context.Background(), "/some/dir")
+
+			assert.Equal(t, table.sha, ghc.Sha)
+		})
+	}
 }
