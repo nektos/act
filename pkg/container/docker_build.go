@@ -45,13 +45,13 @@ func NewDockerBuildExecutor(input NewDockerBuildExecutorInput) common.Executor {
 			Remove:      true,
 			Platform:    input.Platform,
 			AuthConfigs: LoadDockerAuthConfigs(ctx),
+			Dockerfile:  input.Dockerfile,
 		}
 		var buildContext io.ReadCloser
 		if input.Container != nil {
 			buildContext, err = input.Container.GetContainerArchive(ctx, input.ContextDir+"/.")
 		} else {
 			buildContext, err = createBuildContext(ctx, input.ContextDir, input.Dockerfile)
-			options.Dockerfile = input.Dockerfile
 		}
 		if err != nil {
 			return err
