@@ -50,7 +50,8 @@ func NewDockerBuildExecutor(input NewDockerBuildExecutorInput) common.Executor {
 		if input.Container != nil {
 			buildContext, err = input.Container.GetContainerArchive(ctx, input.ContextDir+"/.")
 		} else {
-			buildContext, err = createBuildContext(ctx, input.ContextDir, "Dockerfile")
+			buildContext, err = createBuildContext(ctx, input.ContextDir, input.Dockerfile)
+			options.Dockerfile = input.Dockerfile
 		}
 		if err != nil {
 			return err

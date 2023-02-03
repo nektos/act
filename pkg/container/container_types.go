@@ -55,6 +55,7 @@ type Container interface {
 // NewDockerBuildExecutorInput the input for the NewDockerBuildExecutor function
 type NewDockerBuildExecutorInput struct {
 	ContextDir string
+	Dockerfile string
 	Container  Container
 	ImageTag   string
 	Platform   string

@@ -11,3 +11,5 @@ jobs:
       - uses: './actions-environment-and-context-tests/docker'
       - uses: 'nektos/act-test-actions/js@main'
       - uses: 'nektos/act-test-actions/docker@main'
+      - uses: 'artificial-aidan/act-test-actions/docker-file@6e10d41bbdb0919d19847350a7763a580cfa41c8'
+      - uses: 'artificial-aidan/act-test-actions/docker-relative-context/action@6e10d41bbdb0919d19847350a7763a580cfa41c8'
