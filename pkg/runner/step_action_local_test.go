@@ -69,15 +69,11 @@ func TestStepActionLocalTest(t *testing.T) {
 	salm.On("readAction", sal.Step, filepath.Clean("/tmp/path/to/action"), "", mock.Anything, mock.Anything).
 		Return(&model.Action{}, nil)
 
-	cm.On("UpdateFromImageEnv", mock.AnythingOfType("*map[string]string")).Return(func(ctx context.Context) error {
+	cm.On("Copy", "/var/run/act", mock.AnythingOfType("[]*container.FileEntry")).Return(func(ctx context.Context) error {
 		return nil
 	})
 
 	cm.On("UpdateFromEnv", "/var/run/act/workflow/envs.txt", mock.AnythingOfType("*map[string]string")).Return(func(ctx context.Context) error {
-		return nil
-	})
-
-	cm.On("Copy", "/var/run/act", mock.AnythingOfType("[]*container.FileEntry")).Return(func(ctx context.Context) error {
 		return nil
 	})
 
@@ -197,7 +193,7 @@ func TestStepActionLocalPost(t *testing.T) {
 				env  bool
 				exec bool
 			}{
-				env:  true,
+				env:  false,
 				exec: false,
 			},
 		},
@@ -260,10 +256,6 @@ func TestStepActionLocalPost(t *testing.T) {
 			}
 			sal.RunContext.ExprEval = sal.RunContext.NewExpressionEvaluator(ctx)
 
-			if tt.mocks.env {
-				cm.On("UpdateFromImageEnv", &sal.env).Return(func(ctx context.Context) error { return nil })
-				cm.On("UpdateFromEnv", "/var/run/act/workflow/envs.txt", &sal.env).Return(func(ctx context.Context) error { return nil })
-			}
 			if tt.mocks.exec {
 				suffixMatcher := func(suffix string) interface{} {
 					return mock.MatchedBy(func(array []string) bool {
@@ -273,6 +265,10 @@ func TestStepActionLocalPost(t *testing.T) {
 				cm.On("Exec", suffixMatcher("pkg/runner/local/action/post.js"), sal.env, "", "").Return(func(ctx context.Context) error { return tt.err })
 
 				cm.On("Copy", "/var/run/act", mock.AnythingOfType("[]*container.FileEntry")).Return(func(ctx context.Context) error {
+					return nil
+				})
+
+				cm.On("UpdateFromEnv", "/var/run/act/workflow/envs.txt", mock.AnythingOfType("*map[string]string")).Return(func(ctx context.Context) error {
 					return nil
 				})
 

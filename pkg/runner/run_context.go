@@ -35,6 +35,7 @@ type RunContext struct {
 	Run                 *model.Run
 	EventJSON           string
 	Env                 map[string]string
+	GlobalEnv           map[string]string // to pass env changes of GITHUB_ENV and set-env correctly, due to dirty Env field
 	ExtraPath           []string
 	CurrentStep         string
 	StepResults         map[string]*model.StepResult
@@ -275,8 +276,6 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			rc.stopJobContainer(),
 			rc.JobContainer.Create(rc.Config.ContainerCapAdd, rc.Config.ContainerCapDrop),
 			rc.JobContainer.Start(false),
-			rc.JobContainer.UpdateFromImageEnv(&rc.Env),
-			rc.JobContainer.UpdateFromEnv("/etc/environment", &rc.Env),
 			rc.JobContainer.Copy(rc.JobContainer.GetActPath()+"/", &container.FileEntry{
 				Name: "workflow/event.json",
 				Mode: 0644,
@@ -296,11 +295,21 @@ func (rc *RunContext) execJobContainer(cmd []string, env map[string]string, user
 	}
 }
 
-func (rc *RunContext) ApplyExtraPath(env *map[string]string) {
+func (rc *RunContext) ApplyExtraPath(ctx context.Context, env *map[string]string) {
 	if rc.ExtraPath != nil && len(rc.ExtraPath) > 0 {
 		path := rc.JobContainer.GetPathVariableName()
 		if (*env)[path] == "" {
-			(*env)[path] = rc.JobContainer.DefaultPathVariable()
+			cenv := map[string]string{}
+			var cpath string
+			if err := rc.JobContainer.UpdateFromImageEnv(&cenv)(ctx); err == nil {
+				if p, ok := cenv[path]; ok {
+					cpath = p
+				}
+			}
+			if len(cpath) == 0 {
+				cpath = rc.JobContainer.DefaultPathVariable()
+			}
+			(*env)[path] = cpath
 		}
 		(*env)[path] = rc.JobContainer.JoinPathVariable(append(rc.ExtraPath, (*env)[path])...)
 	}
@@ -664,7 +673,6 @@ func nestedMapLookup(m map[string]interface{}, ks ...string) (rval interface{}) 
 
 func (rc *RunContext) withGithubEnv(ctx context.Context, github *model.GithubContext, env map[string]string) map[string]string {
 	env["CI"] = "true"
-	env["GITHUB_ENV"] = rc.JobContainer.GetActPath() + "/workflow/envs.txt"
 	env["GITHUB_WORKFLOW"] = github.Workflow
 	env["GITHUB_RUN_ID"] = github.RunID
 	env["GITHUB_RUN_NUMBER"] = github.RunNumber

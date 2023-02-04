@@ -1,0 +1,15 @@
+name: remote-action-js
+on: push
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    container:
+      image: node:16-buster-slim
+      options: --user node
+    steps:
+    - uses: actions/hello-world-javascript-action@v1
+      with:
+        who-to-greet: 'Mona the Octocat'
+
+    - uses: cloudposse/actions/github/slash-command-dispatch@0.14.0

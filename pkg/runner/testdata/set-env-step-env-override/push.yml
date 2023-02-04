@@ -2,17 +2,23 @@ on: push
 jobs:
   _:
     runs-on: ubuntu-latest
+    env:
+      MY_ENV: test
     steps:
+    - run: exit 1
+      if: env.MY_ENV != 'test'
     - run: |
         runs:
           using: composite
           steps:
           - run: exit 1
             shell: bash
-            if: env.LEAK_ENV != 'val'
+            if: env.MY_ENV != 'val'
+          - run: echo "MY_ENV=returnedenv" > $GITHUB_ENV
+            shell: bash
       shell: cp {0} action.yml
     - uses: ./
       env:
-        LEAK_ENV: val
+        MY_ENV: val
     - run: exit 1
-      if: env.LEAK_ENV == 'val'
+      if: env.MY_ENV != 'returnedenv'
