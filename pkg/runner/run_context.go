@@ -5,6 +5,7 @@ import (
 	"bufio"
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -21,7 +22,6 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/nektos/act/pkg/common"
-	"github.com/nektos/act/pkg/common/git"
 	"github.com/nektos/act/pkg/container"
 	"github.com/nektos/act/pkg/exprparser"
 	"github.com/nektos/act/pkg/model"
@@ -515,26 +515,16 @@ func mergeMaps(maps ...map[string]string) map[string]string {
 }
 
 func createContainerName(parts ...string) string {
-	name := make([]string, 0)
+	name := strings.Join(parts, "-")
 	pattern := regexp.MustCompile("[^a-zA-Z0-9]")
-	partLen := (30 / len(parts)) - 1
-	for i, part := range parts {
-		if i == len(parts)-1 {
-			name = append(name, pattern.ReplaceAllString(part, "-"))
-		} else {
-			// If any part has a '-<number>' on the end it is likely part of a matrix job.
-			// Let's preserve the number to prevent clashes in container names.
-			re := regexp.MustCompile("-[0-9]+$")
-			num := re.FindStringSubmatch(part)
-			if len(num) > 0 {
-				name = append(name, trimToLen(pattern.ReplaceAllString(part, "-"), partLen-len(num[0])))
-				name = append(name, num[0])
-			} else {
-				name = append(name, trimToLen(pattern.ReplaceAllString(part, "-"), partLen))
-			}
-		}
-	}
-	return strings.ReplaceAll(strings.Trim(strings.Join(name, "-"), "-"), "--", "-")
+	name = pattern.ReplaceAllString(name, "-")
+	name = strings.ReplaceAll(name, "--", "-")
+	hash := sha256.Sum256([]byte(name))
+
+	// SHA256 is 64 hex characters. So trim name to 63 characters to make room for the hash and separator
+	trimmedName := strings.Trim(trimToLen(name, 63), "-")
+
+	return fmt.Sprintf("%s-%x", trimmedName, hash)
 }
 
 func trimToLen(s string, l int) string {
@@ -580,6 +570,14 @@ func (rc *RunContext) getGithubContext(ctx context.Context) *model.GithubContext
 		RetentionDays:    rc.Config.Env["GITHUB_RETENTION_DAYS"],
 		RunnerPerflog:    rc.Config.Env["RUNNER_PERFLOG"],
 		RunnerTrackingID: rc.Config.Env["RUNNER_TRACKING_ID"],
+		Repository:       rc.Config.Env["GITHUB_REPOSITORY"],
+		Ref:              rc.Config.Env["GITHUB_REF"],
+		Sha:              rc.Config.Env["SHA_REF"],
+		RefName:          rc.Config.Env["GITHUB_REF_NAME"],
+		RefType:          rc.Config.Env["GITHUB_REF_TYPE"],
+		BaseRef:          rc.Config.Env["GITHUB_BASE_REF"],
+		HeadRef:          rc.Config.Env["GITHUB_HEAD_REF"],
+		Workspace:        rc.Config.Env["GITHUB_WORKSPACE"],
 	}
 	if rc.JobContainer != nil {
 		ghc.EventPath = rc.JobContainer.GetActPath() + "/workflow/event.json"
@@ -608,39 +606,24 @@ func (rc *RunContext) getGithubContext(ctx context.Context) *model.GithubContext
 		ghc.Actor = "nektos/act"
 	}
 
-	repoPath := rc.Config.Workdir
-	repo, err := git.FindGithubRepo(ctx, repoPath, rc.Config.GitHubInstance, rc.Config.RemoteName)
-	if err != nil {
-		logger.Warningf("unable to get git repo: %v", err)
-	} else {
-		ghc.Repository = repo
-		if ghc.RepositoryOwner == "" {
-			ghc.RepositoryOwner = strings.Split(repo, "/")[0]
-		}
-	}
-
 	if rc.EventJSON != "" {
-		err = json.Unmarshal([]byte(rc.EventJSON), &ghc.Event)
+		err := json.Unmarshal([]byte(rc.EventJSON), &ghc.Event)
 		if err != nil {
 			logger.Errorf("Unable to Unmarshal event '%s': %v", rc.EventJSON, err)
 		}
 	}
 
-	if ghc.EventName == "pull_request" || ghc.EventName == "pull_request_target" {
-		ghc.BaseRef = asString(nestedMapLookup(ghc.Event, "pull_request", "base", "ref"))
-		ghc.HeadRef = asString(nestedMapLookup(ghc.Event, "pull_request", "head", "ref"))
+	ghc.SetBaseAndHeadRef()
+	repoPath := rc.Config.Workdir
+	ghc.SetRepositoryAndOwner(ctx, rc.Config.GitHubInstance, rc.Config.RemoteName, repoPath)
+	if ghc.Ref == "" {
+		ghc.SetRef(ctx, rc.Config.DefaultBranch, repoPath)
+	}
+	if ghc.Sha == "" {
+		ghc.SetSha(ctx, repoPath)
 	}
 
-	ghc.SetRefAndSha(ctx, rc.Config.DefaultBranch, repoPath)
-
-	// https://docs.github.com/en/actions/learn-github-actions/environment-variables
-	if strings.HasPrefix(ghc.Ref, "refs/tags/") {
-		ghc.RefType = "tag"
-		ghc.RefName = ghc.Ref[len("refs/tags/"):]
-	} else if strings.HasPrefix(ghc.Ref, "refs/heads/") {
-		ghc.RefType = "branch"
-		ghc.RefName = ghc.Ref[len("refs/heads/"):]
-	}
+	ghc.SetRefTypeAndName()
 
 	return ghc
 }
@@ -669,15 +652,6 @@ func isLocalCheckout(ghc *model.GithubContext, step *model.Step) bool {
 		return false
 	}
 	return true
-}
-
-func asString(v interface{}) string {
-	if v == nil {
-		return ""
-	} else if s, ok := v.(string); ok {
-		return s
-	}
-	return ""
 }
 
 func nestedMapLookup(m map[string]interface{}, ks ...string) (rval interface{}) {
@@ -717,20 +691,34 @@ func (rc *RunContext) withGithubEnv(ctx context.Context, github *model.GithubCon
 	env["GITHUB_REF_NAME"] = github.RefName
 	env["GITHUB_REF_TYPE"] = github.RefType
 	env["GITHUB_TOKEN"] = github.Token
-	env["GITHUB_SERVER_URL"] = "https://github.com"
-	env["GITHUB_API_URL"] = "https://api.github.com"
-	env["GITHUB_GRAPHQL_URL"] = "https://api.github.com/graphql"
-	env["GITHUB_BASE_REF"] = github.BaseRef
-	env["GITHUB_HEAD_REF"] = github.HeadRef
 	env["GITHUB_JOB"] = rc.JobName
 	env["GITHUB_REPOSITORY_OWNER"] = github.RepositoryOwner
 	env["GITHUB_RETENTION_DAYS"] = github.RetentionDays
 	env["RUNNER_PERFLOG"] = github.RunnerPerflog
 	env["RUNNER_TRACKING_ID"] = github.RunnerTrackingID
+	env["GITHUB_BASE_REF"] = github.BaseRef
+	env["GITHUB_HEAD_REF"] = github.HeadRef
+
+	defaultServerURL := "https://github.com"
+	defaultAPIURL := "https://api.github.com"
+	defaultGraphqlURL := "https://api.github.com/graphql"
+
 	if rc.Config.GitHubInstance != "github.com" {
-		env["GITHUB_SERVER_URL"] = fmt.Sprintf("https://%s", rc.Config.GitHubInstance)
-		env["GITHUB_API_URL"] = fmt.Sprintf("https://%s/api/v3", rc.Config.GitHubInstance)
-		env["GITHUB_GRAPHQL_URL"] = fmt.Sprintf("https://%s/api/graphql", rc.Config.GitHubInstance)
+		defaultServerURL = fmt.Sprintf("https://%s", rc.Config.GitHubInstance)
+		defaultAPIURL = fmt.Sprintf("https://%s/api/v3", rc.Config.GitHubInstance)
+		defaultGraphqlURL = fmt.Sprintf("https://%s/api/graphql", rc.Config.GitHubInstance)
+	}
+
+	if env["GITHUB_SERVER_URL"] == "" {
+		env["GITHUB_SERVER_URL"] = defaultServerURL
+	}
+
+	if env["GITHUB_API_URL"] == "" {
+		env["GITHUB_API_URL"] = defaultAPIURL
+	}
+
+	if env["GITHUB_GRAPHQL_URL"] == "" {
+		env["GITHUB_GRAPHQL_URL"] = defaultGraphqlURL
 	}
 
 	if rc.Config.ArtifactServerPath != "" {
