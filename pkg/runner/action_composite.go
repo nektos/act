@@ -86,6 +86,10 @@ func execAsComposite(step actionStep) common.Executor {
 
 		steps := step.getCompositeSteps()
 
+		if steps == nil || steps.main == nil {
+			return fmt.Errorf("missing steps in composite action")
+		}
+
 		ctx = WithCompositeLogger(ctx, &compositeRC.Masks)
 
 		err := steps.main(ctx)

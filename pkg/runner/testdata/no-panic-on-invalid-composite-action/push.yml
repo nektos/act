@@ -1,0 +1,13 @@
+on: push
+jobs:
+  _:
+    runs-on: ubuntu-latest
+    steps:
+    - run: |
+        runs:
+          using: composite
+          steps:
+          - name: Foo
+          - uses: Foo/Bar
+      shell: cp {0} action.yml
+    - uses: ./

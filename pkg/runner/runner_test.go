@@ -208,6 +208,7 @@ func TestRunEvent(t *testing.T) {
 		{workdir, "do-not-leak-step-env-in-composite", "push", "", platforms, secrets},
 		{workdir, "set-env-step-env-override", "push", "", platforms, secrets},
 		{workdir, "set-env-new-env-file-per-step", "push", "", platforms, secrets},
+		{workdir, "no-panic-on-invalid-composite-action", "push", "Error occurred running finally: missing steps in composite action (original error: <nil>)", platforms, secrets},
 	}
 
 	for _, table := range tables {
@@ -310,6 +311,7 @@ func TestRunEventHostEnvironment(t *testing.T) {
 			{workdir, "do-not-leak-step-env-in-composite", "push", "", platforms, secrets},
 			{workdir, "set-env-step-env-override", "push", "", platforms, secrets},
 			{workdir, "set-env-new-env-file-per-step", "push", "", platforms, secrets},
+			{workdir, "no-panic-on-invalid-composite-action", "push", "Error occurred running finally: missing steps in composite action (original error: <nil>)", platforms, secrets},
 		}...)
 	}
 
