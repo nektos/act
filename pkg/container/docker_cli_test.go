@@ -664,7 +664,7 @@ func TestRunFlagsParseShmSize(t *testing.T) {
 func TestParseRestartPolicy(t *testing.T) {
 	invalids := map[string]string{
 		"always:2:3":         "invalid restart policy format: maximum retry count must be an integer",
-		"on-failure:invalid": "maximum retry count must be an integer",
+		"on-failure:invalid": "invalid restart policy format: maximum retry count must be an integer",
 	}
 	valids := map[string]container.RestartPolicy{
 		"": {},
