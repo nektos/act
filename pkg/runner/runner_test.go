@@ -168,7 +168,7 @@ func TestRunEvent(t *testing.T) {
 		{workdir, "container-hostname", "push", "", platforms, secrets},
 		{workdir, "remote-action-docker", "push", "", platforms, secrets},
 		{workdir, "remote-action-js", "push", "", platforms, secrets},
-		{workdir, "remote-action-js", "push", "", map[string]string{"ubuntu-latest": "catthehacker/ubuntu:runner-latest"}, secrets}, // Test if this works with non root container
+		{workdir, "remote-action-js-node-user", "push", "", platforms, secrets}, // Test if this works with non root container
 		{workdir, "matrix", "push", "", platforms, secrets},
 		{workdir, "matrix-include-exclude", "push", "", platforms, secrets},
 		{workdir, "matrix-exitcode", "push", "Job 'test' failed", platforms, secrets},
@@ -193,6 +193,8 @@ func TestRunEvent(t *testing.T) {
 		{workdir, "actions-environment-and-context-tests", "push", "", platforms, secrets},
 		{workdir, "uses-action-with-pre-and-post-step", "push", "", platforms, secrets},
 		{workdir, "evalenv", "push", "", platforms, secrets},
+		{workdir, "docker-action-custom-path", "push", "", platforms, secrets},
+		{workdir, "GITHUB_ENV-use-in-env-ctx", "push", "", platforms, secrets},
 		{workdir, "ensure-post-steps", "push", "Job 'second-post-step-should-fail' failed", platforms, secrets},
 		{workdir, "workflow_dispatch", "workflow_dispatch", "", platforms, secrets},
 		{workdir, "workflow_dispatch_no_inputs_mapping", "workflow_dispatch", "", platforms, secrets},
@@ -204,6 +206,8 @@ func TestRunEvent(t *testing.T) {
 		{"../model/testdata", "container-volumes", "push", "", platforms, secrets},
 		{workdir, "path-handling", "push", "", platforms, secrets},
 		{workdir, "do-not-leak-step-env-in-composite", "push", "", platforms, secrets},
+		{workdir, "set-env-step-env-override", "push", "", platforms, secrets},
+		{workdir, "set-env-new-env-file-per-step", "push", "", platforms, secrets},
 	}
 
 	for _, table := range tables {
@@ -304,6 +308,8 @@ func TestRunEventHostEnvironment(t *testing.T) {
 			{workdir, "nix-prepend-path", "push", "", platforms, secrets},
 			{workdir, "inputs-via-env-context", "push", "", platforms, secrets},
 			{workdir, "do-not-leak-step-env-in-composite", "push", "", platforms, secrets},
+			{workdir, "set-env-step-env-override", "push", "", platforms, secrets},
+			{workdir, "set-env-new-env-file-per-step", "push", "", platforms, secrets},
 		}...)
 	}
 

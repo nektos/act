@@ -1,0 +1,27 @@
+on: push
+jobs:
+  _:
+    runs-on: ubuntu-latest
+    env:
+      MYGLOBALENV3: myglobalval3
+    steps:
+    - run: |
+        echo MYGLOBALENV1=myglobalval1 > $GITHUB_ENV
+        echo "::set-env name=MYGLOBALENV2::myglobalval2"
+    - uses: nektos/act-test-actions/script@main
+      with:
+        main: |
+          env
+          [[ "$MYGLOBALENV1" = "${{ env.MYGLOBALENV1 }}" ]]
+          [[ "$MYGLOBALENV1" = "${{ env.MYGLOBALENV1ALIAS }}" ]]
+          [[ "$MYGLOBALENV1" = "$MYGLOBALENV1ALIAS" ]]
+          [[ "$MYGLOBALENV2" = "${{ env.MYGLOBALENV2 }}" ]]
+          [[ "$MYGLOBALENV2" = "${{ env.MYGLOBALENV2ALIAS }}" ]]
+          [[ "$MYGLOBALENV2" = "$MYGLOBALENV2ALIAS" ]]
+          [[ "$MYGLOBALENV3" = "${{ env.MYGLOBALENV3 }}" ]]
+          [[ "$MYGLOBALENV3" = "${{ env.MYGLOBALENV3ALIAS }}" ]]
+          [[ "$MYGLOBALENV3" = "$MYGLOBALENV3ALIAS" ]]
+      env:
+        MYGLOBALENV1ALIAS: ${{ env.MYGLOBALENV1 }}
+        MYGLOBALENV2ALIAS: ${{ env.MYGLOBALENV2 }}
+        MYGLOBALENV3ALIAS: ${{ env.MYGLOBALENV3 }}

@@ -44,6 +44,18 @@ func (s stepStage) String() string {
 	return "Unknown"
 }
 
+func processRunnerEnvFileCommand(ctx context.Context, fileName string, rc *RunContext, setter func(context.Context, map[string]string, string)) error {
+	env := map[string]string{}
+	err := rc.JobContainer.UpdateFromEnv(path.Join(rc.JobContainer.GetActPath(), fileName), &env)(ctx)
+	if err != nil {
+		return err
+	}
+	for k, v := range env {
+		setter(ctx, map[string]string{"name": k}, v)
+	}
+	return nil
+}
+
 func runStepExecutor(step step, stage stepStage, executor common.Executor) common.Executor {
 	return func(ctx context.Context) error {
 		logger := common.Logger(ctx)
@@ -92,9 +104,11 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 		outputFileCommand := path.Join("workflow", "outputcmd.txt")
 		stateFileCommand := path.Join("workflow", "statecmd.txt")
 		pathFileCommand := path.Join("workflow", "pathcmd.txt")
+		envFileCommand := path.Join("workflow", "envs.txt")
 		(*step.getEnv())["GITHUB_OUTPUT"] = path.Join(actPath, outputFileCommand)
 		(*step.getEnv())["GITHUB_STATE"] = path.Join(actPath, stateFileCommand)
 		(*step.getEnv())["GITHUB_PATH"] = path.Join(actPath, pathFileCommand)
+		(*step.getEnv())["GITHUB_ENV"] = path.Join(actPath, envFileCommand)
 		_ = rc.JobContainer.Copy(actPath, &container.FileEntry{
 			Name: outputFileCommand,
 			Mode: 0666,
@@ -103,6 +117,9 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 			Mode: 0666,
 		}, &container.FileEntry{
 			Name: pathFileCommand,
+			Mode: 0666,
+		}, &container.FileEntry{
+			Name: envFileCommand,
 			Mode: 0666,
 		})(ctx)
 
@@ -131,21 +148,17 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 		}
 		// Process Runner File Commands
 		orgerr := err
-		state := map[string]string{}
-		err = rc.JobContainer.UpdateFromEnv(path.Join(actPath, stateFileCommand), &state)(ctx)
+		err = processRunnerEnvFileCommand(ctx, envFileCommand, rc, rc.setEnv)
 		if err != nil {
 			return err
 		}
-		for k, v := range state {
-			rc.saveState(ctx, map[string]string{"name": k}, v)
-		}
-		output := map[string]string{}
-		err = rc.JobContainer.UpdateFromEnv(path.Join(actPath, outputFileCommand), &output)(ctx)
+		err = processRunnerEnvFileCommand(ctx, stateFileCommand, rc, rc.saveState)
 		if err != nil {
 			return err
 		}
-		for k, v := range output {
-			rc.setOutput(ctx, map[string]string{"name": k}, v)
+		err = processRunnerEnvFileCommand(ctx, outputFileCommand, rc, rc.setOutput)
+		if err != nil {
+			return err
 		}
 		err = rc.UpdateExtraPath(ctx, path.Join(actPath, pathFileCommand))
 		if err != nil {
@@ -162,14 +175,6 @@ func setupEnv(ctx context.Context, step step) error {
 	rc := step.getRunContext()
 
 	mergeEnv(ctx, step)
-	err := rc.JobContainer.UpdateFromImageEnv(step.getEnv())(ctx)
-	if err != nil {
-		return err
-	}
-	err = rc.JobContainer.UpdateFromEnv((*step.getEnv())["GITHUB_ENV"], step.getEnv())(ctx)
-	if err != nil {
-		return err
-	}
 	// merge step env last, since it should not be overwritten
 	mergeIntoMap(step.getEnv(), step.getStepModel().GetEnv())
 

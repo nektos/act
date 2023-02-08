@@ -82,11 +82,17 @@ func (rc *RunContext) commandHandler(ctx context.Context) common.LineHandler {
 }
 
 func (rc *RunContext) setEnv(ctx context.Context, kvPairs map[string]string, arg string) {
-	common.Logger(ctx).Infof("  \U00002699  ::set-env:: %s=%s", kvPairs["name"], arg)
+	name := kvPairs["name"]
+	common.Logger(ctx).Infof("  \U00002699  ::set-env:: %s=%s", name, arg)
 	if rc.Env == nil {
 		rc.Env = make(map[string]string)
 	}
-	rc.Env[kvPairs["name"]] = arg
+	rc.Env[name] = arg
+	// for composite action GITHUB_ENV and set-env passing
+	if rc.GlobalEnv == nil {
+		rc.GlobalEnv = map[string]string{}
+	}
+	rc.GlobalEnv[name] = arg
 }
 func (rc *RunContext) setOutput(ctx context.Context, kvPairs map[string]string, arg string) {
 	logger := common.Logger(ctx)
