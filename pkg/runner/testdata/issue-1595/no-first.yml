@@ -1,0 +1,10 @@
+name: no first
+on: push
+
+jobs:
+  second:
+    runs-on: ubuntu-latest
+    needs: first
+    steps:
+      - run: echo How did you get here?
+        shell: bash

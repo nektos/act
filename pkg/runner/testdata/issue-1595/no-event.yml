@@ -1,0 +1,8 @@
+name: no event
+
+jobs:
+  stuck:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo How did you get here?
+        shell: bash
