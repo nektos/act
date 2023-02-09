@@ -326,8 +326,12 @@ func (e *HostEnvironment) exec(ctx context.Context, command []string, cmdline st
 }
 
 func (e *HostEnvironment) Exec(command []string /*cmdline string, */, env map[string]string, user, workdir string) common.Executor {
+	return e.ExecWithCmdLine(command, "", env, user, workdir)
+}
+
+func (e *HostEnvironment) ExecWithCmdLine(command []string, cmdline string, env map[string]string, user, workdir string) common.Executor {
 	return func(ctx context.Context) error {
-		if err := e.exec(ctx, command, "" /*cmdline*/, env, user, workdir); err != nil {
+		if err := e.exec(ctx, command, cmdline, env, user, workdir); err != nil {
 			select {
 			case <-ctx.Done():
 				return fmt.Errorf("this step has been cancelled: %w", err)
