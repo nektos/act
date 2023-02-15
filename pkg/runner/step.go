@@ -111,16 +111,16 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 		(*step.getEnv())["GITHUB_ENV"] = path.Join(actPath, envFileCommand)
 		_ = rc.JobContainer.Copy(actPath, &container.FileEntry{
 			Name: outputFileCommand,
-			Mode: 0666,
+			Mode: 0o666,
 		}, &container.FileEntry{
 			Name: stateFileCommand,
-			Mode: 0666,
+			Mode: 0o666,
 		}, &container.FileEntry{
 			Name: pathFileCommand,
-			Mode: 0666,
+			Mode: 0o666,
 		}, &container.FileEntry{
 			Name: envFileCommand,
-			Mode: 0666,
+			Mode: 0o666,
 		})(ctx)
 
 		err = executor(ctx)
