@@ -186,9 +186,11 @@ func (rc *RunContext) startHostEnvironment() common.Executor {
 			}
 		}
 		for _, env := range os.Environ() {
-			i := strings.Index(env, "=")
-			if i > 0 {
-				rc.Env[env[0:i]] = env[i+1:]
+			if k, v, ok := strings.Cut(env, "="); ok {
+				// don't override
+				if _, ok := rc.Env[k]; !ok {
+					rc.Env[k] = v
+				}
 			}
 		}
 
