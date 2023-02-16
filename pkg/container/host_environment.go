@@ -2,7 +2,6 @@ package container
 
 import (
 	"archive/tar"
-	"bufio"
 	"bytes"
 	"context"
 	"fmt"
