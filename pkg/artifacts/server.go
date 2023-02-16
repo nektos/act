@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/julienschmidt/httprouter"
+
 	"github.com/nektos/act/pkg/common"
 )
 
@@ -65,14 +66,14 @@ func (fwfs readWriteFSImpl) OpenWritable(name string) (WritableFile, error) {
 	if err := os.MkdirAll(filepath.Dir(name), os.ModePerm); err != nil {
 		return nil, err
 	}
-	return os.OpenFile(name, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0644)
+	return os.OpenFile(name, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0o644)
 }
 
 func (fwfs readWriteFSImpl) OpenAppendable(name string) (WritableFile, error) {
 	if err := os.MkdirAll(filepath.Dir(name), os.ModePerm); err != nil {
 		return nil, err
 	}
-	file, err := os.OpenFile(name, os.O_CREATE|os.O_RDWR, 0644)
+	file, err := os.OpenFile(name, os.O_CREATE|os.O_RDWR, 0o644)
 
 	if err != nil {
 		return nil, err

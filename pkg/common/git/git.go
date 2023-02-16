@@ -11,8 +11,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/nektos/act/pkg/common"
-
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
@@ -20,6 +18,8 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/mattn/go-isatty"
 	log "github.com/sirupsen/logrus"
+
+	"github.com/nektos/act/pkg/common"
 )
 
 var (
@@ -260,7 +260,7 @@ func CloneIfRequired(ctx context.Context, refName plumbing.ReferenceName, input 
 			return nil, err
 		}
 
-		if err = os.Chmod(input.Dir, 0755); err != nil {
+		if err = os.Chmod(input.Dir, 0o755); err != nil {
 			return nil, err
 		}
 	}

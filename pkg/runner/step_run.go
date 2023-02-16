@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/kballard/go-shellquote"
+
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/container"
 	"github.com/nektos/act/pkg/model"
@@ -72,7 +73,7 @@ func (sr *stepRun) setupShellCommandExecutor() common.Executor {
 		rc := sr.getRunContext()
 		return rc.JobContainer.Copy(rc.JobContainer.GetActPath(), &container.FileEntry{
 			Name: scriptName,
-			Mode: 0755,
+			Mode: 0o755,
 			Body: script,
 		})(ctx)
 	}
