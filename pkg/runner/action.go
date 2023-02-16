@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/kballard/go-shellquote"
+
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/container"
 	"github.com/nektos/act/pkg/model"
@@ -30,6 +31,7 @@ type actionStep interface {
 type readAction func(ctx context.Context, step *model.Step, actionDir string, actionPath string, readFile actionYamlReader, writeFile fileWriter) (*model.Action, error)
 
 type actionYamlReader func(filename string) (io.Reader, io.Closer, error)
+
 type fileWriter func(filename string, data []byte, perm fs.FileMode) error
 
 type runAction func(step actionStep, actionDir string, remoteAction *remoteAction) common.Executor
@@ -61,7 +63,7 @@ func readActionImpl(ctx context.Context, step *model.Step, actionDir string, act
 					if b, err = trampoline.ReadFile("res/trampoline.js"); err != nil {
 						return nil, err
 					}
-					err2 := writeFile(filepath.Join(actionDir, actionPath, "trampoline.js"), b, 0400)
+					err2 := writeFile(filepath.Join(actionDir, actionPath, "trampoline.js"), b, 0o400)
 					if err2 != nil {
 						return nil, err2
 					}
