@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -14,14 +15,13 @@ import (
 	"strings"
 	"time"
 
-	"errors"
-
 	"github.com/go-git/go-billy/v5/helper/polyfill"
 	"github.com/go-git/go-billy/v5/osfs"
 	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
+	"golang.org/x/term"
+
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/lookpath"
-	"golang.org/x/term"
 )
 
 type HostEnvironment struct {
@@ -49,7 +49,7 @@ func (e *HostEnvironment) Close() common.Executor {
 func (e *HostEnvironment) Copy(destPath string, files ...*FileEntry) common.Executor {
 	return func(ctx context.Context) error {
 		for _, f := range files {
-			if err := os.MkdirAll(filepath.Dir(filepath.Join(destPath, f.Name)), 0777); err != nil {
+			if err := os.MkdirAll(filepath.Dir(filepath.Join(destPath, f.Name)), 0o777); err != nil {
 				return err
 			}
 			if err := os.WriteFile(filepath.Join(destPath, f.Name), []byte(f.Body), fs.FileMode(f.Mode)); err != nil {

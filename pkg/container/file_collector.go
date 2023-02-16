@@ -65,7 +65,7 @@ type copyCollector struct {
 
 func (cc *copyCollector) WriteFile(fpath string, fi fs.FileInfo, linkName string, f io.Reader) error {
 	fdestpath := filepath.Join(cc.DstDir, fpath)
-	if err := os.MkdirAll(filepath.Dir(fdestpath), 0777); err != nil {
+	if err := os.MkdirAll(filepath.Dir(fdestpath), 0o777); err != nil {
 		return err
 	}
 	if f == nil {
