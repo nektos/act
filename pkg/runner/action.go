@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/kballard/go-shellquote"
+
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/container"
 	"github.com/nektos/act/pkg/model"
@@ -30,6 +31,7 @@ type actionStep interface {
 type readAction func(ctx context.Context, step *model.Step, actionDir string, actionPath string, readFile actionYamlReader, writeFile fileWriter) (*model.Action, error)
 
 type actionYamlReader func(filename string) (io.Reader, io.Closer, error)
+
 type fileWriter func(filename string, data []byte, perm fs.FileMode) error
 
 type runAction func(step actionStep, actionDir string, remoteAction *remoteAction) common.Executor
@@ -61,7 +63,7 @@ func readActionImpl(ctx context.Context, step *model.Step, actionDir string, act
 					if b, err = trampoline.ReadFile("res/trampoline.js"); err != nil {
 						return nil, err
 					}
-					err2 := writeFile(filepath.Join(actionDir, actionPath, "trampoline.js"), b, 0400)
+					err2 := writeFile(filepath.Join(actionDir, actionPath, "trampoline.js"), b, 0o400)
 					if err2 != nil {
 						return nil, err2
 					}
@@ -231,7 +233,7 @@ func execAsDocker(ctx context.Context, step actionStep, actionName string, based
 		image = fmt.Sprintf("%s-dockeraction:%s", regexp.MustCompile("[^a-zA-Z0-9]").ReplaceAllString(actionName, "-"), "latest")
 		image = fmt.Sprintf("act-%s", strings.TrimLeft(image, "-"))
 		image = strings.ToLower(image)
-		contextDir, _ := filepath.Split(filepath.Join(basedir, action.Runs.Image))
+		contextDir, fileName := filepath.Split(filepath.Join(basedir, action.Runs.Image))
 
 		anyArchExists, err := container.ImageExistsLocally(ctx, image, "any")
 		if err != nil {
@@ -261,6 +263,7 @@ func execAsDocker(ctx context.Context, step actionStep, actionName string, based
 			}
 			prepImage = container.NewDockerBuildExecutor(container.NewDockerBuildExecutorInput{
 				ContextDir: contextDir,
+				Dockerfile: fileName,
 				ImageTag:   image,
 				Container:  actionContainer,
 				Platform:   rc.Config.ContainerArchitecture,

@@ -7,9 +7,9 @@ require (
 	github.com/Masterminds/semver v1.5.0
 	github.com/andreaskoch/go-fswatch v1.0.0
 	github.com/creack/pty v1.1.18
-	github.com/docker/cli v23.0.0+incompatible
+	github.com/docker/cli v23.0.1+incompatible
 	github.com/docker/distribution v2.8.1+incompatible
-	github.com/docker/docker v23.0.0+incompatible
+	github.com/docker/docker v23.0.1+incompatible
 	github.com/docker/go-connections v0.4.0
 	github.com/go-git/go-billy/v5 v5.4.1
 	github.com/go-git/go-git/v5 v5.4.2
@@ -22,7 +22,7 @@ require (
 	github.com/moby/buildkit v0.11.2
 	github.com/moby/patternmatcher v0.5.0
 	github.com/opencontainers/image-spec v1.0.3-0.20220303224323-02efb9a75ee1
-	github.com/opencontainers/selinux v1.10.2
+	github.com/opencontainers/selinux v1.11.0
 	github.com/pkg/errors v0.9.1
 	github.com/rhysd/actionlint v1.6.23
 	github.com/sabhiram/go-gitignore v0.0.0-20210923224102-525f6e181f06
