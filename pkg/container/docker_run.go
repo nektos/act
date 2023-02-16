@@ -152,10 +152,6 @@ func (cr *containerReference) UpdateFromImageEnv(env *map[string]string) common.
 	return cr.extractFromImageEnv(env).IfNot(common.Dryrun)
 }
 
-func (cr *containerReference) UpdateFromPath(env *map[string]string) common.Executor {
-	return cr.extractPath(env).IfNot(common.Dryrun)
-}
-
 func (cr *containerReference) Exec(command []string, env map[string]string, user, workdir string) common.Executor {
 	return common.NewPipelineExecutor(
 		common.NewInfoExecutor("%sdocker exec cmd=[%s] user=%s workdir=%s", logPrefix, strings.Join(command, " "), user, workdir),
@@ -488,31 +484,6 @@ func (cr *containerReference) extractFromImageEnv(env *map[string]string) common
 		}
 
 		env = &envMap
-		return nil
-	}
-}
-
-func (cr *containerReference) extractPath(env *map[string]string) common.Executor {
-	localEnv := *env
-	return func(ctx context.Context) error {
-		pathTar, _, err := cr.cli.CopyFromContainer(ctx, cr.id, localEnv["GITHUB_PATH"])
-		if err != nil {
-			return fmt.Errorf("failed to copy from container: %w", err)
-		}
-		defer pathTar.Close()
-
-		reader := tar.NewReader(pathTar)
-		_, err = reader.Next()
-		if err != nil && err != io.EOF {
-			return fmt.Errorf("failed to read tar archive: %w", err)
-		}
-		s := bufio.NewScanner(reader)
-		for s.Scan() {
-			line := s.Text()
-			localEnv["PATH"] = fmt.Sprintf("%s:%s", line, localEnv["PATH"])
-		}
-
-		env = &localEnv
 		return nil
 	}
 }
