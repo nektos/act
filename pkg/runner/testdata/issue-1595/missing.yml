@@ -1,0 +1,16 @@
+name: missing
+on: push
+
+jobs:
+  second:
+    runs-on: ubuntu-latest
+    needs: first
+    steps:
+      - run: echo How did you get here?
+        shell: bash
+
+  standalone:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo Hello world
+        shell: bash
