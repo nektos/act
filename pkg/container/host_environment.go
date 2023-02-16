@@ -2,7 +2,6 @@ package container
 
 import (
 	"archive/tar"
-	"bufio"
 	"bytes"
 	"context"
 	"errors"
@@ -342,32 +341,6 @@ func (e *HostEnvironment) Exec(command []string /*cmdline string, */, env map[st
 
 func (e *HostEnvironment) UpdateFromEnv(srcPath string, env *map[string]string) common.Executor {
 	return parseEnvFile(e, srcPath, env)
-}
-
-func (e *HostEnvironment) UpdateFromPath(env *map[string]string) common.Executor {
-	localEnv := *env
-	return func(ctx context.Context) error {
-		pathTar, err := e.GetContainerArchive(ctx, localEnv["GITHUB_PATH"])
-		if err != nil {
-			return err
-		}
-		defer pathTar.Close()
-
-		reader := tar.NewReader(pathTar)
-		_, err = reader.Next()
-		if err != nil && err != io.EOF {
-			return err
-		}
-		s := bufio.NewScanner(reader)
-		for s.Scan() {
-			line := s.Text()
-			pathSep := string(filepath.ListSeparator)
-			localEnv[e.GetPathVariableName()] = fmt.Sprintf("%s%s%s", line, pathSep, localEnv[e.GetPathVariableName()])
-		}
-
-		env = &localEnv
-		return nil
-	}
 }
 
 func (e *HostEnvironment) Remove() common.Executor {

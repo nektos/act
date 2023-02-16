@@ -46,7 +46,6 @@ type Container interface {
 	Exec(command []string, env map[string]string, user, workdir string) common.Executor
 	UpdateFromEnv(srcPath string, env *map[string]string) common.Executor
 	UpdateFromImageEnv(env *map[string]string) common.Executor
-	UpdateFromPath(env *map[string]string) common.Executor
 	Remove() common.Executor
 	Close() common.Executor
 	ReplaceLogWriter(io.Writer, io.Writer) (io.Writer, io.Writer)

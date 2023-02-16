@@ -50,11 +50,6 @@ func (cm *containerMock) UpdateFromImageEnv(env *map[string]string) common.Execu
 	return args.Get(0).(func(context.Context) error)
 }
 
-func (cm *containerMock) UpdateFromPath(env *map[string]string) common.Executor {
-	args := cm.Called(env)
-	return args.Get(0).(func(context.Context) error)
-}
-
 func (cm *containerMock) Copy(destPath string, files ...*container.FileEntry) common.Executor {
 	args := cm.Called(destPath, files)
 	return args.Get(0).(func(context.Context) error)
