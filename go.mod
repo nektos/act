@@ -19,7 +19,7 @@ require (
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/mattn/go-isatty v0.0.17
 	github.com/mitchellh/go-homedir v1.1.0
-	github.com/moby/buildkit v0.11.2
+	github.com/moby/buildkit v0.11.3
 	github.com/moby/patternmatcher v0.5.0
 	github.com/opencontainers/image-spec v1.0.3-0.20220303224323-02efb9a75ee1
 	github.com/opencontainers/selinux v1.11.0
@@ -39,7 +39,7 @@ require (
 	github.com/Microsoft/go-winio v0.5.2 // indirect
 	github.com/ProtonMail/go-crypto v0.0.0-20220404123522-616f957b79ad // indirect
 	github.com/acomagu/bufpipe v1.0.3 // indirect
-	github.com/containerd/containerd v1.6.16-0.20230124210447-1709cfe273d9 // indirect
+	github.com/containerd/containerd v1.6.16 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/docker/docker-credential-helpers v0.7.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
