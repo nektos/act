@@ -1,0 +1,19 @@
+name: Check PR for new tests
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  check_tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Check for new tests
+        run: |
+          if git diff --name-only master...$GITHUB_HEAD_REF | grep -q "androidTest/.*Test\.kt"; then
+            echo "$GITHUB_HEAD_REF"
