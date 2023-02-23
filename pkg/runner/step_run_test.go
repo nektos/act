@@ -6,17 +6,18 @@ import (
 	"io"
 	"testing"
 
-	"github.com/nektos/act/pkg/container"
-	"github.com/nektos/act/pkg/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+
+	"github.com/nektos/act/pkg/container"
+	"github.com/nektos/act/pkg/model"
 )
 
 func TestStepRun(t *testing.T) {
 	cm := &containerMock{}
 	fileEntry := &container.FileEntry{
 		Name: "workflow/1.sh",
-		Mode: 0755,
+		Mode: 0o755,
 		Body: "\ncmd\n",
 	}
 

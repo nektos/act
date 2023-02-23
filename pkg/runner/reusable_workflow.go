@@ -74,7 +74,10 @@ func newReusableWorkflowExecutor(rc *RunContext, directory string, workflow stri
 			return err
 		}
 
-		plan := planner.PlanEvent("workflow_call")
+		plan, err := planner.PlanEvent("workflow_call")
+		if err != nil {
+			return err
+		}
 
 		runner, err := NewReusableWorkflowRunner(rc)
 		if err != nil {

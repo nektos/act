@@ -71,6 +71,14 @@ choco install act-cli
 scoop install act
 ```
 
+### [Winget](https://learn.microsoft.com/en-us/windows/package-manager/) (Windows)
+
+[![Winget package](https://repology.org/badge/version-for-repo/winget/act-run-github-actions.svg)](https://repology.org/project/act-run-github-actions/versions)
+
+```shell
+winget install nektos.act
+```
+
 ### [AUR](https://aur.archlinux.org/packages/act/) (Linux)
 
 [![aur-shield](https://img.shields.io/aur/version/act)](https://aur.archlinux.org/packages/act/)
@@ -170,52 +178,6 @@ act -v
 
 When running `act` for the first time, it will ask you to choose image to be used as default.
 It will save that information to `~/.actrc`, please refer to [Configuration](#configuration) for more information about `.actrc` and to [Runners](#runners) for information about used/available Docker images.
-
-# Flags
-
-```none
-  -a, --actor string                                user that triggered the event (default "nektos/act")
-      --replace-ghe-action-with-github-com          If you are using GitHub Enterprise Server and allow specified actions from GitHub (github.com), you can set actions on this. (e.g. --replace-ghe-action-with-github-com=github/super-linter)
-      --replace-ghe-action-token-with-github-com    If you are using replace-ghe-action-with-github-com and you want to use private actions on GitHub, you have to set personal access token
-      --artifact-server-addr string                 Defines the address to which the artifact server binds. (default "<default-outbound-IP>")
-      --artifact-server-path string                 Defines the path where the artifact server stores uploads and retrieves downloads from. If not specified the artifact server will not start.
-      --artifact-server-port string                 Defines the port where the artifact server listens. (default "34567")
-  -b, --bind                                        bind working directory to container, rather than copy
-      --container-architecture string               Architecture which should be used to run containers, e.g.: linux/amd64. If not specified, will use host default architecture. Requires Docker server API Version 1.41+. Ignored on earlier Docker server platforms.
-      --container-cap-add stringArray               kernel capabilities to add to the workflow containers (e.g. --container-cap-add SYS_PTRACE)
-      --container-cap-drop stringArray              kernel capabilities to remove from the workflow containers (e.g. --container-cap-drop SYS_PTRACE)
-      --container-daemon-socket string              Path to Docker daemon socket which will be mounted to containers (default "/var/run/docker.sock")
-      --defaultbranch string                        the name of the main branch
-      --detect-event                                Use first event type from workflow as event that triggered the workflow
-  -C, --directory string                            working directory (default ".")
-  -n, --dryrun                                      dryrun mode
-      --env stringArray                             env to make available to actions with optional value (e.g. --env myenv=foo or --env myenv)
-      --env-file string                             environment file to read and use as env in the containers (default ".env")
-  -e, --eventpath string                            path to event JSON file
-      --github-instance string                      GitHub instance to use. Don't use this if you are not using GitHub Enterprise Server. (default "github.com")
-  -g, --graph                                       draw workflows
-  -h, --help                                        help for act
-      --input stringArray                           action input to make available to actions (e.g. --input myinput=foo)
-      --input-file string                           input file to read and use as action input (default ".input")
-      --insecure-secrets                            NOT RECOMMENDED! Doesn't hide secrets while printing logs.
-  -j, --job string                                  run job
-  -l, --list                                        list workflows
-      --no-recurse                                  Flag to disable running workflows from subdirectories of specified path in '--workflows'/'-W' flag
-  -P, --platform stringArray                        custom image to use per platform (e.g. -P ubuntu-18.04=nektos/act-environments-ubuntu:18.04)
-      --privileged                                  use privileged mode
-  -p, --pull                                        pull docker image(s) even if already present
-  -q, --quiet                                       disable logging of output from steps
-      --rebuild                                     rebuild local action docker image(s) even if already present
-  -r, --reuse                                       don't remove container(s) on successfully completed workflow(s) to maintain state between runs
-      --rm                                          automatically remove container(s)/volume(s) after a workflow(s) failure
-  -s, --secret stringArray                          secret to make available to actions with optional value (e.g. -s mysecret=foo or -s mysecret)
-      --secret-file string                          file with list of secrets to read from (e.g. --secret-file .secrets) (default ".secrets")
-      --use-gitignore                               Controls whether paths specified in .gitignore should be copied into container (default true)
-      --userns string                               user namespace to use
-  -v, --verbose                                     verbose output
-  -w, --watch                                       watch the contents of the local repo and run when files change
-  -W, --workflows string                            path to workflow file(s) (default "./.github/workflows/")
-```
 
 ## `GITHUB_TOKEN`
 

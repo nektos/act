@@ -2,9 +2,9 @@ package container
 
 import (
 	"archive/tar"
-	"bufio"
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -15,14 +15,13 @@ import (
 	"strings"
 	"time"
 
-	"errors"
-
 	"github.com/go-git/go-billy/v5/helper/polyfill"
 	"github.com/go-git/go-billy/v5/osfs"
 	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
+	"golang.org/x/term"
+
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/lookpath"
-	"golang.org/x/term"
 )
 
 type HostEnvironment struct {
@@ -50,7 +49,7 @@ func (e *HostEnvironment) Close() common.Executor {
 func (e *HostEnvironment) Copy(destPath string, files ...*FileEntry) common.Executor {
 	return func(ctx context.Context) error {
 		for _, f := range files {
-			if err := os.MkdirAll(filepath.Dir(filepath.Join(destPath, f.Name)), 0777); err != nil {
+			if err := os.MkdirAll(filepath.Dir(filepath.Join(destPath, f.Name)), 0o777); err != nil {
 				return err
 			}
 			if err := os.WriteFile(filepath.Join(destPath, f.Name), []byte(f.Body), fs.FileMode(f.Mode)); err != nil {
@@ -342,32 +341,6 @@ func (e *HostEnvironment) Exec(command []string /*cmdline string, */, env map[st
 
 func (e *HostEnvironment) UpdateFromEnv(srcPath string, env *map[string]string) common.Executor {
 	return parseEnvFile(e, srcPath, env)
-}
-
-func (e *HostEnvironment) UpdateFromPath(env *map[string]string) common.Executor {
-	localEnv := *env
-	return func(ctx context.Context) error {
-		pathTar, err := e.GetContainerArchive(ctx, localEnv["GITHUB_PATH"])
-		if err != nil {
-			return err
-		}
-		defer pathTar.Close()
-
-		reader := tar.NewReader(pathTar)
-		_, err = reader.Next()
-		if err != nil && err != io.EOF {
-			return err
-		}
-		s := bufio.NewScanner(reader)
-		for s.Scan() {
-			line := s.Text()
-			pathSep := string(filepath.ListSeparator)
-			localEnv[e.GetPathVariableName()] = fmt.Sprintf("%s%s%s", line, pathSep, localEnv[e.GetPathVariableName()])
-		}
-
-		env = &localEnv
-		return nil
-	}
 }
 
 func (e *HostEnvironment) Remove() common.Executor {
