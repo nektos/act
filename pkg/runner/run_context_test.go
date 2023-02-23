@@ -395,7 +395,6 @@ func TestGetGitHubContext(t *testing.T) {
 	assert.Equal(t, ghc.RunnerPerflog, "/dev/null")
 	assert.Equal(t, ghc.Token, rc.Config.Secrets["GITHUB_TOKEN"])
 	assert.Equal(t, ghc.Job, "job1")
-
 }
 
 func TestGetGithubContextRef(t *testing.T) {
