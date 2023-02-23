@@ -126,7 +126,7 @@ func loadNoticesEtag() string {
 
 func saveNoticesEtag(etag string) {
 	p := etagPath()
-	err := os.WriteFile(p, []byte(strings.TrimSuffix(etag, "\n")), 0600)
+	err := os.WriteFile(p, []byte(strings.TrimSuffix(etag, "\n")), 0o600)
 	if err != nil {
 		log.Debugf("Unable to save etag to %s: %e", p, err)
 	}
@@ -143,7 +143,7 @@ func etagPath() string {
 		}
 	}
 	dir := filepath.Join(xdgCache, "act")
-	if err := os.MkdirAll(dir, 0777); err != nil {
+	if err := os.MkdirAll(dir, 0o777); err != nil {
 		log.Fatal(err)
 	}
 	return filepath.Join(dir, ".notices.etag")

@@ -56,3 +56,12 @@ jobs:
               ref: context.ref,
               sha: mainRef.object.sha,
             });
+  winget:
+    needs: release
+    runs-on: windows-latest # Action can only run on Windows
+    steps:
+      - uses: vedantmgoyal2009/winget-releaser@v2
+        with:
+          identifier: nektos.act
+          installers-regex: '_Windows_\w+\.zip$'
+          token: ${{ secrets.WINGET_TOKEN }}

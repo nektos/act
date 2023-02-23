@@ -156,15 +156,15 @@ func (rc *RunContext) startHostEnvironment() common.Executor {
 		_, _ = rand.Read(randBytes)
 		miscpath := filepath.Join(cacheDir, hex.EncodeToString(randBytes))
 		actPath := filepath.Join(miscpath, "act")
-		if err := os.MkdirAll(actPath, 0777); err != nil {
+		if err := os.MkdirAll(actPath, 0o777); err != nil {
 			return err
 		}
 		path := filepath.Join(miscpath, "hostexecutor")
-		if err := os.MkdirAll(path, 0777); err != nil {
+		if err := os.MkdirAll(path, 0o777); err != nil {
 			return err
 		}
 		runnerTmp := filepath.Join(miscpath, "tmp")
-		if err := os.MkdirAll(runnerTmp, 0777); err != nil {
+		if err := os.MkdirAll(runnerTmp, 0o777); err != nil {
 			return err
 		}
 		toolCache := filepath.Join(cacheDir, "tool_cache")
@@ -186,20 +186,22 @@ func (rc *RunContext) startHostEnvironment() common.Executor {
 			}
 		}
 		for _, env := range os.Environ() {
-			i := strings.Index(env, "=")
-			if i > 0 {
-				rc.Env[env[0:i]] = env[i+1:]
+			if k, v, ok := strings.Cut(env, "="); ok {
+				// don't override
+				if _, ok := rc.Env[k]; !ok {
+					rc.Env[k] = v
+				}
 			}
 		}
 
 		return common.NewPipelineExecutor(
 			rc.JobContainer.Copy(rc.JobContainer.GetActPath()+"/", &container.FileEntry{
 				Name: "workflow/event.json",
-				Mode: 0644,
+				Mode: 0o644,
 				Body: rc.EventJSON,
 			}, &container.FileEntry{
 				Name: "workflow/envs.txt",
-				Mode: 0666,
+				Mode: 0o666,
 				Body: "",
 			}),
 		)(ctx)
@@ -278,11 +280,11 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			rc.JobContainer.Start(false),
 			rc.JobContainer.Copy(rc.JobContainer.GetActPath()+"/", &container.FileEntry{
 				Name: "workflow/event.json",
-				Mode: 0644,
+				Mode: 0o644,
 				Body: rc.EventJSON,
 			}, &container.FileEntry{
 				Name: "workflow/envs.txt",
-				Mode: 0666,
+				Mode: 0o666,
 				Body: "",
 			}),
 		)(ctx)

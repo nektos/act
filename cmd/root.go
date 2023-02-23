@@ -354,7 +354,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 		var filterPlan *model.Plan
 
 		// Determine the event name to be filtered
-		var filterEventName string = ""
+		var filterEventName string
 
 		if len(args) > 0 {
 			log.Debugf("Using first passed in arguments event for filtering: %s", args[0])
@@ -366,23 +366,35 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			filterEventName = events[0]
 		}
 
+		var plannerErr error
 		if jobID != "" {
 			log.Debugf("Preparing plan with a job: %s", jobID)
-			filterPlan = planner.PlanJob(jobID)
+			filterPlan, plannerErr = planner.PlanJob(jobID)
 		} else if filterEventName != "" {
 			log.Debugf("Preparing plan for a event: %s", filterEventName)
-			filterPlan = planner.PlanEvent(filterEventName)
+			filterPlan, plannerErr = planner.PlanEvent(filterEventName)
 		} else {
 			log.Debugf("Preparing plan with all jobs")
-			filterPlan = planner.PlanAll()
+			filterPlan, plannerErr = planner.PlanAll()
+		}
+		if filterPlan == nil && plannerErr != nil {
+			return plannerErr
 		}
 
 		if list {
-			return printList(filterPlan)
+			err = printList(filterPlan)
+			if err != nil {
+				return err
+			}
+			return plannerErr
 		}
 
 		if graph {
-			return drawGraph(filterPlan)
+			err = drawGraph(filterPlan)
+			if err != nil {
+				return err
+			}
+			return plannerErr
 		}
 
 		// plan with triggered jobs
@@ -410,10 +422,13 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 		// build the plan for this run
 		if jobID != "" {
 			log.Debugf("Planning job: %s", jobID)
-			plan = planner.PlanJob(jobID)
+			plan, plannerErr = planner.PlanJob(jobID)
 		} else {
 			log.Debugf("Planning jobs for event: %s", eventName)
-			plan = planner.PlanEvent(eventName)
+			plan, plannerErr = planner.PlanEvent(eventName)
+		}
+		if plan == nil && plannerErr != nil {
+			return plannerErr
 		}
 
 		// check to see if the main branch was defined
@@ -501,14 +516,22 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 		if watch, err := cmd.Flags().GetBool("watch"); err != nil {
 			return err
 		} else if watch {
-			return watchAndRun(ctx, r.NewPlanExecutor(plan))
+			err = watchAndRun(ctx, r.NewPlanExecutor(plan))
+			if err != nil {
+				return err
+			}
+			return plannerErr
 		}
 
 		executor := r.NewPlanExecutor(plan).Finally(func(ctx context.Context) error {
 			cancel()
 			return nil
 		})
-		return executor(ctx)
+		err = executor(ctx)
+		if err != nil {
+			return err
+		}
+		return plannerErr
 	}
 }
 
