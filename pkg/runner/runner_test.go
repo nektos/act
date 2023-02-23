@@ -49,12 +49,99 @@ func init() {
 	secrets = map[string]string{}
 }
 
+func TestNoWorkflowsFoundByPlanner(t *testing.T) {
+	planner, err := model.NewWorkflowPlanner("res", true)
+	assert.NoError(t, err)
+
+	out := log.StandardLogger().Out
+	var buf bytes.Buffer
+	log.SetOutput(&buf)
+	log.SetLevel(log.DebugLevel)
+	plan, err := planner.PlanEvent("pull_request")
+	assert.NotNil(t, plan)
+	assert.NoError(t, err)
+	assert.Contains(t, buf.String(), "no workflows found by planner")
+	buf.Reset()
+	plan, err = planner.PlanAll()
+	assert.NotNil(t, plan)
+	assert.NoError(t, err)
+	assert.Contains(t, buf.String(), "no workflows found by planner")
+	log.SetOutput(out)
+}
+
+func TestGraphMissingEvent(t *testing.T) {
+	planner, err := model.NewWorkflowPlanner("testdata/issue-1595/no-event.yml", true)
+	assert.NoError(t, err)
+
+	out := log.StandardLogger().Out
+	var buf bytes.Buffer
+	log.SetOutput(&buf)
+	log.SetLevel(log.DebugLevel)
+
+	plan, err := planner.PlanEvent("push")
+	assert.NoError(t, err)
+	assert.NotNil(t, plan)
+	assert.Equal(t, 0, len(plan.Stages))
+
+	assert.Contains(t, buf.String(), "no events found for workflow: no-event.yml")
+	log.SetOutput(out)
+}
+
+func TestGraphMissingFirst(t *testing.T) {
+	planner, err := model.NewWorkflowPlanner("testdata/issue-1595/no-first.yml", true)
+	assert.NoError(t, err)
+
+	plan, err := planner.PlanEvent("push")
+	assert.EqualError(t, err, "unable to build dependency graph for no first (no-first.yml)")
+	assert.NotNil(t, plan)
+	assert.Equal(t, 0, len(plan.Stages))
+}
+
+func TestGraphWithMissing(t *testing.T) {
+	planner, err := model.NewWorkflowPlanner("testdata/issue-1595/missing.yml", true)
+	assert.NoError(t, err)
+
+	out := log.StandardLogger().Out
+	var buf bytes.Buffer
+	log.SetOutput(&buf)
+	log.SetLevel(log.DebugLevel)
+
+	plan, err := planner.PlanEvent("push")
+	assert.NotNil(t, plan)
+	assert.Equal(t, 0, len(plan.Stages))
+	assert.EqualError(t, err, "unable to build dependency graph for missing (missing.yml)")
+	assert.Contains(t, buf.String(), "unable to build dependency graph for missing (missing.yml)")
+	log.SetOutput(out)
+}
+
+func TestGraphWithSomeMissing(t *testing.T) {
+	log.SetLevel(log.DebugLevel)
+
+	planner, err := model.NewWorkflowPlanner("testdata/issue-1595/", true)
+	assert.NoError(t, err)
+
+	out := log.StandardLogger().Out
+	var buf bytes.Buffer
+	log.SetOutput(&buf)
+	log.SetLevel(log.DebugLevel)
+
+	plan, err := planner.PlanAll()
+	assert.Error(t, err, "unable to build dependency graph for no first (no-first.yml)")
+	assert.NotNil(t, plan)
+	assert.Equal(t, 1, len(plan.Stages))
+	assert.Contains(t, buf.String(), "unable to build dependency graph for missing (missing.yml)")
+	assert.Contains(t, buf.String(), "unable to build dependency graph for no first (no-first.yml)")
+	log.SetOutput(out)
+}
+
 func TestGraphEvent(t *testing.T) {
 	planner, err := model.NewWorkflowPlanner("testdata/basic", true)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
-	plan := planner.PlanEvent("push")
-	assert.Nil(t, err)
+	plan, err := planner.PlanEvent("push")
+	assert.NoError(t, err)
+	assert.NotNil(t, plan)
+	assert.NotNil(t, plan.Stages)
 	assert.Equal(t, len(plan.Stages), 3, "stages")
 	assert.Equal(t, len(plan.Stages[0].Runs), 1, "stage0.runs")
 	assert.Equal(t, len(plan.Stages[1].Runs), 1, "stage1.runs")
@@ -63,8 +150,10 @@ func TestGraphEvent(t *testing.T) {
 	assert.Equal(t, plan.Stages[1].Runs[0].JobID, "build", "jobid")
 	assert.Equal(t, plan.Stages[2].Runs[0].JobID, "test", "jobid")
 
-	plan = planner.PlanEvent("release")
-	assert.Equal(t, len(plan.Stages), 0, "stages")
+	plan, err = planner.PlanEvent("release")
+	assert.NoError(t, err)
+	assert.NotNil(t, plan)
+	assert.Equal(t, 0, len(plan.Stages))
 }
 
 type TestJobFileInfo struct {
@@ -105,13 +194,15 @@ func (j *TestJobFileInfo) runTest(ctx context.Context, t *testing.T, cfg *Config
 	planner, err := model.NewWorkflowPlanner(fullWorkflowPath, true)
 	assert.Nil(t, err, fullWorkflowPath)
 
-	plan := planner.PlanEvent(j.eventName)
-
-	err = runner.NewPlanExecutor(plan)(ctx)
-	if j.errorMessage == "" {
-		assert.Nil(t, err, fullWorkflowPath)
-	} else {
-		assert.Error(t, err, j.errorMessage)
+	plan, err := planner.PlanEvent(j.eventName)
+	assert.True(t, (err == nil) != (plan == nil), "PlanEvent should return either a plan or an error")
+	if err == nil && plan != nil {
+		err = runner.NewPlanExecutor(plan)(ctx)
+		if j.errorMessage == "" {
+			assert.Nil(t, err, fullWorkflowPath)
+		} else {
+			assert.Error(t, err, j.errorMessage)
+		}
 	}
 
 	fmt.Println("::endgroup::")

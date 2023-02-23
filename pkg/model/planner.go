@@ -15,9 +15,9 @@ import (
 
 // WorkflowPlanner contains methods for creating plans
 type WorkflowPlanner interface {
-	PlanEvent(eventName string) *Plan
-	PlanJob(jobName string) *Plan
-	PlanAll() *Plan
+	PlanEvent(eventName string) (*Plan, error)
+	PlanJob(jobName string) (*Plan, error)
+	PlanAll() (*Plan, error)
 	GetEvents() []string
 }
 
@@ -169,47 +169,76 @@ type workflowPlanner struct {
 }
 
 // PlanEvent builds a new list of runs to execute in parallel for an event name
-func (wp *workflowPlanner) PlanEvent(eventName string) *Plan {
+func (wp *workflowPlanner) PlanEvent(eventName string) (*Plan, error) {
 	plan := new(Plan)
 	if len(wp.workflows) == 0 {
-		log.Debugf("no events found for workflow: %s", eventName)
+		log.Debug("no workflows found by planner")
+		return plan, nil
 	}
+	var lastErr error
 
 	for _, w := range wp.workflows {
-		for _, e := range w.On() {
+		events := w.On()
+		if len(events) == 0 {
+			log.Debugf("no events found for workflow: %s", w.File)
+			continue
+		}
+
+		for _, e := range events {
 			if e == eventName {
-				plan.mergeStages(createStages(w, w.GetJobIDs()...))
+				stages, err := createStages(w, w.GetJobIDs()...)
+				if err != nil {
+					log.Warn(err)
+					lastErr = err
+				} else {
+					plan.mergeStages(stages)
+				}
 			}
 		}
 	}
-	return plan
+	return plan, lastErr
 }
 
 // PlanJob builds a new run to execute in parallel for a job name
-func (wp *workflowPlanner) PlanJob(jobName string) *Plan {
+func (wp *workflowPlanner) PlanJob(jobName string) (*Plan, error) {
 	plan := new(Plan)
 	if len(wp.workflows) == 0 {
 		log.Debugf("no jobs found for workflow: %s", jobName)
 	}
+	var lastErr error
 
 	for _, w := range wp.workflows {
-		plan.mergeStages(createStages(w, jobName))
+		stages, err := createStages(w, jobName)
+		if err != nil {
+			log.Warn(err)
+			lastErr = err
+		} else {
+			plan.mergeStages(stages)
+		}
 	}
-	return plan
+	return plan, lastErr
 }
 
 // PlanAll builds a new run to execute in parallel all
-func (wp *workflowPlanner) PlanAll() *Plan {
+func (wp *workflowPlanner) PlanAll() (*Plan, error) {
 	plan := new(Plan)
 	if len(wp.workflows) == 0 {
-		log.Debugf("no jobs found for loaded workflows")
+		log.Debug("no workflows found by planner")
+		return plan, nil
 	}
+	var lastErr error
 
 	for _, w := range wp.workflows {
-		plan.mergeStages(createStages(w, w.GetJobIDs()...))
+		stages, err := createStages(w, w.GetJobIDs()...)
+		if err != nil {
+			log.Warn(err)
+			lastErr = err
+		} else {
+			plan.mergeStages(stages)
+		}
 	}
 
-	return plan
+	return plan, lastErr
 }
 
 // GetEvents gets all the events in the workflows file
@@ -282,7 +311,7 @@ func (p *Plan) mergeStages(stages []*Stage) {
 	p.Stages = newStages
 }
 
-func createStages(w *Workflow, jobIDs ...string) []*Stage {
+func createStages(w *Workflow, jobIDs ...string) ([]*Stage, error) {
 	// first, build a list of all the necessary jobs to run, and their dependencies
 	jobDependencies := make(map[string][]string)
 	for len(jobIDs) > 0 {
@@ -299,6 +328,8 @@ func createStages(w *Workflow, jobIDs ...string) []*Stage {
 		jobIDs = newJobIDs
 	}
 
+	var err error
+
 	// next, build an execution graph
 	stages := make([]*Stage, 0)
 	for len(jobDependencies) > 0 {
@@ -314,12 +345,16 @@ func createStages(w *Workflow, jobIDs ...string) []*Stage {
 			}
 		}
 		if len(stage.Runs) == 0 {
-			log.Fatalf("Unable to build dependency graph!")
+			return nil, fmt.Errorf("unable to build dependency graph for %s (%s)", w.Name, w.File)
 		}
 		stages = append(stages, stage)
 	}
 
-	return stages
+	if len(stages) == 0 && err != nil {
+		return nil, err
+	}
+
+	return stages, nil
 }
 
 // return true iff all strings in srcList exist in at least one of the stages

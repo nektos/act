@@ -297,13 +297,16 @@ func runTestJobFile(ctx context.Context, t *testing.T, tjfi TestJobFileInfo) {
 		planner, err := model.NewWorkflowPlanner(fullWorkflowPath, true)
 		assert.Nil(t, err, fullWorkflowPath)
 
-		plan := planner.PlanEvent(tjfi.eventName)
-
-		err = runner.NewPlanExecutor(plan)(ctx)
-		if tjfi.errorMessage == "" {
-			assert.Nil(t, err, fullWorkflowPath)
+		plan, err := planner.PlanEvent(tjfi.eventName)
+		if err == nil {
+			err = runner.NewPlanExecutor(plan)(ctx)
+			if tjfi.errorMessage == "" {
+				assert.Nil(t, err, fullWorkflowPath)
+			} else {
+				assert.Error(t, err, tjfi.errorMessage)
+			}
 		} else {
-			assert.Error(t, err, tjfi.errorMessage)
+			assert.Nil(t, plan)
 		}
 
 		fmt.Println("::endgroup::")
