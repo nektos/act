@@ -1,8 +1,9 @@
+//go:build !(WITHOUT_DOCKER || !(linux || darwin || windows))
+
 package container
 
 import (
 	"archive/tar"
-	"bufio"
 	"bytes"
 	"context"
 	"errors"
@@ -37,51 +38,6 @@ import (
 
 	"github.com/nektos/act/pkg/common"
 )
-
-// NewContainerInput the input for the New function
-type NewContainerInput struct {
-	Image       string
-	Username    string
-	Password    string
-	Entrypoint  []string
-	Cmd         []string
-	WorkingDir  string
-	Env         []string
-	Binds       []string
-	Mounts      map[string]string
-	Name        string
-	Stdout      io.Writer
-	Stderr      io.Writer
-	NetworkMode string
-	Privileged  bool
-	UsernsMode  string
-	Platform    string
-	Options     string
-}
-
-// FileEntry is a file to copy to a container
-type FileEntry struct {
-	Name string
-	Mode int64
-	Body string
-}
-
-// Container for managing docker run containers
-type Container interface {
-	Create(capAdd []string, capDrop []string) common.Executor
-	Copy(destPath string, files ...*FileEntry) common.Executor
-	CopyDir(destPath string, srcPath string, useGitIgnore bool) common.Executor
-	GetContainerArchive(ctx context.Context, srcPath string) (io.ReadCloser, error)
-	Pull(forcePull bool) common.Executor
-	Start(attach bool) common.Executor
-	Exec(command []string, env map[string]string, user, workdir string) common.Executor
-	UpdateFromEnv(srcPath string, env *map[string]string) common.Executor
-	UpdateFromImageEnv(env *map[string]string) common.Executor
-	UpdateFromPath(env *map[string]string) common.Executor
-	Remove() common.Executor
-	Close() common.Executor
-	ReplaceLogWriter(io.Writer, io.Writer) (io.Writer, io.Writer)
-}
 
 // NewContainer creates a reference to a container
 func NewContainer(input *NewContainerInput) ExecutionsEnvironment {
@@ -193,10 +149,6 @@ func (cr *containerReference) UpdateFromEnv(srcPath string, env *map[string]stri
 
 func (cr *containerReference) UpdateFromImageEnv(env *map[string]string) common.Executor {
 	return cr.extractFromImageEnv(env).IfNot(common.Dryrun)
-}
-
-func (cr *containerReference) UpdateFromPath(env *map[string]string) common.Executor {
-	return cr.extractPath(env).IfNot(common.Dryrun)
 }
 
 func (cr *containerReference) Exec(command []string, env map[string]string, user, workdir string) common.Executor {
@@ -531,31 +483,6 @@ func (cr *containerReference) extractFromImageEnv(env *map[string]string) common
 		}
 
 		env = &envMap
-		return nil
-	}
-}
-
-func (cr *containerReference) extractPath(env *map[string]string) common.Executor {
-	localEnv := *env
-	return func(ctx context.Context) error {
-		pathTar, _, err := cr.cli.CopyFromContainer(ctx, cr.id, localEnv["GITHUB_PATH"])
-		if err != nil {
-			return fmt.Errorf("failed to copy from container: %w", err)
-		}
-		defer pathTar.Close()
-
-		reader := tar.NewReader(pathTar)
-		_, err = reader.Next()
-		if err != nil && err != io.EOF {
-			return fmt.Errorf("failed to read tar archive: %w", err)
-		}
-		s := bufio.NewScanner(reader)
-		for s.Scan() {
-			line := s.Text()
-			localEnv["PATH"] = fmt.Sprintf("%s:%s", line, localEnv["PATH"])
-		}
-
-		env = &localEnv
 		return nil
 	}
 }

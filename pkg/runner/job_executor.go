@@ -130,17 +130,29 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 
 func setJobResult(ctx context.Context, info jobInfo, rc *RunContext, success bool) {
 	logger := common.Logger(ctx)
+
 	jobResult := "success"
-	jobResultMessage := "succeeded"
+	// we have only one result for a whole matrix build, so we need
+	// to keep an existing result state if we run a matrix
+	if len(info.matrix()) > 0 && rc.Run.Job().Result != "" {
+		jobResult = rc.Run.Job().Result
+	}
+
 	if !success {
 		jobResult = "failure"
-		jobResultMessage = "failed"
 	}
+
 	info.result(jobResult)
 	if rc.caller != nil {
 		// set reusable workflow job result
 		rc.caller.runContext.result(jobResult)
 	}
+
+	jobResultMessage := "succeeded"
+	if jobResult != "success" {
+		jobResultMessage = "failed"
+	}
+
 	logger.WithField("jobResult", jobResult).Infof("\U0001F3C1  Job %s", jobResultMessage)
 }
 

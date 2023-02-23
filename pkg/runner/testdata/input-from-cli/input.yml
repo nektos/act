@@ -1,0 +1,21 @@
+on:
+  workflow_dispatch:
+    inputs:
+      NAME:
+        description: "A random input name for the workflow"
+        type: string
+        required: true
+      SOME_VALUE:
+        description: "Some other input to pass"
+        type: string
+        required: true
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Test with inputs
+        run: |
+          [ -z "${{ github.event.inputs.SOME_INPUT }}" ] && exit 1 || exit 0

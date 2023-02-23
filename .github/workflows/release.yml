@@ -27,7 +27,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
       - name: GoReleaser
-        uses: goreleaser/goreleaser-action@v3
+        uses: goreleaser/goreleaser-action@v4
         with:
           version: latest
           args: release --rm-dist
@@ -39,3 +39,29 @@ jobs:
           version: ${{ github.ref }}
           apiKey: ${{ secrets.CHOCO_APIKEY }}
           push: true
+      - name: GitHub CLI extension
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GORELEASER_GITHUB_TOKEN }}
+          script: |
+            const mainRef = (await github.rest.git.getRef({
+              owner: 'nektos',
+              repo: 'gh-act',
+              ref: 'heads/main',
+            })).data;
+            console.log(mainRef);
+            github.rest.git.createRef({
+              owner: 'nektos',
+              repo: 'gh-act',
+              ref: context.ref,
+              sha: mainRef.object.sha,
+            });
+  winget:
+    needs: release
+    runs-on: windows-latest # Action can only run on Windows
+    steps:
+      - uses: vedantmgoyal2009/winget-releaser@v2
+        with:
+          identifier: nektos.act
+          installers-regex: '_Windows_\w+\.zip$'
+          token: ${{ secrets.WINGET_TOKEN }}

@@ -1,0 +1,15 @@
+on: push
+jobs:
+  _:
+    runs-on: ubuntu-latest
+    env:
+      MY_ENV: test
+    steps:
+    - run: exit 1
+      if: env.MY_ENV != 'test'
+    - run: echo "MY_ENV=test2" > $GITHUB_ENV
+    - run: exit 1
+      if: env.MY_ENV != 'test2'
+    - run: echo "MY_ENV=returnedenv" > $GITHUB_ENV
+    - run: exit 1
+      if: env.MY_ENV != 'returnedenv'

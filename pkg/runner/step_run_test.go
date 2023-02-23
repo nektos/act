@@ -6,17 +6,18 @@ import (
 	"io"
 	"testing"
 
-	"github.com/nektos/act/pkg/container"
-	"github.com/nektos/act/pkg/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+
+	"github.com/nektos/act/pkg/container"
+	"github.com/nektos/act/pkg/model"
 )
 
 func TestStepRun(t *testing.T) {
 	cm := &containerMock{}
 	fileEntry := &container.FileEntry{
 		Name: "workflow/1.sh",
-		Mode: 0755,
+		Mode: 0o755,
 		Body: "\ncmd\n",
 	}
 
@@ -55,15 +56,11 @@ func TestStepRun(t *testing.T) {
 		return nil
 	})
 
-	cm.On("UpdateFromImageEnv", mock.AnythingOfType("*map[string]string")).Return(func(ctx context.Context) error {
+	cm.On("Copy", "/var/run/act", mock.AnythingOfType("[]*container.FileEntry")).Return(func(ctx context.Context) error {
 		return nil
 	})
 
 	cm.On("UpdateFromEnv", "/var/run/act/workflow/envs.txt", mock.AnythingOfType("*map[string]string")).Return(func(ctx context.Context) error {
-		return nil
-	})
-
-	cm.On("Copy", "/var/run/act", mock.AnythingOfType("[]*container.FileEntry")).Return(func(ctx context.Context) error {
 		return nil
 	})
 

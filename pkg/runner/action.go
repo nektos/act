@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/kballard/go-shellquote"
+
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/container"
 	"github.com/nektos/act/pkg/model"
@@ -30,6 +31,7 @@ type actionStep interface {
 type readAction func(ctx context.Context, step *model.Step, actionDir string, actionPath string, readFile actionYamlReader, writeFile fileWriter) (*model.Action, error)
 
 type actionYamlReader func(filename string) (io.Reader, io.Closer, error)
+
 type fileWriter func(filename string, data []byte, perm fs.FileMode) error
 
 type runAction func(step actionStep, actionDir string, remoteAction *remoteAction) common.Executor
@@ -61,7 +63,7 @@ func readActionImpl(ctx context.Context, step *model.Step, actionDir string, act
 					if b, err = trampoline.ReadFile("res/trampoline.js"); err != nil {
 						return nil, err
 					}
-					err2 := writeFile(filepath.Join(actionDir, actionPath, "trampoline.js"), b, 0400)
+					err2 := writeFile(filepath.Join(actionDir, actionPath, "trampoline.js"), b, 0o400)
 					if err2 != nil {
 						return nil, err2
 					}
@@ -154,7 +156,7 @@ func runActionImpl(step actionStep, actionDir string, remoteAction *remoteAction
 			containerArgs := []string{"node", path.Join(containerActionDir, action.Runs.Main)}
 			logger.Debugf("executing remote job container: %s", containerArgs)
 
-			rc.ApplyExtraPath(step.getEnv())
+			rc.ApplyExtraPath(ctx, step.getEnv())
 
 			return rc.execJobContainer(containerArgs, *step.getEnv(), "", "")(ctx)
 		case model.ActionRunsUsingDocker:
@@ -221,14 +223,17 @@ func execAsDocker(ctx context.Context, step actionStep, actionName string, based
 
 	var prepImage common.Executor
 	var image string
+	forcePull := false
 	if strings.HasPrefix(action.Runs.Image, "docker://") {
 		image = strings.TrimPrefix(action.Runs.Image, "docker://")
+		// Apply forcePull only for prebuild docker images
+		forcePull = rc.Config.ForcePull
 	} else {
 		// "-dockeraction" enshures that "./", "./test " won't get converted to "act-:latest", "act-test-:latest" which are invalid docker image names
 		image = fmt.Sprintf("%s-dockeraction:%s", regexp.MustCompile("[^a-zA-Z0-9]").ReplaceAllString(actionName, "-"), "latest")
 		image = fmt.Sprintf("act-%s", strings.TrimLeft(image, "-"))
 		image = strings.ToLower(image)
-		contextDir := filepath.Join(basedir, action.Runs.Main)
+		contextDir, fileName := filepath.Split(filepath.Join(basedir, action.Runs.Image))
 
 		anyArchExists, err := container.ImageExistsLocally(ctx, image, "any")
 		if err != nil {
@@ -258,6 +263,7 @@ func execAsDocker(ctx context.Context, step actionStep, actionName string, based
 			}
 			prepImage = container.NewDockerBuildExecutor(container.NewDockerBuildExecutorInput{
 				ContextDir: contextDir,
+				Dockerfile: fileName,
 				ImageTag:   image,
 				Container:  actionContainer,
 				Platform:   rc.Config.ContainerArchitecture,
@@ -289,7 +295,7 @@ func execAsDocker(ctx context.Context, step actionStep, actionName string, based
 	stepContainer := newStepContainer(ctx, step, image, cmd, entrypoint)
 	return common.NewPipelineExecutor(
 		prepImage,
-		stepContainer.Pull(rc.Config.ForcePull),
+		stepContainer.Pull(forcePull),
 		stepContainer.Remove().IfBool(!rc.Config.ReuseContainers),
 		stepContainer.Create(rc.Config.ContainerCapAdd, rc.Config.ContainerCapDrop),
 		stepContainer.Start(true),
@@ -488,7 +494,7 @@ func runPreStep(step actionStep) common.Executor {
 			containerArgs := []string{"node", path.Join(containerActionDir, action.Runs.Pre)}
 			logger.Debugf("executing remote job container: %s", containerArgs)
 
-			rc.ApplyExtraPath(step.getEnv())
+			rc.ApplyExtraPath(ctx, step.getEnv())
 
 			return rc.execJobContainer(containerArgs, *step.getEnv(), "", "")(ctx)
 
@@ -497,7 +503,10 @@ func runPreStep(step actionStep) common.Executor {
 				step.getCompositeRunContext(ctx)
 			}
 
-			return step.getCompositeSteps().pre(ctx)
+			if steps := step.getCompositeSteps(); steps != nil && steps.pre != nil {
+				return steps.pre(ctx)
+			}
+			return fmt.Errorf("missing steps in composite action")
 
 		default:
 			return nil
@@ -577,7 +586,7 @@ func runPostStep(step actionStep) common.Executor {
 			containerArgs := []string{"node", path.Join(containerActionDir, action.Runs.Post)}
 			logger.Debugf("executing remote job container: %s", containerArgs)
 
-			rc.ApplyExtraPath(step.getEnv())
+			rc.ApplyExtraPath(ctx, step.getEnv())
 
 			return rc.execJobContainer(containerArgs, *step.getEnv(), "", "")(ctx)
 
@@ -586,7 +595,10 @@ func runPostStep(step actionStep) common.Executor {
 				return err
 			}
 
-			return step.getCompositeSteps().post(ctx)
+			if steps := step.getCompositeSteps(); steps != nil && steps.post != nil {
+				return steps.post(ctx)
+			}
+			return fmt.Errorf("missing steps in composite action")
 
 		default:
 			return nil

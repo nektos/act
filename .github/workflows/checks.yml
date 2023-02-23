@@ -19,10 +19,10 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
           check-latest: true
-      - uses: golangci/golangci-lint-action@v3.3.1
+      - uses: golangci/golangci-lint-action@v3.4.0
         with:
           version: v1.47.2
-      - uses: megalinter/megalinter/flavors/go@v6.15.0
+      - uses: megalinter/megalinter/flavors/go@v6.19.0
         env:
           DEFAULT_BRANCH: master
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -50,7 +50,10 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
-      - run: go test -v -cover -coverprofile=coverage.txt -covermode=atomic -timeout 15m ./...
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          upload-logs-name: logs-linux
       - name: Upload Codecov report
         uses: codecov/codecov-action@v3.1.1
         with:
@@ -73,8 +76,11 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
           check-latest: true
-      - run: go test -v -run ^TestRunEventHostEnvironment$ ./...
-    # TODO merge coverage with test-linux
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          filter: '^TestRunEventHostEnvironment$'
+          upload-logs-name: logs-${{ matrix.os }}
 
   snapshot:
     name: snapshot
@@ -93,7 +99,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
       - name: GoReleaser
-        uses: goreleaser/goreleaser-action@v3
+        uses: goreleaser/goreleaser-action@v4
         with:
           version: latest
           args: release --snapshot --rm-dist

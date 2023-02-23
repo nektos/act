@@ -1,0 +1,21 @@
+name: output action
+description: output action
+
+inputs:
+  input:
+    description: some input
+    required: false
+
+outputs:
+  job-output:
+    description: some output
+    value: ${{ steps.gen-out.outputs.step-output }}
+
+runs:
+  using: composite
+  steps:
+    - name: run step
+      id: gen-out
+      run: |
+        echo "::set-output name=step-output::"
+      shell: bash

@@ -30,13 +30,14 @@ import (
 func Execute(ctx context.Context, version string) {
 	input := new(Input)
 	var rootCmd = &cobra.Command{
-		Use:              "act [event name to run] [flags]\n\nIf no event name passed, will default to \"on: push\"\nIf actions handles only one event it will be used as default instead of \"on: push\"",
-		Short:            "Run GitHub actions locally by specifying the event name (e.g. `push`) or an action name directly.",
-		Args:             cobra.MaximumNArgs(1),
-		RunE:             newRunCommand(ctx, input),
-		PersistentPreRun: setupLogging,
-		Version:          version,
-		SilenceUsage:     true,
+		Use:               "act [event name to run] [flags]\n\nIf no event name passed, will default to \"on: push\"\nIf actions handles only one event it will be used as default instead of \"on: push\"",
+		Short:             "Run GitHub actions locally by specifying the event name (e.g. `push`) or an action name directly.",
+		Args:              cobra.MaximumNArgs(1),
+		RunE:              newRunCommand(ctx, input),
+		PersistentPreRun:  setup(input),
+		PersistentPostRun: cleanup(input),
+		Version:           version,
+		SilenceUsage:      true,
 	}
 	rootCmd.Flags().BoolP("watch", "w", false, "watch the contents of the local repo and run when files change")
 	rootCmd.Flags().BoolP("list", "l", false, "list workflows")
@@ -47,11 +48,12 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.Flags().StringVar(&input.remoteName, "remote-name", "origin", "git remote name that will be used to retrieve url of git repo")
 	rootCmd.Flags().StringArrayVarP(&input.secrets, "secret", "s", []string{}, "secret to make available to actions with optional value (e.g. -s mysecret=foo or -s mysecret)")
 	rootCmd.Flags().StringArrayVarP(&input.envs, "env", "", []string{}, "env to make available to actions with optional value (e.g. --env myenv=foo or --env myenv)")
+	rootCmd.Flags().StringArrayVarP(&input.inputs, "input", "", []string{}, "action input to make available to actions (e.g. --input myinput=foo)")
 	rootCmd.Flags().StringArrayVarP(&input.platforms, "platform", "P", []string{}, "custom image to use per platform (e.g. -P ubuntu-18.04=nektos/act-environments-ubuntu:18.04)")
 	rootCmd.Flags().BoolVarP(&input.reuseContainers, "reuse", "r", false, "don't remove container(s) on successfully completed workflow(s) to maintain state between runs")
 	rootCmd.Flags().BoolVarP(&input.bindWorkdir, "bind", "b", false, "bind working directory to container, rather than copy")
-	rootCmd.Flags().BoolVarP(&input.forcePull, "pull", "p", false, "pull docker image(s) even if already present")
-	rootCmd.Flags().BoolVarP(&input.forceRebuild, "rebuild", "", false, "rebuild local action docker image(s) even if already present")
+	rootCmd.Flags().BoolVarP(&input.forcePull, "pull", "p", true, "pull docker image(s) even if already present")
+	rootCmd.Flags().BoolVarP(&input.forceRebuild, "rebuild", "", true, "rebuild local action docker image(s) even if already present")
 	rootCmd.Flags().BoolVarP(&input.autodetectEvent, "detect-event", "", false, "Use first event type from workflow as event that triggered the workflow")
 	rootCmd.Flags().StringVarP(&input.eventPath, "eventpath", "e", "", "path to event JSON file")
 	rootCmd.Flags().StringVar(&input.defaultBranch, "defaultbranch", "", "the name of the main branch")
@@ -74,12 +76,14 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.PersistentFlags().StringVarP(&input.secretfile, "secret-file", "", ".secrets", "file with list of secrets to read from (e.g. --secret-file .secrets)")
 	rootCmd.PersistentFlags().BoolVarP(&input.insecureSecrets, "insecure-secrets", "", false, "NOT RECOMMENDED! Doesn't hide secrets while printing logs.")
 	rootCmd.PersistentFlags().StringVarP(&input.envfile, "env-file", "", ".env", "environment file to read and use as env in the containers")
+	rootCmd.PersistentFlags().StringVarP(&input.inputfile, "input-file", "", ".input", "input file to read and use as action input")
 	rootCmd.PersistentFlags().StringVarP(&input.containerArchitecture, "container-architecture", "", "", "Architecture which should be used to run containers, e.g.: linux/amd64. If not specified, will use host default architecture. Requires Docker server API Version 1.41+. Ignored on earlier Docker server platforms.")
 	rootCmd.PersistentFlags().StringVarP(&input.containerDaemonSocket, "container-daemon-socket", "", "/var/run/docker.sock", "Path to Docker daemon socket which will be mounted to containers")
 	rootCmd.PersistentFlags().StringVarP(&input.containerOptions, "container-options", "", "", "Custom docker container options for the job container without an options property in the job definition")
 	rootCmd.PersistentFlags().StringVarP(&input.githubInstance, "github-instance", "", "github.com", "GitHub instance to use. Don't use this if you are not using GitHub Enterprise Server.")
 	rootCmd.PersistentFlags().StringVarP(&input.artifactServerPath, "artifact-server-path", "", "", "Defines the path where the artifact server stores uploads and retrieves downloads from. If not specified the artifact server will not start.")
-	rootCmd.PersistentFlags().StringVarP(&input.artifactServerPort, "artifact-server-port", "", "34567", "Defines the port where the artifact server listens (will only bind to localhost).")
+	rootCmd.PersistentFlags().StringVarP(&input.artifactServerAddr, "artifact-server-addr", "", common.GetOutboundIP().String(), "Defines the address to which the artifact server binds.")
+	rootCmd.PersistentFlags().StringVarP(&input.artifactServerPort, "artifact-server-port", "", "34567", "Defines the port where the artifact server listens.")
 	rootCmd.PersistentFlags().BoolVarP(&input.noSkipCheckout, "no-skip-checkout", "", false, "Do not skip actions/checkout")
 	rootCmd.SetArgs(args())
 
@@ -242,11 +246,35 @@ func readArgsFile(file string, split bool) []string {
 	return args
 }
 
-func setupLogging(cmd *cobra.Command, _ []string) {
-	verbose, _ := cmd.Flags().GetBool("verbose")
-	if verbose {
-		log.SetLevel(log.DebugLevel)
+func setup(inputs *Input) func(*cobra.Command, []string) {
+	return func(cmd *cobra.Command, _ []string) {
+		verbose, _ := cmd.Flags().GetBool("verbose")
+		if verbose {
+			log.SetLevel(log.DebugLevel)
+		}
+		loadVersionNotices(cmd.Version)
 	}
+}
+
+func cleanup(inputs *Input) func(*cobra.Command, []string) {
+	return func(cmd *cobra.Command, _ []string) {
+		displayNotices(inputs)
+	}
+}
+
+func parseEnvs(env []string, envs map[string]string) bool {
+	if env != nil {
+		for _, envVar := range env {
+			e := strings.SplitN(envVar, `=`, 2)
+			if len(e) == 2 {
+				envs[e[0]] = e[1]
+			} else {
+				envs[e[0]] = ""
+			}
+		}
+		return true
+	}
+	return false
 }
 
 func readEnvs(path string, envs map[string]string) bool {
@@ -285,17 +313,13 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 
 		log.Debugf("Loading environment from %s", input.Envfile())
 		envs := make(map[string]string)
-		if input.envs != nil {
-			for _, envVar := range input.envs {
-				e := strings.SplitN(envVar, `=`, 2)
-				if len(e) == 2 {
-					envs[e[0]] = e[1]
-				} else {
-					envs[e[0]] = ""
-				}
-			}
-		}
+		_ = parseEnvs(input.envs, envs)
 		_ = readEnvs(input.Envfile(), envs)
+
+		log.Debugf("Loading action inputs from %s", input.Inputfile())
+		inputs := make(map[string]string)
+		_ = parseEnvs(input.inputs, inputs)
+		_ = readEnvs(input.Inputfile(), inputs)
 
 		log.Debugf("Loading secrets from %s", input.Secretfile())
 		secrets := newSecrets(input.secrets)
@@ -330,7 +354,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 		var filterPlan *model.Plan
 
 		// Determine the event name to be filtered
-		var filterEventName string = ""
+		var filterEventName string
 
 		if len(args) > 0 {
 			log.Debugf("Using first passed in arguments event for filtering: %s", args[0])
@@ -342,23 +366,35 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			filterEventName = events[0]
 		}
 
+		var plannerErr error
 		if jobID != "" {
 			log.Debugf("Preparing plan with a job: %s", jobID)
-			filterPlan = planner.PlanJob(jobID)
+			filterPlan, plannerErr = planner.PlanJob(jobID)
 		} else if filterEventName != "" {
 			log.Debugf("Preparing plan for a event: %s", filterEventName)
-			filterPlan = planner.PlanEvent(filterEventName)
+			filterPlan, plannerErr = planner.PlanEvent(filterEventName)
 		} else {
 			log.Debugf("Preparing plan with all jobs")
-			filterPlan = planner.PlanAll()
+			filterPlan, plannerErr = planner.PlanAll()
+		}
+		if filterPlan == nil && plannerErr != nil {
+			return plannerErr
 		}
 
 		if list {
-			return printList(filterPlan)
+			err = printList(filterPlan)
+			if err != nil {
+				return err
+			}
+			return plannerErr
 		}
 
 		if graph {
-			return drawGraph(filterPlan)
+			err = drawGraph(filterPlan)
+			if err != nil {
+				return err
+			}
+			return plannerErr
 		}
 
 		// plan with triggered jobs
@@ -386,10 +422,13 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 		// build the plan for this run
 		if jobID != "" {
 			log.Debugf("Planning job: %s", jobID)
-			plan = planner.PlanJob(jobID)
+			plan, plannerErr = planner.PlanJob(jobID)
 		} else {
 			log.Debugf("Planning jobs for event: %s", eventName)
-			plan = planner.PlanEvent(eventName)
+			plan, plannerErr = planner.PlanEvent(eventName)
+		}
+		if plan == nil && plannerErr != nil {
+			return plannerErr
 		}
 
 		// check to see if the main branch was defined
@@ -422,9 +461,6 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 		if len(input.usernsMode) > 0 {
 			log.Warnf(deprecationWarning, "userns", fmt.Sprintf("--userns=%s", input.usernsMode))
 		}
-		if len(input.containerArchitecture) > 0 {
-			log.Warnf(deprecationWarning, "container-architecture", fmt.Sprintf("--platform=%s", input.containerArchitecture))
-		}
 		if len(input.containerCapAdd) > 0 {
 			log.Warnf(deprecationWarning, "container-cap-add", fmt.Sprintf("--cap-add=%s", input.containerCapAdd))
 		}
@@ -447,6 +483,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			JSONLogger:                         input.jsonLogger,
 			Env:                                envs,
 			Secrets:                            secrets,
+			Inputs:                             inputs,
 			Token:                              secrets["GITHUB_TOKEN"],
 			InsecureSecrets:                    input.insecureSecrets,
 			Platforms:                          input.newPlatforms(),
@@ -461,6 +498,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			ContainerCapDrop:                   input.containerCapDrop,
 			AutoRemove:                         input.autoRemove,
 			ArtifactServerPath:                 input.artifactServerPath,
+			ArtifactServerAddr:                 input.artifactServerAddr,
 			ArtifactServerPort:                 input.artifactServerPort,
 			NoSkipCheckout:                     input.noSkipCheckout,
 			RemoteName:                         input.remoteName,
@@ -472,20 +510,28 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			return err
 		}
 
-		cancel := artifacts.Serve(ctx, input.artifactServerPath, input.artifactServerPort)
+		cancel := artifacts.Serve(ctx, input.artifactServerPath, input.artifactServerAddr, input.artifactServerPort)
 
 		ctx = common.WithDryrun(ctx, input.dryrun)
 		if watch, err := cmd.Flags().GetBool("watch"); err != nil {
 			return err
 		} else if watch {
-			return watchAndRun(ctx, r.NewPlanExecutor(plan))
+			err = watchAndRun(ctx, r.NewPlanExecutor(plan))
+			if err != nil {
+				return err
+			}
+			return plannerErr
 		}
 
 		executor := r.NewPlanExecutor(plan).Finally(func(ctx context.Context) error {
 			cancel()
 			return nil
 		})
-		return executor(ctx)
+		err = executor(ctx)
+		if err != nil {
+			return err
+		}
+		return plannerErr
 	}
 }
 
@@ -510,7 +556,7 @@ func defaultImageSurvey(actrc string) error {
 	case "Medium":
 		option = "-P ubuntu-latest=catthehacker/ubuntu:act-latest\n-P ubuntu-22.04=catthehacker/ubuntu:act-22.04\n-P ubuntu-20.04=catthehacker/ubuntu:act-20.04\n-P ubuntu-18.04=catthehacker/ubuntu:act-18.04\n"
 	case "Micro":
-		option = "-P ubuntu-latest=node:16-buster-slim\n-P -P ubuntu-22.04=node:16-bullseye-slim\n ubuntu-20.04=node:16-buster-slim\n-P ubuntu-18.04=node:16-buster-slim\n"
+		option = "-P ubuntu-latest=node:16-buster-slim\n-P ubuntu-22.04=node:16-bullseye-slim\n-P ubuntu-20.04=node:16-buster-slim\n-P ubuntu-18.04=node:16-buster-slim\n"
 	}
 
 	f, err := os.Create(actrc)

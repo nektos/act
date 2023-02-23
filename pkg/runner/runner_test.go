@@ -49,12 +49,99 @@ func init() {
 	secrets = map[string]string{}
 }
 
+func TestNoWorkflowsFoundByPlanner(t *testing.T) {
+	planner, err := model.NewWorkflowPlanner("res", true)
+	assert.NoError(t, err)
+
+	out := log.StandardLogger().Out
+	var buf bytes.Buffer
+	log.SetOutput(&buf)
+	log.SetLevel(log.DebugLevel)
+	plan, err := planner.PlanEvent("pull_request")
+	assert.NotNil(t, plan)
+	assert.NoError(t, err)
+	assert.Contains(t, buf.String(), "no workflows found by planner")
+	buf.Reset()
+	plan, err = planner.PlanAll()
+	assert.NotNil(t, plan)
+	assert.NoError(t, err)
+	assert.Contains(t, buf.String(), "no workflows found by planner")
+	log.SetOutput(out)
+}
+
+func TestGraphMissingEvent(t *testing.T) {
+	planner, err := model.NewWorkflowPlanner("testdata/issue-1595/no-event.yml", true)
+	assert.NoError(t, err)
+
+	out := log.StandardLogger().Out
+	var buf bytes.Buffer
+	log.SetOutput(&buf)
+	log.SetLevel(log.DebugLevel)
+
+	plan, err := planner.PlanEvent("push")
+	assert.NoError(t, err)
+	assert.NotNil(t, plan)
+	assert.Equal(t, 0, len(plan.Stages))
+
+	assert.Contains(t, buf.String(), "no events found for workflow: no-event.yml")
+	log.SetOutput(out)
+}
+
+func TestGraphMissingFirst(t *testing.T) {
+	planner, err := model.NewWorkflowPlanner("testdata/issue-1595/no-first.yml", true)
+	assert.NoError(t, err)
+
+	plan, err := planner.PlanEvent("push")
+	assert.EqualError(t, err, "unable to build dependency graph for no first (no-first.yml)")
+	assert.NotNil(t, plan)
+	assert.Equal(t, 0, len(plan.Stages))
+}
+
+func TestGraphWithMissing(t *testing.T) {
+	planner, err := model.NewWorkflowPlanner("testdata/issue-1595/missing.yml", true)
+	assert.NoError(t, err)
+
+	out := log.StandardLogger().Out
+	var buf bytes.Buffer
+	log.SetOutput(&buf)
+	log.SetLevel(log.DebugLevel)
+
+	plan, err := planner.PlanEvent("push")
+	assert.NotNil(t, plan)
+	assert.Equal(t, 0, len(plan.Stages))
+	assert.EqualError(t, err, "unable to build dependency graph for missing (missing.yml)")
+	assert.Contains(t, buf.String(), "unable to build dependency graph for missing (missing.yml)")
+	log.SetOutput(out)
+}
+
+func TestGraphWithSomeMissing(t *testing.T) {
+	log.SetLevel(log.DebugLevel)
+
+	planner, err := model.NewWorkflowPlanner("testdata/issue-1595/", true)
+	assert.NoError(t, err)
+
+	out := log.StandardLogger().Out
+	var buf bytes.Buffer
+	log.SetOutput(&buf)
+	log.SetLevel(log.DebugLevel)
+
+	plan, err := planner.PlanAll()
+	assert.Error(t, err, "unable to build dependency graph for no first (no-first.yml)")
+	assert.NotNil(t, plan)
+	assert.Equal(t, 1, len(plan.Stages))
+	assert.Contains(t, buf.String(), "unable to build dependency graph for missing (missing.yml)")
+	assert.Contains(t, buf.String(), "unable to build dependency graph for no first (no-first.yml)")
+	log.SetOutput(out)
+}
+
 func TestGraphEvent(t *testing.T) {
 	planner, err := model.NewWorkflowPlanner("testdata/basic", true)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
-	plan := planner.PlanEvent("push")
-	assert.Nil(t, err)
+	plan, err := planner.PlanEvent("push")
+	assert.NoError(t, err)
+	assert.NotNil(t, plan)
+	assert.NotNil(t, plan.Stages)
 	assert.Equal(t, len(plan.Stages), 3, "stages")
 	assert.Equal(t, len(plan.Stages[0].Runs), 1, "stage0.runs")
 	assert.Equal(t, len(plan.Stages[1].Runs), 1, "stage1.runs")
@@ -63,8 +150,10 @@ func TestGraphEvent(t *testing.T) {
 	assert.Equal(t, plan.Stages[1].Runs[0].JobID, "build", "jobid")
 	assert.Equal(t, plan.Stages[2].Runs[0].JobID, "test", "jobid")
 
-	plan = planner.PlanEvent("release")
-	assert.Equal(t, len(plan.Stages), 0, "stages")
+	plan, err = planner.PlanEvent("release")
+	assert.NoError(t, err)
+	assert.NotNil(t, plan)
+	assert.Equal(t, 0, len(plan.Stages))
 }
 
 type TestJobFileInfo struct {
@@ -94,6 +183,7 @@ func (j *TestJobFileInfo) runTest(ctx context.Context, t *testing.T, cfg *Config
 		ReuseContainers:       false,
 		Env:                   cfg.Env,
 		Secrets:               cfg.Secrets,
+		Inputs:                cfg.Inputs,
 		GitHubInstance:        "github.com",
 		ContainerArchitecture: cfg.ContainerArchitecture,
 	}
@@ -104,13 +194,15 @@ func (j *TestJobFileInfo) runTest(ctx context.Context, t *testing.T, cfg *Config
 	planner, err := model.NewWorkflowPlanner(fullWorkflowPath, true)
 	assert.Nil(t, err, fullWorkflowPath)
 
-	plan := planner.PlanEvent(j.eventName)
-
-	err = runner.NewPlanExecutor(plan)(ctx)
-	if j.errorMessage == "" {
-		assert.Nil(t, err, fullWorkflowPath)
-	} else {
-		assert.Error(t, err, j.errorMessage)
+	plan, err := planner.PlanEvent(j.eventName)
+	assert.True(t, (err == nil) != (plan == nil), "PlanEvent should return either a plan or an error")
+	if err == nil && plan != nil {
+		err = runner.NewPlanExecutor(plan)(ctx)
+		if j.errorMessage == "" {
+			assert.Nil(t, err, fullWorkflowPath)
+		} else {
+			assert.Error(t, err, j.errorMessage)
+		}
 	}
 
 	fmt.Println("::endgroup::")
@@ -144,7 +236,7 @@ func TestRunEvent(t *testing.T) {
 		{workdir, "uses-composite-with-error", "push", "Job 'failing-composite-action' failed", platforms, secrets},
 		{workdir, "uses-nested-composite", "push", "", platforms, secrets},
 		{workdir, "remote-action-composite-js-pre-with-defaults", "push", "", platforms, secrets},
-		{workdir, "uses-workflow", "push", "reusable workflows are currently not supported (see https://github.com/nektos/act/issues/826 for updates)", platforms, secrets},
+		{workdir, "uses-workflow", "push", "", platforms, map[string]string{"secret": "keep_it_private"}},
 		{workdir, "uses-workflow", "pull_request", "", platforms, map[string]string{"secret": "keep_it_private"}},
 		{workdir, "uses-docker-url", "push", "", platforms, secrets},
 		{workdir, "act-composite-env-test", "push", "", platforms, secrets},
@@ -167,9 +259,10 @@ func TestRunEvent(t *testing.T) {
 		{workdir, "container-hostname", "push", "", platforms, secrets},
 		{workdir, "remote-action-docker", "push", "", platforms, secrets},
 		{workdir, "remote-action-js", "push", "", platforms, secrets},
-		{workdir, "remote-action-js", "push", "", map[string]string{"ubuntu-latest": "catthehacker/ubuntu:runner-latest"}, secrets}, // Test if this works with non root container
+		{workdir, "remote-action-js-node-user", "push", "", platforms, secrets}, // Test if this works with non root container
 		{workdir, "matrix", "push", "", platforms, secrets},
 		{workdir, "matrix-include-exclude", "push", "", platforms, secrets},
+		{workdir, "matrix-exitcode", "push", "Job 'test' failed", platforms, secrets},
 		{workdir, "commands", "push", "", platforms, secrets},
 		{workdir, "workdir", "push", "", platforms, secrets},
 		{workdir, "defaults-run", "push", "", platforms, secrets},
@@ -191,6 +284,8 @@ func TestRunEvent(t *testing.T) {
 		{workdir, "actions-environment-and-context-tests", "push", "", platforms, secrets},
 		{workdir, "uses-action-with-pre-and-post-step", "push", "", platforms, secrets},
 		{workdir, "evalenv", "push", "", platforms, secrets},
+		{workdir, "docker-action-custom-path", "push", "", platforms, secrets},
+		{workdir, "GITHUB_ENV-use-in-env-ctx", "push", "", platforms, secrets},
 		{workdir, "ensure-post-steps", "push", "Job 'second-post-step-should-fail' failed", platforms, secrets},
 		{workdir, "workflow_dispatch", "workflow_dispatch", "", platforms, secrets},
 		{workdir, "workflow_dispatch_no_inputs_mapping", "workflow_dispatch", "", platforms, secrets},
@@ -200,6 +295,11 @@ func TestRunEvent(t *testing.T) {
 		{"../model/testdata", "strategy", "push", "", platforms, secrets}, // TODO: move all testdata into pkg so we can validate it with planner and runner
 		// {"testdata", "issue-228", "push", "", platforms, }, // TODO [igni]: Remove this once everything passes
 		{"../model/testdata", "container-volumes", "push", "", platforms, secrets},
+		{workdir, "path-handling", "push", "", platforms, secrets},
+		{workdir, "do-not-leak-step-env-in-composite", "push", "", platforms, secrets},
+		{workdir, "set-env-step-env-override", "push", "", platforms, secrets},
+		{workdir, "set-env-new-env-file-per-step", "push", "", platforms, secrets},
+		{workdir, "no-panic-on-invalid-composite-action", "push", "jobs failed due to invalid action", platforms, secrets},
 	}
 
 	for _, table := range tables {
@@ -292,12 +392,17 @@ func TestRunEventHostEnvironment(t *testing.T) {
 		}...)
 	} else {
 		platforms := map[string]string{
-			"self-hosted": "-self-hosted",
+			"self-hosted":   "-self-hosted",
+			"ubuntu-latest": "-self-hosted",
 		}
 
 		tables = append(tables, []TestJobFileInfo{
 			{workdir, "nix-prepend-path", "push", "", platforms, secrets},
 			{workdir, "inputs-via-env-context", "push", "", platforms, secrets},
+			{workdir, "do-not-leak-step-env-in-composite", "push", "", platforms, secrets},
+			{workdir, "set-env-step-env-override", "push", "", platforms, secrets},
+			{workdir, "set-env-new-env-file-per-step", "push", "", platforms, secrets},
+			{workdir, "no-panic-on-invalid-composite-action", "push", "jobs failed due to invalid action", platforms, secrets},
 		}...)
 	}
 
@@ -415,6 +520,27 @@ func TestRunEventSecrets(t *testing.T) {
 	assert.NoError(t, err, "Failed to read .secrets")
 
 	tjfi.runTest(context.Background(), t, &Config{Secrets: secrets, Env: env})
+}
+
+func TestRunActionInputs(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+	workflowPath := "input-from-cli"
+
+	tjfi := TestJobFileInfo{
+		workdir:      workdir,
+		workflowPath: workflowPath,
+		eventName:    "workflow_dispatch",
+		errorMessage: "",
+		platforms:    platforms,
+	}
+
+	inputs := map[string]string{
+		"SOME_INPUT": "input",
+	}
+
+	tjfi.runTest(context.Background(), t, &Config{Inputs: inputs})
 }
 
 func TestRunEventPullRequest(t *testing.T) {
