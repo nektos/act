@@ -375,10 +375,11 @@ func (impl *interperterImpl) compareValues(leftValue reflect.Value, rightValue r
 	case reflect.Invalid:
 		if rightValue.Kind() == reflect.Invalid {
 			return false, nil
-		} else {
-			// not possible situation - params are converted to the same type in code above
-			return nil, fmt.Errorf("Compare param of Invalid type: left: %+v, right: %+v", leftValue.Kind(), rightValue.Kind())
 		}
+
+		// not possible situation - params are converted to the same type in code above
+		return nil, fmt.Errorf("Compare params of Invalid type: left: %+v, right: %+v", leftValue.Kind(), rightValue.Kind())
+
 	default:
 		return nil, fmt.Errorf("Compare not implemented for types: left: %+v, right: %+v", leftValue.Kind(), rightValue.Kind())
 	}
