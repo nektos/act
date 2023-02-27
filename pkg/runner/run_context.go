@@ -567,6 +567,7 @@ func (rc *RunContext) getGithubContext(ctx context.Context) *model.GithubContext
 		EventName:        rc.Config.EventName,
 		Action:           rc.CurrentStep,
 		Token:            rc.Config.Token,
+		Job:              rc.Run.JobID,
 		ActionPath:       rc.ActionPath,
 		RepositoryOwner:  rc.Config.Env["GITHUB_REPOSITORY_OWNER"],
 		RetentionDays:    rc.Config.Env["GITHUB_RETENTION_DAYS"],
@@ -693,7 +694,7 @@ func (rc *RunContext) withGithubEnv(ctx context.Context, github *model.GithubCon
 	env["GITHUB_REF_NAME"] = github.RefName
 	env["GITHUB_REF_TYPE"] = github.RefType
 	env["GITHUB_TOKEN"] = github.Token
-	env["GITHUB_JOB"] = rc.JobName
+	env["GITHUB_JOB"] = github.Job
 	env["GITHUB_REPOSITORY_OWNER"] = github.RepositoryOwner
 	env["GITHUB_RETENTION_DAYS"] = github.RetentionDays
 	env["RUNNER_PERFLOG"] = github.RunnerPerflog
