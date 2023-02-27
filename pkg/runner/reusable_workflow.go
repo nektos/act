@@ -8,7 +8,6 @@ import (
 	"os"
 	"path"
 	"regexp"
-	"strings"
 	"sync"
 
 	"github.com/nektos/act/pkg/common"
@@ -29,7 +28,7 @@ func newRemoteReusableWorkflowExecutor(rc *RunContext) common.Executor {
 	}
 	remoteReusableWorkflow.URL = rc.Config.GitHubInstance
 
-	workflowDir := fmt.Sprintf("%s/%s", rc.ActionCacheDir(), strings.ReplaceAll(uses, "/", "-"))
+	workflowDir := fmt.Sprintf("%s/%s", rc.ActionCacheDir(), safeFilename(uses))
 
 	return common.NewPipelineExecutor(
 		newMutexExecutor(cloneIfRequired(rc, *remoteReusableWorkflow, workflowDir)),
