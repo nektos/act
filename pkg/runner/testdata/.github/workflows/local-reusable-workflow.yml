@@ -27,7 +27,7 @@ on:
     outputs:
       output:
         description: "A workflow output"
-        value: ${{ jobs.reusable_workflow_job.outputs.output }}
+        value: ${{ jobs.reusable_workflow_job.outputs.job-output }}
 
 jobs:
   reusable_workflow_job:
@@ -79,4 +79,4 @@ jobs:
         echo "value=${{ inputs.string_required }}" >> $GITHUB_OUTPUT
 
     outputs:
-      output: ${{ steps.output_test.outputs.value }}
+      job-output: ${{ steps.output_test.outputs.value }}

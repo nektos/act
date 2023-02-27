@@ -1,0 +1,29 @@
+on: push
+jobs:
+  local-invalid-step:
+    runs-on: ubuntu-latest
+    steps:
+    - run: |
+        runs:
+          using: composite
+          steps:
+          - name: Foo
+          - uses: Foo/Bar
+      shell: cp {0} action.yml
+    - uses: ./
+  local-missing-steps:
+    runs-on: ubuntu-latest
+    steps:
+    - run: |
+        runs:
+          using: composite
+      shell: cp {0} action.yml
+    - uses: ./
+  remote-invalid-step:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: nektos/act-test-actions/invalid-composite-action/invalid-step@main
+  remote-missing-steps:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: nektos/act-test-actions/invalid-composite-action/missing-steps@main
