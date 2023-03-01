@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
+	"github.com/adrg/xdg"
 	"github.com/andreaskoch/go-fswatch"
 	"github.com/joho/godotenv"
 	"github.com/mitchellh/go-homedir"
@@ -98,18 +99,21 @@ func configLocations() []string {
 		log.Fatal(err)
 	}
 
+	configFileName := ".actrc"
+
 	// reference: https://specifications.freedesktop.org/basedir-spec/latest/ar01s03.html
 	var actrcXdg string
-	if xdg, ok := os.LookupEnv("XDG_CONFIG_HOME"); ok && xdg != "" {
-		actrcXdg = filepath.Join(xdg, ".actrc")
-	} else {
-		actrcXdg = filepath.Join(home, ".config", ".actrc")
+	for _, fileName := range []string{"act/actrc", configFileName} {
+		if foundConfig, err := xdg.SearchConfigFile(fileName); foundConfig != "" && err == nil {
+			actrcXdg = foundConfig
+			break
+		}
 	}
 
 	return []string{
-		filepath.Join(home, ".actrc"),
+		filepath.Join(home, configFileName),
 		actrcXdg,
-		filepath.Join(".", ".actrc"),
+		filepath.Join(".", configFileName),
 	}
 }
 
