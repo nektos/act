@@ -72,7 +72,7 @@ func TestOperators(t *testing.T) {
 		{"github.event.commits[0].author.username != github.event.commits[1].author.username", true, "property-comparison1", ""},
 		{"github.event.commits[0].author.username1 != github.event.commits[1].author.username", true, "property-comparison2", ""},
 		{"github.event.commits[0].author.username != github.event.commits[1].author.username1", true, "property-comparison3", ""},
-		{"github.event.commits[0].author.username1 != github.event.commits[1].author.username2", false, "property-comparison4", ""},
+		{"github.event.commits[0].author.username1 != github.event.commits[1].author.username2", true, "property-comparison4", ""},
 		{"secrets != env", nil, "property-comparison5", "Compare not implemented for types: left: map, right: map"},
 	}
 

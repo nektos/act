@@ -374,7 +374,7 @@ func (impl *interperterImpl) compareValues(leftValue reflect.Value, rightValue r
 
 	case reflect.Invalid:
 		if rightValue.Kind() == reflect.Invalid {
-			return false, nil
+			return true, nil
 		}
 
 		// not possible situation - params are converted to the same type in code above
