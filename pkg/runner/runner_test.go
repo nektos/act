@@ -450,7 +450,7 @@ func TestDockerActionForcePullForceRebuild(t *testing.T) {
 	ctx := context.Background()
 
 	config := &Config{
-		ForcePull: true,
+		ForcePull:    true,
 		ForceRebuild: true,
 	}
 
