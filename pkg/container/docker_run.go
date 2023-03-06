@@ -11,6 +11,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -577,10 +578,12 @@ func (cr *containerReference) tryReadID(opt string, cbk func(id int)) common.Exe
 		defer resp.Close()
 
 		sid, err := resp.Reader.ReadString('\n')
-		if err != nil || sid == "" {
+		if err != nil {
 			return nil
 		}
-		id, err := strconv.ParseInt(strings.TrimSpace(sid), 10, 32)
+		exp := regexp.MustCompile(`\d+\n`)
+		found := exp.FindString(sid)
+		id, err := strconv.ParseInt(strings.TrimSpace(found), 10, 32)
 		if err != nil {
 			return nil
 		}
