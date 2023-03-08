@@ -8,6 +8,21 @@ jobs:
       image: node:16-buster-slim
       options: --user node
     steps:
+    - name: check permissions of env files
+      id: test
+      run: |
+        echo "USER: $(id -un) expected: node"
+        [[ "$(id -un)" = "node" ]]
+        echo "TEST=Value" >> $GITHUB_OUTPUT
+      shell: bash
+
+    - name: check if file command worked
+      if: steps.test.outputs.test != 'Value'
+      run: |
+        echo "steps.test.outputs.test=${{ steps.test.outputs.test || 'missing value!' }}"
+        exit 1
+      shell: bash
+
     - uses: actions/hello-world-javascript-action@v1
       with:
         who-to-greet: 'Mona the Octocat'
