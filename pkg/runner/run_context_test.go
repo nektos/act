@@ -413,7 +413,7 @@ func TestGetGithubContextRef(t *testing.T) {
 		{event: "pull_request_target", json: `{"pull_request":{"base":{"ref": "main"}}}`, ref: "refs/heads/main"},
 		{event: "deployment", json: `{"deployment": {"ref": "tag-name"}}`, ref: "tag-name"},
 		{event: "deployment_status", json: `{"deployment": {"ref": "tag-name"}}`, ref: "tag-name"},
-		{event: "release", json: `{"release": {"tag_name": "tag-name"}}`, ref: "tag-name"},
+		{event: "release", json: `{"release": {"tag_name": "tag-name"}}`, ref: "refs/tags/tag-name"},
 	}
 
 	for _, data := range table {
