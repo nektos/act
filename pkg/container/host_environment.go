@@ -355,8 +355,6 @@ func (e *HostEnvironment) Remove() common.Executor {
 func (e *HostEnvironment) ToContainerPath(path string) string {
 	if bp, err := filepath.Rel(e.Workdir, path); err != nil {
 		return filepath.Join(e.Path, bp)
-	} else if filepath.Clean(e.Workdir) == filepath.Clean(path) {
-		return e.Path
 	}
 	return path
 }
