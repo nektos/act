@@ -389,16 +389,18 @@ jobs:
             node: 10
 ```
 
-In this case if we only wanted to run this workflow for node 8, then we would run `act push --matrix node:8`  
+In this case if we only wanted to run this workflow for node 8, then we would run `act push --matrix node:8`
+
 This will trigger the workflow to use the following matrix configurations only:
 - `os: ubuntu-18.04, node 8`
 - `os: macos-latest, node 8`
 
-Similarly if we just wanted to trigger this workflow for node 10 and macos-latest then we would run `act push --matrix node:10 --matrix os:macos-latest`.  
+Similarly if we just wanted to trigger this workflow for node 10 and macos-latest then we would run `act push --matrix node:10 --matrix os:macos-latest`.
+
 This will trigger the workflow to use the following matrix configurations only:
 - `os: macos-latest, node 10`
 
-Note that using the `--matrix` flag you can't add new values (for e.g. running the above workflow for node 20). It will simply ignore it. Moreover, the `exclude` field in the workflow will take precedance over the `--matrix` flag (for e.g. running the above workflow for only macos-latest and node 4 will result in no matrix configuration being used) 
+Note that using the `--matrix` flag you can't add new values (for e.g. running the above workflow for node 20). It will simply ignore it. Moreover, the `exclude` field in the workflow will take precedance over the `--matrix` flag (for e.g. running the above workflow for only macos-latest and node 4 will result in no matrix configuration being used)
 
 # Events
 
