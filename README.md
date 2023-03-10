@@ -358,6 +358,48 @@ don't want to run locally. E.g. a step that posts a Slack message or bumps a ver
     ...
 ```
 
+# Specifying Matrix
+
+You can selectively choose a subset of matrix options to run by specifying the `--matrix` flag. It will only run those matrix configurations
+which include your specified values.
+
+Example workflow file
+
+```yaml
+name: matrix-with-user-inclusions
+on: push
+
+jobs:
+  build:
+    name: Matrix
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo ${NODE_VERSION}
+        env:
+          NODE_VERSION: ${{ matrix.node }}
+    strategy:
+      matrix:
+        os: [ubuntu-18.04, macos-latest]
+        node: [4, 6, 8, 10]
+        exclude:
+          - os: macos-latest
+            node: 4
+        include:
+          - os: ubuntu-16.04
+            node: 10
+```
+
+In this case if we only wanted to run this workflow for node 8, then we would run `act push --matrix node:8`  
+This will trigger the workflow to use the following matrix configurations only:
+- `os: ubuntu-18.04, node 8`
+- `os: macos-latest, node 8`
+
+Similarly if we just wanted to trigger this workflow for node 10 and macos-latest then we would run `act push --matrix node:10 --matrix os:macos-latest`.  
+This will trigger the workflow to use the following matrix configurations only:
+- `os: macos-latest, node 10`
+
+Note that using the `--matrix` flag you can't add new values (for e.g. running the above workflow for node 20). It will simply ignore it. Moreover, the `exclude` field in the workflow will take precedance over the `--matrix` flag (for e.g. running the above workflow for only macos-latest and node 4 will result in no matrix configuration being used) 
+
 # Events
 
 Every [GitHub event](https://developer.github.com/v3/activity/events/types) is accompanied by a payload. You can provide these events in JSON format with the `--eventpath` to simulate specific GitHub events kicking off an action. For example:
