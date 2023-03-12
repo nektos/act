@@ -204,6 +204,12 @@ func (rc *RunContext) startHostEnvironment() common.Executor {
 
 		return common.NewPipelineExecutor(
 			rc.JobContainer.Copy(rc.JobContainer.GetActPath()+"/", &container.FileEntry{
+				Name: "workflow/start-lxc.sh",
+				Mode: 0755,
+				Body: "#!/bin/bash\necho start LXC container\n",
+			}),
+			rc.JobContainer.Exec([]string{rc.JobContainer.GetActPath() + "/workflow/start-lxc.sh"}, map[string]string{}, "", rc.Config.Workdir),
+			rc.JobContainer.Copy(rc.JobContainer.GetActPath()+"/", &container.FileEntry{
 				Name: "workflow/event.json",
 				Mode: 0o644,
 				Body: rc.EventJSON,
