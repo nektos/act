@@ -139,6 +139,14 @@ func (rc *RunContext) GetBindsAndMounts() ([]string, map[string]string) {
 	return binds, mounts
 }
 
+func (rc *RunContext) stopHostEnvironment() common.Executor {
+	return func(ctx context.Context) error {
+		logger := common.Logger(ctx)
+		logger.Debugf("stopHostEnvironment")
+		return nil
+	}
+}
+
 func (rc *RunContext) startHostEnvironment() common.Executor {
 	return func(ctx context.Context) error {
 		logger := common.Logger(ctx)
@@ -397,7 +405,13 @@ func (rc *RunContext) IsHostEnv(ctx context.Context) bool {
 }
 
 func (rc *RunContext) stopContainer() common.Executor {
-	return rc.stopJobContainer()
+	return func(ctx context.Context) error {
+		image := rc.platformImage(ctx)
+		if strings.EqualFold(image, "-self-hosted") {
+			return rc.stopHostEnvironment()(ctx)
+		}
+		return rc.stopJobContainer()(ctx)
+	}
 }
 
 func (rc *RunContext) closeContainer() common.Executor {
