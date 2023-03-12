@@ -3,6 +3,7 @@ package runner
 import (
 	"archive/tar"
 	"bufio"
+	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
@@ -16,6 +17,7 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+	"text/template"
 
 	"github.com/mitchellh/go-homedir"
 	"github.com/opencontainers/selinux/go-selinux"
@@ -139,11 +141,58 @@ func (rc *RunContext) GetBindsAndMounts() ([]string, map[string]string) {
 	return binds, mounts
 }
 
+var startTemplate = template.Must(template.New("start").Parse(`#!/bin/sh -xe
+lxc-create --name="{{.Name}}" --template={{.Template}} -- --release {{.Release}} $packages
+tee -a /var/lib/lxc/{{.Name}}/config <<'EOF'
+security.nesting = true
+lxc.cap.drop =
+lxc.apparmor.profile = unconfined
+EOF
+
+#mkdir /var/lib/lxc/{{.Name}}/rootfs/woodpecker
+#mount --bind {{.Workspace}} /var/lib/lxc/{{.Name}}/rootfs/woodpecker
+
+#mkdir /var/lib/lxc/{{.Name}}/rootfs/rundir
+#mount --bind {{.RunDir}} /var/lib/lxc/{{.Name}}/rootfs/rundir
+
+lxc-start {{.Name}}
+lxc-wait --name {{.Name}} --state RUNNING
+exit 0
+lxc-attach --name {{.Name}} -- /rundir/networking.sh
+lxc-attach --name {{.Name}} -- /bin/sh -c 'cd "/woodpecker/{{ .Repo }}" && /bin/sh -ex /rundir/{{ .Script }}'
+`))
+
+var stopTemplate = template.Must(template.New("stop").Parse(`#!/bin/sh -x
+lxc-ls -1 --filter="^{{.Name}}" | while read container ; do
+   lxc-stop --kill --name="$container"
+#   umount "/var/lib/lxc/$container/rootfs/woodpecker"
+#   umount "/var/lib/lxc/$container/rootfs/rundir"
+   lxc-destroy --force --name="$container"
+done
+`))
+
 func (rc *RunContext) stopHostEnvironment() common.Executor {
 	return func(ctx context.Context) error {
 		logger := common.Logger(ctx)
 		logger.Debugf("stopHostEnvironment")
-		return nil
+
+		var stopScript bytes.Buffer
+		if err := stopTemplate.Execute(&stopScript, struct {
+			Name string
+		}{
+			Name: rc.jobContainerName(),
+		}); err != nil {
+			return err
+		}
+
+		return common.NewPipelineExecutor(
+			rc.JobContainer.Copy(rc.JobContainer.GetActPath()+"/", &container.FileEntry{
+				Name: "workflow/stop-lxc.sh",
+				Mode: 0755,
+				Body: stopScript.String(),
+			}),
+			rc.JobContainer.Exec([]string{rc.JobContainer.GetActPath() + "/workflow/stop-lxc.sh"}, map[string]string{}, "", rc.Config.Workdir),
+		)(ctx)
 	}
 }
 
@@ -202,11 +251,32 @@ func (rc *RunContext) startHostEnvironment() common.Executor {
 			}
 		}
 
+		var startScript bytes.Buffer
+		if err := startTemplate.Execute(&startScript, struct {
+			Name      string
+			Template  string
+			Release   string
+			Repo      string
+			Workspace string
+			RunDir    string
+			Script    string
+		}{
+			Name:      rc.jobContainerName(),
+			Template:  "debian",
+			Release:   "bullseye",
+			Repo:      "", // step.Environment["CI_REPO"],
+			Workspace: "", // e.workspace,
+			RunDir:    "", // e.rundir,
+			Script:    "", // "commands-" + step.Name,
+		}); err != nil {
+			return err
+		}
+
 		return common.NewPipelineExecutor(
 			rc.JobContainer.Copy(rc.JobContainer.GetActPath()+"/", &container.FileEntry{
 				Name: "workflow/start-lxc.sh",
 				Mode: 0755,
-				Body: "#!/bin/bash\necho start LXC container\n",
+				Body: startScript.String(),
 			}),
 			rc.JobContainer.Exec([]string{rc.JobContainer.GetActPath() + "/workflow/start-lxc.sh"}, map[string]string{}, "", rc.Config.Workdir),
 			rc.JobContainer.Copy(rc.JobContainer.GetActPath()+"/", &container.FileEntry{
