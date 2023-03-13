@@ -10,8 +10,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type LinuxContainerEnvironmentExtensions struct {
-}
+type LinuxContainerEnvironmentExtensions struct{}
 
 // Resolves the equivalent host path inside the container
 // This is required for windows and WSL 2 to translate things like C:\Users\Myproject to /mnt/users/Myproject
@@ -45,6 +44,14 @@ func (*LinuxContainerEnvironmentExtensions) ToContainerPath(path string) string 
 	// Should make something like /mnt/c/Users/person/My Folder/MyActProject
 	result := strings.Join([]string{"/mnt", driveLetter, translatedPath}, `/`)
 	return result
+}
+
+func (*LinuxContainerEnvironmentExtensions) GetName() string {
+	return "NAME"
+}
+
+func (*LinuxContainerEnvironmentExtensions) GetRoot() string {
+	return "/var/run"
 }
 
 func (*LinuxContainerEnvironmentExtensions) GetActPath() string {

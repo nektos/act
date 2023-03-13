@@ -149,24 +149,34 @@ lxc.cap.drop =
 lxc.apparmor.profile = unconfined
 EOF
 
-#mkdir /var/lib/lxc/{{.Name}}/rootfs/woodpecker
-#mount --bind {{.Workspace}} /var/lib/lxc/{{.Name}}/rootfs/woodpecker
+mkdir -p /var/lib/lxc/{{.Name}}/rootfs/{{ .Root }}
+mount --bind {{ .Root }} /var/lib/lxc/{{.Name}}/rootfs/{{ .Root }}
 
-#mkdir /var/lib/lxc/{{.Name}}/rootfs/rundir
-#mount --bind {{.RunDir}} /var/lib/lxc/{{.Name}}/rootfs/rundir
+mkdir /var/lib/lxc/{{.Name}}/rootfs/tmpdir
+mount --bind {{.TmpDir}} /var/lib/lxc/{{.Name}}/rootfs/tmpdir
+
+cat > /var/lib/lxc/{{.Name}}/rootfs/tmpdir/networking.sh <<'EOF'
+#!/bin/sh -xe
+for d in $(seq 60); do
+  getent hosts wikipedia.org > /dev/null && break
+  sleep 1
+done
+getent hosts wikipedia.org
+EOF
+chmod +x /var/lib/lxc/{{.Name}}/rootfs/tmpdir/networking.sh
 
 lxc-start {{.Name}}
 lxc-wait --name {{.Name}} --state RUNNING
+lxc-attach --name {{.Name}} -- /tmpdir/networking.sh
 exit 0
-lxc-attach --name {{.Name}} -- /rundir/networking.sh
 lxc-attach --name {{.Name}} -- /bin/sh -c 'cd "/woodpecker/{{ .Repo }}" && /bin/sh -ex /rundir/{{ .Script }}'
 `))
 
 var stopTemplate = template.Must(template.New("stop").Parse(`#!/bin/sh -x
 lxc-ls -1 --filter="^{{.Name}}" | while read container ; do
    lxc-stop --kill --name="$container"
-#   umount "/var/lib/lxc/$container/rootfs/woodpecker"
-#   umount "/var/lib/lxc/$container/rootfs/rundir"
+   umount "/var/lib/lxc/$container/rootfs/{{ .Root }}"
+   umount "/var/lib/lxc/$container/rootfs/tmpdir"
    lxc-destroy --force --name="$container"
 done
 `))
@@ -179,8 +189,10 @@ func (rc *RunContext) stopHostEnvironment() common.Executor {
 		var stopScript bytes.Buffer
 		if err := stopTemplate.Execute(&stopScript, struct {
 			Name string
+			Root string
 		}{
-			Name: rc.jobContainerName(),
+			Name: rc.JobContainer.GetName(),
+			Root: rc.JobContainer.GetRoot(),
 		}); err != nil {
 			return err
 		}
@@ -191,7 +203,7 @@ func (rc *RunContext) stopHostEnvironment() common.Executor {
 				Mode: 0755,
 				Body: stopScript.String(),
 			}),
-			rc.JobContainer.Exec([]string{rc.JobContainer.GetActPath() + "/workflow/stop-lxc.sh"}, map[string]string{}, "", rc.Config.Workdir),
+			rc.JobContainer.Exec([]string{rc.JobContainer.GetActPath() + "/workflow/stop-lxc.sh"}, map[string]string{}, "root", rc.Config.Workdir),
 		)(ctx)
 	}
 }
@@ -211,7 +223,8 @@ func (rc *RunContext) startHostEnvironment() common.Executor {
 		cacheDir := rc.ActionCacheDir()
 		randBytes := make([]byte, 8)
 		_, _ = rand.Read(randBytes)
-		miscpath := filepath.Join(cacheDir, hex.EncodeToString(randBytes))
+		randName := hex.EncodeToString(randBytes)
+		miscpath := filepath.Join(cacheDir, randName)
 		actPath := filepath.Join(miscpath, "act")
 		if err := os.MkdirAll(actPath, 0o777); err != nil {
 			return err
@@ -226,6 +239,8 @@ func (rc *RunContext) startHostEnvironment() common.Executor {
 		}
 		toolCache := filepath.Join(cacheDir, "tool_cache")
 		rc.JobContainer = &container.HostEnvironment{
+			Name:      randName,
+			Root:      miscpath,
 			Path:      path,
 			TmpDir:    runnerTmp,
 			ToolCache: toolCache,
@@ -253,21 +268,21 @@ func (rc *RunContext) startHostEnvironment() common.Executor {
 
 		var startScript bytes.Buffer
 		if err := startTemplate.Execute(&startScript, struct {
-			Name      string
-			Template  string
-			Release   string
-			Repo      string
-			Workspace string
-			RunDir    string
-			Script    string
+			Name     string
+			Template string
+			Release  string
+			Repo     string
+			Root     string
+			TmpDir   string
+			Script   string
 		}{
-			Name:      rc.jobContainerName(),
-			Template:  "debian",
-			Release:   "bullseye",
-			Repo:      "", // step.Environment["CI_REPO"],
-			Workspace: "", // e.workspace,
-			RunDir:    "", // e.rundir,
-			Script:    "", // "commands-" + step.Name,
+			Name:     rc.JobContainer.GetName(),
+			Template: "debian",
+			Release:  "bullseye",
+			Repo:     "", // step.Environment["CI_REPO"],
+			Root:     rc.JobContainer.GetRoot(),
+			TmpDir:   runnerTmp,
+			Script:   "", // "commands-" + step.Name,
 		}); err != nil {
 			return err
 		}
@@ -278,7 +293,7 @@ func (rc *RunContext) startHostEnvironment() common.Executor {
 				Mode: 0755,
 				Body: startScript.String(),
 			}),
-			rc.JobContainer.Exec([]string{rc.JobContainer.GetActPath() + "/workflow/start-lxc.sh"}, map[string]string{}, "", rc.Config.Workdir),
+			rc.JobContainer.Exec([]string{rc.JobContainer.GetActPath() + "/workflow/start-lxc.sh"}, map[string]string{}, "root", rc.Config.Workdir),
 			rc.JobContainer.Copy(rc.JobContainer.GetActPath()+"/", &container.FileEntry{
 				Name: "workflow/event.json",
 				Mode: 0o644,
@@ -493,6 +508,10 @@ func (rc *RunContext) stopContainer() common.Executor {
 func (rc *RunContext) closeContainer() common.Executor {
 	return func(ctx context.Context) error {
 		if rc.JobContainer != nil {
+			image := rc.platformImage(ctx)
+			if strings.EqualFold(image, "-self-hosted") {
+				return rc.stopHostEnvironment()(ctx)
+			}
 			return rc.JobContainer.Close()(ctx)
 		}
 		return nil

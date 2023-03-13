@@ -5,6 +5,8 @@ import "context"
 type ExecutionsEnvironment interface {
 	Container
 	ToContainerPath(string) string
+	GetName() string
+	GetRoot() string
 	GetActPath() string
 	GetPathVariableName() string
 	DefaultPathVariable() string
