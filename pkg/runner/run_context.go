@@ -147,6 +147,32 @@ tee -a /var/lib/lxc/{{.Name}}/config <<'EOF'
 security.nesting = true
 lxc.cap.drop =
 lxc.apparmor.profile = unconfined
+#
+# /dev/net (docker won't work without /dev/net/tun)
+#
+lxc.cgroup2.devices.allow = c 10:200 rwm
+lxc.mount.entry = /dev/net dev/net none bind,create=dir 0 0
+#
+# /dev/kvm (libvirt / kvm won't work without /dev/kvm)
+#
+lxc.cgroup2.devices.allow = c 10:232 rwm
+lxc.mount.entry = /dev/kvm dev/kvm none bind,create=file 0 0
+#
+# /dev/loop
+#
+lxc.cgroup2.devices.allow = c 10:237 rwm
+lxc.cgroup2.devices.allow = b 7:* rwm
+lxc.mount.entry = /dev/loop-control dev/loop-control none bind,create=file 0 0
+#
+# /dev/mapper
+#
+lxc.cgroup2.devices.allow = c 10:236 rwm
+lxc.mount.entry = /dev/mapper dev/mapper none bind,create=dir 0 0
+#
+# /dev/fuse
+#
+lxc.cgroup2.devices.allow = b 10:229 rwm
+lxc.mount.entry = /dev/fuse dev/fuse none bind,create=file 0 0
 EOF
 
 mkdir -p /var/lib/lxc/{{.Name}}/rootfs/{{ .Root }}
