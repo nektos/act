@@ -442,6 +442,30 @@ func TestDryrunEvent(t *testing.T) {
 	}
 }
 
+func TestDockerActionForcePullForceRebuild(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	ctx := context.Background()
+
+	config := &Config{
+		ForcePull:    true,
+		ForceRebuild: true,
+	}
+
+	tables := []TestJobFileInfo{
+		{workdir, "local-action-dockerfile", "push", "", platforms, secrets},
+		{workdir, "local-action-via-composite-dockerfile", "push", "", platforms, secrets},
+	}
+
+	for _, table := range tables {
+		t.Run(table.workflowPath, func(t *testing.T) {
+			table.runTest(ctx, t, config)
+		})
+	}
+}
+
 func TestRunDifferentArchitecture(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")

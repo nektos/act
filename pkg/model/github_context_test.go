@@ -29,18 +29,21 @@ func TestSetRef(t *testing.T) {
 		eventName string
 		event     map[string]interface{}
 		ref       string
+		refName   string
 	}{
 		{
 			eventName: "pull_request_target",
 			event:     map[string]interface{}{},
 			ref:       "refs/heads/master",
+			refName:   "master",
 		},
 		{
 			eventName: "pull_request",
 			event: map[string]interface{}{
 				"number": 1234.,
 			},
-			ref: "refs/pull/1234/merge",
+			ref:     "refs/pull/1234/merge",
+			refName: "1234/merge",
 		},
 		{
 			eventName: "deployment",
@@ -49,7 +52,8 @@ func TestSetRef(t *testing.T) {
 					"ref": "refs/heads/somebranch",
 				},
 			},
-			ref: "refs/heads/somebranch",
+			ref:     "refs/heads/somebranch",
+			refName: "somebranch",
 		},
 		{
 			eventName: "release",
@@ -58,14 +62,16 @@ func TestSetRef(t *testing.T) {
 					"tag_name": "v1.0.0",
 				},
 			},
-			ref: "v1.0.0",
+			ref:     "refs/tags/v1.0.0",
+			refName: "v1.0.0",
 		},
 		{
 			eventName: "push",
 			event: map[string]interface{}{
 				"ref": "refs/heads/somebranch",
 			},
-			ref: "refs/heads/somebranch",
+			ref:     "refs/heads/somebranch",
+			refName: "somebranch",
 		},
 		{
 			eventName: "unknown",
@@ -74,12 +80,14 @@ func TestSetRef(t *testing.T) {
 					"default_branch": "main",
 				},
 			},
-			ref: "refs/heads/main",
+			ref:     "refs/heads/main",
+			refName: "main",
 		},
 		{
 			eventName: "no-event",
 			event:     map[string]interface{}{},
 			ref:       "refs/heads/master",
+			refName:   "master",
 		},
 	}
 
@@ -92,8 +100,10 @@ func TestSetRef(t *testing.T) {
 			}
 
 			ghc.SetRef(context.Background(), "main", "/some/dir")
+			ghc.SetRefTypeAndName()
 
 			assert.Equal(t, table.ref, ghc.Ref)
+			assert.Equal(t, table.refName, ghc.RefName)
 		})
 	}
 

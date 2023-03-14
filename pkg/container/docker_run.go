@@ -583,7 +583,7 @@ func (cr *containerReference) tryReadID(opt string, cbk func(id int)) common.Exe
 		}
 		exp := regexp.MustCompile(`\d+\n`)
 		found := exp.FindString(sid)
-		id, err := strconv.ParseInt(found[:len(found)-1], 10, 32)
+		id, err := strconv.ParseInt(strings.TrimSpace(found), 10, 32)
 		if err != nil {
 			return nil
 		}
