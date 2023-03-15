@@ -384,12 +384,16 @@ func (rc *RunContext) interpolateOutputs() common.Executor {
 
 func (rc *RunContext) startContainer() common.Executor {
 	return func(ctx context.Context) error {
-		image := rc.platformImage(ctx)
-		if strings.EqualFold(image, "-self-hosted") {
+		if rc.IsHostEnv(ctx) {
 			return rc.startHostEnvironment()(ctx)
 		}
 		return rc.startJobContainer()(ctx)
 	}
+}
+
+func (rc *RunContext) IsHostEnv(ctx context.Context) bool {
+	image := rc.platformImage(ctx)
+	return strings.EqualFold(image, "-self-hosted")
 }
 
 func (rc *RunContext) stopContainer() common.Executor {
