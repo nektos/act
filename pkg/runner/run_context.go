@@ -181,6 +181,12 @@ mount --bind {{ .Root }} /var/lib/lxc/{{.Name}}/rootfs/{{ .Root }}
 mkdir /var/lib/lxc/{{.Name}}/rootfs/tmpdir
 mount --bind {{.TmpDir}} /var/lib/lxc/{{.Name}}/rootfs/tmpdir
 
+lxc-start {{.Name}}
+lxc-wait --name {{.Name}} --state RUNNING
+
+#
+# Wait for the network to come up
+#
 cat > /var/lib/lxc/{{.Name}}/rootfs/tmpdir/networking.sh <<'EOF'
 #!/bin/sh -xe
 for d in $(seq 60); do
@@ -191,11 +197,19 @@ getent hosts wikipedia.org
 EOF
 chmod +x /var/lib/lxc/{{.Name}}/rootfs/tmpdir/networking.sh
 
-lxc-start {{.Name}}
-lxc-wait --name {{.Name}} --state RUNNING
 lxc-attach --name {{.Name}} -- /tmpdir/networking.sh
-exit 0
-lxc-attach --name {{.Name}} -- /bin/sh -c 'cd "/woodpecker/{{ .Repo }}" && /bin/sh -ex /rundir/{{ .Script }}'
+
+cat > /var/lib/lxc/{{.Name}}/rootfs/tmpdir/node.sh <<'EOF'
+#!/bin/sh -xe
+# https://github.com/nodesource/distributions#debinstall
+apt-get install -y curl git
+curl -fsSL https://deb.nodesource.com/setup_16.x | bash -
+apt-get install -y nodejs
+EOF
+chmod +x /var/lib/lxc/{{.Name}}/rootfs/tmpdir/node.sh
+
+lxc-attach --name {{.Name}} -- /tmpdir/node.sh
+
 `))
 
 var stopTemplate = template.Must(template.New("stop").Parse(`#!/bin/sh -x
