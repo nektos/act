@@ -22,3 +22,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: '[[ "$(pwd)" == "/tmp" ]]'
+
+  workdir-from-matrix:
+    runs-on: ubuntu-latest
+    strategy:
+      max-parallel: 1
+      matrix:
+        work_dir: ["/tmp", "/root"]
+    steps:
+      - run: '[[ "$(pwd)" == "${{ matrix.work_dir }}" ]]'
+        working-directory: ${{ matrix.work_dir }}
