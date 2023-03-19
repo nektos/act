@@ -20,40 +20,41 @@ type Runner interface {
 
 // Config contains the config for a new runner
 type Config struct {
-	Actor                              string            // the user that triggered the event
-	Workdir                            string            // path to working directory
-	BindWorkdir                        bool              // bind the workdir to the job container
-	EventName                          string            // name of event to run
-	EventPath                          string            // path to JSON file to use for event.json in containers
-	DefaultBranch                      string            // name of the main branch for this repository
-	ReuseContainers                    bool              // reuse containers to maintain state
-	ForcePull                          bool              // force pulling of the image, even if already present
-	ForceRebuild                       bool              // force rebuilding local docker image action
-	LogOutput                          bool              // log the output from docker run
-	JSONLogger                         bool              // use json or text logger
-	Env                                map[string]string // env for containers
-	Inputs                             map[string]string // manually passed action inputs
-	Secrets                            map[string]string // list of secrets
-	Token                              string            // GitHub token
-	InsecureSecrets                    bool              // switch hiding output when printing to terminal
-	Platforms                          map[string]string // list of platforms
-	Privileged                         bool              // use privileged mode
-	UsernsMode                         string            // user namespace to use
-	ContainerArchitecture              string            // Desired OS/architecture platform for running containers
-	ContainerDaemonSocket              string            // Path to Docker daemon socket
-	ContainerOptions                   string            // Options for the job container
-	UseGitIgnore                       bool              // controls if paths in .gitignore should not be copied into container, default true
-	GitHubInstance                     string            // GitHub instance to use, default "github.com"
-	ContainerCapAdd                    []string          // list of kernel capabilities to add to the containers
-	ContainerCapDrop                   []string          // list of kernel capabilities to remove from the containers
-	AutoRemove                         bool              // controls if the container is automatically removed upon workflow completion
-	ArtifactServerPath                 string            // the path where the artifact server stores uploads
-	ArtifactServerAddr                 string            // the address the artifact server binds to
-	ArtifactServerPort                 string            // the port the artifact server binds to
-	NoSkipCheckout                     bool              // do not skip actions/checkout
-	RemoteName                         string            // remote name in local git repo config
-	ReplaceGheActionWithGithubCom      []string          // Use actions from GitHub Enterprise instance to GitHub
-	ReplaceGheActionTokenWithGithubCom string            // Token of private action repo on GitHub.
+	Actor                              string                     // the user that triggered the event
+	Workdir                            string                     // path to working directory
+	BindWorkdir                        bool                       // bind the workdir to the job container
+	EventName                          string                     // name of event to run
+	EventPath                          string                     // path to JSON file to use for event.json in containers
+	DefaultBranch                      string                     // name of the main branch for this repository
+	ReuseContainers                    bool                       // reuse containers to maintain state
+	ForcePull                          bool                       // force pulling of the image, even if already present
+	ForceRebuild                       bool                       // force rebuilding local docker image action
+	LogOutput                          bool                       // log the output from docker run
+	JSONLogger                         bool                       // use json or text logger
+	Env                                map[string]string          // env for containers
+	Inputs                             map[string]string          // manually passed action inputs
+	Secrets                            map[string]string          // list of secrets
+	Token                              string                     // GitHub token
+	InsecureSecrets                    bool                       // switch hiding output when printing to terminal
+	Platforms                          map[string]string          // list of platforms
+	Privileged                         bool                       // use privileged mode
+	UsernsMode                         string                     // user namespace to use
+	ContainerArchitecture              string                     // Desired OS/architecture platform for running containers
+	ContainerDaemonSocket              string                     // Path to Docker daemon socket
+	ContainerOptions                   string                     // Options for the job container
+	UseGitIgnore                       bool                       // controls if paths in .gitignore should not be copied into container, default true
+	GitHubInstance                     string                     // GitHub instance to use, default "github.com"
+	ContainerCapAdd                    []string                   // list of kernel capabilities to add to the containers
+	ContainerCapDrop                   []string                   // list of kernel capabilities to remove from the containers
+	AutoRemove                         bool                       // controls if the container is automatically removed upon workflow completion
+	ArtifactServerPath                 string                     // the path where the artifact server stores uploads
+	ArtifactServerAddr                 string                     // the address the artifact server binds to
+	ArtifactServerPort                 string                     // the port the artifact server binds to
+	NoSkipCheckout                     bool                       // do not skip actions/checkout
+	RemoteName                         string                     // remote name in local git repo config
+	ReplaceGheActionWithGithubCom      []string                   // Use actions from GitHub Enterprise instance to GitHub
+	ReplaceGheActionTokenWithGithubCom string                     // Token of private action repo on GitHub.
+	Matrix                             map[string]map[string]bool // Matrix config to run
 }
 
 type caller struct {
@@ -116,7 +117,10 @@ func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 						log.Errorf("Error while evaluating matrix: %v", err)
 					}
 				}
-				matrixes := job.GetMatrixes()
+
+				matrixes := selectMatrixes(job.GetMatrixes(), runner.config.Matrix)
+				log.Debugf("Final matrix after applying user inclusions '%v'", matrixes)
+
 				maxParallel := 4
 				if job.Strategy != nil {
 					maxParallel = job.Strategy.MaxParallel
@@ -169,6 +173,25 @@ func handleFailure(plan *model.Plan) common.Executor {
 		}
 		return nil
 	}
+}
+
+func selectMatrixes(originalMatrixes []map[string]interface{}, targetMatrixValues map[string]map[string]bool) []map[string]interface{} {
+	matrixes := make([]map[string]interface{}, 0)
+	for _, original := range originalMatrixes {
+		flag := true
+		for key, val := range original {
+			if allowedVals, ok := targetMatrixValues[key]; ok {
+				valToString := fmt.Sprintf("%v", val)
+				if _, ok := allowedVals[valToString]; !ok {
+					flag = false
+				}
+			}
+		}
+		if flag {
+			matrixes = append(matrixes, original)
+		}
+	}
+	return matrixes
 }
 
 func (runner *runnerImpl) newRunContext(ctx context.Context, run *model.Run, matrix map[string]interface{}) *RunContext {
