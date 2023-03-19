@@ -66,6 +66,7 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.Flags().BoolVar(&input.autoRemove, "rm", false, "automatically remove container(s)/volume(s) after a workflow(s) failure")
 	rootCmd.Flags().StringArrayVarP(&input.replaceGheActionWithGithubCom, "replace-ghe-action-with-github-com", "", []string{}, "If you are using GitHub Enterprise Server and allow specified actions from GitHub (github.com), you can set actions on this. (e.g. --replace-ghe-action-with-github-com =github/super-linter)")
 	rootCmd.Flags().StringVar(&input.replaceGheActionTokenWithGithubCom, "replace-ghe-action-token-with-github-com", "", "If you are using replace-ghe-action-with-github-com  and you want to use private actions on GitHub, you have to set personal access token")
+	rootCmd.Flags().StringArrayVarP(&input.matrix, "matrix", "", []string{}, "specify which matrix configuration to include (e.g. --matrix java:13")
 	rootCmd.PersistentFlags().StringVarP(&input.actor, "actor", "a", "nektos/act", "user that triggered the event")
 	rootCmd.PersistentFlags().StringVarP(&input.workflowsPath, "workflows", "W", "./.github/workflows/", "path to workflow file(s)")
 	rootCmd.PersistentFlags().BoolVarP(&input.noWorkflowRecurse, "no-recurse", "", false, "Flag to disable running workflows from subdirectories of specified path in '--workflows'/'-W' flag")
@@ -295,6 +296,24 @@ func readEnvs(path string, envs map[string]string) bool {
 	return false
 }
 
+func parseMatrix(matrix []string) map[string]map[string]bool {
+	// each matrix entry should be of the form - string:string
+	r := regexp.MustCompile(":")
+	matrixes := make(map[string]map[string]bool)
+	for _, m := range matrix {
+		matrix := r.Split(m, 2)
+		if len(matrix) < 2 {
+			log.Fatalf("Invalid matrix format. Failed to parse %s", m)
+		} else {
+			if _, ok := matrixes[matrix[0]]; !ok {
+				matrixes[matrix[0]] = make(map[string]bool)
+			}
+			matrixes[matrix[0]][matrix[1]] = true
+		}
+	}
+	return matrixes
+}
+
 //nolint:gocyclo
 func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, args []string) error {
@@ -328,6 +347,9 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 		log.Debugf("Loading secrets from %s", input.Secretfile())
 		secrets := newSecrets(input.secrets)
 		_ = readEnvs(input.Secretfile(), secrets)
+
+		matrixes := parseMatrix(input.matrix)
+		log.Debugf("Evaluated matrix inclusions: %v", matrixes)
 
 		planner, err := model.NewWorkflowPlanner(input.WorkflowsPath(), input.noWorkflowRecurse)
 		if err != nil {
@@ -508,6 +530,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			RemoteName:                         input.remoteName,
 			ReplaceGheActionWithGithubCom:      input.replaceGheActionWithGithubCom,
 			ReplaceGheActionTokenWithGithubCom: input.replaceGheActionTokenWithGithubCom,
+			Matrix:                             matrixes,
 		}
 		r, err := runner.New(config)
 		if err != nil {
