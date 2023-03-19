@@ -356,7 +356,10 @@ func newStepContainer(ctx context.Context, step step, image string, cmd []string
 	envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_TEMP", "/tmp"))
 
 	binds, mounts := rc.GetBindsAndMounts()
-
+	networkMode := fmt.Sprintf("container:%s", rc.jobContainerName())
+	if rc.IsHostEnv(ctx) {
+		networkMode = "default"
+	}
 	stepContainer := container.NewContainer(&container.NewContainerInput{
 		Cmd:         cmd,
 		Entrypoint:  entrypoint,
@@ -367,7 +370,7 @@ func newStepContainer(ctx context.Context, step step, image string, cmd []string
 		Name:        createContainerName(rc.jobContainerName(), stepModel.ID),
 		Env:         envList,
 		Mounts:      mounts,
-		NetworkMode: fmt.Sprintf("container:%s", rc.jobContainerName()),
+		NetworkMode: networkMode,
 		Binds:       binds,
 		Stdout:      logWriter,
 		Stderr:      logWriter,
@@ -472,7 +475,7 @@ func runPreStep(step actionStep) common.Executor {
 			var actionPath string
 			if _, ok := step.(*stepActionRemote); ok {
 				actionPath = newRemoteAction(stepModel.Uses).Path
-				actionDir = fmt.Sprintf("%s/%s", rc.ActionCacheDir(), strings.ReplaceAll(stepModel.Uses, "/", "-"))
+				actionDir = fmt.Sprintf("%s/%s", rc.ActionCacheDir(), safeFilename(stepModel.Uses))
 			} else {
 				actionDir = filepath.Join(rc.Config.Workdir, stepModel.Uses)
 				actionPath = ""
@@ -563,7 +566,7 @@ func runPostStep(step actionStep) common.Executor {
 		var actionPath string
 		if _, ok := step.(*stepActionRemote); ok {
 			actionPath = newRemoteAction(stepModel.Uses).Path
-			actionDir = fmt.Sprintf("%s/%s", rc.ActionCacheDir(), strings.ReplaceAll(stepModel.Uses, "/", "-"))
+			actionDir = fmt.Sprintf("%s/%s", rc.ActionCacheDir(), safeFilename(stepModel.Uses))
 		} else {
 			actionDir = filepath.Join(rc.Config.Workdir, stepModel.Uses)
 			actionPath = ""

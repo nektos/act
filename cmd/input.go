@@ -47,6 +47,7 @@ type Input struct {
 	remoteName                         string
 	replaceGheActionWithGithubCom      []string
 	replaceGheActionTokenWithGithubCom string
+	matrix                             []string
 }
 
 func (i *Input) resolve(path string) string {

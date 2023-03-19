@@ -186,6 +186,7 @@ func (j *TestJobFileInfo) runTest(ctx context.Context, t *testing.T, cfg *Config
 		Inputs:                cfg.Inputs,
 		GitHubInstance:        "github.com",
 		ContainerArchitecture: cfg.ContainerArchitecture,
+		Matrix:                cfg.Matrix,
 	}
 
 	runner, err := New(runnerConfig)
@@ -442,6 +443,30 @@ func TestDryrunEvent(t *testing.T) {
 	}
 }
 
+func TestDockerActionForcePullForceRebuild(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	ctx := context.Background()
+
+	config := &Config{
+		ForcePull:    true,
+		ForceRebuild: true,
+	}
+
+	tables := []TestJobFileInfo{
+		{workdir, "local-action-dockerfile", "push", "", platforms, secrets},
+		{workdir, "local-action-via-composite-dockerfile", "push", "", platforms, secrets},
+	}
+
+	for _, table := range tables {
+		t.Run(table.workflowPath, func(t *testing.T) {
+			table.runTest(ctx, t, config)
+		})
+	}
+}
+
 func TestRunDifferentArchitecture(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
@@ -559,4 +584,31 @@ func TestRunEventPullRequest(t *testing.T) {
 	}
 
 	tjfi.runTest(context.Background(), t, &Config{EventPath: filepath.Join(workdir, workflowPath, "event.json")})
+}
+
+func TestRunMatrixWithUserDefinedInclusions(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+	workflowPath := "matrix-with-user-inclusions"
+
+	tjfi := TestJobFileInfo{
+		workdir:      workdir,
+		workflowPath: workflowPath,
+		eventName:    "push",
+		errorMessage: "",
+		platforms:    platforms,
+	}
+
+	matrix := map[string]map[string]bool{
+		"node": {
+			"8":   true,
+			"8.x": true,
+		},
+		"os": {
+			"ubuntu-18.04": true,
+		},
+	}
+
+	tjfi.runTest(context.Background(), t, &Config{Matrix: matrix})
 }

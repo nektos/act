@@ -144,6 +144,7 @@ func TestRunContext_EvalBool(t *testing.T) {
 		// Check github context
 		{in: "github.actor == 'nektos/act'", out: true},
 		{in: "github.actor == 'unknown'", out: false},
+		{in: "github.job == 'job1'", out: true},
 		// The special ACT flag
 		{in: "${{ env.ACT }}", out: true},
 		{in: "${{ !env.ACT }}", out: false},
@@ -364,6 +365,7 @@ func TestGetGitHubContext(t *testing.T) {
 		StepResults:    map[string]*model.StepResult{},
 		OutputMappings: map[MappableOutput]MappableOutput{},
 	}
+	rc.Run.JobID = "job1"
 
 	ghc := rc.getGithubContext(context.Background())
 
@@ -392,6 +394,7 @@ func TestGetGitHubContext(t *testing.T) {
 	assert.Equal(t, ghc.RepositoryOwner, owner)
 	assert.Equal(t, ghc.RunnerPerflog, "/dev/null")
 	assert.Equal(t, ghc.Token, rc.Config.Secrets["GITHUB_TOKEN"])
+	assert.Equal(t, ghc.Job, "job1")
 }
 
 func TestGetGithubContextRef(t *testing.T) {
@@ -410,7 +413,7 @@ func TestGetGithubContextRef(t *testing.T) {
 		{event: "pull_request_target", json: `{"pull_request":{"base":{"ref": "main"}}}`, ref: "refs/heads/main"},
 		{event: "deployment", json: `{"deployment": {"ref": "tag-name"}}`, ref: "tag-name"},
 		{event: "deployment_status", json: `{"deployment": {"ref": "tag-name"}}`, ref: "tag-name"},
-		{event: "release", json: `{"release": {"tag_name": "tag-name"}}`, ref: "tag-name"},
+		{event: "release", json: `{"release": {"tag_name": "tag-name"}}`, ref: "refs/tags/tag-name"},
 	}
 
 	for _, data := range table {
