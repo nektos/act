@@ -1,0 +1,34 @@
+name: matrix-with-user-inclusions
+on: push
+
+jobs:
+  build:
+    name: PHP ${{ matrix.os }} ${{ matrix.node}}
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo ${NODE_VERSION} | grep 8
+          echo ${OS_VERSION} | grep ubuntu-18.04
+        env:
+          NODE_VERSION: ${{ matrix.node }}
+          OS_VERSION: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-18.04, macos-latest]
+        node: [4, 6, 8, 10]
+        exclude:
+          - os: macos-latest
+            node: 4
+        include:
+          - os: ubuntu-16.04
+            node: 10
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [8.x, 10.x, 12.x, 13.x]
+    steps:
+      - run: echo ${NODE_VERSION} | grep 8.x
+        env:
+          NODE_VERSION: ${{ matrix.node }}
