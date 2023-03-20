@@ -121,7 +121,7 @@ nix run nixpkgs#act
 Act can be installed as a [GitHub CLI](https://cli.github.com/) extension:
 
 ```sh
-gh extension install nektos/gh-act
+gh extension install https://github.com/nektos/gh-act
 ```
 
 ## Other install options
