@@ -13,10 +13,11 @@ import (
 )
 
 type stepRun struct {
-	Step       *model.Step
-	RunContext *RunContext
-	cmd        []string
-	env        map[string]string
+	Step             *model.Step
+	RunContext       *RunContext
+	cmd              []string
+	env              map[string]string
+	WorkingDirectory string
 }
 
 func (sr *stepRun) pre() common.Executor {
@@ -27,12 +28,11 @@ func (sr *stepRun) pre() common.Executor {
 
 func (sr *stepRun) main() common.Executor {
 	sr.env = map[string]string{}
-	workingdirectory := sr.getWorkingDirectory(context.Background())
 	return runStepExecutor(sr, stepStageMain, common.NewPipelineExecutor(
 		sr.setupShellCommandExecutor(),
 		func(ctx context.Context) error {
 			sr.getRunContext().ApplyExtraPath(ctx, &sr.env)
-			return sr.getRunContext().JobContainer.Exec(sr.cmd, sr.env, "", workingdirectory)(ctx)
+			return sr.getRunContext().JobContainer.Exec(sr.cmd, sr.env, "", sr.WorkingDirectory)(ctx)
 		},
 	))
 }
@@ -95,6 +95,7 @@ func getScriptName(rc *RunContext, step *model.Step) string {
 func (sr *stepRun) setupShellCommand(ctx context.Context) (name, script string, err error) {
 	logger := common.Logger(ctx)
 	sr.setupShell(ctx)
+	sr.setupWorkingDirectory(ctx)
 
 	step := sr.Step
 
@@ -163,7 +164,7 @@ func (sr *stepRun) setupShell(ctx context.Context) {
 	}
 }
 
-func (sr *stepRun) getWorkingDirectory(ctx context.Context) string {
+func (sr *stepRun) setupWorkingDirectory(ctx context.Context) {
 	rc := sr.RunContext
 	step := sr.Step
 	workingdirectory := ""
@@ -181,6 +182,5 @@ func (sr *stepRun) getWorkingDirectory(ctx context.Context) string {
 	if workingdirectory == "" {
 		workingdirectory = rc.Run.Workflow.Defaults.Run.WorkingDirectory
 	}
-
-	return workingdirectory
+	sr.WorkingDirectory = workingdirectory
 }
