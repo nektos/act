@@ -121,7 +121,7 @@ nix run nixpkgs#act
 Act can be installed as a [GitHub CLI](https://cli.github.com/) extension:
 
 ```sh
-gh extension install nektos/gh-act
+gh extension install https://github.com/nektos/gh-act
 ```
 
 ## Other install options
@@ -163,6 +163,9 @@ act pull_request
 
 # Run a specific job:
 act -j test
+
+# Collect artifacts to the /tmp/artifacts folder:
+act --artifact-server-path /tmp/artifacts
 
 # Run a job in a specific workflow (useful if you have duplicate job names)
 act -j lint -W .github/workflows/checks.yml
