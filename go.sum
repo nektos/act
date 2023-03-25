@@ -14,8 +14,8 @@ github.com/Netflix/go-expect v0.0.0-20220104043353-73e0943537d2/go.mod h1:HBCaDe
 github.com/ProtonMail/go-crypto v0.0.0-20210428141323-04723f9f07d7/go.mod h1:z4/9nQmJSSwwds7ejkxaJwO37dru3geImFUdJlaLzQo=
 github.com/ProtonMail/go-crypto v0.0.0-20220404123522-616f957b79ad h1:K3cVQxnwoVf5R2XLZknct3+tJWocEuJUmF7ZGwB2FK8=
 github.com/ProtonMail/go-crypto v0.0.0-20220404123522-616f957b79ad/go.mod h1:z4/9nQmJSSwwds7ejkxaJwO37dru3geImFUdJlaLzQo=
-github.com/ZauberNerd/go-git/v5 v5.4.3-0.20220315170230-29ec1bc1e5db h1:b0xyxkCQ0PQEH7gFQ8D+xa9lb+bur6RgVsRBodaqza4=
-github.com/ZauberNerd/go-git/v5 v5.4.3-0.20220315170230-29ec1bc1e5db/go.mod h1:U7oc8MDRtQhVD6StooNkBMVsh/Y4J/2Vl36Mo4IclvM=
+github.com/ZauberNerd/go-git/v5 v5.4.3-0.20220224134545-c785af3f4559 h1:N+UKYPjQ7xkYzbzKWUkDGW5XrhhQDMD4lkwRJCUUA8w=
+github.com/ZauberNerd/go-git/v5 v5.4.3-0.20220224134545-c785af3f4559/go.mod h1:U7oc8MDRtQhVD6StooNkBMVsh/Y4J/2Vl36Mo4IclvM=
 github.com/acomagu/bufpipe v1.0.3 h1:fxAGrHZTgQ9w5QqVItgzwj235/uYZYgbXitB+dLupOk=
 github.com/acomagu/bufpipe v1.0.3/go.mod h1:mxdxdup/WdsKVreO5GpW4+M/1CE2sMG4jeGJ2sYmHc4=
 github.com/adrg/xdg v0.4.0 h1:RzRqFcjH4nE5C6oTAxhBtoE2IRyjBSa62SCbyPidvls=
