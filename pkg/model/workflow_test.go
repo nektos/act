@@ -264,6 +264,7 @@ jobs:
 			expectedOutput: map[string][]string{},
 		},
 	}
+	//TODO: add additional yaml in the format of `branches: [ main, 'release/v[0-9].[0-9]' ]`
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {

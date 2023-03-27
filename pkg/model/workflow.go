@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"github.com/nektos/act/pkg/workflowpattern"
 	"io"
 	"reflect"
 	"regexp"
@@ -55,11 +56,12 @@ func (w *Workflow) On() []string {
 	return nil
 }
 
-//FindFilterPatterns searches for filter patterns relating to the specified event in the RawOn attribute
-func (w *Workflow) FindFilterPatterns(event string) map[string][]string {
+//FindFilterPatterns searches for filter patterns relating to the specified eventName (e.g. "pull_request", or "push")
+//in the RawOn attribute.
+func (w *Workflow) FindFilterPatterns(eventName string) map[string][]string {
 	//TODO: We may want to return a custom struct that contains the filter types as attributes.
 	//Return immediately if the event type doesn't support filters
-	if event != "push" && event != "pull_request" {
+	if eventName != "push" && eventName != "pull_request" {
 		return map[string][]string{}
 	}
 
@@ -81,7 +83,7 @@ func (w *Workflow) FindFilterPatterns(event string) map[string][]string {
 	for topLevelMapKey, topLevelMapVal := range topLevelMap {
 
 		//Skip to the next iteration if this isn't the event that we're looking for.
-		if topLevelMapKey != event {
+		if topLevelMapKey != eventName {
 			continue
 		}
 
@@ -101,6 +103,37 @@ func (w *Workflow) FindFilterPatterns(event string) map[string][]string {
 	}
 
 	return output
+}
+
+//ShouldFilterWorkflow finds any filters relating to eventName in the Workflow definition (e.g. if the eventName is
+//"pull_request", there may be a set of "branches" patterns). It then uses the found filters to determine whether the
+//workflow should be skipped based on the data in the eventPayload.
+func (w *Workflow) ShouldFilterWorkflow(eventName string, eventPayload string) bool {
+	//Find all filter patterns that relate to the input event
+	if fp := w.FindFilterPatterns(eventName); len(fp) > 0 {
+		tw := new(workflowpattern.StdOutTraceWriter)
+
+		//TODO: Switch to a custom filter struct, have unique handling for each attribute (e.g. "branches", "tags", and "paths")
+		//Iterate over the different types of filters (e.g. "branches", "tags", and "paths")
+		for filterType, patterns := range fp {
+			log.Debugf("'%s' filters were found for '%s' workflow", filterType, w.File)
+
+			regexFilters, err := workflowpattern.CompilePatterns(patterns...)
+
+			if err != nil {
+				log.Fatalf("Failed to convert '%s' filter patterns to regex for '%s' workflow: %v", filterType, w.File, err)
+			}
+
+			//TODO: We need to pass the event payload into this function in order to populate the inputs here.
+			//  We don't have access to the payload within the Workflow struct, and we shouldn't store it on the struct,
+			//  so we will have to pass it in as a parameter from the Planner (although this doesn't have the event payload either)
+			if workflowpattern.Filter(regexFilters, []string{}, tw) || workflowpattern.Skip(regexFilters, []string{}, tw) {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 func (w *Workflow) OnEvent(event string) interface{} {
