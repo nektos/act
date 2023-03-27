@@ -71,6 +71,210 @@ jobs:
 	assert.Contains(t, workflow.On(), "pull_request")
 }
 
+func TestGetWorkflowFilterStrings(t *testing.T) {
+	testCases := []struct {
+		name           string
+		yaml           string
+		inputEvent     string
+		expectedOutput map[string][]string
+	}{
+		{
+			name: "on.push.branches",
+			yaml: `
+name: local-action-docker-url
+on:
+  push:
+    branches:
+    - master
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: ./actions/docker-url
+`,
+			inputEvent:     "push",
+			expectedOutput: map[string][]string{"branches": {"master"}},
+		},
+		{
+			name: "on.push.tags",
+			yaml: `
+name: local-action-docker-url
+on:
+  push:
+    tags:
+    - "*-release"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: ./actions/docker-url
+`,
+			inputEvent:     "push",
+			expectedOutput: map[string][]string{"tags": {"*-release"}},
+		},
+		{
+			name: "on.push.paths",
+			yaml: `
+name: local-action-docker-url
+on:
+  push:
+    paths:
+    - "**.go"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: ./actions/docker-url
+`,
+			inputEvent:     "push",
+			expectedOutput: map[string][]string{"paths": {"**.go"}},
+		},
+		{
+			name: "on.pull_request.branches",
+			yaml: `
+name: local-action-docker-url
+on:
+  pull_request:
+    branches:
+    - master
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: ./actions/docker-url
+`,
+			inputEvent:     "pull_request",
+			expectedOutput: map[string][]string{"branches": {"master"}},
+		},
+		{
+			name: "on.pull_request.paths",
+			yaml: `
+name: local-action-docker-url
+on:
+  pull_request:
+    paths:
+    - "**.go"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: ./actions/docker-url
+`,
+			inputEvent:     "pull_request",
+			expectedOutput: map[string][]string{"paths": {"**.go"}},
+		},
+		{
+			name: "on.push.tags AND on.push.paths",
+			yaml: `
+name: local-action-docker-url
+on:
+  push:
+    tags:
+    - "*-release"
+    paths:
+    - "**.go"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: ./actions/docker-url
+`,
+			inputEvent:     "push",
+			expectedOutput: map[string][]string{"tags": {"*-release"}, "paths": {"**.go"}},
+		},
+		{
+			name: "on.pull_request.branches AND on.pull_request.paths",
+			yaml: `
+name: local-action-docker-url
+on:
+  pull_request:
+    branches:
+    - master
+    paths:
+    - "**.go"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: ./actions/docker-url
+`,
+			inputEvent:     "pull_request",
+			expectedOutput: map[string][]string{"branches": {"master"}, "paths": {"**.go"}},
+		},
+		{
+			name: "on.pull_request.branches AND on.push.tags",
+			yaml: `
+name: local-action-docker-url
+on:
+  pull_request:
+    branches:
+    - "master"
+    - "rc"
+  push:
+    tags:
+    - "*-release"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: ./actions/docker-url
+`,
+			inputEvent:     "pull_request",
+			expectedOutput: map[string][]string{"branches": {"master", "rc"}},
+		},
+		{
+			name: "on.push - no filters supplied",
+			yaml: `
+name: local-action-docker-url
+on: push
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: ./actions/docker-url
+`,
+			inputEvent:     "push",
+			expectedOutput: map[string][]string{},
+		},
+
+		{
+			name: "on.schedule - filters not supported",
+			yaml: `
+name: local-action-docker-url
+on:
+  schedule:
+  - cron: $cron-weekly
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: ./actions/docker-url
+`,
+			inputEvent:     "schedule",
+			expectedOutput: map[string][]string{},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			workflow, err := ReadWorkflow(strings.NewReader(tc.yaml))
+			assert.NoError(t, err, "read workflow should succeed")
+
+			assert.Equal(t, tc.expectedOutput, workflow.FindFilterPatterns(tc.inputEvent))
+		})
+	}
+}
+
 func TestReadWorkflow_StringContainer(t *testing.T) {
 	yaml := `
 name: local-action-docker-url

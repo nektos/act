@@ -55,6 +55,54 @@ func (w *Workflow) On() []string {
 	return nil
 }
 
+//FindFilterPatterns searches for filter patterns relating to the specified event in the RawOn attribute
+func (w *Workflow) FindFilterPatterns(event string) map[string][]string {
+	//TODO: We may want to return a custom struct that contains the filter types as attributes.
+	//Return immediately if the event type doesn't support filters
+	if event != "push" && event != "pull_request" {
+		return map[string][]string{}
+	}
+
+	//If it isn't a mapping node, then the following traversal can't be performed
+	if w.RawOn.Kind != yaml.MappingNode {
+		return map[string][]string{}
+	}
+
+	//Decode rawOn to a map of string=>interfaces
+	var topLevelMap map[string]interface{}
+	err := w.RawOn.Decode(&topLevelMap)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	output := map[string][]string{}
+
+	//topLevelMapKey correlates to the event type - e.g. "push" or "pull_request"
+	for topLevelMapKey, topLevelMapVal := range topLevelMap {
+
+		//Skip to the next iteration if this isn't the event that we're looking for.
+		if topLevelMapKey != event {
+			continue
+		}
+
+		if midLevelMap, ok := topLevelMapVal.(map[string]interface{}); ok {
+			//midLevelMapKey correlates to the filter type - e.g. "branches", "tags", or paths
+			for midLevelMapKey, midLevelMapVal := range midLevelMap {
+				if lowLevelMapVal, ok := midLevelMapVal.([]interface{}); ok {
+					//Leaf correlates to the actual filter pattern
+					for _, leaf := range lowLevelMapVal {
+						if leafString := leaf.(string); ok {
+							output[midLevelMapKey] = append(output[midLevelMapKey], leafString)
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return output
+}
+
 func (w *Workflow) OnEvent(event string) interface{} {
 	if w.RawOn.Kind == yaml.MappingNode {
 		var val map[string]interface{}
