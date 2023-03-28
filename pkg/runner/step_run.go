@@ -13,10 +13,11 @@ import (
 )
 
 type stepRun struct {
-	Step       *model.Step
-	RunContext *RunContext
-	cmd        []string
-	env        map[string]string
+	Step             *model.Step
+	RunContext       *RunContext
+	cmd              []string
+	env              map[string]string
+	WorkingDirectory string
 }
 
 func (sr *stepRun) pre() common.Executor {
@@ -27,12 +28,11 @@ func (sr *stepRun) pre() common.Executor {
 
 func (sr *stepRun) main() common.Executor {
 	sr.env = map[string]string{}
-
 	return runStepExecutor(sr, stepStageMain, common.NewPipelineExecutor(
 		sr.setupShellCommandExecutor(),
 		func(ctx context.Context) error {
 			sr.getRunContext().ApplyExtraPath(ctx, &sr.env)
-			return sr.getRunContext().JobContainer.Exec(sr.cmd, sr.env, "", sr.Step.WorkingDirectory)(ctx)
+			return sr.getRunContext().JobContainer.Exec(sr.cmd, sr.env, "", sr.WorkingDirectory)(ctx)
 		},
 	))
 }
@@ -167,16 +167,20 @@ func (sr *stepRun) setupShell(ctx context.Context) {
 func (sr *stepRun) setupWorkingDirectory(ctx context.Context) {
 	rc := sr.RunContext
 	step := sr.Step
+	workingdirectory := ""
 
 	if step.WorkingDirectory == "" {
-		step.WorkingDirectory = rc.Run.Job().Defaults.Run.WorkingDirectory
+		workingdirectory = rc.Run.Job().Defaults.Run.WorkingDirectory
+	} else {
+		workingdirectory = step.WorkingDirectory
 	}
 
 	// jobs can receive context values, so we interpolate
-	step.WorkingDirectory = rc.NewExpressionEvaluator(ctx).Interpolate(ctx, step.WorkingDirectory)
+	workingdirectory = rc.NewExpressionEvaluator(ctx).Interpolate(ctx, workingdirectory)
 
 	// but top level keys in workflow file like `defaults` or `env` can't
-	if step.WorkingDirectory == "" {
-		step.WorkingDirectory = rc.Run.Workflow.Defaults.Run.WorkingDirectory
+	if workingdirectory == "" {
+		workingdirectory = rc.Run.Workflow.Defaults.Run.WorkingDirectory
 	}
+	sr.WorkingDirectory = workingdirectory
 }
