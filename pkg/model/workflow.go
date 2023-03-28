@@ -328,7 +328,7 @@ func (j *Job) Matrix() map[string][]interface{} {
 // It skips includes and hard fails excludes for non-existing keys
 //
 //nolint:gocyclo
-func (j *Job) GetMatrixes() []map[string]interface{} {
+func (j *Job) GetMatrixes() ([]map[string]interface{}, error) {
 	matrixes := make([]map[string]interface{}, 0)
 	if j.Strategy != nil {
 		j.Strategy.FailFast = j.Strategy.GetFailFast()
@@ -379,7 +379,7 @@ func (j *Job) GetMatrixes() []map[string]interface{} {
 						excludes = append(excludes, e)
 					} else {
 						// We fail completely here because that's what GitHub does for non-existing matrix keys, fail on exclude, silent skip on include
-						log.Fatalf("The workflow is not valid. Matrix exclude key '%s' does not match any key within the matrix", k)
+						return nil, fmt.Errorf("the workflow is not valid. Matrix exclude key %q does not match any key within the matrix", k)
 					}
 				}
 			}
@@ -424,7 +424,7 @@ func (j *Job) GetMatrixes() []map[string]interface{} {
 	} else {
 		matrixes = append(matrixes, make(map[string]interface{}))
 	}
-	return matrixes
+	return matrixes, nil
 }
 
 func commonKeysMatch(a map[string]interface{}, b map[string]interface{}) bool {

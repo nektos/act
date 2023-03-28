@@ -118,7 +118,12 @@ func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 					}
 				}
 
-				matrixes := selectMatrixes(job.GetMatrixes(), runner.config.Matrix)
+				var matrixes []map[string]interface{}
+				if m, err := job.GetMatrixes(); err != nil {
+					log.Errorf("Error while get job's matrix: %v", err)
+				} else {
+					matrixes = selectMatrixes(m, runner.config.Matrix)
+				}
 				log.Debugf("Final matrix after applying user inclusions '%v'", matrixes)
 
 				maxParallel := 4
