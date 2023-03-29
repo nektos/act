@@ -76,7 +76,7 @@ func TestGetWorkflowFilterStrings(t *testing.T) {
 		name           string
 		yaml           string
 		inputEvent     string
-		expectedOutput map[string][]string
+		expectedOutput *FilterPatterns
 	}{
 		{
 			name: "on.push.branches",
@@ -94,7 +94,24 @@ jobs:
     - uses: ./actions/docker-url
 `,
 			inputEvent:     "push",
-			expectedOutput: map[string][]string{"branches": {"master"}},
+			expectedOutput: &FilterPatterns{Branches: []string{"master"}},
+		},
+		{
+			name: "on.push.branches - alternate syntax",
+			yaml: `
+name: local-action-docker-url
+on:
+  push:
+    branches: [master]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: ./actions/docker-url
+`,
+			inputEvent:     "push",
+			expectedOutput: &FilterPatterns{Branches: []string{"master"}},
 		},
 		{
 			name: "on.push.tags",
@@ -112,7 +129,24 @@ jobs:
     - uses: ./actions/docker-url
 `,
 			inputEvent:     "push",
-			expectedOutput: map[string][]string{"tags": {"*-release"}},
+			expectedOutput: &FilterPatterns{Tags: []string{"*-release"}},
+		},
+		{
+			name: "on.push.tags - alternate syntax",
+			yaml: `
+name: local-action-docker-url
+on:
+  push:
+    tags: ["*-release"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: ./actions/docker-url
+`,
+			inputEvent:     "push",
+			expectedOutput: &FilterPatterns{Tags: []string{"*-release"}},
 		},
 		{
 			name: "on.push.paths",
@@ -130,7 +164,24 @@ jobs:
     - uses: ./actions/docker-url
 `,
 			inputEvent:     "push",
-			expectedOutput: map[string][]string{"paths": {"**.go"}},
+			expectedOutput: &FilterPatterns{Paths: []string{"**.go"}},
+		},
+		{
+			name: "on.push.paths - alternate syntax",
+			yaml: `
+name: local-action-docker-url
+on:
+  push:
+    paths: ["**.go"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: ./actions/docker-url
+`,
+			inputEvent:     "push",
+			expectedOutput: &FilterPatterns{Paths: []string{"**.go"}},
 		},
 		{
 			name: "on.pull_request.branches",
@@ -148,7 +199,24 @@ jobs:
     - uses: ./actions/docker-url
 `,
 			inputEvent:     "pull_request",
-			expectedOutput: map[string][]string{"branches": {"master"}},
+			expectedOutput: &FilterPatterns{Branches: []string{"master"}},
+		},
+		{
+			name: "on.pull_request.branches - alternate syntax",
+			yaml: `
+name: local-action-docker-url
+on:
+  pull_request:
+    branches: [master]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: ./actions/docker-url
+`,
+			inputEvent:     "pull_request",
+			expectedOutput: &FilterPatterns{Branches: []string{"master"}},
 		},
 		{
 			name: "on.pull_request.paths",
@@ -166,7 +234,24 @@ jobs:
     - uses: ./actions/docker-url
 `,
 			inputEvent:     "pull_request",
-			expectedOutput: map[string][]string{"paths": {"**.go"}},
+			expectedOutput: &FilterPatterns{Paths: []string{"**.go"}},
+		},
+		{
+			name: "on.pull_request.paths",
+			yaml: `
+name: local-action-docker-url
+on:
+  pull_request:
+    paths: ["**.go"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: ./actions/docker-url
+`,
+			inputEvent:     "pull_request",
+			expectedOutput: &FilterPatterns{Paths: []string{"**.go"}},
 		},
 		{
 			name: "on.push.tags AND on.push.paths",
@@ -186,7 +271,25 @@ jobs:
     - uses: ./actions/docker-url
 `,
 			inputEvent:     "push",
-			expectedOutput: map[string][]string{"tags": {"*-release"}, "paths": {"**.go"}},
+			expectedOutput: &FilterPatterns{Paths: []string{"**.go"}, Tags: []string{"*-release"}},
+		},
+		{
+			name: "on.push.tags AND on.push.paths - alternate syntax",
+			yaml: `
+name: local-action-docker-url
+on:
+  push:
+    tags: ["*-release"]
+    paths: ["**.go"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: ./actions/docker-url
+`,
+			inputEvent:     "push",
+			expectedOutput: &FilterPatterns{Paths: []string{"**.go"}, Tags: []string{"*-release"}},
 		},
 		{
 			name: "on.pull_request.branches AND on.pull_request.paths",
@@ -206,7 +309,25 @@ jobs:
     - uses: ./actions/docker-url
 `,
 			inputEvent:     "pull_request",
-			expectedOutput: map[string][]string{"branches": {"master"}, "paths": {"**.go"}},
+			expectedOutput: &FilterPatterns{Branches: []string{"master"}, Paths: []string{"**.go"}},
+		},
+		{
+			name: "on.pull_request.branches AND on.pull_request.paths - alternate syntax",
+			yaml: `
+name: local-action-docker-url
+on:
+  pull_request:
+    branches: [master]
+    paths: ["**.go"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: ./actions/docker-url
+`,
+			inputEvent:     "pull_request",
+			expectedOutput: &FilterPatterns{Branches: []string{"master"}, Paths: []string{"**.go"}},
 		},
 		{
 			name: "on.pull_request.branches AND on.push.tags",
@@ -228,7 +349,26 @@ jobs:
     - uses: ./actions/docker-url
 `,
 			inputEvent:     "pull_request",
-			expectedOutput: map[string][]string{"branches": {"master", "rc"}},
+			expectedOutput: &FilterPatterns{Branches: []string{"master", "rc"}},
+		},
+		{
+			name: "on.pull_request.branches AND on.push.tags - alternate syntax",
+			yaml: `
+name: local-action-docker-url
+on:
+  pull_request:
+    branches: ["master", "rc"]
+  push:
+    tags: ["*-release"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: ./actions/docker-url
+`,
+			inputEvent:     "pull_request",
+			expectedOutput: &FilterPatterns{Branches: []string{"master", "rc"}},
 		},
 		{
 			name: "on.push - no filters supplied",
@@ -243,9 +383,8 @@ jobs:
     - uses: ./actions/docker-url
 `,
 			inputEvent:     "push",
-			expectedOutput: map[string][]string{},
+			expectedOutput: nil,
 		},
-
 		{
 			name: "on.schedule - filters not supported",
 			yaml: `
@@ -261,10 +400,9 @@ jobs:
     - uses: ./actions/docker-url
 `,
 			inputEvent:     "schedule",
-			expectedOutput: map[string][]string{},
+			expectedOutput: nil,
 		},
 	}
-	//TODO: add additional yaml in the format of `branches: [ main, 'release/v[0-9].[0-9]' ]`
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {

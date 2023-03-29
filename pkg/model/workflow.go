@@ -24,6 +24,14 @@ type Workflow struct {
 	Defaults Defaults          `yaml:"defaults"`
 }
 
+// FilterPatterns is a structure that contains filter patterns that were parsed from the On attribute in an event
+// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions
+type FilterPatterns struct {
+	Branches []string
+	Paths    []string
+	Tags     []string
+}
+
 // On events for the workflow
 func (w *Workflow) On() []string {
 	switch w.RawOn.Kind {
@@ -58,16 +66,15 @@ func (w *Workflow) On() []string {
 
 //FindFilterPatterns searches for filter patterns relating to the specified eventName (e.g. "pull_request", or "push")
 //in the RawOn attribute.
-func (w *Workflow) FindFilterPatterns(eventName string) map[string][]string {
-	//TODO: We may want to return a custom struct that contains the filter types as attributes.
+func (w *Workflow) FindFilterPatterns(eventName string) *FilterPatterns {
 	//Return immediately if the event type doesn't support filters
 	if eventName != "push" && eventName != "pull_request" {
-		return map[string][]string{}
+		return nil
 	}
 
 	//If it isn't a mapping node, then the following traversal can't be performed
 	if w.RawOn.Kind != yaml.MappingNode {
-		return map[string][]string{}
+		return nil
 	}
 
 	//Decode rawOn to a map of string=>interfaces
@@ -77,7 +84,7 @@ func (w *Workflow) FindFilterPatterns(eventName string) map[string][]string {
 		log.Fatal(err)
 	}
 
-	output := map[string][]string{}
+	output := &FilterPatterns{}
 
 	//topLevelMapKey correlates to the event type - e.g. "push" or "pull_request"
 	for topLevelMapKey, topLevelMapVal := range topLevelMap {
@@ -94,7 +101,14 @@ func (w *Workflow) FindFilterPatterns(eventName string) map[string][]string {
 					//Leaf correlates to the actual filter pattern
 					for _, leaf := range lowLevelMapVal {
 						if leafString := leaf.(string); ok {
-							output[midLevelMapKey] = append(output[midLevelMapKey], leafString)
+							switch midLevelMapKey {
+							case "branches":
+								output.Branches = append(output.Branches, leafString)
+							case "paths":
+								output.Paths = append(output.Paths, leafString)
+							case "tags":
+								output.Tags = append(output.Tags, leafString)
+							}
 						}
 					}
 				}
@@ -110,26 +124,47 @@ func (w *Workflow) FindFilterPatterns(eventName string) map[string][]string {
 //workflow should be skipped based on the data in the eventPayload.
 func (w *Workflow) ShouldFilterWorkflow(eventName string, eventPayload string) bool {
 	//Find all filter patterns that relate to the input event
-	if fp := w.FindFilterPatterns(eventName); len(fp) > 0 {
-		tw := new(workflowpattern.StdOutTraceWriter)
+	fp := w.FindFilterPatterns(eventName)
 
-		//TODO: Switch to a custom filter struct, have unique handling for each attribute (e.g. "branches", "tags", and "paths")
-		//Iterate over the different types of filters (e.g. "branches", "tags", and "paths")
-		for filterType, patterns := range fp {
-			log.Debugf("'%s' filters were found for '%s' workflow", filterType, w.File)
+	if fp != nil {
+		return false
+	}
 
-			regexFilters, err := workflowpattern.CompilePatterns(patterns...)
+	tw := new(workflowpattern.StdOutTraceWriter)
 
-			if err != nil {
-				log.Fatalf("Failed to convert '%s' filter patterns to regex for '%s' workflow: %v", filterType, w.File, err)
-			}
+	//Function to build the relevant regex patterns and compare segments of the event payload against them
+	filtrationFunc := func(patterns []string, inputs []string) bool {
+		regexFilters, err := workflowpattern.CompilePatterns(patterns...)
 
-			//TODO: We need to pass the event payload into this function in order to populate the inputs here.
-			//  We don't have access to the payload within the Workflow struct, and we shouldn't store it on the struct,
-			//  so we will have to pass it in as a parameter from the Planner (although this doesn't have the event payload either)
-			if workflowpattern.Filter(regexFilters, []string{}, tw) || workflowpattern.Skip(regexFilters, []string{}, tw) {
-				return true
-			}
+		if err != nil {
+			log.Fatalf("Failed to convert filter patterns to regex for '%s' workflow: %v", w.File, err)
+		}
+
+		if workflowpattern.Filter(regexFilters, []string{}, tw) || workflowpattern.Skip(regexFilters, []string{}, tw) {
+			return true
+		}
+
+		return false
+	}
+
+	if len(fp.Branches) > 0 {
+		//TODO: Replace the slice with a list of branches from the event payload
+		if shouldSkip := filtrationFunc(fp.Branches, []string{}); shouldSkip {
+			return true
+		}
+	}
+
+	if len(fp.Paths) > 0 {
+		//TODO: Replace the slice with a list of paths from the event payload
+		if shouldSkip := filtrationFunc(fp.Paths, []string{}); shouldSkip {
+			return true
+		}
+	}
+
+	if len(fp.Tags) > 0 {
+		//TODO: Replace the slice with a list of Tags from the event payload
+		if shouldSkip := filtrationFunc(fp.Tags, []string{}); shouldSkip {
+			return true
 		}
 	}
 
