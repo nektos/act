@@ -15,7 +15,6 @@ import (
 	"github.com/adrg/xdg"
 	"github.com/andreaskoch/go-fswatch"
 	"github.com/joho/godotenv"
-	"github.com/mitchellh/go-homedir"
 	gitignore "github.com/sabhiram/go-gitignore"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -95,7 +94,7 @@ func Execute(ctx context.Context, version string) {
 }
 
 func configLocations() []string {
-	home, err := homedir.Dir()
+	home, err := os.UserHomeDir()
 	if err != nil {
 		log.Fatal(err)
 	}
