@@ -17,12 +17,12 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/mitchellh/go-homedir"
+	"github.com/opencontainers/selinux/go-selinux"
+
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/container"
 	"github.com/nektos/act/pkg/exprparser"
 	"github.com/nektos/act/pkg/model"
-	"github.com/opencontainers/selinux/go-selinux"
 )
 
 // RunContext contains info about current job
@@ -357,7 +357,7 @@ func (rc *RunContext) ActionCacheDir() string {
 	var xdgCache string
 	var ok bool
 	if xdgCache, ok = os.LookupEnv("XDG_CACHE_HOME"); !ok || xdgCache == "" {
-		if home, err := homedir.Dir(); err == nil {
+		if home, err := os.UserHomeDir(); err == nil {
 			xdgCache = filepath.Join(home, ".cache")
 		} else if xdgCache, err = filepath.Abs("."); err != nil {
 			// It's almost impossible to get here, so the temp dir is a good fallback
