@@ -114,6 +114,24 @@ jobs:
 			expectedOutput: &FilterPatterns{Branches: []string{"master"}},
 		},
 		{
+			name: "on.push.branches-ignore",
+			yaml: `
+name: local-action-docker-url
+on:
+  push:
+    branches-ignore:
+    - "**test"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: ./actions/docker-url
+`,
+			inputEvent:     "push",
+			expectedOutput: &FilterPatterns{BranchesIgnore: []string{"**test"}},
+		},
+		{
 			name: "on.push.tags",
 			yaml: `
 name: local-action-docker-url
@@ -149,6 +167,24 @@ jobs:
 			expectedOutput: &FilterPatterns{Tags: []string{"*-release"}},
 		},
 		{
+			name: "on.push.tags-ignore",
+			yaml: `
+name: local-action-docker-url
+on:
+  push:
+    tags-ignore:
+    - "*-alpha"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: ./actions/docker-url
+`,
+			inputEvent:     "push",
+			expectedOutput: &FilterPatterns{TagsIgnore: []string{"*-alpha"}},
+		},
+		{
 			name: "on.push.paths",
 			yaml: `
 name: local-action-docker-url
@@ -182,6 +218,24 @@ jobs:
 `,
 			inputEvent:     "push",
 			expectedOutput: &FilterPatterns{Paths: []string{"**.go"}},
+		},
+		{
+			name: "on.push.paths-ignore",
+			yaml: `
+name: local-action-docker-url
+on:
+  push:
+    paths-ignore:
+    - "**.md"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: ./actions/docker-url
+`,
+			inputEvent:     "push",
+			expectedOutput: &FilterPatterns{PathsIgnore: []string{"**.md"}},
 		},
 		{
 			name: "on.pull_request.branches",

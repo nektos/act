@@ -27,9 +27,12 @@ type Workflow struct {
 // FilterPatterns is a structure that contains filter patterns that were parsed from the On attribute in an event
 // https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions
 type FilterPatterns struct {
-	Branches []string
-	Paths    []string
-	Tags     []string
+	Branches       []string
+	BranchesIgnore []string
+	Paths          []string
+	PathsIgnore    []string
+	Tags           []string
+	TagsIgnore     []string
 }
 
 // On events for the workflow
@@ -65,7 +68,8 @@ func (w *Workflow) On() []string {
 }
 
 //FindFilterPatterns searches for filter patterns relating to the specified eventName (e.g. "pull_request", or "push")
-//in the RawOn attribute.
+//in the RawOn attribute. This will error out if there are filters that can't be used simultaneously for the same event
+//(e.g. "paths" and "paths-ignore")
 func (w *Workflow) FindFilterPatterns(eventName string) *FilterPatterns {
 	//Return immediately if the event type doesn't support filters
 	if eventName != "push" && eventName != "pull_request" {
@@ -104,10 +108,16 @@ func (w *Workflow) FindFilterPatterns(eventName string) *FilterPatterns {
 							switch midLevelMapKey {
 							case "branches":
 								output.Branches = append(output.Branches, leafString)
+							case "branches-ignore":
+								output.BranchesIgnore = append(output.BranchesIgnore, leafString)
 							case "paths":
 								output.Paths = append(output.Paths, leafString)
+							case "paths-ignore":
+								output.PathsIgnore = append(output.PathsIgnore, leafString)
 							case "tags":
 								output.Tags = append(output.Tags, leafString)
+							case "tags-ignore":
+								output.TagsIgnore = append(output.TagsIgnore, leafString)
 							}
 						}
 					}
@@ -116,55 +126,68 @@ func (w *Workflow) FindFilterPatterns(eventName string) *FilterPatterns {
 		}
 	}
 
+	//TODO: Should these all be migrated over to return an error (it would facilitate better testing) - see this PR:
+	// https://github.com/nektos/act/pull/1705
+	if len(output.Branches) > 0 && len(output.BranchesIgnore) > 0 {
+		log.Fatal("branches and branches-ignore were both specified for the event, but they can't be used simultaneously")
+	}
+
+	if len(output.Paths) > 0 && len(output.PathsIgnore) > 0 {
+		log.Fatal("paths and paths-ignore were both specified for the event, but they can't be used simultaneously")
+	}
+
+	if len(output.Tags) > 0 && len(output.TagsIgnore) > 0 {
+		log.Fatal("tags and tags-ignore were both specified for the event, but they can't be used simultaneously")
+	}
+
 	return output
 }
 
 //ShouldFilterWorkflow finds any filters relating to eventName in the Workflow definition (e.g. if the eventName is
 //"pull_request", there may be a set of "branches" patterns). It then uses the found filters to determine whether the
 //workflow should be skipped based on the data in the eventPayload.
-func (w *Workflow) ShouldFilterWorkflow(eventName string, eventPayload string) bool {
+func (w *Workflow) ShouldFilterWorkflow(eventName string, ghc GithubContext) bool {
 	//Find all filter patterns that relate to the input event
-	fp := w.FindFilterPatterns(eventName)
+	filterPatterns := w.FindFilterPatterns(eventName)
 
-	if fp != nil {
+	if filterPatterns == nil {
 		return false
 	}
 
 	tw := new(workflowpattern.StdOutTraceWriter)
 
 	//Function to build the relevant regex patterns and compare segments of the event payload against them
-	filtrationFunc := func(patterns []string, inputs []string) bool {
+	eventCheckFunc := func(filterFunc workflowpattern.FilterInputsFunc, patterns []string, inputs []string) bool {
 		regexFilters, err := workflowpattern.CompilePatterns(patterns...)
 
 		if err != nil {
 			log.Fatalf("Failed to convert filter patterns to regex for '%s' workflow: %v", w.File, err)
 		}
 
-		if workflowpattern.Filter(regexFilters, []string{}, tw) || workflowpattern.Skip(regexFilters, []string{}, tw) {
+		if filterFunc(regexFilters, inputs, tw) {
 			return true
 		}
 
 		return false
 	}
 
-	if len(fp.Branches) > 0 {
-		//TODO: Replace the slice with a list of branches from the event payload
-		if shouldSkip := filtrationFunc(fp.Branches, []string{}); shouldSkip {
-			return true
+	//Iterate over the patterns that we call Skip() for (the non *ignore attributes from FilterPatterns)
+	for _, fp := range [][]string{filterPatterns.Branches, filterPatterns.Paths, filterPatterns.Tags} {
+		if len(fp) > 0 {
+			//TODO: pass the relevant data instead of a slice of string - this depends on the GithubContext/event context
+			if shouldSkip := eventCheckFunc(workflowpattern.Skip, fp, []string{}); shouldSkip {
+				return true
+			}
 		}
 	}
 
-	if len(fp.Paths) > 0 {
-		//TODO: Replace the slice with a list of paths from the event payload
-		if shouldSkip := filtrationFunc(fp.Paths, []string{}); shouldSkip {
-			return true
-		}
-	}
-
-	if len(fp.Tags) > 0 {
-		//TODO: Replace the slice with a list of Tags from the event payload
-		if shouldSkip := filtrationFunc(fp.Tags, []string{}); shouldSkip {
-			return true
+	//Iterate over the *Ignore attributes from the FilterPatterns struct
+	for _, fp := range [][]string{filterPatterns.BranchesIgnore, filterPatterns.PathsIgnore, filterPatterns.TagsIgnore} {
+		if len(fp) > 0 {
+			//TODO: pass the relevant data instead of a slice of string - this depends on the GithubContext/event context
+			if shouldFilter := eventCheckFunc(workflowpattern.Filter, fp, []string{}); shouldFilter {
+				return true
+			}
 		}
 	}
 
