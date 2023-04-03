@@ -97,7 +97,7 @@ func WithJobLogger(ctx context.Context, jobID string, jobName string, config *Co
 
 	logger.SetFormatter(&maskedFormatter{
 		Formatter: logger.Formatter,
-		masker:    valueMasker(config.InsecureSecrets, config.Secrets),
+		masker:    valueMasker(config),
 	})
 	rtn := logger.WithFields(logrus.Fields{
 		"job":    jobName,
@@ -142,15 +142,21 @@ func withStepLogger(ctx context.Context, stepID string, stepName string, stageNa
 
 type entryProcessor func(entry *logrus.Entry) *logrus.Entry
 
-func valueMasker(insecureSecrets bool, secrets map[string]string) entryProcessor {
+func valueMasker(config *Config) entryProcessor {
 	return func(entry *logrus.Entry) *logrus.Entry {
-		if insecureSecrets {
+		if config.InsecureSecrets {
 			return entry
 		}
 
 		masks := Masks(entry.Context)
 
-		for _, v := range secrets {
+		for _, v := range config.Secrets {
+			if v != "" {
+				entry.Message = strings.ReplaceAll(entry.Message, v, "***")
+			}
+		}
+
+		for _, v := range config.Env {
 			if v != "" {
 				entry.Message = strings.ReplaceAll(entry.Message, v, "***")
 			}
