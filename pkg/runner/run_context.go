@@ -631,6 +631,11 @@ func (rc *RunContext) getGithubContext(ctx context.Context) *model.GithubContext
 
 	ghc.SetRefTypeAndName()
 
+	ghc.ServerURL = "https://github.com"
+	if rc.Config.GitHubInstance != "github.com" {
+		ghc.ServerURL = fmt.Sprintf("https://%s", rc.Config.GitHubInstance)
+	}
+
 	return ghc
 }
 
@@ -705,18 +710,16 @@ func (rc *RunContext) withGithubEnv(ctx context.Context, github *model.GithubCon
 	env["GITHUB_BASE_REF"] = github.BaseRef
 	env["GITHUB_HEAD_REF"] = github.HeadRef
 
-	defaultServerURL := "https://github.com"
+	if env["GITHUB_SERVER_URL"] == "" {
+		env["GITHUB_SERVER_URL"] = github.ServerURL
+	}
+
 	defaultAPIURL := "https://api.github.com"
 	defaultGraphqlURL := "https://api.github.com/graphql"
 
 	if rc.Config.GitHubInstance != "github.com" {
-		defaultServerURL = fmt.Sprintf("https://%s", rc.Config.GitHubInstance)
 		defaultAPIURL = fmt.Sprintf("https://%s/api/v3", rc.Config.GitHubInstance)
 		defaultGraphqlURL = fmt.Sprintf("https://%s/api/graphql", rc.Config.GitHubInstance)
-	}
-
-	if env["GITHUB_SERVER_URL"] == "" {
-		env["GITHUB_SERVER_URL"] = defaultServerURL
 	}
 
 	if env["GITHUB_API_URL"] == "" {
