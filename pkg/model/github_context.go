@@ -36,6 +36,9 @@ type GithubContext struct {
 	RetentionDays    string                 `json:"retention_days"`
 	RunnerPerflog    string                 `json:"runner_perflog"`
 	RunnerTrackingID string                 `json:"runner_tracking_id"`
+	ServerURL        string                 `json:"server_url "`
+	APIURL           string                 `json:"api_url"`
+	GraphQLURL       string                 `json:"graphql_url"`
 }
 
 func asString(v interface{}) string {
