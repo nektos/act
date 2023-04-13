@@ -646,10 +646,10 @@ func (rc *RunContext) getGithubContext(ctx context.Context) *model.GithubContext
 		ghc.ServerURL = rc.Config.Env["GITHUB_SERVER_URL"]
 	}
 	if rc.Config.Env["GITHUB_API_URL"] != "" {
-		ghc.ServerURL = rc.Config.Env["GITHUB_API_URL"]
+		ghc.APIURL = rc.Config.Env["GITHUB_API_URL"]
 	}
 	if rc.Config.Env["GITHUB_GRAPHQL_URL"] != "" {
-		ghc.ServerURL = rc.Config.Env["GITHUB_GRAPHQL_URL"]
+		ghc.GraphQLURL = rc.Config.Env["GITHUB_GRAPHQL_URL"]
 	}
 
 	return ghc
