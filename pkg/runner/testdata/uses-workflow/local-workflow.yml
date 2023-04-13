@@ -19,6 +19,12 @@ jobs:
       number_required: 1
     secrets: inherit
 
+  reusable-workflow-with-on-string-notation:
+    uses: ./.github/workflows/local-reusable-workflow-no-inputs-string.yml
+
+  reusable-workflow-with-on-array-notation:
+    uses: ./.github/workflows/local-reusable-workflow-no-inputs-array.yml
+
   output-test:
     runs-on: ubuntu-latest
     needs:

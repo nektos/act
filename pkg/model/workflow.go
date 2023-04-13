@@ -123,7 +123,8 @@ type WorkflowCallResult struct {
 
 func (w *Workflow) WorkflowCallConfig() *WorkflowCall {
 	if w.RawOn.Kind != yaml.MappingNode {
-		return nil
+		// The callers expect for "on: workflow_call" and "on: [ workflow_call ]" a non nil return value
+		return &WorkflowCall{}
 	}
 
 	var val map[string]yaml.Node
