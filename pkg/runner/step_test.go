@@ -12,7 +12,7 @@ import (
 	yaml "gopkg.in/yaml.v3"
 )
 
-func TestMergeIntoMap(t *testing.T) {
+func TestMergeIntoMapCaseSensitive(t *testing.T) {
 	table := []struct {
 		name     string
 		target   map[string]string
@@ -63,7 +63,7 @@ func TestMergeIntoMap(t *testing.T) {
 
 	for _, tt := range table {
 		t.Run(tt.name, func(t *testing.T) {
-			mergeIntoMap(&tt.target, tt.maps...)
+			mergeIntoMapCaseSensitive(&tt.target, tt.maps...)
 			assert.Equal(t, tt.expected, tt.target)
 		})
 	}

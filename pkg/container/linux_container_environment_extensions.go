@@ -71,3 +71,7 @@ func (*LinuxContainerEnvironmentExtensions) GetRunnerContext(ctx context.Context
 		"tool_cache": "/opt/hostedtoolcache",
 	}
 }
+
+func (*LinuxContainerEnvironmentExtensions) IsEnvironmentCaseInsensitive(ctx context.Context) bool {
+	return true
+}

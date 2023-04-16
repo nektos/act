@@ -419,3 +419,7 @@ func (e *HostEnvironment) ReplaceLogWriter(stdout io.Writer, stderr io.Writer) (
 	e.StdOut = stdout
 	return org, org
 }
+
+func (*HostEnvironment) IsEnvironmentCaseInsensitive(ctx context.Context) bool {
+	return runtime.GOOS == "windows"
+}

@@ -187,7 +187,7 @@ func setupEnv(ctx context.Context, step step) error {
 
 	mergeEnv(ctx, step)
 	// merge step env last, since it should not be overwritten
-	mergeIntoMap(step.getEnv(), step.getStepModel().GetEnv())
+	mergeIntoMap(step, step.getEnv(), step.getStepModel().GetEnv())
 
 	exprEval := rc.NewExpressionEvaluator(ctx)
 	for k, v := range *step.getEnv() {
@@ -216,9 +216,9 @@ func mergeEnv(ctx context.Context, step step) {
 
 	c := job.Container()
 	if c != nil {
-		mergeIntoMap(env, rc.GetEnv(), c.Env)
+		mergeIntoMap(step, env, rc.GetEnv(), c.Env)
 	} else {
-		mergeIntoMap(env, rc.GetEnv())
+		mergeIntoMap(step, env, rc.GetEnv())
 	}
 
 	rc.withGithubEnv(ctx, step.getGithubContext(ctx), *env)
@@ -258,10 +258,46 @@ func isContinueOnError(ctx context.Context, expr string, step step, stage stepSt
 	return continueOnError, nil
 }
 
-func mergeIntoMap(target *map[string]string, maps ...map[string]string) {
+func mergeIntoMap(step step, target *map[string]string, maps ...map[string]string) {
+	if step.getRunContext().JobContainer.IsEnvironmentCaseInsensitive() {
+		return mergeIntoMapCaseInsensitive(target, maps...)
+	}
+	return mergeIntoMapCaseSensitive(target, maps...)
+}
+
+func mergeIntoMapCaseSensitive(target *map[string]string, maps ...map[string]string) {
 	for _, m := range maps {
 		for k, v := range m {
 			(*target)[k] = v
 		}
+	}
+}
+
+func mergeSingleMapIntoMapCaseInsensitive(lookUp *map[string]string, target *map[string]string, m map[string]string) {
+	for k, v := range m {
+		foldkey := strings.Map(func(r rune) rune {
+			for {
+				next := unicode.SimpleFold(r)
+				if next <= r {
+					return r
+				}
+				r = next
+			}
+		}, k)
+		if m, ok := (*lookUp)[foldkey]; ok {
+			(*target)[m] = v
+		} else {
+			(*lookUp)[foldkey] = k
+			(*target)[k] = v
+		}
+	}
+}
+
+func mergeIntoMapCaseInsensitive(target *map[string]string, maps ...map[string]string) {
+	lookUp := map[string]string{}
+	// Need to initialize the lookUp table
+	mergeSingleMapIntoMapCaseInsensitive(&lookUp, target, *target)
+	for _, m := range maps {
+		mergeSingleMapIntoMapCaseInsensitive(&lookUp, target, m)
 	}
 }
