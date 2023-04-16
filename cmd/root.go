@@ -287,7 +287,7 @@ func readYamlFile(file string) (map[string]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	ret = map[string]string{}
+	ret := map[string]string{}
 	if err = yaml.Unmarshal(content, &ret); err != nil {
 		return nil, err
 	}
