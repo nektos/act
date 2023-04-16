@@ -259,7 +259,7 @@ func isContinueOnError(ctx context.Context, expr string, step step, stage stepSt
 }
 
 func mergeIntoMap(step step, target *map[string]string, maps ...map[string]string) {
-	if step.getRunContext().JobContainer.IsEnvironmentCaseInsensitive() {
+	if rc := step.getRunContext(); rc != nil && rc.JobContainer != nil && rc.JobContainer.IsEnvironmentCaseInsensitive() {
 		return mergeIntoMapCaseInsensitive(target, maps...)
 	}
 	return mergeIntoMapCaseSensitive(target, maps...)
