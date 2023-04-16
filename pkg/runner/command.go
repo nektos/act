@@ -94,7 +94,7 @@ func (rc *RunContext) setEnv(ctx context.Context, kvPairs map[string]string, arg
 		name: arg,
 	}
 	mergeIntoMap := mergeIntoMapCaseSensitive
-	if rc.JobContainer.IsEnvironmentCaseInsensitive() {
+	if rc.JobContainer != nil && rc.JobContainer.IsEnvironmentCaseInsensitive() {
 		mergeIntoMap = mergeIntoMapCaseInsensitive
 	}
 	mergeIntoMap(&rc.Env, newenv)
