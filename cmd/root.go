@@ -297,7 +297,7 @@ func readYamlFile(file string) (map[string]string, error) {
 func readEnvs(path string, envs map[string]string) bool {
 	if _, err := os.Stat(path); err == nil {
 		var env map[string]string
-		if ext := filepath.Ext(path); ext == "yml" || ext == "yaml" {
+		if ext := filepath.Ext(path); ext == ".yml" || ext == ".yaml" {
 			env, err = readYamlFile(path)
 		} else {
 			env, err = godotenv.Read(path)
