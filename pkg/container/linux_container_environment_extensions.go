@@ -73,5 +73,5 @@ func (*LinuxContainerEnvironmentExtensions) GetRunnerContext(ctx context.Context
 }
 
 func (*LinuxContainerEnvironmentExtensions) IsEnvironmentCaseInsensitive() bool {
-	return true
+	return false
 }
