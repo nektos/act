@@ -69,6 +69,63 @@ func TestMergeIntoMapCaseSensitive(t *testing.T) {
 	}
 }
 
+func TestMergeIntoMapCaseInsensitive(t *testing.T) {
+	table := []struct {
+		name     string
+		target   map[string]string
+		maps     []map[string]string
+		expected map[string]string
+	}{
+		{
+			name:     "testEmptyMap",
+			target:   map[string]string{},
+			maps:     []map[string]string{},
+			expected: map[string]string{},
+		},
+		{
+			name:   "testMergeIntoEmptyMap",
+			target: map[string]string{},
+			maps: []map[string]string{
+				{
+					"key1": "value1",
+					"key2": "value2",
+				}, {
+					"Key2": "overridden",
+					"key3": "value3",
+				},
+			},
+			expected: map[string]string{
+				"key1": "value1",
+				"key2": "overridden",
+				"key3": "value3",
+			},
+		},
+		{
+			name: "testMergeIntoExistingMap",
+			target: map[string]string{
+				"key1": "value1",
+				"key2": "value2",
+			},
+			maps: []map[string]string{
+				{
+					"Key1": "overridden",
+				},
+			},
+			expected: map[string]string{
+				"key1": "overridden",
+				"key2": "value2",
+			},
+		},
+	}
+
+	for _, tt := range table {
+		t.Run(tt.name, func(t *testing.T) {
+			mergeIntoMapCaseInsensitive(&tt.target, tt.maps...)
+			assert.Equal(t, tt.expected, tt.target)
+		})
+	}
+}
+
 type stepMock struct {
 	mock.Mock
 	step
