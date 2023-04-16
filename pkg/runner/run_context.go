@@ -301,7 +301,7 @@ func (rc *RunContext) ApplyExtraPath(ctx context.Context, env *map[string]string
 		path := rc.JobContainer.GetPathVariableName()
 		if rc.JobContainer.IsEnvironmentCaseInsensitive() {
 			// On windows system Path and PATH could also be in the map
-			for k, v := range l.env {
+			for k, v := range *env {
 				if strings.EqualFold(path, k) {
 					path = k
 					break
