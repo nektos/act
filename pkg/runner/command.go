@@ -87,12 +87,18 @@ func (rc *RunContext) setEnv(ctx context.Context, kvPairs map[string]string, arg
 	if rc.Env == nil {
 		rc.Env = make(map[string]string)
 	}
-	rc.Env[name] = arg
-	// for composite action GITHUB_ENV and set-env passing
 	if rc.GlobalEnv == nil {
 		rc.GlobalEnv = map[string]string{}
 	}
-	rc.GlobalEnv[name] = arg
+	newenv := map[string]string{
+		name: arg,
+	}
+	mergeIntoMap := mergeIntoMapCaseSensitive
+	if rc.JobContainer.IsEnvironmentCaseInsensitive() {
+		mergeIntoMap = mergeIntoMapCaseInsensitive
+	}
+	mergeIntoMap(&rc.Env, newenv)
+	mergeIntoMap(&rc.GlobalEnv, newenv)
 }
 func (rc *RunContext) setOutput(ctx context.Context, kvPairs map[string]string, arg string) {
 	logger := common.Logger(ctx)

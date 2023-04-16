@@ -29,5 +29,11 @@ jobs:
         echo $env:GITHUB_ENV
         echo "KEY=test" > $env:GITHUB_ENV
         echo "Key=expected" > $env:GITHUB_ENV
-    - run: exit 1
+    - name: Assert GITHUB_ENV is merged case insensitive
+      run: exit 1
       if: env.KEY != 'expected' || env.Key != 'expected' || env.key != 'expected'
+    - name: Assert step env is merged case insensitive
+      run: exit 1
+      if: env.KEY != 'n/a' || env.Key != 'n/a' || env.key != 'n/a'
+      env:
+        KeY: 'n/a'
