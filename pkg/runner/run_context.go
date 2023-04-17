@@ -631,6 +631,27 @@ func (rc *RunContext) getGithubContext(ctx context.Context) *model.GithubContext
 
 	ghc.SetRefTypeAndName()
 
+	// defaults
+	ghc.ServerURL = "https://github.com"
+	ghc.APIURL = "https://api.github.com"
+	ghc.GraphQLURL = "https://api.github.com/graphql"
+	// per GHES
+	if rc.Config.GitHubInstance != "github.com" {
+		ghc.ServerURL = fmt.Sprintf("https://%s", rc.Config.GitHubInstance)
+		ghc.APIURL = fmt.Sprintf("https://%s/api/v3", rc.Config.GitHubInstance)
+		ghc.GraphQLURL = fmt.Sprintf("https://%s/api/graphql", rc.Config.GitHubInstance)
+	}
+	// allow to be overridden by user
+	if rc.Config.Env["GITHUB_SERVER_URL"] != "" {
+		ghc.ServerURL = rc.Config.Env["GITHUB_SERVER_URL"]
+	}
+	if rc.Config.Env["GITHUB_API_URL"] != "" {
+		ghc.APIURL = rc.Config.Env["GITHUB_API_URL"]
+	}
+	if rc.Config.Env["GITHUB_GRAPHQL_URL"] != "" {
+		ghc.GraphQLURL = rc.Config.Env["GITHUB_GRAPHQL_URL"]
+	}
+
 	return ghc
 }
 
@@ -704,28 +725,9 @@ func (rc *RunContext) withGithubEnv(ctx context.Context, github *model.GithubCon
 	env["RUNNER_TRACKING_ID"] = github.RunnerTrackingID
 	env["GITHUB_BASE_REF"] = github.BaseRef
 	env["GITHUB_HEAD_REF"] = github.HeadRef
-
-	defaultServerURL := "https://github.com"
-	defaultAPIURL := "https://api.github.com"
-	defaultGraphqlURL := "https://api.github.com/graphql"
-
-	if rc.Config.GitHubInstance != "github.com" {
-		defaultServerURL = fmt.Sprintf("https://%s", rc.Config.GitHubInstance)
-		defaultAPIURL = fmt.Sprintf("https://%s/api/v3", rc.Config.GitHubInstance)
-		defaultGraphqlURL = fmt.Sprintf("https://%s/api/graphql", rc.Config.GitHubInstance)
-	}
-
-	if env["GITHUB_SERVER_URL"] == "" {
-		env["GITHUB_SERVER_URL"] = defaultServerURL
-	}
-
-	if env["GITHUB_API_URL"] == "" {
-		env["GITHUB_API_URL"] = defaultAPIURL
-	}
-
-	if env["GITHUB_GRAPHQL_URL"] == "" {
-		env["GITHUB_GRAPHQL_URL"] = defaultGraphqlURL
-	}
+	env["GITHUB_SERVER_URL"] = github.ServerURL
+	env["GITHUB_API_URL"] = github.APIURL
+	env["GITHUB_GRAPHQL_URL"] = github.GraphQLURL
 
 	if rc.Config.ArtifactServerPath != "" {
 		setActionRuntimeVars(rc, env)
