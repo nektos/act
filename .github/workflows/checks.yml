@@ -55,7 +55,7 @@ jobs:
         with:
           upload-logs-name: logs-linux
       - name: Upload Codecov report
-        uses: codecov/codecov-action@v3.1.1
+        uses: codecov/codecov-action@v3.1.2
         with:
           files: coverage.txt
           fail_ci_if_error: true # optional (default = false)
