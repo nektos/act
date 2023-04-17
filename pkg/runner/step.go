@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"path"
 	"strings"
-	"unicode"
 
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/container"
@@ -261,9 +260,9 @@ func isContinueOnError(ctx context.Context, expr string, step step, stage stepSt
 
 func mergeIntoMap(step step, target *map[string]string, maps ...map[string]string) {
 	if rc := step.getRunContext(); rc != nil && rc.JobContainer != nil && rc.JobContainer.IsEnvironmentCaseInsensitive() {
-		mergeIntoMapCaseInsensitive(target, maps...)
+		mergeIntoMapCaseInsensitive(*target, maps...)
 	} else {
-		mergeIntoMapCaseSensitive(target, maps...)
+		mergeIntoMapCaseSensitive(*target, maps...)
 	}
 }
 

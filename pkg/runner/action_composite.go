@@ -112,8 +112,8 @@ func execAsComposite(step actionStep) common.Executor {
 		if rc.GlobalEnv == nil {
 			rc.GlobalEnv = map[string]string{}
 		}
-		mergeIntoMap(&rc.GlobalEnv, compositeRC.GlobalEnv)
-		mergeIntoMap(&rc.Env, compositeRC.GlobalEnv)
+		mergeIntoMap(rc.GlobalEnv, compositeRC.GlobalEnv)
+		mergeIntoMap(rc.Env, compositeRC.GlobalEnv)
 
 		return err
 	}

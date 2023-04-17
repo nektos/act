@@ -63,9 +63,9 @@ func TestMergeIntoMap(t *testing.T) {
 
 	for _, tt := range table {
 		t.Run(tt.name, func(t *testing.T) {
-			mergeIntoMapCaseSensitive(&tt.target, tt.maps...)
+			mergeIntoMapCaseSensitive(tt.target, tt.maps...)
 			assert.Equal(t, tt.expected, tt.target)
-			mergeIntoMapCaseInsensitive(&tt.target, tt.maps...)
+			mergeIntoMapCaseInsensitive(tt.target, tt.maps...)
 			assert.Equal(t, tt.expected, tt.target)
 		})
 	}

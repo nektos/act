@@ -97,8 +97,8 @@ func (rc *RunContext) setEnv(ctx context.Context, kvPairs map[string]string, arg
 	if rc.JobContainer != nil && rc.JobContainer.IsEnvironmentCaseInsensitive() {
 		mergeIntoMap = mergeIntoMapCaseInsensitive
 	}
-	mergeIntoMap(&rc.Env, newenv)
-	mergeIntoMap(&rc.GlobalEnv, newenv)
+	mergeIntoMap(rc.Env, newenv)
+	mergeIntoMap(rc.GlobalEnv, newenv)
 }
 func (rc *RunContext) setOutput(ctx context.Context, kvPairs map[string]string, arg string) {
 	logger := common.Logger(ctx)
