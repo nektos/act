@@ -69,6 +69,11 @@ func TestOperators(t *testing.T) {
 		{`true || false`, true, "or", ""},
 		{`fromJSON('{}') && true`, true, "and-boolean-object", ""},
 		{`fromJSON('{}') || false`, make(map[string]interface{}), "or-boolean-object", ""},
+		{"github.event.commits[0].author.username != github.event.commits[1].author.username", true, "property-comparison1", ""},
+		{"github.event.commits[0].author.username1 != github.event.commits[1].author.username", true, "property-comparison2", ""},
+		{"github.event.commits[0].author.username != github.event.commits[1].author.username1", true, "property-comparison3", ""},
+		{"github.event.commits[0].author.username1 != github.event.commits[1].author.username2", true, "property-comparison4", ""},
+		{"secrets != env", nil, "property-comparison5", "Compare not implemented for types: left: map, right: map"},
 	}
 
 	env := &EvaluationEnvironment{
@@ -555,6 +560,7 @@ func TestContexts(t *testing.T) {
 		{"strategy.fail-fast", true, "strategy-context"},
 		{"matrix.os", "Linux", "matrix-context"},
 		{"needs.job-id.outputs.output-name", "value", "needs-context"},
+		{"needs.job-id.result", "success", "needs-context"},
 		{"inputs.name", "value", "inputs-context"},
 	}
 
@@ -593,11 +599,12 @@ func TestContexts(t *testing.T) {
 		Matrix: map[string]interface{}{
 			"os": "Linux",
 		},
-		Needs: map[string]map[string]map[string]string{
+		Needs: map[string]Needs{
 			"job-id": {
-				"outputs": {
+				Outputs: map[string]string{
 					"output-name": "value",
 				},
+				Result: "success",
 			},
 		},
 		Inputs: map[string]interface{}{

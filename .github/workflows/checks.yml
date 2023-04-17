@@ -15,14 +15,14 @@ jobs:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      - uses: actions/setup-go@v3
+      - uses: actions/setup-go@v4
         with:
           go-version: ${{ env.GO_VERSION }}
           check-latest: true
-      - uses: golangci/golangci-lint-action@v3.3.1
+      - uses: golangci/golangci-lint-action@v3.4.0
         with:
           version: v1.47.2
-      - uses: megalinter/megalinter/flavors/go@v6.15.0
+      - uses: megalinter/megalinter/flavors/go@v6.22.2
         env:
           DEFAULT_BRANCH: master
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -39,7 +39,7 @@ jobs:
           fetch-depth: 2
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
-      - uses: actions/setup-go@v3
+      - uses: actions/setup-go@v4
         with:
           go-version: ${{ env.GO_VERSION }}
           check-latest: true
@@ -50,9 +50,12 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
-      - run: go test -v -cover -coverprofile=coverage.txt -covermode=atomic -timeout 15m ./...
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          upload-logs-name: logs-linux
       - name: Upload Codecov report
-        uses: codecov/codecov-action@v3.1.1
+        uses: codecov/codecov-action@v3.1.2
         with:
           files: coverage.txt
           fail_ci_if_error: true # optional (default = false)
@@ -69,19 +72,22 @@ jobs:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 2
-      - uses: actions/setup-go@v3
+      - uses: actions/setup-go@v4
         with:
           go-version: ${{ env.GO_VERSION }}
           check-latest: true
-      - run: go test -v -run ^TestRunEventHostEnvironment$ ./...
-    # TODO merge coverage with test-linux
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          filter: '^TestRunEventHostEnvironment$'
+          upload-logs-name: logs-${{ matrix.os }}
 
   snapshot:
     name: snapshot
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/setup-go@v3
+      - uses: actions/setup-go@v4
         with:
           go-version: ${{ env.GO_VERSION }}
           check-latest: true
@@ -93,7 +99,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
       - name: GoReleaser
-        uses: goreleaser/goreleaser-action@v3
+        uses: goreleaser/goreleaser-action@v4
         with:
           version: latest
           args: release --snapshot --rm-dist

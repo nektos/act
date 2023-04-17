@@ -15,13 +15,19 @@ type EvaluationEnvironment struct {
 	Github   *model.GithubContext
 	Env      map[string]string
 	Job      *model.JobContext
+	Jobs     *map[string]*model.WorkflowCallResult
 	Steps    map[string]*model.StepResult
 	Runner   map[string]interface{}
 	Secrets  map[string]string
 	Strategy map[string]interface{}
 	Matrix   map[string]interface{}
-	Needs    map[string]map[string]map[string]string
+	Needs    map[string]Needs
 	Inputs   map[string]interface{}
+}
+
+type Needs struct {
+	Outputs map[string]string `json:"outputs"`
+	Result  string            `json:"result"`
 }
 
 type Config struct {
@@ -150,6 +156,11 @@ func (impl *interperterImpl) evaluateVariable(variableNode *actionlint.VariableN
 		return impl.env.Env, nil
 	case "job":
 		return impl.env.Job, nil
+	case "jobs":
+		if impl.env.Jobs == nil {
+			return nil, fmt.Errorf("Unavailable context: jobs")
+		}
+		return impl.env.Jobs, nil
 	case "steps":
 		return impl.env.Steps, nil
 	case "runner":
@@ -361,8 +372,16 @@ func (impl *interperterImpl) compareValues(leftValue reflect.Value, rightValue r
 
 		return impl.compareNumber(leftValue.Float(), rightValue.Float(), kind)
 
+	case reflect.Invalid:
+		if rightValue.Kind() == reflect.Invalid {
+			return true, nil
+		}
+
+		// not possible situation - params are converted to the same type in code above
+		return nil, fmt.Errorf("Compare params of Invalid type: left: %+v, right: %+v", leftValue.Kind(), rightValue.Kind())
+
 	default:
-		return nil, fmt.Errorf("TODO: evaluateCompare not implemented! left: %+v, right: %+v", leftValue.Kind(), rightValue.Kind())
+		return nil, fmt.Errorf("Compare not implemented for types: left: %+v, right: %+v", leftValue.Kind(), rightValue.Kind())
 	}
 }
 

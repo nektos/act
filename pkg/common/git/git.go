@@ -7,20 +7,19 @@ import (
 	"io"
 	"os"
 	"path"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
 
-	"github.com/nektos/act/pkg/common"
-
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/storer"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
-	"github.com/go-ini/ini"
 	"github.com/mattn/go-isatty"
 	log "github.com/sirupsen/logrus"
+
+	"github.com/nektos/act/pkg/common"
 )
 
 var (
@@ -55,41 +54,40 @@ func (e *Error) Commit() string {
 // FindGitRevision get the current git revision
 func FindGitRevision(ctx context.Context, file string) (shortSha string, sha string, err error) {
 	logger := common.Logger(ctx)
-	gitDir, err := findGitDirectory(file)
+
+	gitDir, err := git.PlainOpenWithOptions(
+		file,
+		&git.PlainOpenOptions{
+			DetectDotGit:          true,
+			EnableDotGitCommonDir: true,
+		},
+	)
+
+	if err != nil {
+		logger.WithError(err).Error("path", file, "not located inside a git repository")
+		return "", "", err
+	}
+
+	head, err := gitDir.Reference(plumbing.HEAD, true)
 	if err != nil {
 		return "", "", err
 	}
 
-	bts, err := os.ReadFile(filepath.Join(gitDir, "HEAD"))
-	if err != nil {
-		return "", "", err
+	if head.Hash().IsZero() {
+		return "", "", fmt.Errorf("HEAD sha1 could not be resolved")
 	}
 
-	var ref = strings.TrimSpace(strings.TrimPrefix(string(bts), "ref:"))
-	var refBuf []byte
-	if strings.HasPrefix(ref, "refs/") {
-		// load commitid ref
-		refBuf, err = os.ReadFile(filepath.Join(gitDir, ref))
-		if err != nil {
-			return "", "", err
-		}
-	} else {
-		refBuf = []byte(ref)
-	}
+	hash := head.Hash().String()
 
-	logger.Debugf("Found revision: %s", refBuf)
-	return string(refBuf[:7]), strings.TrimSpace(string(refBuf)), nil
+	logger.Debugf("Found revision: %s", hash)
+	return hash[:7], strings.TrimSpace(hash), nil
 }
 
 // FindGitRef get the current git ref
 func FindGitRef(ctx context.Context, file string) (string, error) {
 	logger := common.Logger(ctx)
-	gitDir, err := findGitDirectory(file)
-	if err != nil {
-		return "", err
-	}
-	logger.Debugf("Loading revision from git directory '%s'", gitDir)
 
+	logger.Debugf("Loading revision from git directory")
 	_, ref, err := FindGitRevision(ctx, file)
 	if err != nil {
 		return "", err
@@ -100,28 +98,58 @@ func FindGitRef(ctx context.Context, file string) (string, error) {
 	// Prefer the git library to iterate over the references and find a matching tag or branch.
 	var refTag = ""
 	var refBranch = ""
-	r, err := git.PlainOpen(filepath.Join(gitDir, ".."))
-	if err == nil {
-		iter, err := r.References()
-		if err == nil {
-			for {
-				r, err := iter.Next()
-				if r == nil || err != nil {
-					break
-				}
-				// logger.Debugf("Reference: name=%s sha=%s", r.Name().String(), r.Hash().String())
-				if r.Hash().String() == ref {
-					if r.Name().IsTag() {
-						refTag = r.Name().String()
-					}
-					if r.Name().IsBranch() {
-						refBranch = r.Name().String()
-					}
-				}
-			}
-			iter.Close()
-		}
+	repo, err := git.PlainOpenWithOptions(
+		file,
+		&git.PlainOpenOptions{
+			DetectDotGit:          true,
+			EnableDotGitCommonDir: true,
+		},
+	)
+
+	if err != nil {
+		return "", err
 	}
+
+	iter, err := repo.References()
+	if err != nil {
+		return "", err
+	}
+
+	// find the reference that matches the revision's has
+	err = iter.ForEach(func(r *plumbing.Reference) error {
+		/* tags and branches will have the same hash
+		 * when a user checks out a tag, it is not mentioned explicitly
+		 * in the go-git package, we must identify the revision
+		 * then check if any tag matches that revision,
+		 * if so then we checked out a tag
+		 * else we look for branches and if matches,
+		 * it means we checked out a branch
+		 *
+		 * If a branches matches first we must continue and check all tags (all references)
+		 * in case we match with a tag later in the interation
+		 */
+		if r.Hash().String() == ref {
+			if r.Name().IsTag() {
+				refTag = r.Name().String()
+			}
+			if r.Name().IsBranch() {
+				refBranch = r.Name().String()
+			}
+		}
+
+		// we found what we where looking for
+		if refTag != "" && refBranch != "" {
+			return storer.ErrStop
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return "", err
+	}
+
+	// order matters here see above comment.
 	if refTag != "" {
 		return refTag, nil
 	}
@@ -129,39 +157,7 @@ func FindGitRef(ctx context.Context, file string) (string, error) {
 		return refBranch, nil
 	}
 
-	// If the above doesn't work, fall back to the old way
-
-	// try tags first
-	tag, err := findGitPrettyRef(ctx, ref, gitDir, "refs/tags")
-	if err != nil || tag != "" {
-		return tag, err
-	}
-	// and then branches
-	return findGitPrettyRef(ctx, ref, gitDir, "refs/heads")
-}
-
-func findGitPrettyRef(ctx context.Context, head, root, sub string) (string, error) {
-	var name string
-	var err = filepath.Walk(filepath.Join(root, sub), func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if name != "" || info.IsDir() {
-			return nil
-		}
-		var bts []byte
-		if bts, err = os.ReadFile(path); err != nil {
-			return err
-		}
-		var pointsTo = strings.TrimSpace(string(bts))
-		if head == pointsTo {
-			// On Windows paths are separated with backslash character so they should be replaced to provide proper git refs format
-			name = strings.TrimPrefix(strings.ReplaceAll(strings.Replace(path, root, "", 1), `\`, `/`), "/")
-			common.Logger(ctx).Debugf("HEAD matches %s", name)
-		}
-		return nil
-	})
-	return name, err
+	return "", fmt.Errorf("failed to identify reference (tag/branch) for the checked-out revision '%s'", ref)
 }
 
 // FindGithubRepo get the repo
@@ -179,26 +175,27 @@ func FindGithubRepo(ctx context.Context, file, githubInstance, remoteName string
 }
 
 func findGitRemoteURL(ctx context.Context, file, remoteName string) (string, error) {
-	gitDir, err := findGitDirectory(file)
+	repo, err := git.PlainOpenWithOptions(
+		file,
+		&git.PlainOpenOptions{
+			DetectDotGit:          true,
+			EnableDotGitCommonDir: true,
+		},
+	)
 	if err != nil {
 		return "", err
 	}
-	common.Logger(ctx).Debugf("Loading slug from git directory '%s'", gitDir)
 
-	gitconfig, err := ini.InsensitiveLoad(fmt.Sprintf("%s/config", gitDir))
+	remote, err := repo.Remote(remoteName)
 	if err != nil {
 		return "", err
 	}
-	remote, err := gitconfig.GetSection(fmt.Sprintf(`remote "%s"`, remoteName))
-	if err != nil {
-		return "", err
+
+	if len(remote.Config().URLs) < 1 {
+		return "", fmt.Errorf("remote '%s' exists but has no URL", remoteName)
 	}
-	urlKey, err := remote.GetKey("url")
-	if err != nil {
-		return "", err
-	}
-	url := urlKey.String()
-	return url, nil
+
+	return remote.Config().URLs[0], nil
 }
 
 func findGitSlug(url string, githubInstance string) (string, string, error) {
@@ -220,35 +217,6 @@ func findGitSlug(url string, githubInstance string) (string, string, error) {
 		}
 	}
 	return "", url, nil
-}
-
-func findGitDirectory(fromFile string) (string, error) {
-	absPath, err := filepath.Abs(fromFile)
-	if err != nil {
-		return "", err
-	}
-
-	fi, err := os.Stat(absPath)
-	if err != nil {
-		return "", err
-	}
-
-	var dir string
-	if fi.Mode().IsDir() {
-		dir = absPath
-	} else {
-		dir = filepath.Dir(absPath)
-	}
-
-	gitPath := filepath.Join(dir, ".git")
-	fi, err = os.Stat(gitPath)
-	if err == nil && fi.Mode().IsDir() {
-		return gitPath, nil
-	} else if dir == "/" || dir == "C:\\" || dir == "c:\\" {
-		return "", &Error{err: ErrNoRepo}
-	}
-
-	return findGitDirectory(filepath.Dir(dir))
 }
 
 // NewGitCloneExecutorInput the input for the NewGitCloneExecutor
@@ -292,7 +260,7 @@ func CloneIfRequired(ctx context.Context, refName plumbing.ReferenceName, input 
 			return nil, err
 		}
 
-		if err = os.Chmod(input.Dir, 0755); err != nil {
+		if err = os.Chmod(input.Dir, 0o755); err != nil {
 			return nil, err
 		}
 	}

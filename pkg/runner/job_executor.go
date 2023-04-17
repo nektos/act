@@ -104,6 +104,8 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 			err = info.stopContainer()(ctx)
 		}
 		setJobResult(ctx, info, rc, jobError == nil)
+		setJobOutputs(ctx, rc)
+
 		return err
 	})
 
@@ -128,14 +130,45 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 
 func setJobResult(ctx context.Context, info jobInfo, rc *RunContext, success bool) {
 	logger := common.Logger(ctx)
+
 	jobResult := "success"
-	jobResultMessage := "succeeded"
+	// we have only one result for a whole matrix build, so we need
+	// to keep an existing result state if we run a matrix
+	if len(info.matrix()) > 0 && rc.Run.Job().Result != "" {
+		jobResult = rc.Run.Job().Result
+	}
+
 	if !success {
 		jobResult = "failure"
+	}
+
+	info.result(jobResult)
+	if rc.caller != nil {
+		// set reusable workflow job result
+		rc.caller.runContext.result(jobResult)
+	}
+
+	jobResultMessage := "succeeded"
+	if jobResult != "success" {
 		jobResultMessage = "failed"
 	}
-	info.result(jobResult)
+
 	logger.WithField("jobResult", jobResult).Infof("\U0001F3C1  Job %s", jobResultMessage)
+}
+
+func setJobOutputs(ctx context.Context, rc *RunContext) {
+	if rc.caller != nil {
+		// map outputs for reusable workflows
+		callerOutputs := make(map[string]string)
+
+		ee := rc.NewExpressionEvaluator(ctx)
+
+		for k, v := range rc.Run.Workflow.WorkflowCallConfig().Outputs {
+			callerOutputs[k] = ee.Interpolate(ctx, ee.Interpolate(ctx, v.Value))
+		}
+
+		rc.caller.runContext.Run.Job().Outputs = callerOutputs
+	}
 }
 
 func useStepLogger(rc *RunContext, stepModel *model.Step, stage stepStage, executor common.Executor) common.Executor {

@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
+
 	"github.com/nektos/act/pkg/model"
 	"github.com/rhysd/actionlint"
 )
@@ -202,6 +203,9 @@ func (impl *interperterImpl) hashFiles(paths ...reflect.Value) (string, error) {
 
 	var files []string
 	if err := filepath.Walk(impl.config.WorkingDir, func(path string, fi fs.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
 		sansPrefix := strings.TrimPrefix(path, impl.config.WorkingDir+string(filepath.Separator))
 		parts := strings.Split(sansPrefix, string(filepath.Separator))
 		if fi.IsDir() || !matcher.Match(parts, fi.IsDir()) {

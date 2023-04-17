@@ -3,6 +3,7 @@ package model
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/common/git"
@@ -35,6 +36,9 @@ type GithubContext struct {
 	RetentionDays    string                 `json:"retention_days"`
 	RunnerPerflog    string                 `json:"runner_perflog"`
 	RunnerTrackingID string                 `json:"runner_tracking_id"`
+	ServerURL        string                 `json:"server_url"`
+	APIURL           string                 `json:"api_url"`
+	GraphQLURL       string                 `json:"graphql_url"`
 }
 
 func asString(v interface{}) string {
@@ -89,26 +93,22 @@ func withDefaultBranch(ctx context.Context, b string, event map[string]interface
 var findGitRef = git.FindGitRef
 var findGitRevision = git.FindGitRevision
 
-func (ghc *GithubContext) SetRefAndSha(ctx context.Context, defaultBranch string, repoPath string) {
+func (ghc *GithubContext) SetRef(ctx context.Context, defaultBranch string, repoPath string) {
 	logger := common.Logger(ctx)
+
 	// https://docs.github.com/en/actions/learn-github-actions/events-that-trigger-workflows
 	// https://docs.github.com/en/developers/webhooks-and-events/webhooks/webhook-events-and-payloads
 	switch ghc.EventName {
 	case "pull_request_target":
 		ghc.Ref = fmt.Sprintf("refs/heads/%s", ghc.BaseRef)
-		ghc.Sha = asString(nestedMapLookup(ghc.Event, "pull_request", "base", "sha"))
 	case "pull_request", "pull_request_review", "pull_request_review_comment":
 		ghc.Ref = fmt.Sprintf("refs/pull/%.0f/merge", ghc.Event["number"])
 	case "deployment", "deployment_status":
 		ghc.Ref = asString(nestedMapLookup(ghc.Event, "deployment", "ref"))
-		ghc.Sha = asString(nestedMapLookup(ghc.Event, "deployment", "sha"))
 	case "release":
-		ghc.Ref = asString(nestedMapLookup(ghc.Event, "release", "tag_name"))
+		ghc.Ref = fmt.Sprintf("refs/tags/%s", asString(nestedMapLookup(ghc.Event, "release", "tag_name")))
 	case "push", "create", "workflow_dispatch":
 		ghc.Ref = asString(ghc.Event["ref"])
-		if deleted, ok := ghc.Event["deleted"].(bool); ok && !deleted {
-			ghc.Sha = asString(ghc.Event["after"])
-		}
 	default:
 		defaultBranch := asString(nestedMapLookup(ghc.Event, "repository", "default_branch"))
 		if defaultBranch != "" {
@@ -136,6 +136,23 @@ func (ghc *GithubContext) SetRefAndSha(ctx context.Context, defaultBranch string
 			ghc.Ref = fmt.Sprintf("refs/heads/%s", asString(nestedMapLookup(ghc.Event, "repository", "default_branch")))
 		}
 	}
+}
+
+func (ghc *GithubContext) SetSha(ctx context.Context, repoPath string) {
+	logger := common.Logger(ctx)
+
+	// https://docs.github.com/en/actions/learn-github-actions/events-that-trigger-workflows
+	// https://docs.github.com/en/developers/webhooks-and-events/webhooks/webhook-events-and-payloads
+	switch ghc.EventName {
+	case "pull_request_target":
+		ghc.Sha = asString(nestedMapLookup(ghc.Event, "pull_request", "base", "sha"))
+	case "deployment", "deployment_status":
+		ghc.Sha = asString(nestedMapLookup(ghc.Event, "deployment", "sha"))
+	case "push", "create", "workflow_dispatch":
+		if deleted, ok := ghc.Event["deleted"].(bool); ok && !deleted {
+			ghc.Sha = asString(ghc.Event["after"])
+		}
+	}
 
 	if ghc.Sha == "" {
 		_, sha, err := findGitRevision(ctx, repoPath)
@@ -143,6 +160,54 @@ func (ghc *GithubContext) SetRefAndSha(ctx context.Context, defaultBranch string
 			logger.Warningf("unable to get git revision: %v", err)
 		} else {
 			ghc.Sha = sha
+		}
+	}
+}
+
+func (ghc *GithubContext) SetRepositoryAndOwner(ctx context.Context, githubInstance string, remoteName string, repoPath string) {
+	if ghc.Repository == "" {
+		repo, err := git.FindGithubRepo(ctx, repoPath, githubInstance, remoteName)
+		if err != nil {
+			common.Logger(ctx).Warningf("unable to get git repo: %v", err)
+			return
+		}
+		ghc.Repository = repo
+	}
+	ghc.RepositoryOwner = strings.Split(ghc.Repository, "/")[0]
+}
+
+func (ghc *GithubContext) SetRefTypeAndName() {
+	var refType, refName string
+
+	// https://docs.github.com/en/actions/learn-github-actions/environment-variables
+	if strings.HasPrefix(ghc.Ref, "refs/tags/") {
+		refType = "tag"
+		refName = ghc.Ref[len("refs/tags/"):]
+	} else if strings.HasPrefix(ghc.Ref, "refs/heads/") {
+		refType = "branch"
+		refName = ghc.Ref[len("refs/heads/"):]
+	} else if strings.HasPrefix(ghc.Ref, "refs/pull/") {
+		refType = ""
+		refName = ghc.Ref[len("refs/pull/"):]
+	}
+
+	if ghc.RefType == "" {
+		ghc.RefType = refType
+	}
+
+	if ghc.RefName == "" {
+		ghc.RefName = refName
+	}
+}
+
+func (ghc *GithubContext) SetBaseAndHeadRef() {
+	if ghc.EventName == "pull_request" || ghc.EventName == "pull_request_target" {
+		if ghc.BaseRef == "" {
+			ghc.BaseRef = asString(nestedMapLookup(ghc.Event, "pull_request", "base", "ref"))
+		}
+
+		if ghc.HeadRef == "" {
+			ghc.HeadRef = asString(nestedMapLookup(ghc.Event, "pull_request", "head", "ref"))
 		}
 	}
 }

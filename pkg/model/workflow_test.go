@@ -241,7 +241,8 @@ func TestReadWorkflow_Strategy(t *testing.T) {
 	w, err := NewWorkflowPlanner("testdata/strategy/push.yml", true)
 	assert.NoError(t, err)
 
-	p := w.PlanJob("strategy-only-max-parallel")
+	p, err := w.PlanJob("strategy-only-max-parallel")
+	assert.NoError(t, err)
 
 	assert.Equal(t, len(p.Stages), 1)
 	assert.Equal(t, len(p.Stages[0].Runs), 1)

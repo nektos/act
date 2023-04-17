@@ -82,10 +82,17 @@ func TestFindGitRemoteURL(t *testing.T) {
 	assert.NoError(err)
 
 	remoteURL := "https://git-codecommit.us-east-1.amazonaws.com/v1/repos/my-repo-name"
-	err = gitCmd("config", "-f", fmt.Sprintf("%s/.git/config", basedir), "--add", "remote.origin.url", remoteURL)
+	err = gitCmd("-C", basedir, "remote", "add", "origin", remoteURL)
 	assert.NoError(err)
 
 	u, err := findGitRemoteURL(context.Background(), basedir, "origin")
+	assert.NoError(err)
+	assert.Equal(remoteURL, u)
+
+	remoteURL = "git@github.com/AwesomeOwner/MyAwesomeRepo.git"
+	err = gitCmd("-C", basedir, "remote", "add", "upstream", remoteURL)
+	assert.NoError(err)
+	u, err = findGitRemoteURL(context.Background(), basedir, "upstream")
 	assert.NoError(err)
 	assert.Equal(remoteURL, u)
 }
@@ -160,7 +167,7 @@ func TestGitFindRef(t *testing.T) {
 		name := name
 		t.Run(name, func(t *testing.T) {
 			dir := filepath.Join(basedir, name)
-			require.NoError(t, os.MkdirAll(dir, 0755))
+			require.NoError(t, os.MkdirAll(dir, 0o755))
 			require.NoError(t, gitCmd("-C", dir, "init", "--initial-branch=master"))
 			require.NoError(t, cleanGitHooks(dir))
 			tt.Prepare(t, dir)

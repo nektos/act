@@ -25,8 +25,10 @@ func (rc *RunContext) NewExpressionEvaluator(ctx context.Context) ExpressionEval
 }
 
 func (rc *RunContext) NewExpressionEvaluatorWithEnv(ctx context.Context, env map[string]string) ExpressionEvaluator {
+	var workflowCallResult map[string]*model.WorkflowCallResult
+
 	// todo: cleanup EvaluationEnvironment creation
-	using := make(map[string]map[string]map[string]string)
+	using := make(map[string]exprparser.Needs)
 	strategy := make(map[string]interface{})
 	if rc.Run != nil {
 		job := rc.Run.Job()
@@ -39,8 +41,26 @@ func (rc *RunContext) NewExpressionEvaluatorWithEnv(ctx context.Context, env map
 		jobNeeds := rc.Run.Job().Needs()
 
 		for _, needs := range jobNeeds {
-			using[needs] = map[string]map[string]string{
-				"outputs": jobs[needs].Outputs,
+			using[needs] = exprparser.Needs{
+				Outputs: jobs[needs].Outputs,
+				Result:  jobs[needs].Result,
+			}
+		}
+
+		// only setup jobs context in case of workflow_call
+		// and existing expression evaluator (this means, jobs are at
+		// least ready to run)
+		if rc.caller != nil && rc.ExprEval != nil {
+			workflowCallResult = map[string]*model.WorkflowCallResult{}
+
+			for jobName, job := range jobs {
+				result := model.WorkflowCallResult{
+					Outputs: map[string]string{},
+				}
+				for k, v := range job.Outputs {
+					result.Outputs[k] = v
+				}
+				workflowCallResult[jobName] = &result
 			}
 		}
 	}
@@ -52,10 +72,11 @@ func (rc *RunContext) NewExpressionEvaluatorWithEnv(ctx context.Context, env map
 		Github: ghc,
 		Env:    env,
 		Job:    rc.getJobContext(),
+		Jobs:   &workflowCallResult,
 		// todo: should be unavailable
 		// but required to interpolate/evaluate the step outputs on the job
 		Steps:    rc.getStepsContext(),
-		Secrets:  rc.Config.Secrets,
+		Secrets:  getWorkflowSecrets(ctx, rc),
 		Strategy: strategy,
 		Matrix:   rc.Matrix,
 		Needs:    using,
@@ -86,10 +107,11 @@ func (rc *RunContext) NewStepExpressionEvaluator(ctx context.Context, step step)
 	jobs := rc.Run.Workflow.Jobs
 	jobNeeds := rc.Run.Job().Needs()
 
-	using := make(map[string]map[string]map[string]string)
+	using := make(map[string]exprparser.Needs)
 	for _, needs := range jobNeeds {
-		using[needs] = map[string]map[string]string{
-			"outputs": jobs[needs].Outputs,
+		using[needs] = exprparser.Needs{
+			Outputs: jobs[needs].Outputs,
+			Result:  jobs[needs].Result,
 		}
 	}
 
@@ -101,7 +123,7 @@ func (rc *RunContext) NewStepExpressionEvaluator(ctx context.Context, step step)
 		Env:      *step.getEnv(),
 		Job:      rc.getJobContext(),
 		Steps:    rc.getStepsContext(),
-		Secrets:  rc.Config.Secrets,
+		Secrets:  getWorkflowSecrets(ctx, rc),
 		Strategy: strategy,
 		Matrix:   rc.Matrix,
 		Needs:    using,
@@ -315,6 +337,8 @@ func rewriteSubExpression(ctx context.Context, in string, forceFormat bool) (str
 func getEvaluatorInputs(ctx context.Context, rc *RunContext, step step, ghc *model.GithubContext) map[string]interface{} {
 	inputs := map[string]interface{}{}
 
+	setupWorkflowInputs(ctx, &inputs, rc)
+
 	var env map[string]string
 	if step != nil {
 		env = *step.getEnv()
@@ -346,4 +370,55 @@ func getEvaluatorInputs(ctx context.Context, rc *RunContext, step step, ghc *mod
 	}
 
 	return inputs
+}
+
+func setupWorkflowInputs(ctx context.Context, inputs *map[string]interface{}, rc *RunContext) {
+	if rc.caller != nil {
+		config := rc.Run.Workflow.WorkflowCallConfig()
+
+		for name, input := range config.Inputs {
+			value := rc.caller.runContext.Run.Job().With[name]
+			if value != nil {
+				if str, ok := value.(string); ok {
+					// evaluate using the calling RunContext (outside)
+					value = rc.caller.runContext.ExprEval.Interpolate(ctx, str)
+				}
+			}
+
+			if value == nil && config != nil && config.Inputs != nil {
+				value = input.Default
+				if rc.ExprEval != nil {
+					if str, ok := value.(string); ok {
+						// evaluate using the called RunContext (inside)
+						value = rc.ExprEval.Interpolate(ctx, str)
+					}
+				}
+			}
+
+			(*inputs)[name] = value
+		}
+	}
+}
+
+func getWorkflowSecrets(ctx context.Context, rc *RunContext) map[string]string {
+	if rc.caller != nil {
+		job := rc.caller.runContext.Run.Job()
+		secrets := job.Secrets()
+
+		if secrets == nil && job.InheritSecrets() {
+			secrets = rc.caller.runContext.Config.Secrets
+		}
+
+		if secrets == nil {
+			secrets = map[string]string{}
+		}
+
+		for k, v := range secrets {
+			secrets[k] = rc.caller.runContext.ExprEval.Interpolate(ctx, v)
+		}
+
+		return secrets
+	}
+
+	return rc.Config.Secrets
 }

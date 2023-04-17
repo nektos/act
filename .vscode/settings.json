@@ -1,6 +1,7 @@
 {
   "go.lintTool": "golangci-lint",
   "go.lintFlags": ["--fix"],
+  "go.testTimeout": "300s",
   "[json]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
   },

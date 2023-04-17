@@ -11,11 +11,11 @@ import (
 	"regexp"
 	"strings"
 
+	gogit "github.com/go-git/go-git/v5"
+
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/common/git"
 	"github.com/nektos/act/pkg/model"
-
-	gogit "github.com/go-git/go-git/v5"
 )
 
 type stepActionRemote struct {
@@ -62,7 +62,7 @@ func (sar *stepActionRemote) prepareActionExecutor() common.Executor {
 			}
 		}
 
-		actionDir := fmt.Sprintf("%s/%s", sar.RunContext.ActionCacheDir(), strings.ReplaceAll(sar.Step.Uses, "/", "-"))
+		actionDir := fmt.Sprintf("%s/%s", sar.RunContext.ActionCacheDir(), safeFilename(sar.Step.Uses))
 		gitClone := stepActionRemoteNewCloneExecutor(git.NewGitCloneExecutorInput{
 			URL:   sar.remoteAction.CloneURL(),
 			Ref:   sar.remoteAction.Ref,
@@ -122,7 +122,7 @@ func (sar *stepActionRemote) main() common.Executor {
 				return sar.RunContext.JobContainer.CopyDir(copyToPath, sar.RunContext.Config.Workdir+string(filepath.Separator)+".", sar.RunContext.Config.UseGitIgnore)(ctx)
 			}
 
-			actionDir := fmt.Sprintf("%s/%s", sar.RunContext.ActionCacheDir(), strings.ReplaceAll(sar.Step.Uses, "/", "-"))
+			actionDir := fmt.Sprintf("%s/%s", sar.RunContext.ActionCacheDir(), safeFilename(sar.Step.Uses))
 
 			return sar.runAction(sar, actionDir, sar.remoteAction)(ctx)
 		}),
@@ -181,7 +181,7 @@ func (sar *stepActionRemote) getActionModel() *model.Action {
 
 func (sar *stepActionRemote) getCompositeRunContext(ctx context.Context) *RunContext {
 	if sar.compositeRunContext == nil {
-		actionDir := fmt.Sprintf("%s/%s", sar.RunContext.ActionCacheDir(), strings.ReplaceAll(sar.Step.Uses, "/", "-"))
+		actionDir := fmt.Sprintf("%s/%s", sar.RunContext.ActionCacheDir(), safeFilename(sar.Step.Uses))
 		actionLocation := path.Join(actionDir, sar.remoteAction.Path)
 		_, containerActionDir := getContainerActionPaths(sar.getStepModel(), actionLocation, sar.RunContext)
 
@@ -196,6 +196,7 @@ func (sar *stepActionRemote) getCompositeRunContext(ctx context.Context) *RunCon
 		// was already created during the pre stage)
 		env := evaluateCompositeInputAndEnv(ctx, sar.RunContext, sar)
 		sar.compositeRunContext.Env = env
+		sar.compositeRunContext.ExtraPath = sar.RunContext.ExtraPath
 	}
 	return sar.compositeRunContext
 }
@@ -241,4 +242,18 @@ func newRemoteAction(action string) *remoteAction {
 		Ref:  matches[6],
 		URL:  "github.com",
 	}
+}
+
+func safeFilename(s string) string {
+	return strings.NewReplacer(
+		`<`, "-",
+		`>`, "-",
+		`:`, "-",
+		`"`, "-",
+		`/`, "-",
+		`\`, "-",
+		`|`, "-",
+		`?`, "-",
+		`*`, "-",
+	).Replace(s)
 }

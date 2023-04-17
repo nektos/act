@@ -2,6 +2,7 @@ package runner
 
 import (
 	"context"
+	"io"
 
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/container"
@@ -49,11 +50,6 @@ func (cm *containerMock) UpdateFromImageEnv(env *map[string]string) common.Execu
 	return args.Get(0).(func(context.Context) error)
 }
 
-func (cm *containerMock) UpdateFromPath(env *map[string]string) common.Executor {
-	args := cm.Called(env)
-	return args.Get(0).(func(context.Context) error)
-}
-
 func (cm *containerMock) Copy(destPath string, files ...*container.FileEntry) common.Executor {
 	args := cm.Called(destPath, files)
 	return args.Get(0).(func(context.Context) error)
@@ -63,7 +59,17 @@ func (cm *containerMock) CopyDir(destPath string, srcPath string, useGitIgnore b
 	args := cm.Called(destPath, srcPath, useGitIgnore)
 	return args.Get(0).(func(context.Context) error)
 }
+
 func (cm *containerMock) Exec(command []string, env map[string]string, user, workdir string) common.Executor {
 	args := cm.Called(command, env, user, workdir)
 	return args.Get(0).(func(context.Context) error)
+}
+
+func (cm *containerMock) GetContainerArchive(ctx context.Context, srcPath string) (io.ReadCloser, error) {
+	args := cm.Called(ctx, srcPath)
+	err, hasErr := args.Get(1).(error)
+	if !hasErr {
+		err = nil
+	}
+	return args.Get(0).(io.ReadCloser), err
 }
