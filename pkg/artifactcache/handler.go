@@ -2,6 +2,7 @@ package artifactcache
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
@@ -12,8 +13,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/go-chi/chi/v5/middleware"
-	"github.com/go-chi/render"
+	"github.com/julienschmidt/httprouter"
 	log "github.com/sirupsen/logrus"
 	_ "modernc.org/sqlite"
 	"xorm.io/builder"
@@ -29,7 +29,7 @@ var logger = log.StandardLogger().WithField("module", "cache_request")
 type Handler struct {
 	engine   engine
 	storage  *Storage
-	router   *chi.Mux
+	router   *httprouter.Router
 	listener net.Listener
 
 	gc   atomic.Bool
@@ -75,27 +75,21 @@ func StartHandler(dir, outboundIP string, port uint16) (*Handler, error) {
 		h.outboundIP = ip.String()
 	}
 
-	router := chi.NewRouter()
-	router.Use(middleware.RequestLogger(&middleware.DefaultLogFormatter{Logger: logger}))
-	router.Use(func(handler http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			handler.ServeHTTP(w, r)
-			go h.gcCache()
-		})
-	})
-	router.Use(middleware.Logger)
-	router.Route(urlBase, func(r chi.Router) {
-		r.Get("/cache", h.find)
-		r.Route("/caches", func(r chi.Router) {
-			r.Post("/", h.reserve)
-			r.Route("/{id}", func(r chi.Router) {
-				r.Patch("/", h.upload)
-				r.Post("/", h.commit)
-			})
-		})
-		r.Get("/artifacts/{id}", h.get)
-		r.Post("/clean", h.clean)
-	})
+	router := httprouter.New()
+	//router.Use(middleware.RequestLogger(&middleware.DefaultLogFormatter{Logger: logger}))
+	//router.Use(func(handler http.Handler) http.Handler {
+	//	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	//		handler.ServeHTTP(w, r)
+	//		go h.gcCache()
+	//	})
+	//})
+	//router.Use(middleware.Logger)
+	router.GET(urlBase+"/cache", h.middleware(h.find))
+	router.POST(urlBase+"/caches", h.middleware(h.reserve))
+	router.PATCH(urlBase+"/caches/:id", h.middleware(h.upload))
+	router.POST(urlBase+"/caches/:id", h.middleware(h.commit))
+	router.GET(urlBase+"/artifacts/:id", h.middleware(h.get))
+	router.POST(urlBase+"/clean", h.middleware(h.clean))
 
 	h.router = router
 
@@ -123,7 +117,7 @@ func (h *Handler) ExternalURL() string {
 }
 
 // GET /_apis/artifactcache/cache
-func (h *Handler) find(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) find(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	keys := strings.Split(r.URL.Query().Get("keys"), ",")
 	version := r.URL.Query().Get("version")
 
@@ -156,9 +150,9 @@ func (h *Handler) find(w http.ResponseWriter, r *http.Request) {
 }
 
 // POST /_apis/artifactcache/caches
-func (h *Handler) reserve(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) reserve(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	cache := &Cache{}
-	if err := render.Bind(r, cache); err != nil {
+	if err := json.NewDecoder(r.Body).Decode(cache); err != nil {
 		responseJson(w, r, 400, err)
 		return
 	}
@@ -187,8 +181,8 @@ func (h *Handler) reserve(w http.ResponseWriter, r *http.Request) {
 }
 
 // PATCH /_apis/artifactcache/caches/:id
-func (h *Handler) upload(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+func (h *Handler) upload(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	id, err := strconv.ParseInt(params.ByName("id"), 10, 64)
 	if err != nil {
 		responseJson(w, r, 400, err)
 		return
@@ -225,8 +219,8 @@ func (h *Handler) upload(w http.ResponseWriter, r *http.Request) {
 }
 
 // POST /_apis/artifactcache/caches/:id
-func (h *Handler) commit(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+func (h *Handler) commit(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	id, err := strconv.ParseInt(params.ByName("id"), 10, 64)
 	if err != nil {
 		responseJson(w, r, 400, err)
 		return
@@ -268,8 +262,8 @@ func (h *Handler) commit(w http.ResponseWriter, r *http.Request) {
 }
 
 // GET /_apis/artifactcache/artifacts/:id
-func (h *Handler) get(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+func (h *Handler) get(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	id, err := strconv.ParseInt(params.ByName("id"), 10, 64)
 	if err != nil {
 		responseJson(w, r, 400, err)
 		return
@@ -279,11 +273,19 @@ func (h *Handler) get(w http.ResponseWriter, r *http.Request) {
 }
 
 // POST /_apis/artifactcache/clean
-func (h *Handler) clean(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) clean(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	// TODO: don't support force deleting cache entries
 	// see: https://docs.github.com/en/actions/using-workflows/caching-dependencies-to-speed-up-workflows#force-deleting-cache-entries
 
 	responseJson(w, r, 200)
+}
+
+func (h *Handler) middleware(handler httprouter.Handle) httprouter.Handle {
+	return func(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+		// TODO log
+		handler(w, r, params)
+		go h.gcCache()
+	}
 }
 
 // if not found, return (nil, nil) instead of an error.
@@ -295,7 +297,7 @@ func (h *Handler) findCache(ctx context.Context, keys []string, version string) 
 
 	cache := &Cache{}
 	if ok, err := h.engine.ExecBool(func(sess *xorm.Session) (bool, error) {
-		return sess.Where(builder.Eq{"key": key, "version": version, "complete": true}).Get(cache)
+		return sess.Context(ctx).Where(builder.Eq{"key": key, "version": version, "complete": true}).Get(cache)
 	}); err != nil {
 		return nil, err
 	} else if ok {
@@ -304,7 +306,7 @@ func (h *Handler) findCache(ctx context.Context, keys []string, version string) 
 
 	for _, prefix := range keys[1:] {
 		if ok, err := h.engine.ExecBool(func(sess *xorm.Session) (bool, error) {
-			return sess.Where(builder.And(
+			return sess.Context(ctx).Where(builder.And(
 				builder.Like{"key", prefix + "%"},
 				builder.Eq{"version": version, "complete": true},
 			)).OrderBy("id DESC").Get(cache)

@@ -1,6 +1,7 @@
 package artifactcache
 
 import (
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
@@ -8,22 +9,23 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/go-chi/render"
 	"xorm.io/xorm"
 )
 
 func responseJson(w http.ResponseWriter, r *http.Request, code int, v ...any) {
-	render.Status(r, code)
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	var data []byte
 	if len(v) == 0 || v[0] == nil {
-		render.JSON(w, r, struct{}{})
+		data, _ = json.Marshal(struct{}{})
 	} else if err, ok := v[0].(error); ok {
 		logger.Errorf("%v %v: %v", r.Method, r.RequestURI, err)
-		render.JSON(w, r, map[string]any{
+		data, _ = json.Marshal(map[string]any{
 			"error": err.Error(),
 		})
 	} else {
-		render.JSON(w, r, v[0])
+		data, _ = json.Marshal(v[0])
 	}
+	_, _ = w.Write(data)
 }
 
 func parseContentRange(s string) (int64, int64, error) {
