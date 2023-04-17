@@ -267,39 +267,30 @@ func mergeIntoMap(step step, target *map[string]string, maps ...map[string]strin
 	}
 }
 
-func mergeIntoMapCaseSensitive(target *map[string]string, maps ...map[string]string) {
+func mergeIntoMapCaseSensitive(target map[string]string, maps ...map[string]string) {
 	for _, m := range maps {
 		for k, v := range m {
-			(*target)[k] = v
+			target[k] = v
 		}
 	}
 }
 
-func mergeSingleMapIntoMapCaseInsensitive(lookUp *map[string]string, target *map[string]string, m map[string]string) {
-	for k, v := range m {
-		foldkey := strings.Map(func(r rune) rune {
-			for {
-				next := unicode.SimpleFold(r)
-				if next <= r {
-					return r
-				}
-				r = next
-			}
-		}, k)
-		if m, ok := (*lookUp)[foldkey]; ok {
-			(*target)[m] = v
-		} else {
-			(*lookUp)[foldkey] = k
-			(*target)[k] = v
-		}
+func mergeIntoMapCaseInsensitive(target map[string]string, maps ...map[string]string) {
+	foldKeys := make(map[string]string, len(target))
+	for k := range target {
+		foldKeys[strings.ToLower(k)] = k
 	}
-}
-
-func mergeIntoMapCaseInsensitive(target *map[string]string, maps ...map[string]string) {
-	lookUp := map[string]string{}
-	// Need to initialize the lookUp table
-	mergeSingleMapIntoMapCaseInsensitive(&lookUp, target, *target)
+	toKey := func(s string) string {
+		foldKey := strings.ToLower(s)
+		if k, ok := foldKeys[foldKey]; ok {
+			return k
+		}
+		foldKeys[strings.ToLower(foldKey)] = s
+		return s
+	}
 	for _, m := range maps {
-		mergeSingleMapIntoMapCaseInsensitive(&lookUp, target, m)
+		for k, v := range m {
+			target[toKey(k)] = v
+		}
 	}
 }
