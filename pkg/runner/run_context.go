@@ -521,11 +521,13 @@ func (rc *RunContext) platformImage(ctx context.Context) string {
 func (rc *RunContext) options(_ context.Context) string {
 	job := rc.Run.Job()
 	c := job.Container()
-	if c == nil {
-		return rc.Config.ContainerOptions
+	containerOptions := ""
+	if c != nil {
+		containerOptions = c.Options
 	}
+	containerOptions += " " + rc.Config.ContainerOptions
 
-	return c.Options
+	return containerOptions
 }
 
 func (rc *RunContext) isEnabled(ctx context.Context) (bool, error) {
