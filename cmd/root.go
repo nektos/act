@@ -24,6 +24,7 @@ import (
 	"github.com/nektos/act/pkg/container"
 	"github.com/nektos/act/pkg/model"
 	"github.com/nektos/act/pkg/runner"
+	"gopkg.in/yaml.v3"
 )
 
 // Execute is the entry point to running the CLI
@@ -281,9 +282,26 @@ func parseEnvs(env []string, envs map[string]string) bool {
 	return false
 }
 
+func readYamlFile(file string) (map[string]string, error) {
+	content, err := os.ReadFile(file)
+	if err != nil {
+		return nil, err
+	}
+	ret := map[string]string{}
+	if err = yaml.Unmarshal(content, &ret); err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
+
 func readEnvs(path string, envs map[string]string) bool {
 	if _, err := os.Stat(path); err == nil {
-		env, err := godotenv.Read(path)
+		var env map[string]string
+		if ext := filepath.Ext(path); ext == ".yml" || ext == ".yaml" {
+			env, err = readYamlFile(path)
+		} else {
+			env, err = godotenv.Read(path)
+		}
 		if err != nil {
 			log.Fatalf("Error loading from %s: %v", path, err)
 		}
