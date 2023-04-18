@@ -298,6 +298,15 @@ func (rc *RunContext) execJobContainer(cmd []string, env map[string]string, user
 func (rc *RunContext) ApplyExtraPath(ctx context.Context, env *map[string]string) {
 	if rc.ExtraPath != nil && len(rc.ExtraPath) > 0 {
 		path := rc.JobContainer.GetPathVariableName()
+		if rc.JobContainer.IsEnvironmentCaseInsensitive() {
+			// On windows system Path and PATH could also be in the map
+			for k := range *env {
+				if strings.EqualFold(path, k) {
+					path = k
+					break
+				}
+			}
+		}
 		if (*env)[path] == "" {
 			cenv := map[string]string{}
 			var cpath string
