@@ -18,7 +18,6 @@ import (
 	"strings"
 
 	"github.com/opencontainers/selinux/go-selinux"
-	log "github.com/sirupsen/logrus"
 
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/container"
@@ -361,7 +360,8 @@ func (rc *RunContext) ActionCacheDir() string {
 		if home, err := os.UserHomeDir(); err == nil {
 			xdgCache = filepath.Join(home, ".cache")
 		} else if xdgCache, err = filepath.Abs("."); err != nil {
-			log.Fatal(err)
+			// It's almost impossible to get here, so the temp dir is a good fallback
+			xdgCache = os.TempDir()
 		}
 	}
 	return filepath.Join(xdgCache, "act")
