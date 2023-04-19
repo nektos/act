@@ -348,7 +348,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 				DisableQuote:     true,
 				DisableTimestamp: true,
 			})
-			l.Warnf(" \U000026A0 You are using Apple M1 chip and you have not specified container architecture, you might encounter issues while running act. If so, try running it with '--container-architecture linux/amd64'. \U000026A0 \n")
+			l.Warnf(" \U000026A0 You are using Apple M-series chip and you have not specified container architecture, you might encounter issues while running act. If so, try running it with '--container-architecture linux/amd64'. \U000026A0 \n")
 		}
 
 		log.Debugf("Loading environment from %s", input.Envfile())
