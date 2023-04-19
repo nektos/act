@@ -287,6 +287,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 				Privileged:     rc.Config.Privileged,
 				UsernsMode:     rc.Config.UsernsMode,
 				Platform:       rc.Config.ContainerArchitecture,
+				Options:        spec.Options,
 				NetworkAliases: []string{name},
 			})
 			rc.ServiceContainers = append(rc.ServiceContainers, c)
