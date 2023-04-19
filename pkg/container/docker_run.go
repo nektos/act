@@ -348,6 +348,12 @@ func (cr *containerReference) mergeContainerConfigs(ctx context.Context, config 
 		return nil, nil, fmt.Errorf("Cannot parse container options: '%s': '%w'", input.Options, err)
 	}
 
+	if len(copts.netMode.Value()) == 0 {
+		if err = copts.netMode.Set("host"); err != nil {
+			return nil, nil, fmt.Errorf("Cannot parse networkmode=host. This is an internal error and should not happen: '%w'", err)
+		}
+	}
+
 	containerConfig, err := parse(flags, copts, "")
 	if err != nil {
 		return nil, nil, fmt.Errorf("Cannot process container options: '%s': '%w'", input.Options, err)
