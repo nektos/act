@@ -628,11 +628,12 @@ func watchAndRun(ctx context.Context, fn common.Executor) error {
 		return err
 	}
 
+	ignoreFile := filepath.Join(dir, ".gitignore")
 	ignore := &gitignore.GitIgnore{}
-	if info, err := os.Stat(filepath.Join(dir, ".gitignore")); err == nil && !info.IsDir() {
-		ignore, err = gitignore.CompileIgnoreFile(filepath.Join(dir, ".gitignore"))
+	if info, err := os.Stat(ignoreFile); err == nil && !info.IsDir() {
+		ignore, err = gitignore.CompileIgnoreFile(ignoreFile)
 		if err != nil {
-			return fmt.Errorf("compile .gitignore: %w", err)
+			return fmt.Errorf("compile %q: %w", ignoreFile, err)
 		}
 	}
 
