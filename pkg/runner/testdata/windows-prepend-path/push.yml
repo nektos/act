@@ -11,6 +11,9 @@ jobs:
         mkdir build
         echo '@echo off' > build/test.cmd
         echo 'echo Hi' >> build/test.cmd
+        mkdir build2
+        echo '@echo off' > build2/test2.cmd
+        echo 'echo test2' >> build2/test2.cmd
     - run: |
         echo '${{ tojson(runner) }}'
         ls
@@ -23,3 +26,9 @@ jobs:
     - run: |
         echo $env:PATH
         test
+    - run: |
+        echo "PATH=$env:PATH;${{ github.workspace }}\build2" > $env:GITHUB_ENV
+    - run: |
+        echo $env:PATH
+        test
+        test2

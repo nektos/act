@@ -22,7 +22,7 @@ jobs:
       - uses: golangci/golangci-lint-action@v3.4.0
         with:
           version: v1.47.2
-      - uses: megalinter/megalinter/flavors/go@v6.20.1
+      - uses: megalinter/megalinter/flavors/go@v6.22.2
         env:
           DEFAULT_BRANCH: master
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -55,7 +55,7 @@ jobs:
         with:
           upload-logs-name: logs-linux
       - name: Upload Codecov report
-        uses: codecov/codecov-action@v3.1.1
+        uses: codecov/codecov-action@v3.1.2
         with:
           files: coverage.txt
           fail_ci_if_error: true # optional (default = false)

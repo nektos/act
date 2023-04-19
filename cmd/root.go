@@ -15,7 +15,6 @@ import (
 	"github.com/adrg/xdg"
 	"github.com/andreaskoch/go-fswatch"
 	"github.com/joho/godotenv"
-	"github.com/mitchellh/go-homedir"
 	gitignore "github.com/sabhiram/go-gitignore"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -25,6 +24,7 @@ import (
 	"github.com/nektos/act/pkg/container"
 	"github.com/nektos/act/pkg/model"
 	"github.com/nektos/act/pkg/runner"
+	"gopkg.in/yaml.v3"
 )
 
 // Execute is the entry point to running the CLI
@@ -95,7 +95,7 @@ func Execute(ctx context.Context, version string) {
 }
 
 func configLocations() []string {
-	home, err := homedir.Dir()
+	home, err := os.UserHomeDir()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -282,9 +282,26 @@ func parseEnvs(env []string, envs map[string]string) bool {
 	return false
 }
 
+func readYamlFile(file string) (map[string]string, error) {
+	content, err := os.ReadFile(file)
+	if err != nil {
+		return nil, err
+	}
+	ret := map[string]string{}
+	if err = yaml.Unmarshal(content, &ret); err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
+
 func readEnvs(path string, envs map[string]string) bool {
 	if _, err := os.Stat(path); err == nil {
-		env, err := godotenv.Read(path)
+		var env map[string]string
+		if ext := filepath.Ext(path); ext == ".yml" || ext == ".yaml" {
+			env, err = readYamlFile(path)
+		} else {
+			env, err = godotenv.Read(path)
+		}
 		if err != nil {
 			log.Fatalf("Error loading from %s: %v", path, err)
 		}
