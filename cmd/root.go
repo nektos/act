@@ -659,7 +659,7 @@ func watchAndRun(ctx context.Context, fn common.Executor) error {
 			return nil
 		case changes := <-folderWatcher.ChangeDetails():
 			log.Debugf("%s", changes.String())
-			if err = fn(ctx); err != nil {
+			if err := fn(ctx); err != nil {
 				return err
 			}
 		}
