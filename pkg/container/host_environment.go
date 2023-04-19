@@ -40,6 +40,12 @@ func (e *HostEnvironment) Create(_ []string, _ []string) common.Executor {
 	}
 }
 
+func (e *HostEnvironment) ConnectToNetwork(name string) common.Executor {
+	return func(ctx context.Context) error {
+		return nil
+	}
+}
+
 func (e *HostEnvironment) Close() common.Executor {
 	return func(ctx context.Context) error {
 		return nil

@@ -17,6 +17,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/docker/docker/errdefs"
 	"github.com/opencontainers/selinux/go-selinux"
 
 	"github.com/nektos/act/pkg/common"
@@ -40,6 +41,7 @@ type RunContext struct {
 	IntraActionState    map[string]map[string]string
 	ExprEval            ExpressionEvaluator
 	JobContainer        container.ExecutionsEnvironment
+	ServiceContainers   []container.ExecutionsEnvironment
 	OutputMappings      map[MappableOutput]MappableOutput
 	JobName             string
 	ActionPath          string
@@ -259,6 +261,37 @@ func (rc *RunContext) startJobContainer() common.Executor {
 		ext := container.LinuxContainerEnvironmentExtensions{}
 		binds, mounts := rc.GetBindsAndMounts()
 
+		// add service containers
+		for name, spec := range rc.Run.Job().Services {
+			mergedEnv := envList
+			for k, v := range spec.Env {
+				mergedEnv = append(mergedEnv, fmt.Sprintf("%s=%s", k, v))
+			}
+			serviceContainerName := createContainerName(rc.jobContainerName(), name)
+			c := container.NewContainer(&container.NewContainerInput{
+				Name:       serviceContainerName,
+				WorkingDir: ext.ToContainerPath(rc.Config.Workdir),
+				Image:      spec.Image,
+				Username:   username,
+				Password:   password,
+				Env:        mergedEnv,
+				Mounts: map[string]string{
+					// TODO merge volumes
+					name:            ext.ToContainerPath(rc.Config.Workdir),
+					"act-toolcache": "/toolcache",
+					"act-actions":   "/actions",
+				},
+				Binds:          binds,
+				Stdout:         logWriter,
+				Stderr:         logWriter,
+				Privileged:     rc.Config.Privileged,
+				UsernsMode:     rc.Config.UsernsMode,
+				Platform:       rc.Config.ContainerArchitecture,
+				NetworkAliases: []string{name},
+			})
+			rc.ServiceContainers = append(rc.ServiceContainers, c)
+		}
+
 		rc.cleanUpJobContainer = func(ctx context.Context) error {
 			if rc.JobContainer != nil && !rc.Config.ReuseContainers {
 				return rc.JobContainer.Remove().
@@ -291,11 +324,24 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			return errors.New("Failed to create job container")
 		}
 
+		networkName := fmt.Sprintf("%s-network", rc.jobContainerName())
 		return common.NewPipelineExecutor(
+			rc.pullServicesImages(rc.Config.ForcePull),
 			rc.JobContainer.Pull(rc.Config.ForcePull),
+			rc.stopServiceContainers(),
 			rc.stopJobContainer(),
+			func(ctx context.Context) error {
+				err := rc.removeNetwork(networkName)(ctx)
+				if errdefs.IsNotFound(err) {
+					return nil
+				}
+				return err
+			},
+			rc.createNetwork(networkName),
+			rc.startServiceContainers(networkName),
 			rc.JobContainer.Create(rc.Config.ContainerCapAdd, rc.Config.ContainerCapDrop),
 			rc.JobContainer.Start(false),
+			rc.JobContainer.ConnectToNetwork(networkName),
 			rc.JobContainer.Copy(rc.JobContainer.GetActPath()+"/", &container.FileEntry{
 				Name: "workflow/event.json",
 				Mode: 0o644,
@@ -306,6 +352,18 @@ func (rc *RunContext) startJobContainer() common.Executor {
 				Body: "",
 			}),
 		)(ctx)
+	}
+}
+
+func (rc *RunContext) createNetwork(name string) common.Executor {
+	return func(ctx context.Context) error {
+		return container.NewDockerNetworkCreateExecutor(name)(ctx)
+	}
+}
+
+func (rc *RunContext) removeNetwork(name string) common.Executor {
+	return func(ctx context.Context) error {
+		return container.NewDockerNetworkRemoveExecutor(name)(ctx)
 	}
 }
 
@@ -376,6 +434,41 @@ func (rc *RunContext) stopJobContainer() common.Executor {
 			return rc.cleanUpJobContainer(ctx)
 		}
 		return nil
+	}
+}
+
+func (rc *RunContext) pullServicesImages(forcePull bool) common.Executor {
+	return func(ctx context.Context) error {
+		execs := []common.Executor{}
+		for _, c := range rc.ServiceContainers {
+			execs = append(execs, c.Pull(forcePull))
+		}
+		return common.NewParallelExecutor(len(execs), execs...)(ctx)
+	}
+}
+
+func (rc *RunContext) startServiceContainers(networkName string) common.Executor {
+	return func(ctx context.Context) error {
+		execs := []common.Executor{}
+		for _, c := range rc.ServiceContainers {
+			execs = append(execs, common.NewPipelineExecutor(
+				c.Pull(false),
+				c.Create(rc.Config.ContainerCapAdd, rc.Config.ContainerCapDrop),
+				c.Start(false),
+				c.ConnectToNetwork(networkName),
+			))
+		}
+		return common.NewParallelExecutor(len(execs), execs...)(ctx)
+	}
+}
+
+func (rc *RunContext) stopServiceContainers() common.Executor {
+	return func(ctx context.Context) error {
+		execs := []common.Executor{}
+		for _, c := range rc.ServiceContainers {
+			execs = append(execs, c.Remove())
+		}
+		return common.NewParallelExecutor(len(execs), execs...)(ctx)
 	}
 }
 

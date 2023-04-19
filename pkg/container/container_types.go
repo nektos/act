@@ -9,23 +9,24 @@ import (
 
 // NewContainerInput the input for the New function
 type NewContainerInput struct {
-	Image       string
-	Username    string
-	Password    string
-	Entrypoint  []string
-	Cmd         []string
-	WorkingDir  string
-	Env         []string
-	Binds       []string
-	Mounts      map[string]string
-	Name        string
-	Stdout      io.Writer
-	Stderr      io.Writer
-	NetworkMode string
-	Privileged  bool
-	UsernsMode  string
-	Platform    string
-	Options     string
+	Image          string
+	Username       string
+	Password       string
+	Entrypoint     []string
+	Cmd            []string
+	WorkingDir     string
+	Env            []string
+	Binds          []string
+	Mounts         map[string]string
+	Name           string
+	Stdout         io.Writer
+	Stderr         io.Writer
+	NetworkMode    string
+	Privileged     bool
+	UsernsMode     string
+	Platform       string
+	Options        string
+	NetworkAliases []string
 }
 
 // FileEntry is a file to copy to a container
@@ -38,6 +39,7 @@ type FileEntry struct {
 // Container for managing docker run containers
 type Container interface {
 	Create(capAdd []string, capDrop []string) common.Executor
+	ConnectToNetwork(name string) common.Executor
 	Copy(destPath string, files ...*FileEntry) common.Executor
 	CopyTarStream(ctx context.Context, destPath string, tarStream io.Reader) error
 	CopyDir(destPath string, srcPath string, useGitIgnore bool) common.Executor

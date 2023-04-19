@@ -548,6 +548,43 @@ func TestRunEventSecrets(t *testing.T) {
 	tjfi.runTest(context.Background(), t, &Config{Secrets: secrets, Env: env})
 }
 
+func TestRunWithService(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	log.SetLevel(log.DebugLevel)
+	ctx := context.Background()
+
+	platforms := map[string]string{
+		"ubuntu-latest": "node:12.20.1-buster-slim",
+	}
+
+	workflowPath := "services"
+	eventName := "push"
+
+	workdir, err := filepath.Abs("testdata")
+	assert.NoError(t, err, workflowPath)
+
+	runnerConfig := &Config{
+		Workdir:         workdir,
+		EventName:       eventName,
+		Platforms:       platforms,
+		ReuseContainers: false,
+	}
+	runner, err := New(runnerConfig)
+	assert.NoError(t, err, workflowPath)
+
+	planner, err := model.NewWorkflowPlanner(fmt.Sprintf("testdata/%s", workflowPath), true)
+	assert.NoError(t, err, workflowPath)
+
+	plan, err := planner.PlanEvent(eventName)
+	assert.NoError(t, err, workflowPath)
+
+	err = runner.NewPlanExecutor(plan)(ctx)
+	assert.NoError(t, err, workflowPath)
+}
+
 func TestRunActionInputs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")

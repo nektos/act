@@ -102,6 +102,21 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 			ctx, cancel := context.WithTimeout(common.WithLogger(context.Background(), common.Logger(ctx)), time.Minute)
 			defer cancel()
 			err = info.stopContainer()(ctx) //nolint:contextcheck
+
+			logger := common.Logger(ctx)
+			logger.Infof("Cleaning up services for job %s", rc.JobName)
+			if err := rc.stopServiceContainers()(ctx); err != nil {
+				logger.Errorf("Error while cleaning services: %v", err)
+			}
+
+			logger.Infof("Cleaning up container for job %s", rc.JobName)
+			err = info.stopContainer()(ctx)
+
+			logger.Infof("Cleaning up network for job %s", rc.JobName)
+			networkName := fmt.Sprintf("%s-network", rc.jobContainerName())
+			if err := rc.removeNetwork(networkName)(ctx); err != nil {
+				logger.Errorf("Error while cleaning network: %v", err)
+			}
 		}
 		setJobResult(ctx, info, rc, jobError == nil)
 		setJobOutputs(ctx, rc)
