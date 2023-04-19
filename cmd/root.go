@@ -18,13 +18,13 @@ import (
 	gitignore "github.com/sabhiram/go-gitignore"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 
 	"github.com/nektos/act/pkg/artifacts"
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/container"
 	"github.com/nektos/act/pkg/model"
 	"github.com/nektos/act/pkg/runner"
-	"gopkg.in/yaml.v3"
 )
 
 // Execute is the entry point to running the CLI
@@ -623,45 +623,46 @@ func defaultImageSurvey(actrc string) error {
 }
 
 func watchAndRun(ctx context.Context, fn common.Executor) error {
-	recurse := true
-	checkIntervalInSeconds := 2
 	dir, err := os.Getwd()
 	if err != nil {
 		return err
 	}
 
-	var ignore *gitignore.GitIgnore
-	if _, err := os.Stat(filepath.Join(dir, ".gitignore")); !os.IsNotExist(err) {
-		ignore, _ = gitignore.CompileIgnoreFile(filepath.Join(dir, ".gitignore"))
-	} else {
-		ignore = &gitignore.GitIgnore{}
+	ignore := &gitignore.GitIgnore{}
+	if info, err := os.Stat(filepath.Join(dir, ".gitignore")); err == nil && !info.IsDir() {
+		ignore, err = gitignore.CompileIgnoreFile(filepath.Join(dir, ".gitignore"))
+		if err != nil {
+			return fmt.Errorf("compile .gitignore: %w", err)
+		}
 	}
 
 	folderWatcher := fswatch.NewFolderWatcher(
 		dir,
-		recurse,
+		true,
 		ignore.MatchesPath,
-		checkIntervalInSeconds,
+		2, // 2 seconds
 	)
 
 	folderWatcher.Start()
+	defer folderWatcher.Stop()
 
-	go func() {
-		for folderWatcher.IsRunning() {
+	// run once before watching
+	if err := fn(ctx); err != nil {
+		return err
+	}
+
+	for folderWatcher.IsRunning() {
+		log.Debugf("Watching %s for changes", dir)
+		select {
+		case <-ctx.Done():
+			return nil
+		case changes := <-folderWatcher.ChangeDetails():
+			log.Debugf("%s", changes.String())
 			if err = fn(ctx); err != nil {
-				break
-			}
-			log.Debugf("Watching %s for changes", dir)
-			for changes := range folderWatcher.ChangeDetails() {
-				log.Debugf("%s", changes.String())
-				if err = fn(ctx); err != nil {
-					break
-				}
-				log.Debugf("Watching %s for changes", dir)
+				return err
 			}
 		}
-	}()
-	<-ctx.Done()
-	folderWatcher.Stop()
-	return err
+	}
+
+	return nil
 }
