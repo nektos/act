@@ -180,7 +180,7 @@ func (ee expressionEvaluator) evaluateMappingYamlNode(ctx context.Context, node 
 	var ret *yaml.Node = nil
 	// GitHub has this undocumented feature to merge maps, called insert directive
 	insertDirective := regexp.MustCompile(`\${{\s*insert\s*}}`)
-	for i := 0; i < len(node.Content)/2; i++{
+	for i := 0; i < len(node.Content)/2; i++ {
 		changed := func() {
 			if ret == nil {
 				ret = &yaml.Node{}
@@ -217,7 +217,9 @@ func (ee expressionEvaluator) evaluateMappingYamlNode(ctx context.Context, node 
 			} else {
 				ek = k
 			}
-			ret.Content = append(ret.Content, ek, ev)
+			if ret != nil {
+				ret.Content = append(ret.Content, ek, ev)
+			}
 		}
 	}
 	return ret, nil
