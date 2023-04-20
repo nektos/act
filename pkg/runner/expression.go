@@ -161,7 +161,7 @@ func (ee expressionEvaluator) evaluate(ctx context.Context, in string, defaultSt
 func (ee expressionEvaluator) evaluateScalarYamlNode(ctx context.Context, node *yaml.Node) (*yaml.Node, error) {
 	var in string
 	if err := node.Decode(&in); err != nil {
-		return err
+		return nil, err
 	}
 	if !strings.Contains(in, "${{") || !strings.Contains(in, "}}") {
 		return nil, nil
@@ -192,7 +192,7 @@ func (ee expressionEvaluator) evaluateMappingYamlNode(ctx context.Context, node 
 		v := node.Content[i*2+1]
 		ev, err := ee.evaluateYamlNode(ctx, v)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if ev != nil {
 			changed()
@@ -210,7 +210,7 @@ func (ee expressionEvaluator) evaluateMappingYamlNode(ctx context.Context, node 
 		} else {
 			ek, err := ee.evaluateYamlNode(ctx, k)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			if ek != nil {
 				changed()
