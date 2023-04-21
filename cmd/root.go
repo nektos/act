@@ -180,8 +180,11 @@ func bugReport(ctx context.Context, version string) error {
 	for _, p := range commonSocketPaths {
 		if _, err := os.Lstat(os.ExpandEnv(p)); err != nil {
 			continue
+		} else if _, err := os.Stat(os.ExpandEnv(p)); err != nil {
+			report += fmt.Sprintf("\t%s(broken)\n", p)
+		} else {
+			report += fmt.Sprintf("\t%s\n", p)
 		}
-		report += fmt.Sprintf("\t%s\n", p)
 	}
 
 	report += sprintf("Config files:", "")
