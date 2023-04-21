@@ -178,7 +178,7 @@ func bugReport(ctx context.Context, version string) error {
 	report += sprintf("Docker host:", dockerHost)
 	report += fmt.Sprintln("Sockets found:")
 	for _, p := range commonSocketPaths {
-		if _, err := os.Stat(os.ExpandEnv(p)); err != nil {
+		if _, err := os.Lstat(os.ExpandEnv(p)); err != nil {
 			continue
 		}
 		report += fmt.Sprintf("\t%s\n", p)
