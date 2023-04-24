@@ -172,8 +172,10 @@ func (ee expressionEvaluator) evaluateScalarYamlNode(ctx context.Context, node *
 		return nil, err
 	}
 	ret := &yaml.Node{}
-	ret.Encode(res)
-	return ret, nil
+	if err := ret.Encode(res); err != nil {
+		return ret
+	}
+	return ret, err
 }
 
 func (ee expressionEvaluator) evaluateMappingYamlNode(ctx context.Context, node *yaml.Node) (*yaml.Node, error) {
@@ -181,21 +183,26 @@ func (ee expressionEvaluator) evaluateMappingYamlNode(ctx context.Context, node 
 	// GitHub has this undocumented feature to merge maps, called insert directive
 	insertDirective := regexp.MustCompile(`\${{\s*insert\s*}}`)
 	for i := 0; i < len(node.Content)/2; i++ {
-		changed := func() {
+		changed := func() error {
 			if ret == nil {
 				ret = &yaml.Node{}
-				ret.Encode(node)
+				if err := ret.Encode(node); err != nil {
+					return ret
+				}
 				ret.Content = ret.Content[:i*2]
 			}
+			return nil
 		}
 		k := node.Content[i*2]
 		v := node.Content[i*2+1]
-		ev, err := ee.evaluateYamlNode(ctx, v)
+		ev, err := ee.evaluateYamlNodeInternal(ctx, v)
 		if err != nil {
 			return nil, err
 		}
 		if ev != nil {
-			changed()
+			if err := changed(); err != nil {
+				return nil, err
+			}
 		} else {
 			ev = v
 		}
@@ -205,15 +212,19 @@ func (ee expressionEvaluator) evaluateMappingYamlNode(ctx context.Context, node 
 			if ev.Kind != yaml.MappingNode {
 				return nil, fmt.Errorf("failed to insert node %v into mapping %v unexpected type %v expected MappingNode", ev, node, ev.Kind)
 			}
-			changed()
+			if err := changed(); err != nil {
+				return nil, err
+			}
 			ret.Content = append(ret.Content, ev.Content...)
 		} else {
-			ek, err := ee.evaluateYamlNode(ctx, k)
+			ek, err := ee.evaluateYamlNodeInternal(ctx, k)
 			if err != nil {
 				return nil, err
 			}
 			if ek != nil {
-				changed()
+				if err := changed(); err != nil {
+					return nil, err
+				}
 			} else {
 				ek = k
 			}
@@ -231,14 +242,16 @@ func (ee expressionEvaluator) evaluateSequenceYamlNode(ctx context.Context, node
 		v := node.Content[i]
 		// Preserve nested sequences
 		wasseq := v.Kind == yaml.SequenceNode
-		ev, err := ee.evaluateYamlNode(ctx, v)
+		ev, err := ee.evaluateYamlNodeInternal(ctx, v)
 		if err != nil {
 			return nil, err
 		}
 		if ev != nil {
 			if ret == nil {
 				ret = &yaml.Node{}
-				ret.Encode(node)
+				if err := ret.Encode(node); err != nil {
+					return nil, err
+				}
 				ret.Content = ret.Content[:i]
 			}
 			// GitHub has this undocumented feature to merge sequences / arrays
@@ -255,7 +268,7 @@ func (ee expressionEvaluator) evaluateSequenceYamlNode(ctx context.Context, node
 	return ret, nil
 }
 
-func (ee expressionEvaluator) evaluateYamlNode(ctx context.Context, node *yaml.Node) (*yaml.Node, error) {
+func (ee expressionEvaluator) evaluateYamlNodeInternal(ctx context.Context, node *yaml.Node) (*yaml.Node, error) {
 	switch node.Kind {
 	case yaml.ScalarNode:
 		return ee.evaluateScalarYamlNode(ctx, node)
@@ -269,12 +282,12 @@ func (ee expressionEvaluator) evaluateYamlNode(ctx context.Context, node *yaml.N
 }
 
 func (ee expressionEvaluator) EvaluateYamlNode(ctx context.Context, node *yaml.Node) error {
-	ret, err := ee.evaluateYamlNode(ctx, node)
+	ret, err := ee.evaluateYamlNodeInternal(ctx, node)
 	if err != nil {
 		return err
 	}
 	if ret != nil {
-		ret.Decode(node)
+		return ret.Decode(node)
 	}
 	return nil
 }
