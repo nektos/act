@@ -136,9 +136,9 @@ func socketLocation() (string, bool) {
 	for _, p := range commonSocketPaths {
 		if _, err := os.Lstat(os.ExpandEnv(p)); err == nil {
 			if strings.HasPrefix(p, `\\.\`) {
-				return "npipe://" + os.ExpandEnv(p), true
+				return "npipe://" + filepath.ToSlash(os.ExpandEnv(p)), true
 			}
-			return "unix://" + os.ExpandEnv(p), true
+			return "unix://" + filepath.ToSlash(os.ExpandEnv(p)), true
 		}
 	}
 
