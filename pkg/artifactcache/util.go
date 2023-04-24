@@ -25,6 +25,7 @@ func responseJson(w http.ResponseWriter, r *http.Request, code int, v ...any) {
 	} else {
 		data, _ = json.Marshal(v[0])
 	}
+	w.WriteHeader(code)
 	_, _ = w.Write(data)
 }
 
