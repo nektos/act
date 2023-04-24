@@ -100,17 +100,15 @@ func (rc *RunContext) GetBindsAndMounts() ([]string, map[string]string) {
 	if rc.Config.ContainerDaemonSocket != "-" {
 		daemonPathUri, err := url.Parse(rc.Config.ContainerDaemonSocket)
 		daemonPath := rc.Config.ContainerDaemonSocket
-		err != nil
-		if daemonPathUri.Scheme == "npipe" {
-			// linux container mount on windows, use the default socket path
-			daemonPath = "/var/run/docker.sock"
-		} else if daemonPathUri.Scheme == "unix" {
-			daemonPath = filepath.Join(daemonPathUri.Host, daemonPathUri.Path)
+		if err != nil {
+			if daemonPathUri.Scheme == "npipe" {
+				// linux container mount on windows, use the default socket path of the VM / wsl2
+				daemonPath = "/var/run/docker.sock"
+			} else if daemonPathUri.Scheme == "unix" {
+				daemonPath = filepath.Join(daemonPathUri.Host, daemonPathUri.Path)
+			}
 		}
-		// Only bind mount the socket if it exists, e.g. 
-		if daemonPathInfo, err := os.Stat(daemonPath); err == nil {
-			binds = append(binds, fmt.Sprintf("%s:%s", rc.Config.ContainerDaemonSocket, "/var/run/docker.sock"))
-		}
+		binds = append(binds, fmt.Sprintf("%s:%s", rc.Config.ContainerDaemonSocket, "/var/run/docker.sock"))
 	}
 
 	ext := container.LinuxContainerEnvironmentExtensions{}
