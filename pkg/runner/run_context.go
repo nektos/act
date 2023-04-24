@@ -87,7 +87,7 @@ func (rc *RunContext) jobContainerName() string {
 	return createContainerName("act", rc.String())
 }
 
-func getDockerDaemonSockatMountPath(daemonPath string) string {
+func getDockerDaemonSocketMountPath(daemonPath string) string {
 	if protoIndex := strings.Index(daemonPath, "://"); protoIndex != -1 {
 		scheme := daemonPath[:protoIndex]
 		if strings.EqualFold(scheme, "npipe") {
@@ -115,7 +115,7 @@ func (rc *RunContext) GetBindsAndMounts() ([]string, map[string]string) {
 
 	binds := []string{}
 	if rc.Config.ContainerDaemonSocket != "-" {
-		daemonPath := getDockerDaemonSockatMountPath(rc.Config.ContainerDaemonSocket)
+		daemonPath := getDockerDaemonSocketMountPath(rc.Config.ContainerDaemonSocket)
 		binds = append(binds, fmt.Sprintf("%s:%s", daemonPath, "/var/run/docker.sock"))
 	}
 
