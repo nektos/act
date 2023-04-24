@@ -361,18 +361,25 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			return bugReport(ctx, cmd.Version)
 		}
 
-		var socketPath string
-		if input.containerDaemonSocket != "" {
-			socketPath = input.containerDaemonSocket
-		} else {
-			socket, found := socketLocation()
-			if !found && input.containerDaemonSocket == "" {
-				log.Errorln("daemon Docker Engine socket not found and containerDaemonSocket option was not set")
+		// Prefer DOCKER_HOST
+		socketPath, hasDockerHost := os.GetEnv("DOCKER_HOST")
+		if !hasDockerHost {
+			// a - in containerDaemonSocket means don't mount, preserve this value
+			if input.containerDaemonSocket != "" && rc.Config.ContainerDaemonSocket != "-" {
+				socketPath = input.containerDaemonSocket
 			} else {
-				socketPath = socket
+				socket, found := socketLocation()
+				if !found {
+					log.Errorln("daemon Docker Engine socket not found and containerDaemonSocket option was not set")
+				} else {
+					socketPath = socket
+				}
+				if rc.Config.ContainerDaemonSocket != "-" {
+					input.containerDaemonSocket = socketPath
+				}
 			}
+			os.Setenv("DOCKER_HOST", socketPath)
 		}
-		os.Setenv("DOCKER_HOST", socketPath)
 
 		if runtime.GOOS == "darwin" && runtime.GOARCH == "arm64" && input.containerArchitecture == "" {
 			l := log.New()
