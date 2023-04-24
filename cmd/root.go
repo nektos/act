@@ -573,7 +573,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			Privileged:                         input.privileged,
 			UsernsMode:                         input.usernsMode,
 			ContainerArchitecture:              input.containerArchitecture,
-			ContainerDaemonSocket:              socketPath,
+			ContainerDaemonSocket:              input.containerDaemonSocket,
 			ContainerOptions:                   input.containerOptions,
 			UseGitIgnore:                       input.useGitIgnore,
 			GitHubInstance:                     input.githubInstance,
