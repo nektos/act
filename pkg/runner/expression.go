@@ -173,7 +173,7 @@ func (ee expressionEvaluator) evaluateScalarYamlNode(ctx context.Context, node *
 	}
 	ret := &yaml.Node{}
 	if err := ret.Encode(res); err != nil {
-		return ret
+		return nil, ret
 	}
 	return ret, err
 }
@@ -187,7 +187,7 @@ func (ee expressionEvaluator) evaluateMappingYamlNode(ctx context.Context, node 
 			if ret == nil {
 				ret = &yaml.Node{}
 				if err := ret.Encode(node); err != nil {
-					return ret
+					return err
 				}
 				ret.Content = ret.Content[:i*2]
 			}
