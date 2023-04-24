@@ -350,6 +350,18 @@ func parseMatrix(matrix []string) map[string]map[string]bool {
 	return matrixes
 }
 
+func isDockerHostURI(daemonPath string) bool {
+	if protoIndex := strings.Index(daemonPath, "://"); protoIndex != -1 {
+		scheme := daemonPath[:protoIndex]
+		if strings.IndexFunc(scheme, func(r rune) bool {
+			return (r < 'a' || r > 'z') && (r < 'A' || r > 'Z')
+		}) == -1 {
+			return true
+		}
+	}
+	return false
+}
+
 //nolint:gocyclo
 func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, args []string) error {
@@ -365,7 +377,8 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 		socketPath, hasDockerHost := os.LookupEnv("DOCKER_HOST")
 		if !hasDockerHost {
 			// a - in containerDaemonSocket means don't mount, preserve this value
-			skipMount := input.containerDaemonSocket == "-"
+			// otherwise if input.containerDaemonSocket is a filepath don't use it as socketPath
+			skipMount := input.containerDaemonSocket == "-" || !isDockerHostURI(input.containerDaemonSocket)
 			if input.containerDaemonSocket != "" && !skipMount {
 				socketPath = input.containerDaemonSocket
 			} else {
