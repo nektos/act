@@ -103,9 +103,10 @@ func (rc *RunContext) GetBindsAndMounts() ([]string, map[string]string) {
 			scheme := daemonPath[:protoIndex]
 			if strings.EqualFold(scheme, "npipe") {
 				// linux container mount on windows, use the default socket path of the VM / wsl2
+				daemonPath = daemonPath[protoIndex+3:]
 				daemonPath = "/var/run/docker.sock"
 			} else if strings.EqualFold(scheme, "unix") {
-				daemonPath = daemonPath[protoIndex+2:]
+				daemonPath = daemonPath[protoIndex+3:]
 			} else if strings.IndexFunc(scheme, func(r rune) bool {
 				return (r < 'a' || r > 'z') && (r < 'A' || r > 'Z')
 			}) == -1 {
