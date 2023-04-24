@@ -16,7 +16,6 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
-	"net/url"
 
 	"github.com/opencontainers/selinux/go-selinux"
 
@@ -98,14 +97,20 @@ func (rc *RunContext) GetBindsAndMounts() ([]string, map[string]string) {
 
 	binds := []string{}
 	if rc.Config.ContainerDaemonSocket != "-" {
-		daemonPathUri, err := url.Parse(rc.Config.ContainerDaemonSocket)
 		daemonPath := rc.Config.ContainerDaemonSocket
-		if err != nil {
-			if daemonPathUri.Scheme == "npipe" {
+
+		if protoIndex := strings.Index(daemonPath, "://"); protoIndex != -1 {
+			scheme := daemonPath[:protoIndex]
+			if strings.EqualFold(scheme, "npipe") {
 				// linux container mount on windows, use the default socket path of the VM / wsl2
 				daemonPath = "/var/run/docker.sock"
-			} else if daemonPathUri.Scheme == "unix" {
-				daemonPath = filepath.Join(daemonPathUri.Host, daemonPathUri.Path)
+			} else if strings.EqualFold(scheme, "unix") {
+				daemonPath = daemonPath[protoIndex+2:]
+			} else if strings.IndexFunc(scheme, func(r rune) bool {
+				return (r < 'a' || r > 'z') && (r < 'A' || r > 'Z')
+			}) == -1 {
+				// unknown protocol use default
+				daemonPath = "/var/run/docker.sock"
 			}
 		}
 		binds = append(binds, fmt.Sprintf("%s:%s", daemonPath, "/var/run/docker.sock"))

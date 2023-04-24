@@ -80,7 +80,7 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.PersistentFlags().StringVarP(&input.envfile, "env-file", "", ".env", "environment file to read and use as env in the containers")
 	rootCmd.PersistentFlags().StringVarP(&input.inputfile, "input-file", "", ".input", "input file to read and use as action input")
 	rootCmd.PersistentFlags().StringVarP(&input.containerArchitecture, "container-architecture", "", "", "Architecture which should be used to run containers, e.g.: linux/amd64. If not specified, will use host default architecture. Requires Docker server API Version 1.41+. Ignored on earlier Docker server platforms.")
-	rootCmd.PersistentFlags().StringVarP(&input.containerDaemonSocket, "container-daemon-socket", "", "", "URI to Docker Engine socket (e.g.: unix://~/.docker/run/docker.sock)")
+	rootCmd.PersistentFlags().StringVarP(&input.containerDaemonSocket, "container-daemon-socket", "", "", "URI to Docker Engine socket (e.g.: unix://~/.docker/run/docker.sock or - to disable bind mounting the socket)")
 	rootCmd.PersistentFlags().StringVarP(&input.containerOptions, "container-options", "", "", "Custom docker container options for the job container without an options property in the job definition")
 	rootCmd.PersistentFlags().StringVarP(&input.githubInstance, "github-instance", "", "github.com", "GitHub instance to use. Don't use this if you are not using GitHub Enterprise Server.")
 	rootCmd.PersistentFlags().StringVarP(&input.artifactServerPath, "artifact-server-path", "", "", "Defines the path where the artifact server stores uploads and retrieves downloads from. If not specified the artifact server will not start.")
@@ -361,11 +361,12 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			return bugReport(ctx, cmd.Version)
 		}
 
-		// Prefer DOCKER_HOST
-		socketPath, hasDockerHost := os.GetEnv("DOCKER_HOST")
+		// Prefer DOCKER_HOST, don't override it
+		socketPath, hasDockerHost := os.LookupEnv("DOCKER_HOST")
 		if !hasDockerHost {
 			// a - in containerDaemonSocket means don't mount, preserve this value
-			if input.containerDaemonSocket != "" && rc.Config.ContainerDaemonSocket != "-" {
+			skipMount := input.containerDaemonSocket == "-"
+			if input.containerDaemonSocket != "" && !skipMount {
 				socketPath = input.containerDaemonSocket
 			} else {
 				socket, found := socketLocation()
@@ -374,7 +375,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 				} else {
 					socketPath = socket
 				}
-				if rc.Config.ContainerDaemonSocket != "-" {
+				if !skipMount {
 					input.containerDaemonSocket = socketPath
 				}
 			}
