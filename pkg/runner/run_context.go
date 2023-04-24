@@ -87,6 +87,24 @@ func (rc *RunContext) jobContainerName() string {
 	return createContainerName("act", rc.String())
 }
 
+func getDockerDaemonSockatMountPath(daemonPath string) string {
+	if protoIndex := strings.Index(daemonPath, "://"); protoIndex != -1 {
+		scheme := daemonPath[:protoIndex]
+		if strings.EqualFold(scheme, "npipe") {
+			// linux container mount on windows, use the default socket path of the VM / wsl2
+			return "/var/run/docker.sock"
+		} else if strings.EqualFold(scheme, "unix") {
+			return daemonPath[protoIndex+3:]
+		} else if strings.IndexFunc(scheme, func(r rune) bool {
+			return (r < 'a' || r > 'z') && (r < 'A' || r > 'Z')
+		}) == -1 {
+			// unknown protocol use default
+			return "/var/run/docker.sock"
+		}
+	}
+	return daemonPath
+}
+
 // Returns the binds and mounts for the container, resolving paths as appopriate
 func (rc *RunContext) GetBindsAndMounts() ([]string, map[string]string) {
 	name := rc.jobContainerName()
@@ -97,23 +115,7 @@ func (rc *RunContext) GetBindsAndMounts() ([]string, map[string]string) {
 
 	binds := []string{}
 	if rc.Config.ContainerDaemonSocket != "-" {
-		daemonPath := rc.Config.ContainerDaemonSocket
-
-		if protoIndex := strings.Index(daemonPath, "://"); protoIndex != -1 {
-			scheme := daemonPath[:protoIndex]
-			if strings.EqualFold(scheme, "npipe") {
-				// linux container mount on windows, use the default socket path of the VM / wsl2
-				daemonPath = daemonPath[protoIndex+3:]
-				daemonPath = "/var/run/docker.sock"
-			} else if strings.EqualFold(scheme, "unix") {
-				daemonPath = daemonPath[protoIndex+3:]
-			} else if strings.IndexFunc(scheme, func(r rune) bool {
-				return (r < 'a' || r > 'z') && (r < 'A' || r > 'Z')
-			}) == -1 {
-				// unknown protocol use default
-				daemonPath = "/var/run/docker.sock"
-			}
-		}
+		daemonPath := getDockerDaemonSockatMountPath(rc.Config.ContainerDaemonSocket)
 		binds = append(binds, fmt.Sprintf("%s:%s", daemonPath, "/var/run/docker.sock"))
 	}
 
