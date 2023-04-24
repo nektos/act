@@ -39,6 +39,10 @@
 | [`catthehacker/ubuntu:full-latest`][ghcr/catthehacker/ubuntu] | [`catthehacker/virtual-environments-fork`][gh/catthehacker/virtual-environments-fork] |
 | [`catthehacker/ubuntu:full-20.04`][ghcr/catthehacker/ubuntu]  | [`catthehacker/virtual-environments-fork`][gh/catthehacker/virtual-environments-fork] |
 | [`catthehacker/ubuntu:full-18.04`][ghcr/catthehacker/ubuntu]  | [`catthehacker/virtual-environments-fork`][gh/catthehacker/virtual-environments-fork] |
+| [`fwilhe2/act-runner:latest`][hub/fwilhe2/act-runner]         | [`fwilhe2/act-runner-image`][gh/fwilhe2/act-runner-image]                             |
+| [`fwilhe2/act-runner:latest-jvm`][hub/fwilhe2/act-runner]     | [`fwilhe2/act-runner-image`][gh/fwilhe2/act-runner-image]                             |
+| [`fwilhe2/act-runner:latest-rust`][hub/fwilhe2/act-runner]    | [`fwilhe2/act-runner-image`][gh/fwilhe2/act-runner-image]                             |
+| [`fwilhe2/act-runner:latest-gcc`][hub/fwilhe2/act-runner]     | [`fwilhe2/act-runner-image`][gh/fwilhe2/act-runner-image]                             |
 
 Feel free to make a pull request with your image added here
 
@@ -53,6 +57,7 @@ Feel free to make a pull request with your image added here
 [hub/nektos/act-environments-ubuntu/18.04/size]: https://img.shields.io/docker/image-size/nektos/act-environments-ubuntu/18.04
 [hub/nektos/act-environments-ubuntu/18.04-lite/size]: https://img.shields.io/docker/image-size/nektos/act-environments-ubuntu/18.04-lite
 [hub/nektos/act-environments-ubuntu/18.04-full/size]: https://img.shields.io/docker/image-size/nektos/act-environments-ubuntu/18.04-full
+[hub/fwilhe2/act-runner]: https://hub.docker.com/repository/docker/fwilhe2/act-runner
 
 <!--
 [hub/<username>/<image>]: https://hub.docker.com/r/[username]/[image]
@@ -65,3 +70,4 @@ Feel free to make a pull request with your image added here
 [gh/actions/virtual-environments]: https://github.com/actions/virtual-environments
 [gh/catthehacker/docker_images]: https://github.com/catthehacker/docker_images
 [gh/catthehacker/virtual-environments-fork]: https://github.com/catthehacker/virtual-environments-fork
+[gh/fwilhe2/act-runner-image]: https://github.com/fwilhe2/act-runner-image
