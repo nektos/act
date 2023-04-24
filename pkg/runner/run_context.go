@@ -96,7 +96,7 @@ func (rc *RunContext) GetBindsAndMounts() ([]string, map[string]string) {
 	}
 
 	binds := []string{
-		fmt.Sprintf("%s:%s", rc.Config.ContainerDaemonSocket, "/var/run/docker.sock"),
+		fmt.Sprintf("%s:%s", strings.TrimPrefix(strings.TrimPrefix(rc.Config.ContainerDaemonSocket, "unix://"), "npipe://"), "/var/run/docker.sock"),
 	}
 
 	ext := container.LinuxContainerEnvironmentExtensions{}
