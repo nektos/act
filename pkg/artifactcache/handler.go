@@ -1,7 +1,6 @@
 package artifactcache
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -124,11 +123,11 @@ func (h *Handler) ExternalURL() string {
 }
 
 // GET /_apis/artifactcache/cache
-func (h *Handler) find(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+func (h *Handler) find(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	keys := strings.Split(r.URL.Query().Get("keys"), ",")
 	version := r.URL.Query().Get("version")
 
-	cache, err := h.findCache(r.Context(), keys, version)
+	cache, err := h.findCache(keys, version)
 	if err != nil {
 		h.responseJson(w, r, 500, err)
 		return
@@ -154,7 +153,7 @@ func (h *Handler) find(w http.ResponseWriter, r *http.Request, params httprouter
 }
 
 // POST /_apis/artifactcache/caches
-func (h *Handler) reserve(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+func (h *Handler) reserve(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	api := &Request{}
 	if err := json.NewDecoder(r.Body).Decode(api); err != nil {
 		h.responseJson(w, r, 400, err)
@@ -269,7 +268,7 @@ func (h *Handler) get(w http.ResponseWriter, r *http.Request, params httprouter.
 }
 
 // POST /_apis/artifactcache/clean
-func (h *Handler) clean(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+func (h *Handler) clean(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	// TODO: don't support force deleting cache entries
 	// see: https://docs.github.com/en/actions/using-workflows/caching-dependencies-to-speed-up-workflows#force-deleting-cache-entries
 
@@ -285,7 +284,7 @@ func (h *Handler) middleware(handler httprouter.Handle) httprouter.Handle {
 }
 
 // if not found, return (nil, nil) instead of an error.
-func (h *Handler) findCache(ctx context.Context, keys []string, version string) (*Cache, error) {
+func (h *Handler) findCache(keys []string, version string) (*Cache, error) {
 	if len(keys) == 0 {
 		return nil, nil
 	}
