@@ -3,7 +3,10 @@ package artifactcache
 import (
 	"context"
 	"encoding/json"
+	"encoding/xml"
+	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -14,23 +17,23 @@ import (
 	"time"
 
 	"github.com/julienschmidt/httprouter"
-	log "github.com/sirupsen/logrus"
-	_ "modernc.org/sqlite"
-	"xorm.io/builder"
-	"xorm.io/xorm"
+	"github.com/sirupsen/logrus"
+	"github.com/timshannon/bolthold"
+	"go.etcd.io/bbolt"
+
+	"github.com/nektos/act/pkg/common"
 )
 
 const (
 	urlBase = "/_apis/artifactcache"
 )
 
-var logger = log.StandardLogger().WithField("module", "cache_request")
-
 type Handler struct {
-	engine   engine
+	db       *bolthold.Store
 	storage  *Storage
 	router   *httprouter.Router
 	listener net.Listener
+	logger   logrus.FieldLogger
 
 	gc   atomic.Bool
 	gcAt time.Time
@@ -38,7 +41,14 @@ type Handler struct {
 	outboundIP string
 }
 
-func StartHandler(dir, outboundIP string, port uint16) (*Handler, error) {
+func StartHandler(dir, outboundIP string, port uint16, logger logrus.FieldLogger) (*Handler, error) {
+	if logger == nil {
+		discard := logrus.New()
+		discard.Out = io.Discard
+		logger = discard
+	}
+	logger = logger.WithField("module", "artifactcache")
+
 	h := &Handler{}
 
 	if dir == "" {
@@ -52,14 +62,20 @@ func StartHandler(dir, outboundIP string, port uint16) (*Handler, error) {
 		return nil, err
 	}
 
-	e, err := xorm.NewEngine("sqlite", filepath.Join(dir, "sqlite.db"))
-	if err != nil {
+	if db, err := bolthold.Open(filepath.Join(dir, "bolt.db"), 0o755, &bolthold.Options{
+		// TODO: debug coder
+		Encoder: xml.Marshal,
+		Decoder: xml.Unmarshal,
+		Options: &bbolt.Options{
+			Timeout:      5 * time.Second,
+			NoGrowSync:   bbolt.DefaultOptions.NoGrowSync,
+			FreelistType: bbolt.DefaultOptions.FreelistType,
+		},
+	}); err != nil {
 		return nil, err
+	} else {
+		h.db = db
 	}
-	if err := e.Sync(&Cache{}); err != nil {
-		return nil, err
-	}
-	h.engine = engine{e: e}
 
 	storage, err := NewStorage(filepath.Join(dir, "cache"))
 	if err != nil {
@@ -69,21 +85,13 @@ func StartHandler(dir, outboundIP string, port uint16) (*Handler, error) {
 
 	if outboundIP != "" {
 		h.outboundIP = outboundIP
-	} else if ip, err := getOutboundIP(); err != nil {
-		return nil, err
+	} else if ip := common.GetOutboundIP(); ip == nil {
+		return nil, fmt.Errorf("unable to determine outbound IP address")
 	} else {
 		h.outboundIP = ip.String()
 	}
 
 	router := httprouter.New()
-	//router.Use(middleware.RequestLogger(&middleware.DefaultLogFormatter{Logger: logger}))
-	//router.Use(func(handler http.Handler) http.Handler {
-	//	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-	//		handler.ServeHTTP(w, r)
-	//		go h.gcCache()
-	//	})
-	//})
-	//router.Use(middleware.Logger)
 	router.GET(urlBase+"/cache", h.middleware(h.find))
 	router.POST(urlBase+"/caches", h.middleware(h.reserve))
 	router.PATCH(urlBase+"/caches/:id", h.middleware(h.upload))
@@ -123,26 +131,23 @@ func (h *Handler) find(w http.ResponseWriter, r *http.Request, params httprouter
 
 	cache, err := h.findCache(r.Context(), keys, version)
 	if err != nil {
-		responseJson(w, r, 500, err)
+		h.responseJson(w, r, 500, err)
 		return
 	}
 	if cache == nil {
-		responseJson(w, r, 204)
+		h.responseJson(w, r, 204)
 		return
 	}
 
 	if ok, err := h.storage.Exist(cache.ID); err != nil {
-		responseJson(w, r, 500, err)
+		h.responseJson(w, r, 500, err)
 		return
 	} else if !ok {
-		_ = h.engine.Exec(func(sess *xorm.Session) error {
-			_, err := sess.Delete(cache)
-			return err
-		})
-		responseJson(w, r, 204)
+		_ = h.db.Delete(cache.ID, cache)
+		h.responseJson(w, r, 204)
 		return
 	}
-	responseJson(w, r, 200, map[string]any{
+	h.responseJson(w, r, 200, map[string]any{
 		"result":          "hit",
 		"archiveLocation": fmt.Sprintf("%s%s/artifacts/%d", h.ExternalURL(), urlBase, cache.ID),
 		"cacheKey":        cache.Key,
@@ -153,28 +158,28 @@ func (h *Handler) find(w http.ResponseWriter, r *http.Request, params httprouter
 func (h *Handler) reserve(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	cache := &Cache{}
 	if err := json.NewDecoder(r.Body).Decode(cache); err != nil {
-		responseJson(w, r, 400, err)
+		h.responseJson(w, r, 400, err)
 		return
 	}
 
-	if ok, err := h.engine.ExecBool(func(sess *xorm.Session) (bool, error) {
-		return sess.Where(builder.Eq{"key": cache.Key, "version": cache.Version}).Get(&Cache{})
-	}); err != nil {
-		responseJson(w, r, 500, err)
-		return
-	} else if ok {
-		responseJson(w, r, 400, fmt.Errorf("already exist"))
+	cache.FillKeyVersionHash()
+	if err := h.db.FindOne(cache, bolthold.Where("KeyVersionHash").Eq(cache.KeyVersionHash)); err != nil {
+		if errors.Is(err, bolthold.ErrNotFound) {
+			h.responseJson(w, r, 400, fmt.Errorf("already exist"))
+			return
+		}
+		h.responseJson(w, r, 500, err)
 		return
 	}
 
-	if err := h.engine.Exec(func(sess *xorm.Session) error {
-		_, err := sess.Insert(cache)
-		return err
-	}); err != nil {
-		responseJson(w, r, 500, err)
+	now := time.Now().Unix()
+	cache.CreatedAt = now
+	cache.UsedAt = now
+	if err := h.db.Insert(bolthold.NextSequence(), cache); err != nil {
+		h.responseJson(w, r, 500, err)
 		return
 	}
-	responseJson(w, r, 200, map[string]any{
+	h.responseJson(w, r, 200, map[string]any{
 		"cacheId": cache.ID,
 	})
 	return
@@ -184,91 +189,81 @@ func (h *Handler) reserve(w http.ResponseWriter, r *http.Request, params httprou
 func (h *Handler) upload(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	id, err := strconv.ParseInt(params.ByName("id"), 10, 64)
 	if err != nil {
-		responseJson(w, r, 400, err)
+		h.responseJson(w, r, 400, err)
 		return
 	}
 
-	cache := &Cache{
-		ID: id,
-	}
-
-	if ok, err := h.engine.ExecBool(func(sess *xorm.Session) (bool, error) {
-		return sess.Get(cache)
-	}); err != nil {
-		responseJson(w, r, 500, err)
-		return
-	} else if !ok {
-		responseJson(w, r, 400, fmt.Errorf("cache %d: not reserved", id))
+	cache := &Cache{}
+	if err := h.db.Get(id, cache); err != nil {
+		if errors.Is(err, bolthold.ErrNotFound) {
+			h.responseJson(w, r, 400, fmt.Errorf("cache %d: not reserved", id))
+			return
+		}
+		h.responseJson(w, r, 500, err)
 		return
 	}
 
 	if cache.Complete {
-		responseJson(w, r, 400, fmt.Errorf("cache %v %q: already complete", cache.ID, cache.Key))
+		h.responseJson(w, r, 400, fmt.Errorf("cache %v %q: already complete", cache.ID, cache.Key))
 		return
 	}
 	start, _, err := parseContentRange(r.Header.Get("Content-Range"))
 	if err != nil {
-		responseJson(w, r, 400, err)
+		h.responseJson(w, r, 400, err)
 		return
 	}
 	if err := h.storage.Write(cache.ID, start, r.Body); err != nil {
-		responseJson(w, r, 500, err)
+		h.responseJson(w, r, 500, err)
 	}
-	h.useCache(r.Context(), id)
-	responseJson(w, r, 200)
+	h.useCache(id)
+	h.responseJson(w, r, 200)
 }
 
 // POST /_apis/artifactcache/caches/:id
 func (h *Handler) commit(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	id, err := strconv.ParseInt(params.ByName("id"), 10, 64)
 	if err != nil {
-		responseJson(w, r, 400, err)
+		h.responseJson(w, r, 400, err)
 		return
 	}
 
-	cache := &Cache{
-		ID: id,
-	}
-	if ok, err := h.engine.ExecBool(func(sess *xorm.Session) (bool, error) {
-		return sess.Get(cache)
-	}); err != nil {
-		responseJson(w, r, 500, err)
-		return
-	} else if !ok {
-		responseJson(w, r, 400, fmt.Errorf("cache %d: not reserved", id))
+	cache := &Cache{}
+	if err := h.db.Get(id, cache); err != nil {
+		if errors.Is(err, bolthold.ErrNotFound) {
+			h.responseJson(w, r, 400, fmt.Errorf("cache %d: not reserved", id))
+			return
+		}
+		h.responseJson(w, r, 500, err)
 		return
 	}
 
 	if cache.Complete {
-		responseJson(w, r, 400, fmt.Errorf("cache %v %q: already complete", cache.ID, cache.Key))
+		h.responseJson(w, r, 400, fmt.Errorf("cache %v %q: already complete", cache.ID, cache.Key))
 		return
 	}
 
 	if err := h.storage.Commit(cache.ID, cache.Size); err != nil {
-		responseJson(w, r, 500, err)
+		h.responseJson(w, r, 500, err)
 		return
 	}
 
 	cache.Complete = true
-	if err := h.engine.Exec(func(sess *xorm.Session) error {
-		_, err := sess.ID(cache.ID).Cols("complete").Update(cache)
-		return err
-	}); err != nil {
-		responseJson(w, r, 500, err)
+	if err := h.db.Update(cache.ID, cache); err != nil {
+		h.responseJson(w, r, 500, err)
 		return
 	}
 
-	responseJson(w, r, 200)
+	h.responseJson(w, r, 200)
 }
 
 // GET /_apis/artifactcache/artifacts/:id
 func (h *Handler) get(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	id, err := strconv.ParseInt(params.ByName("id"), 10, 64)
 	if err != nil {
-		responseJson(w, r, 400, err)
+		h.responseJson(w, r, 400, err)
 		return
 	}
-	h.useCache(r.Context(), id)
+	h.useCache(id)
 	h.storage.Serve(w, r, id)
 }
 
@@ -277,12 +272,12 @@ func (h *Handler) clean(w http.ResponseWriter, r *http.Request, params httproute
 	// TODO: don't support force deleting cache entries
 	// see: https://docs.github.com/en/actions/using-workflows/caching-dependencies-to-speed-up-workflows#force-deleting-cache-entries
 
-	responseJson(w, r, 200)
+	h.responseJson(w, r, 200)
 }
 
 func (h *Handler) middleware(handler httprouter.Handle) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-		// TODO log
+		h.logger.Printf("%s %s", r.Method, r.RequestURI)
 		handler(w, r, params)
 		go h.gcCache()
 	}
@@ -295,39 +290,52 @@ func (h *Handler) findCache(ctx context.Context, keys []string, version string) 
 	}
 	key := keys[0] // the first key is for exact match.
 
-	cache := &Cache{}
-	if ok, err := h.engine.ExecBool(func(sess *xorm.Session) (bool, error) {
-		return sess.Context(ctx).Where(builder.Eq{"key": key, "version": version, "complete": true}).Get(cache)
-	}); err != nil {
-		return nil, err
-	} else if ok {
+	cache := &Cache{
+		Key:     key,
+		Version: version,
+	}
+	cache.FillKeyVersionHash()
+
+	if err := h.db.FindOne(cache, bolthold.Where("KeyVersionHash").Eq(cache.KeyVersionHash)); err != nil {
+		if !errors.Is(err, bolthold.ErrNotFound) {
+			return nil, err
+		}
+	} else if cache.Complete {
 		return cache, nil
 	}
+	stop := fmt.Errorf("stop")
 
 	for _, prefix := range keys[1:] {
-		if ok, err := h.engine.ExecBool(func(sess *xorm.Session) (bool, error) {
-			return sess.Context(ctx).Where(builder.And(
-				builder.Like{"key", prefix + "%"},
-				builder.Eq{"version": version, "complete": true},
-			)).OrderBy("id DESC").Get(cache)
+		found := false
+		if err := h.db.ForEach(bolthold.Where("Key").Ge(prefix).And("Version").Eq(version), func(v *Cache) error {
+			if !strings.HasPrefix(v.Key, prefix) {
+				return stop
+			}
+			if v.Complete {
+				cache = v
+				found = true
+				return stop
+			}
+			return nil
 		}); err != nil {
-			return nil, err
-		} else if ok {
+			if !errors.Is(err, stop) {
+				return nil, err
+			}
+		}
+		if found {
 			return cache, nil
 		}
 	}
 	return nil, nil
 }
 
-func (h *Handler) useCache(ctx context.Context, id int64) {
-	// keep quiet
-	_ = h.engine.Exec(func(sess *xorm.Session) error {
-		_, err := sess.Context(ctx).Cols("used_at").Update(&Cache{
-			ID:     id,
-			UsedAt: time.Now().Unix(),
-		})
-		return err
-	})
+func (h *Handler) useCache(id int64) {
+	cache := &Cache{}
+	if err := h.db.Get(id, cache); err != nil {
+		return
+	}
+	cache.UsedAt = time.Now().Unix()
+	_ = h.db.Update(cache.ID, cache)
 }
 
 func (h *Handler) gcCache() {
@@ -340,11 +348,11 @@ func (h *Handler) gcCache() {
 	defer h.gc.Store(false)
 
 	if time.Since(h.gcAt) < time.Hour {
-		logger.Infof("skip gc: %v", h.gcAt.String())
+		h.logger.Infof("skip gc: %v", h.gcAt.String())
 		return
 	}
 	h.gcAt = time.Now()
-	logger.Infof("gc: %v", h.gcAt.String())
+	h.logger.Infof("gc: %v", h.gcAt.String())
 
 	const (
 		keepUsed   = 30 * 24 * time.Hour
@@ -353,62 +361,64 @@ func (h *Handler) gcCache() {
 	)
 
 	var caches []*Cache
-	if err := h.engine.Exec(func(sess *xorm.Session) error {
-		return sess.Where(builder.And(builder.Lt{"used_at": time.Now().Add(-keepTemp).Unix()}, builder.Eq{"complete": false})).
-			Find(&caches)
-	}); err != nil {
-		logger.Warnf("find caches: %v", err)
+	if err := h.db.Find(&caches, bolthold.Where("UsedAt").Lt(time.Now().Add(-keepTemp).Unix())); err != nil {
+		h.logger.Warnf("find caches: %v", err)
 	} else {
 		for _, cache := range caches {
-			h.storage.Remove(cache.ID)
-			if err := h.engine.Exec(func(sess *xorm.Session) error {
-				_, err := sess.Delete(cache)
-				return err
-			}); err != nil {
-				logger.Warnf("delete cache: %v", err)
+			if cache.Complete {
 				continue
 			}
-			logger.Infof("deleted cache: %+v", cache)
+			h.storage.Remove(cache.ID)
+			if err := h.db.Delete(cache.ID, cache); err != nil {
+				h.logger.Warnf("delete cache: %v", err)
+				continue
+			}
+			h.logger.Infof("deleted cache: %+v", cache)
 		}
 	}
 
 	caches = caches[:0]
-	if err := h.engine.Exec(func(sess *xorm.Session) error {
-		return sess.Where(builder.Lt{"used_at": time.Now().Add(-keepUnused).Unix()}).
-			Find(&caches)
-	}); err != nil {
-		logger.Warnf("find caches: %v", err)
+	if err := h.db.Find(&caches, bolthold.Where("UsedAt").Lt(time.Now().Add(-keepUnused).Unix())); err != nil {
+		h.logger.Warnf("find caches: %v", err)
 	} else {
 		for _, cache := range caches {
 			h.storage.Remove(cache.ID)
-			if err := h.engine.Exec(func(sess *xorm.Session) error {
-				_, err := sess.Delete(cache)
-				return err
-			}); err != nil {
-				logger.Warnf("delete cache: %v", err)
+			if err := h.db.Delete(cache.ID, cache); err != nil {
+				h.logger.Warnf("delete cache: %v", err)
 				continue
 			}
-			logger.Infof("deleted cache: %+v", cache)
+			h.logger.Infof("deleted cache: %+v", cache)
 		}
 	}
 
 	caches = caches[:0]
-	if err := h.engine.Exec(func(sess *xorm.Session) error {
-		return sess.Where(builder.Lt{"created_at": time.Now().Add(-keepUsed).Unix()}).
-			Find(&caches)
-	}); err != nil {
-		logger.Warnf("find caches: %v", err)
+	if err := h.db.Find(&caches, bolthold.Where("CreatedAt").Lt(time.Now().Add(-keepUsed).Unix())); err != nil {
+		h.logger.Warnf("find caches: %v", err)
 	} else {
 		for _, cache := range caches {
 			h.storage.Remove(cache.ID)
-			if err := h.engine.Exec(func(sess *xorm.Session) error {
-				_, err := sess.Delete(cache)
-				return err
-			}); err != nil {
-				logger.Warnf("delete cache: %v", err)
+			if err := h.db.Delete(cache.ID, cache); err != nil {
+				h.logger.Warnf("delete cache: %v", err)
 				continue
 			}
-			logger.Infof("deleted cache: %+v", cache)
+			h.logger.Infof("deleted cache: %+v", cache)
 		}
 	}
+}
+
+func (h *Handler) responseJson(w http.ResponseWriter, r *http.Request, code int, v ...any) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	var data []byte
+	if len(v) == 0 || v[0] == nil {
+		data, _ = json.Marshal(struct{}{})
+	} else if err, ok := v[0].(error); ok {
+		h.logger.Errorf("%v %v: %v", r.Method, r.RequestURI, err)
+		data, _ = json.Marshal(map[string]any{
+			"error": err.Error(),
+		})
+	} else {
+		data, _ = json.Marshal(v[0])
+	}
+	w.WriteHeader(code)
+	_, _ = w.Write(data)
 }
