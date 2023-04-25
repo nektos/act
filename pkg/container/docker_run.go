@@ -189,9 +189,6 @@ type containerReference struct {
 }
 
 func GetDockerClient(ctx context.Context) (cli client.APIClient, err error) {
-	// TODO: this should maybe need to be a global option, not hidden in here?
-	//       though i'm not sure how that works out when there's another Executor :D
-	//		 I really would like something that works on OSX native for eg
 	dockerHost := os.Getenv("DOCKER_HOST")
 
 	if strings.HasPrefix(dockerHost, "ssh://") {
@@ -346,6 +343,12 @@ func (cr *containerReference) mergeContainerConfigs(ctx context.Context, config 
 	err = flags.Parse(optionsArgs)
 	if err != nil {
 		return nil, nil, fmt.Errorf("Cannot parse container options: '%s': '%w'", input.Options, err)
+	}
+
+	if len(copts.netMode.Value()) == 0 {
+		if err = copts.netMode.Set("host"); err != nil {
+			return nil, nil, fmt.Errorf("Cannot parse networkmode=host. This is an internal error and should not happen: '%w'", err)
+		}
 	}
 
 	containerConfig, err := parse(flags, copts, "")

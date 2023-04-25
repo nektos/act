@@ -18,7 +18,6 @@ import (
 	"strings"
 
 	"github.com/opencontainers/selinux/go-selinux"
-	log "github.com/sirupsen/logrus"
 
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/container"
@@ -299,6 +298,15 @@ func (rc *RunContext) execJobContainer(cmd []string, env map[string]string, user
 func (rc *RunContext) ApplyExtraPath(ctx context.Context, env *map[string]string) {
 	if rc.ExtraPath != nil && len(rc.ExtraPath) > 0 {
 		path := rc.JobContainer.GetPathVariableName()
+		if rc.JobContainer.IsEnvironmentCaseInsensitive() {
+			// On windows system Path and PATH could also be in the map
+			for k := range *env {
+				if strings.EqualFold(path, k) {
+					path = k
+					break
+				}
+			}
+		}
 		if (*env)[path] == "" {
 			cenv := map[string]string{}
 			var cpath string
@@ -361,7 +369,8 @@ func (rc *RunContext) ActionCacheDir() string {
 		if home, err := os.UserHomeDir(); err == nil {
 			xdgCache = filepath.Join(home, ".cache")
 		} else if xdgCache, err = filepath.Abs("."); err != nil {
-			log.Fatal(err)
+			// It's almost impossible to get here, so the temp dir is a good fallback
+			xdgCache = os.TempDir()
 		}
 	}
 	return filepath.Join(xdgCache, "act")

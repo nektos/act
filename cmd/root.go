@@ -18,6 +18,7 @@ import (
 	gitignore "github.com/sabhiram/go-gitignore"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 
 	"github.com/nektos/act/pkg/artifactcache"
 	"github.com/nektos/act/pkg/artifacts"
@@ -80,7 +81,7 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.PersistentFlags().StringVarP(&input.envfile, "env-file", "", ".env", "environment file to read and use as env in the containers")
 	rootCmd.PersistentFlags().StringVarP(&input.inputfile, "input-file", "", ".input", "input file to read and use as action input")
 	rootCmd.PersistentFlags().StringVarP(&input.containerArchitecture, "container-architecture", "", "", "Architecture which should be used to run containers, e.g.: linux/amd64. If not specified, will use host default architecture. Requires Docker server API Version 1.41+. Ignored on earlier Docker server platforms.")
-	rootCmd.PersistentFlags().StringVarP(&input.containerDaemonSocket, "container-daemon-socket", "", "/var/run/docker.sock", "Path to Docker daemon socket which will be mounted to containers")
+	rootCmd.PersistentFlags().StringVarP(&input.containerDaemonSocket, "container-daemon-socket", "", "", "URI to Docker Engine socket (e.g.: unix://~/.docker/run/docker.sock)")
 	rootCmd.PersistentFlags().StringVarP(&input.containerOptions, "container-options", "", "", "Custom docker container options for the job container without an options property in the job definition")
 	rootCmd.PersistentFlags().StringVarP(&input.githubInstance, "github-instance", "", "github.com", "GitHub instance to use. Don't use this if you are not using GitHub Enterprise Server.")
 	rootCmd.PersistentFlags().StringVarP(&input.artifactServerPath, "artifact-server-path", "", "", "Defines the path where the artifact server stores uploads and retrieves downloads from. If not specified the artifact server will not start.")
@@ -118,6 +119,33 @@ func configLocations() []string {
 	}
 }
 
+var commonSocketPaths = []string{
+	"/var/run/docker.sock",
+	"/var/run/podman/podman.sock",
+	"$HOME/.colima/docker.sock",
+	"$XDG_RUNTIME_DIR/docker.sock",
+	`\\.\pipe\docker_engine`,
+	"$HOME/.docker/run/docker.sock",
+}
+
+// returns socket path or false if not found any
+func socketLocation() (string, bool) {
+	if dockerHost, exists := os.LookupEnv("DOCKER_HOST"); exists {
+		return dockerHost, true
+	}
+
+	for _, p := range commonSocketPaths {
+		if _, err := os.Lstat(os.ExpandEnv(p)); err == nil {
+			if strings.HasPrefix(p, `\\.\`) {
+				return "npipe://" + os.ExpandEnv(p), true
+			}
+			return "unix://" + os.ExpandEnv(p), true
+		}
+	}
+
+	return "", false
+}
+
 func args() []string {
 	actrc := configLocations()
 
@@ -131,15 +159,6 @@ func args() []string {
 }
 
 func bugReport(ctx context.Context, version string) error {
-	var commonSocketPaths = []string{
-		"/var/run/docker.sock",
-		"/var/run/podman/podman.sock",
-		"$HOME/.colima/docker.sock",
-		"$XDG_RUNTIME_DIR/docker.sock",
-		`\\.\pipe\docker_engine`,
-		"$HOME/.docker/run/docker.sock",
-	}
-
 	sprintf := func(key, val string) string {
 		return fmt.Sprintf("%-24s%s\n", key, val)
 	}
@@ -150,19 +169,20 @@ func bugReport(ctx context.Context, version string) error {
 	report += sprintf("NumCPU:", fmt.Sprint(runtime.NumCPU()))
 
 	var dockerHost string
-	if dockerHost = os.Getenv("DOCKER_HOST"); dockerHost == "" {
-		dockerHost = "DOCKER_HOST environment variable is unset/empty."
+	var exists bool
+	if dockerHost, exists = os.LookupEnv("DOCKER_HOST"); !exists {
+		dockerHost = "DOCKER_HOST environment variable is not set"
+	} else if dockerHost == "" {
+		dockerHost = "DOCKER_HOST environment variable is empty."
 	}
 
 	report += sprintf("Docker host:", dockerHost)
 	report += fmt.Sprintln("Sockets found:")
 	for _, p := range commonSocketPaths {
-		if strings.HasPrefix(p, `$`) {
-			v := strings.Split(p, `/`)[0]
-			p = strings.Replace(p, v, os.Getenv(strings.TrimPrefix(v, `$`)), 1)
-		}
-		if _, err := os.Stat(p); err != nil {
+		if _, err := os.Lstat(os.ExpandEnv(p)); err != nil {
 			continue
+		} else if _, err := os.Stat(os.ExpandEnv(p)); err != nil {
+			report += fmt.Sprintf("\t%s(broken)\n", p)
 		} else {
 			report += fmt.Sprintf("\t%s\n", p)
 		}
@@ -282,9 +302,26 @@ func parseEnvs(env []string, envs map[string]string) bool {
 	return false
 }
 
+func readYamlFile(file string) (map[string]string, error) {
+	content, err := os.ReadFile(file)
+	if err != nil {
+		return nil, err
+	}
+	ret := map[string]string{}
+	if err = yaml.Unmarshal(content, &ret); err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
+
 func readEnvs(path string, envs map[string]string) bool {
 	if _, err := os.Stat(path); err == nil {
-		env, err := godotenv.Read(path)
+		var env map[string]string
+		if ext := filepath.Ext(path); ext == ".yml" || ext == ".yaml" {
+			env, err = readYamlFile(path)
+		} else {
+			env, err = godotenv.Read(path)
+		}
 		if err != nil {
 			log.Fatalf("Error loading from %s: %v", path, err)
 		}
@@ -325,13 +362,26 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			return bugReport(ctx, cmd.Version)
 		}
 
+		var socketPath string
+		if input.containerDaemonSocket != "" {
+			socketPath = input.containerDaemonSocket
+		} else {
+			socket, found := socketLocation()
+			if !found && input.containerDaemonSocket == "" {
+				log.Errorln("daemon Docker Engine socket not found and containerDaemonSocket option was not set")
+			} else {
+				socketPath = socket
+			}
+		}
+		os.Setenv("DOCKER_HOST", socketPath)
+
 		if runtime.GOOS == "darwin" && runtime.GOARCH == "arm64" && input.containerArchitecture == "" {
 			l := log.New()
 			l.SetFormatter(&log.TextFormatter{
 				DisableQuote:     true,
 				DisableTimestamp: true,
 			})
-			l.Warnf(" \U000026A0 You are using Apple M1 chip and you have not specified container architecture, you might encounter issues while running act. If so, try running it with '--container-architecture linux/amd64'. \U000026A0 \n")
+			l.Warnf(" \U000026A0 You are using Apple M-series chip and you have not specified container architecture, you might encounter issues while running act. If so, try running it with '--container-architecture linux/amd64'. \U000026A0 \n")
 		}
 
 		log.Debugf("Loading environment from %s", input.Envfile())
@@ -516,7 +566,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			Privileged:                         input.privileged,
 			UsernsMode:                         input.usernsMode,
 			ContainerArchitecture:              input.containerArchitecture,
-			ContainerDaemonSocket:              input.containerDaemonSocket,
+			ContainerDaemonSocket:              socketPath,
 			ContainerOptions:                   input.containerOptions,
 			UseGitIgnore:                       input.useGitIgnore,
 			GitHubInstance:                     input.githubInstance,
@@ -618,45 +668,47 @@ func defaultImageSurvey(actrc string) error {
 }
 
 func watchAndRun(ctx context.Context, fn common.Executor) error {
-	recurse := true
-	checkIntervalInSeconds := 2
 	dir, err := os.Getwd()
 	if err != nil {
 		return err
 	}
 
-	var ignore *gitignore.GitIgnore
-	if _, err := os.Stat(filepath.Join(dir, ".gitignore")); !os.IsNotExist(err) {
-		ignore, _ = gitignore.CompileIgnoreFile(filepath.Join(dir, ".gitignore"))
-	} else {
-		ignore = &gitignore.GitIgnore{}
+	ignoreFile := filepath.Join(dir, ".gitignore")
+	ignore := &gitignore.GitIgnore{}
+	if info, err := os.Stat(ignoreFile); err == nil && !info.IsDir() {
+		ignore, err = gitignore.CompileIgnoreFile(ignoreFile)
+		if err != nil {
+			return fmt.Errorf("compile %q: %w", ignoreFile, err)
+		}
 	}
 
 	folderWatcher := fswatch.NewFolderWatcher(
 		dir,
-		recurse,
+		true,
 		ignore.MatchesPath,
-		checkIntervalInSeconds,
+		2, // 2 seconds
 	)
 
 	folderWatcher.Start()
+	defer folderWatcher.Stop()
 
-	go func() {
-		for folderWatcher.IsRunning() {
-			if err = fn(ctx); err != nil {
-				break
-			}
-			log.Debugf("Watching %s for changes", dir)
-			for changes := range folderWatcher.ChangeDetails() {
-				log.Debugf("%s", changes.String())
-				if err = fn(ctx); err != nil {
-					break
-				}
-				log.Debugf("Watching %s for changes", dir)
+	// run once before watching
+	if err := fn(ctx); err != nil {
+		return err
+	}
+
+	for folderWatcher.IsRunning() {
+		log.Debugf("Watching %s for changes", dir)
+		select {
+		case <-ctx.Done():
+			return nil
+		case changes := <-folderWatcher.ChangeDetails():
+			log.Debugf("%s", changes.String())
+			if err := fn(ctx); err != nil {
+				return err
 			}
 		}
-	}()
-	<-ctx.Done()
-	folderWatcher.Stop()
-	return err
+	}
+
+	return nil
 }

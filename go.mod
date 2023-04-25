@@ -8,9 +8,9 @@ require (
 	github.com/adrg/xdg v0.4.0
 	github.com/andreaskoch/go-fswatch v1.0.0
 	github.com/creack/pty v1.1.18
-	github.com/docker/cli v23.0.3+incompatible
+	github.com/docker/cli v23.0.4+incompatible
 	github.com/docker/distribution v2.8.1+incompatible
-	github.com/docker/docker v23.0.3+incompatible
+	github.com/docker/docker v23.0.4+incompatible
 	github.com/docker/go-connections v0.4.0
 	github.com/go-git/go-billy/v5 v5.4.1
 	github.com/go-git/go-git/v5 v5.6.2-0.20230411180853-ce62f3e9ff86
@@ -20,9 +20,9 @@ require (
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/mattn/go-isatty v0.0.18
-	github.com/moby/buildkit v0.11.5
+	github.com/moby/buildkit v0.11.6
 	github.com/moby/patternmatcher v0.5.0
-	github.com/opencontainers/image-spec v1.1.0-rc2
+	github.com/opencontainers/image-spec v1.1.0-rc2.0.20221005185240-3a7f492d3f1b
 	github.com/opencontainers/selinux v1.11.0
 	github.com/pkg/errors v0.9.1
 	github.com/rhysd/actionlint v1.6.24
@@ -45,7 +45,7 @@ require (
 	github.com/ProtonMail/go-crypto v0.0.0-20230217124315-7d5c6f04bbb8 // indirect
 	github.com/acomagu/bufpipe v1.0.4 // indirect
 	github.com/cloudflare/circl v1.1.0 // indirect
-	github.com/containerd/containerd v1.6.18 // indirect
+	github.com/containerd/containerd v1.6.20 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/docker/docker-credential-helpers v0.7.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
