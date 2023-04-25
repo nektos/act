@@ -19,6 +19,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
+	"github.com/nektos/act/pkg/artifactcache"
 	"github.com/nektos/act/pkg/artifacts"
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/container"
@@ -537,6 +538,18 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 		}
 
 		cancel := artifacts.Serve(ctx, input.artifactServerPath, input.artifactServerAddr, input.artifactServerPort)
+
+		if home, err := os.UserHomeDir(); err != nil {
+			return err
+		} else {
+			dir := filepath.Join(home, ".cache", "actcache")
+			// TODO: provide a way to configure the cache handler via cli
+			cacheHandler, err := artifactcache.StartHandler(dir, "", 0, common.Logger(ctx))
+			if err != nil {
+				return err
+			}
+			envs["ACTIONS_CACHE_URL"] = cacheHandler.ExternalURL() + "/"
+		}
 
 		ctx = common.WithDryrun(ctx, input.dryrun)
 		if watch, err := cmd.Flags().GetBool("watch"); err != nil {

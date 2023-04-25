@@ -5,15 +5,32 @@ import (
 	"fmt"
 )
 
+type Request struct {
+	Key     string `json:"key" `
+	Version string `json:"version"`
+	Size    int64  `json:"cacheSize"`
+}
+
+func (c *Request) ToCache() *Cache {
+	if c == nil {
+		return nil
+	}
+	return &Cache{
+		Key:     c.Key,
+		Version: c.Version,
+		Size:    c.Size,
+	}
+}
+
 type Cache struct {
-	ID             int64  `json:"-" boltholdKey:"ID"`
+	ID             uint64 `json:"id" boltholdKey:"ID"`
 	Key            string `json:"key" boltholdIndex:"Key"`
 	Version        string `json:"version" boltholdIndex:"Version"`
-	KeyVersionHash string `json:"-" boltholdUnique:"KeyVersionHash"`
+	KeyVersionHash string `json:"keyVersionHash" boltholdUnique:"KeyVersionHash"`
 	Size           int64  `json:"cacheSize"`
-	Complete       bool   `json:"-"`
-	UsedAt         int64  `json:"-" boltholdIndex:"UsedAt"`
-	CreatedAt      int64  `json:"-" boltholdIndex:"CreatedAt"`
+	Complete       bool   `json:"complete"`
+	UsedAt         int64  `json:"usedAt" boltholdIndex:"UsedAt"`
+	CreatedAt      int64  `json:"createdAt" boltholdIndex:"CreatedAt"`
 }
 
 func (c *Cache) FillKeyVersionHash() {

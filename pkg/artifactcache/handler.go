@@ -3,7 +3,6 @@ package artifactcache
 import (
 	"context"
 	"encoding/json"
-	"encoding/xml"
 	"errors"
 	"fmt"
 	"io"
@@ -42,14 +41,15 @@ type Handler struct {
 }
 
 func StartHandler(dir, outboundIP string, port uint16, logger logrus.FieldLogger) (*Handler, error) {
+	h := &Handler{}
+
 	if logger == nil {
 		discard := logrus.New()
 		discard.Out = io.Discard
 		logger = discard
 	}
 	logger = logger.WithField("module", "artifactcache")
-
-	h := &Handler{}
+	h.logger = logger
 
 	if dir == "" {
 		if home, err := os.UserHomeDir(); err != nil {
@@ -62,10 +62,9 @@ func StartHandler(dir, outboundIP string, port uint16, logger logrus.FieldLogger
 		return nil, err
 	}
 
-	if db, err := bolthold.Open(filepath.Join(dir, "bolt.db"), 0o755, &bolthold.Options{
-		// TODO: debug coder
-		Encoder: xml.Marshal,
-		Decoder: xml.Unmarshal,
+	if db, err := bolthold.Open(filepath.Join(dir, "bolt.db"), 0o644, &bolthold.Options{
+		Encoder: json.Marshal,
+		Decoder: json.Unmarshal,
 		Options: &bbolt.Options{
 			Timeout:      5 * time.Second,
 			NoGrowSync:   bbolt.DefaultOptions.NoGrowSync,
@@ -156,19 +155,21 @@ func (h *Handler) find(w http.ResponseWriter, r *http.Request, params httprouter
 
 // POST /_apis/artifactcache/caches
 func (h *Handler) reserve(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	cache := &Cache{}
-	if err := json.NewDecoder(r.Body).Decode(cache); err != nil {
+	api := &Request{}
+	if err := json.NewDecoder(r.Body).Decode(api); err != nil {
 		h.responseJson(w, r, 400, err)
 		return
 	}
 
+	cache := api.ToCache()
 	cache.FillKeyVersionHash()
 	if err := h.db.FindOne(cache, bolthold.Where("KeyVersionHash").Eq(cache.KeyVersionHash)); err != nil {
-		if errors.Is(err, bolthold.ErrNotFound) {
-			h.responseJson(w, r, 400, fmt.Errorf("already exist"))
+		if !errors.Is(err, bolthold.ErrNotFound) {
+			h.responseJson(w, r, 500, err)
 			return
 		}
-		h.responseJson(w, r, 500, err)
+	} else {
+		h.responseJson(w, r, 400, fmt.Errorf("already exist"))
 		return
 	}
 
@@ -264,7 +265,7 @@ func (h *Handler) get(w http.ResponseWriter, r *http.Request, params httprouter.
 		return
 	}
 	h.useCache(id)
-	h.storage.Serve(w, r, id)
+	h.storage.Serve(w, r, uint64(id))
 }
 
 // POST /_apis/artifactcache/clean
@@ -277,7 +278,7 @@ func (h *Handler) clean(w http.ResponseWriter, r *http.Request, params httproute
 
 func (h *Handler) middleware(handler httprouter.Handle) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-		h.logger.Printf("%s %s", r.Method, r.RequestURI)
+		h.logger.Debugf("%s %s", r.Method, r.RequestURI)
 		handler(w, r, params)
 		go h.gcCache()
 	}
@@ -348,11 +349,11 @@ func (h *Handler) gcCache() {
 	defer h.gc.Store(false)
 
 	if time.Since(h.gcAt) < time.Hour {
-		h.logger.Infof("skip gc: %v", h.gcAt.String())
+		h.logger.Debugf("skip gc: %v", h.gcAt.String())
 		return
 	}
 	h.gcAt = time.Now()
-	h.logger.Infof("gc: %v", h.gcAt.String())
+	h.logger.Debugf("gc: %v", h.gcAt.String())
 
 	const (
 		keepUsed   = 30 * 24 * time.Hour
