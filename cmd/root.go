@@ -80,7 +80,7 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.PersistentFlags().StringVarP(&input.envfile, "env-file", "", ".env", "environment file to read and use as env in the containers")
 	rootCmd.PersistentFlags().StringVarP(&input.inputfile, "input-file", "", ".input", "input file to read and use as action input")
 	rootCmd.PersistentFlags().StringVarP(&input.containerArchitecture, "container-architecture", "", "", "Architecture which should be used to run containers, e.g.: linux/amd64. If not specified, will use host default architecture. Requires Docker server API Version 1.41+. Ignored on earlier Docker server platforms.")
-	rootCmd.PersistentFlags().StringVarP(&input.containerDaemonSocket, "container-daemon-socket", "", "", "URI to Docker Engine socket (e.g.: unix://~/.docker/run/docker.sock)")
+	rootCmd.PersistentFlags().StringVarP(&input.containerDaemonSocket, "container-daemon-socket", "", "", "URI to Docker Engine socket (e.g.: unix://~/.docker/run/docker.sock or - to disable bind mounting the socket)")
 	rootCmd.PersistentFlags().StringVarP(&input.containerOptions, "container-options", "", "", "Custom docker container options for the job container without an options property in the job definition")
 	rootCmd.PersistentFlags().StringVarP(&input.githubInstance, "github-instance", "", "github.com", "GitHub instance to use. Don't use this if you are not using GitHub Enterprise Server.")
 	rootCmd.PersistentFlags().StringVarP(&input.artifactServerPath, "artifact-server-path", "", "", "Defines the path where the artifact server stores uploads and retrieves downloads from. If not specified the artifact server will not start.")
@@ -136,9 +136,9 @@ func socketLocation() (string, bool) {
 	for _, p := range commonSocketPaths {
 		if _, err := os.Lstat(os.ExpandEnv(p)); err == nil {
 			if strings.HasPrefix(p, `\\.\`) {
-				return "npipe://" + os.ExpandEnv(p), true
+				return "npipe://" + filepath.ToSlash(os.ExpandEnv(p)), true
 			}
-			return "unix://" + os.ExpandEnv(p), true
+			return "unix://" + filepath.ToSlash(os.ExpandEnv(p)), true
 		}
 	}
 
@@ -350,6 +350,18 @@ func parseMatrix(matrix []string) map[string]map[string]bool {
 	return matrixes
 }
 
+func isDockerHostURI(daemonPath string) bool {
+	if protoIndex := strings.Index(daemonPath, "://"); protoIndex != -1 {
+		scheme := daemonPath[:protoIndex]
+		if strings.IndexFunc(scheme, func(r rune) bool {
+			return (r < 'a' || r > 'z') && (r < 'A' || r > 'Z')
+		}) == -1 {
+			return true
+		}
+	}
+	return false
+}
+
 //nolint:gocyclo
 func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, args []string) error {
@@ -361,18 +373,27 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			return bugReport(ctx, cmd.Version)
 		}
 
-		var socketPath string
-		if input.containerDaemonSocket != "" {
-			socketPath = input.containerDaemonSocket
-		} else {
-			socket, found := socketLocation()
-			if !found && input.containerDaemonSocket == "" {
-				log.Errorln("daemon Docker Engine socket not found and containerDaemonSocket option was not set")
+		// Prefer DOCKER_HOST, don't override it
+		socketPath, hasDockerHost := os.LookupEnv("DOCKER_HOST")
+		if !hasDockerHost {
+			// a - in containerDaemonSocket means don't mount, preserve this value
+			// otherwise if input.containerDaemonSocket is a filepath don't use it as socketPath
+			skipMount := input.containerDaemonSocket == "-" || !isDockerHostURI(input.containerDaemonSocket)
+			if input.containerDaemonSocket != "" && !skipMount {
+				socketPath = input.containerDaemonSocket
 			} else {
-				socketPath = socket
+				socket, found := socketLocation()
+				if !found {
+					log.Errorln("daemon Docker Engine socket not found and containerDaemonSocket option was not set")
+				} else {
+					socketPath = socket
+				}
+				if !skipMount {
+					input.containerDaemonSocket = socketPath
+				}
 			}
+			os.Setenv("DOCKER_HOST", socketPath)
 		}
-		os.Setenv("DOCKER_HOST", socketPath)
 
 		if runtime.GOOS == "darwin" && runtime.GOARCH == "arm64" && input.containerArchitecture == "" {
 			l := log.New()
@@ -565,7 +586,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			Privileged:                         input.privileged,
 			UsernsMode:                         input.usernsMode,
 			ContainerArchitecture:              input.containerArchitecture,
-			ContainerDaemonSocket:              socketPath,
+			ContainerDaemonSocket:              input.containerDaemonSocket,
 			ContainerOptions:                   input.containerOptions,
 			UseGitIgnore:                       input.useGitIgnore,
 			GitHubInstance:                     input.githubInstance,
