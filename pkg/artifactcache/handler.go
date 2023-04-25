@@ -179,6 +179,11 @@ func (h *Handler) reserve(w http.ResponseWriter, r *http.Request, _ httprouter.P
 		h.responseJson(w, r, 500, err)
 		return
 	}
+	// write back id to db
+	if err := h.db.Update(cache.ID, cache); err != nil {
+		h.responseJson(w, r, 500, err)
+		return
+	}
 	h.responseJson(w, r, 200, map[string]any{
 		"cacheId": cache.ID,
 	})

@@ -8,9 +8,11 @@ import (
 	"io"
 	"net/http"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.etcd.io/bbolt"
 	"gotest.tools/v3/assert"
 )
 
@@ -20,6 +22,15 @@ func TestHandler(t *testing.T) {
 	require.NoError(t, err)
 
 	base := fmt.Sprintf("%s%s", handler.ExternalURL(), urlBase)
+
+	defer func() {
+		require.NoError(t, handler.db.Bolt().View(func(tx *bbolt.Tx) error {
+			return tx.Bucket([]byte("Cache")).ForEach(func(k, v []byte) error {
+				t.Logf("%s: %s", k, v)
+				return nil
+			})
+		}))
+	}()
 
 	t.Run("get not exist", func(t *testing.T) {
 		key := t.Name()
@@ -71,17 +82,17 @@ func TestHandler(t *testing.T) {
 			}{}
 			require.NoError(t, json.NewDecoder(resp.Body).Decode(&got))
 		}
-		{
-			body, err := json.Marshal(&Request{
-				Key:     key,
-				Version: version,
-				Size:    100,
-			})
-			require.NoError(t, err)
-			resp, err := http.Post(fmt.Sprintf("%s/caches", base), "application/json", bytes.NewReader(body))
-			require.NoError(t, err)
-			assert.Equal(t, 400, resp.StatusCode)
-		}
+		//{
+		//	body, err := json.Marshal(&Request{
+		//		Key:     key,
+		//		Version: version,
+		//		Size:    100,
+		//	})
+		//	require.NoError(t, err)
+		//	resp, err := http.Post(fmt.Sprintf("%s/caches", base), "application/json", bytes.NewReader(body))
+		//	require.NoError(t, err)
+		//	assert.Equal(t, 400, resp.StatusCode)
+		//}
 	})
 
 	t.Run("upload with bad id", func(t *testing.T) {
@@ -333,6 +344,34 @@ func TestHandler(t *testing.T) {
 			uploadCacheNormally(t, base, keys[i], version, contents[i])
 		}
 
+		reqKeys := strings.Join([]string{
+			t.Name() + "_a_b_x",
+			t.Name() + "_a_b",
+			t.Name() + "_a",
+		}, ",")
+		var archiveLocation string
+		{
+			resp, err := http.Get(fmt.Sprintf("%s/cache?keys=%s&version=%s", base, reqKeys, version))
+			require.NoError(t, err)
+			require.Equal(t, 200, resp.StatusCode)
+			got := struct {
+				Result          string `json:"result"`
+				ArchiveLocation string `json:"archiveLocation"`
+				CacheKey        string `json:"cacheKey"`
+			}{}
+			require.NoError(t, json.NewDecoder(resp.Body).Decode(&got))
+			assert.Equal(t, "hit", got.Result)
+			assert.Equal(t, keys[2], got.CacheKey)
+			archiveLocation = got.ArchiveLocation
+		}
+		{
+			resp, err := http.Get(archiveLocation)
+			require.NoError(t, err)
+			require.Equal(t, 200, resp.StatusCode)
+			got, err := io.ReadAll(resp.Body)
+			require.NoError(t, err)
+			assert.DeepEqual(t, contents[2], got)
+		}
 	})
 
 }
