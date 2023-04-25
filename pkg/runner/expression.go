@@ -173,7 +173,7 @@ func (ee expressionEvaluator) evaluateScalarYamlNode(ctx context.Context, node *
 	}
 	ret := &yaml.Node{}
 	if err := ret.Encode(res); err != nil {
-		return nil, ret
+		return nil, err
 	}
 	return ret, err
 }
