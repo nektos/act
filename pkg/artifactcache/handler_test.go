@@ -375,7 +375,7 @@ func TestHandler(t *testing.T) {
 			archiveLocation = got.ArchiveLocation
 		}
 		{
-			resp, err := http.Get(archiveLocation)
+			resp, err := http.Get(archiveLocation) //nolint:gosec
 			require.NoError(t, err)
 			require.Equal(t, 200, resp.StatusCode)
 			got, err := io.ReadAll(resp.Body)
@@ -435,7 +435,7 @@ func uploadCacheNormally(t *testing.T, base, key, version string, content []byte
 		archiveLocation = got.ArchiveLocation
 	}
 	{
-		resp, err := http.Get(archiveLocation)
+		resp, err := http.Get(archiveLocation) //nolint:gosec
 		require.NoError(t, err)
 		require.Equal(t, 200, resp.StatusCode)
 		got, err := io.ReadAll(resp.Body)

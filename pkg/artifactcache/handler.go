@@ -52,17 +52,17 @@ func StartHandler(dir, outboundIP string, port uint16, logger logrus.FieldLogger
 	h.logger = logger
 
 	if dir == "" {
-		if home, err := os.UserHomeDir(); err != nil {
+		home, err := os.UserHomeDir()
+		if err != nil {
 			return nil, err
-		} else {
-			dir = filepath.Join(home, ".cache", "actcache")
 		}
+		dir = filepath.Join(home, ".cache", "actcache")
 	}
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, err
 	}
 
-	if db, err := bolthold.Open(filepath.Join(dir, "bolt.db"), 0o644, &bolthold.Options{
+	db, err := bolthold.Open(filepath.Join(dir, "bolt.db"), 0o644, &bolthold.Options{
 		Encoder: json.Marshal,
 		Decoder: json.Unmarshal,
 		Options: &bbolt.Options{
@@ -70,11 +70,11 @@ func StartHandler(dir, outboundIP string, port uint16, logger logrus.FieldLogger
 			NoGrowSync:   bbolt.DefaultOptions.NoGrowSync,
 			FreelistType: bbolt.DefaultOptions.FreelistType,
 		},
-	}); err != nil {
+	})
+	if err != nil {
 		return nil, err
-	} else {
-		h.db = db
 	}
+	h.db = db
 
 	storage, err := NewStorage(filepath.Join(dir, "cache"))
 	if err != nil {
@@ -107,7 +107,8 @@ func StartHandler(dir, outboundIP string, port uint16, logger logrus.FieldLogger
 		return nil, err
 	}
 	server := &http.Server{
-		Handler: router,
+		ReadHeaderTimeout: 2 * time.Second,
+		Handler:           router,
 	}
 	go func() {
 		if err := server.Serve(listener); err != nil {
@@ -163,23 +164,23 @@ func (h *Handler) find(w http.ResponseWriter, r *http.Request, _ httprouter.Para
 
 	cache, err := h.findCache(keys, version)
 	if err != nil {
-		h.responseJson(w, r, 500, err)
+		h.responseJSON(w, r, 500, err)
 		return
 	}
 	if cache == nil {
-		h.responseJson(w, r, 204)
+		h.responseJSON(w, r, 204)
 		return
 	}
 
 	if ok, err := h.storage.Exist(cache.ID); err != nil {
-		h.responseJson(w, r, 500, err)
+		h.responseJSON(w, r, 500, err)
 		return
 	} else if !ok {
 		_ = h.db.Delete(cache.ID, cache)
-		h.responseJson(w, r, 204)
+		h.responseJSON(w, r, 204)
 		return
 	}
-	h.responseJson(w, r, 200, map[string]any{
+	h.responseJSON(w, r, 200, map[string]any{
 		"result":          "hit",
 		"archiveLocation": fmt.Sprintf("%s%s/artifacts/%d", h.ExternalURL(), urlBase, cache.ID),
 		"cacheKey":        cache.Key,
@@ -190,7 +191,7 @@ func (h *Handler) find(w http.ResponseWriter, r *http.Request, _ httprouter.Para
 func (h *Handler) reserve(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	api := &Request{}
 	if err := json.NewDecoder(r.Body).Decode(api); err != nil {
-		h.responseJson(w, r, 400, err)
+		h.responseJSON(w, r, 400, err)
 		return
 	}
 
@@ -198,11 +199,11 @@ func (h *Handler) reserve(w http.ResponseWriter, r *http.Request, _ httprouter.P
 	cache.FillKeyVersionHash()
 	if err := h.db.FindOne(cache, bolthold.Where("KeyVersionHash").Eq(cache.KeyVersionHash)); err != nil {
 		if !errors.Is(err, bolthold.ErrNotFound) {
-			h.responseJson(w, r, 500, err)
+			h.responseJSON(w, r, 500, err)
 			return
 		}
 	} else {
-		h.responseJson(w, r, 400, fmt.Errorf("already exist"))
+		h.responseJSON(w, r, 400, fmt.Errorf("already exist"))
 		return
 	}
 
@@ -210,96 +211,95 @@ func (h *Handler) reserve(w http.ResponseWriter, r *http.Request, _ httprouter.P
 	cache.CreatedAt = now
 	cache.UsedAt = now
 	if err := h.db.Insert(bolthold.NextSequence(), cache); err != nil {
-		h.responseJson(w, r, 500, err)
+		h.responseJSON(w, r, 500, err)
 		return
 	}
 	// write back id to db
 	if err := h.db.Update(cache.ID, cache); err != nil {
-		h.responseJson(w, r, 500, err)
+		h.responseJSON(w, r, 500, err)
 		return
 	}
-	h.responseJson(w, r, 200, map[string]any{
+	h.responseJSON(w, r, 200, map[string]any{
 		"cacheId": cache.ID,
 	})
-	return
 }
 
 // PATCH /_apis/artifactcache/caches/:id
 func (h *Handler) upload(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	id, err := strconv.ParseInt(params.ByName("id"), 10, 64)
 	if err != nil {
-		h.responseJson(w, r, 400, err)
+		h.responseJSON(w, r, 400, err)
 		return
 	}
 
 	cache := &Cache{}
 	if err := h.db.Get(id, cache); err != nil {
 		if errors.Is(err, bolthold.ErrNotFound) {
-			h.responseJson(w, r, 400, fmt.Errorf("cache %d: not reserved", id))
+			h.responseJSON(w, r, 400, fmt.Errorf("cache %d: not reserved", id))
 			return
 		}
-		h.responseJson(w, r, 500, err)
+		h.responseJSON(w, r, 500, err)
 		return
 	}
 
 	if cache.Complete {
-		h.responseJson(w, r, 400, fmt.Errorf("cache %v %q: already complete", cache.ID, cache.Key))
+		h.responseJSON(w, r, 400, fmt.Errorf("cache %v %q: already complete", cache.ID, cache.Key))
 		return
 	}
 	start, _, err := parseContentRange(r.Header.Get("Content-Range"))
 	if err != nil {
-		h.responseJson(w, r, 400, err)
+		h.responseJSON(w, r, 400, err)
 		return
 	}
 	if err := h.storage.Write(cache.ID, start, r.Body); err != nil {
-		h.responseJson(w, r, 500, err)
+		h.responseJSON(w, r, 500, err)
 	}
 	h.useCache(id)
-	h.responseJson(w, r, 200)
+	h.responseJSON(w, r, 200)
 }
 
 // POST /_apis/artifactcache/caches/:id
 func (h *Handler) commit(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	id, err := strconv.ParseInt(params.ByName("id"), 10, 64)
 	if err != nil {
-		h.responseJson(w, r, 400, err)
+		h.responseJSON(w, r, 400, err)
 		return
 	}
 
 	cache := &Cache{}
 	if err := h.db.Get(id, cache); err != nil {
 		if errors.Is(err, bolthold.ErrNotFound) {
-			h.responseJson(w, r, 400, fmt.Errorf("cache %d: not reserved", id))
+			h.responseJSON(w, r, 400, fmt.Errorf("cache %d: not reserved", id))
 			return
 		}
-		h.responseJson(w, r, 500, err)
+		h.responseJSON(w, r, 500, err)
 		return
 	}
 
 	if cache.Complete {
-		h.responseJson(w, r, 400, fmt.Errorf("cache %v %q: already complete", cache.ID, cache.Key))
+		h.responseJSON(w, r, 400, fmt.Errorf("cache %v %q: already complete", cache.ID, cache.Key))
 		return
 	}
 
 	if err := h.storage.Commit(cache.ID, cache.Size); err != nil {
-		h.responseJson(w, r, 500, err)
+		h.responseJSON(w, r, 500, err)
 		return
 	}
 
 	cache.Complete = true
 	if err := h.db.Update(cache.ID, cache); err != nil {
-		h.responseJson(w, r, 500, err)
+		h.responseJSON(w, r, 500, err)
 		return
 	}
 
-	h.responseJson(w, r, 200)
+	h.responseJSON(w, r, 200)
 }
 
 // GET /_apis/artifactcache/artifacts/:id
 func (h *Handler) get(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	id, err := strconv.ParseInt(params.ByName("id"), 10, 64)
 	if err != nil {
-		h.responseJson(w, r, 400, err)
+		h.responseJSON(w, r, 400, err)
 		return
 	}
 	h.useCache(id)
@@ -311,7 +311,7 @@ func (h *Handler) clean(w http.ResponseWriter, r *http.Request, _ httprouter.Par
 	// TODO: don't support force deleting cache entries
 	// see: https://docs.github.com/en/actions/using-workflows/caching-dependencies-to-speed-up-workflows#force-deleting-cache-entries
 
-	h.responseJson(w, r, 200)
+	h.responseJSON(w, r, 200)
 }
 
 func (h *Handler) middleware(handler httprouter.Handle) httprouter.Handle {
@@ -445,7 +445,7 @@ func (h *Handler) gcCache() {
 	}
 }
 
-func (h *Handler) responseJson(w http.ResponseWriter, r *http.Request, code int, v ...any) {
+func (h *Handler) responseJSON(w http.ResponseWriter, r *http.Request, code int, v ...any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	var data []byte
 	if len(v) == 0 || v[0] == nil {
