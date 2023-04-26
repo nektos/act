@@ -31,6 +31,7 @@ type Handler struct {
 	storage  *Storage
 	router   *httprouter.Router
 	listener net.Listener
+	server   *http.Server
 	logger   logrus.FieldLogger
 
 	gcing int32 // TODO: use atomic.Bool when we can use Go 1.19
@@ -105,12 +106,16 @@ func StartHandler(dir, outboundIP string, port uint16, logger logrus.FieldLogger
 	if err != nil {
 		return nil, err
 	}
+	server := &http.Server{
+		Handler: router,
+	}
 	go func() {
-		if err := http.Serve(listener, h.router); err != nil {
+		if err := server.Serve(listener); err != nil {
 			logger.Errorf("http serve: %v", err)
 		}
 	}()
 	h.listener = listener
+	h.server = server
 
 	return h, nil
 }
@@ -120,6 +125,35 @@ func (h *Handler) ExternalURL() string {
 	return fmt.Sprintf("http://%s:%d",
 		h.outboundIP,
 		h.listener.Addr().(*net.TCPAddr).Port)
+}
+
+func (h *Handler) Close() error {
+	var retErr error
+	if h.server != nil {
+		err := h.server.Close()
+		if err != nil {
+			retErr = err
+		}
+		h.server = nil
+	}
+	if h.listener != nil {
+		err := h.listener.Close()
+		if errors.Is(err, net.ErrClosed) {
+			err = nil
+		}
+		if err != nil {
+			retErr = err
+		}
+		h.listener = nil
+	}
+	if h.db != nil {
+		err := h.db.Close()
+		if err != nil {
+			retErr = err
+		}
+		h.db = nil
+	}
+	return retErr
 }
 
 // GET /_apis/artifactcache/cache

@@ -589,17 +589,12 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 
 		cancel := artifacts.Serve(ctx, input.artifactServerPath, input.artifactServerAddr, input.artifactServerPort)
 
-		if home, err := os.UserHomeDir(); err != nil {
+		// TODO: provide a way to configure the cache handler via cli
+		cacheHandler, err := artifactcache.StartHandler("", "", 0, common.Logger(ctx))
+		if err != nil {
 			return err
-		} else {
-			dir := filepath.Join(home, ".cache", "actcache")
-			// TODO: provide a way to configure the cache handler via cli
-			cacheHandler, err := artifactcache.StartHandler(dir, "", 0, common.Logger(ctx))
-			if err != nil {
-				return err
-			}
-			envs["ACTIONS_CACHE_URL"] = cacheHandler.ExternalURL() + "/"
 		}
+		envs["ACTIONS_CACHE_URL"] = cacheHandler.ExternalURL() + "/"
 
 		ctx = common.WithDryrun(ctx, input.dryrun)
 		if watch, err := cmd.Flags().GetBool("watch"); err != nil {
@@ -614,6 +609,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 
 		executor := r.NewPlanExecutor(plan).Finally(func(ctx context.Context) error {
 			cancel()
+			_ = cacheHandler.Close()
 			return nil
 		})
 		err = executor(ctx)

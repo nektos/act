@@ -11,9 +11,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.etcd.io/bbolt"
-	"gotest.tools/v3/assert"
 )
 
 func TestHandler(t *testing.T) {
@@ -24,12 +24,22 @@ func TestHandler(t *testing.T) {
 	base := fmt.Sprintf("%s%s", handler.ExternalURL(), urlBase)
 
 	defer func() {
-		require.NoError(t, handler.db.Bolt().View(func(tx *bbolt.Tx) error {
-			return tx.Bucket([]byte("Cache")).ForEach(func(k, v []byte) error {
-				t.Logf("%s: %s", k, v)
-				return nil
-			})
-		}))
+		t.Run("inpect db", func(t *testing.T) {
+			require.NoError(t, handler.db.Bolt().View(func(tx *bbolt.Tx) error {
+				return tx.Bucket([]byte("Cache")).ForEach(func(k, v []byte) error {
+					t.Logf("%s: %s", k, v)
+					return nil
+				})
+			}))
+		})
+		t.Run("close", func(t *testing.T) {
+			require.NoError(t, handler.Close())
+			assert.Nil(t, handler.server)
+			assert.Nil(t, handler.listener)
+			assert.Nil(t, handler.db)
+			_, err := http.Post(fmt.Sprintf("%s/caches/%d", base, 1), "", nil)
+			assert.Error(t, err)
+		})
 	}()
 
 	t.Run("get not exist", func(t *testing.T) {
@@ -82,17 +92,17 @@ func TestHandler(t *testing.T) {
 			}{}
 			require.NoError(t, json.NewDecoder(resp.Body).Decode(&got))
 		}
-		//{
-		//	body, err := json.Marshal(&Request{
-		//		Key:     key,
-		//		Version: version,
-		//		Size:    100,
-		//	})
-		//	require.NoError(t, err)
-		//	resp, err := http.Post(fmt.Sprintf("%s/caches", base), "application/json", bytes.NewReader(body))
-		//	require.NoError(t, err)
-		//	assert.Equal(t, 400, resp.StatusCode)
-		//}
+		{
+			body, err := json.Marshal(&Request{
+				Key:     key,
+				Version: version,
+				Size:    100,
+			})
+			require.NoError(t, err)
+			resp, err := http.Post(fmt.Sprintf("%s/caches", base), "application/json", bytes.NewReader(body))
+			require.NoError(t, err)
+			assert.Equal(t, 400, resp.StatusCode)
+		}
 	})
 
 	t.Run("upload with bad id", func(t *testing.T) {
@@ -370,10 +380,9 @@ func TestHandler(t *testing.T) {
 			require.Equal(t, 200, resp.StatusCode)
 			got, err := io.ReadAll(resp.Body)
 			require.NoError(t, err)
-			assert.DeepEqual(t, contents[1], got)
+			assert.Equal(t, contents[1], got)
 		}
 	})
-
 }
 
 func uploadCacheNormally(t *testing.T, base, key, version string, content []byte) {
@@ -431,6 +440,6 @@ func uploadCacheNormally(t *testing.T, base, key, version string, content []byte
 		require.Equal(t, 200, resp.StatusCode)
 		got, err := io.ReadAll(resp.Body)
 		require.NoError(t, err)
-		assert.DeepEqual(t, content, got)
+		assert.Equal(t, content, got)
 	}
 }
