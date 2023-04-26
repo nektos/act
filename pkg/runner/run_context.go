@@ -87,6 +87,24 @@ func (rc *RunContext) jobContainerName() string {
 	return createContainerName("act", rc.String())
 }
 
+func getDockerDaemonSocketMountPath(daemonPath string) string {
+	if protoIndex := strings.Index(daemonPath, "://"); protoIndex != -1 {
+		scheme := daemonPath[:protoIndex]
+		if strings.EqualFold(scheme, "npipe") {
+			// linux container mount on windows, use the default socket path of the VM / wsl2
+			return "/var/run/docker.sock"
+		} else if strings.EqualFold(scheme, "unix") {
+			return daemonPath[protoIndex+3:]
+		} else if strings.IndexFunc(scheme, func(r rune) bool {
+			return (r < 'a' || r > 'z') && (r < 'A' || r > 'Z')
+		}) == -1 {
+			// unknown protocol use default
+			return "/var/run/docker.sock"
+		}
+	}
+	return daemonPath
+}
+
 // Returns the binds and mounts for the container, resolving paths as appopriate
 func (rc *RunContext) GetBindsAndMounts() ([]string, map[string]string) {
 	name := rc.jobContainerName()
@@ -95,8 +113,10 @@ func (rc *RunContext) GetBindsAndMounts() ([]string, map[string]string) {
 		rc.Config.ContainerDaemonSocket = "/var/run/docker.sock"
 	}
 
-	binds := []string{
-		fmt.Sprintf("%s:%s", rc.Config.ContainerDaemonSocket, "/var/run/docker.sock"),
+	binds := []string{}
+	if rc.Config.ContainerDaemonSocket != "-" {
+		daemonPath := getDockerDaemonSocketMountPath(rc.Config.ContainerDaemonSocket)
+		binds = append(binds, fmt.Sprintf("%s:%s", daemonPath, "/var/run/docker.sock"))
 	}
 
 	ext := container.LinuxContainerEnvironmentExtensions{}
