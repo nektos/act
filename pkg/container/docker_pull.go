@@ -60,7 +60,7 @@ func NewDockerPullExecutor(input NewDockerPullExecutorInput) common.Executor {
 
 		_ = logDockerResponse(logger, reader, err != nil)
 		if err != nil {
-			if imagePullOptions.RegistryAuth != "" && strings.Index(err.Error(), "unauthorized") != -1 {
+			if imagePullOptions.RegistryAuth != "" && strings.Contains(err.Error(), "unauthorized") {
 				logger.Errorf("pulling image '%v' (%s) failed with credentials %s retrying without them, please check for stale docker config files", imageRef, input.Platform, err.Error())
 				imagePullOptions.RegistryAuth = ""
 				reader, err = cli.ImagePull(ctx, imageRef, imagePullOptions)
