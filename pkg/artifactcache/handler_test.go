@@ -407,7 +407,6 @@ func TestHandler(t *testing.T) {
 			assert.Equal(t, key+"_abc", got.CacheKey)
 		}
 	})
-
 }
 
 func uploadCacheNormally(t *testing.T, base, key, version string, content []byte) {
