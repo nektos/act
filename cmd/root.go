@@ -609,15 +609,15 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 
 		cancel := artifacts.Serve(ctx, input.artifactServerPath, input.artifactServerAddr, input.artifactServerPort)
 
-		const cacheUrlKey = "ACTIONS_CACHE_URL"
+		const cacheURLKey = "ACTIONS_CACHE_URL"
 		var cacheHandler *artifactcache.Handler
-		if !input.noCacheServer && envs[cacheUrlKey] == "" {
+		if !input.noCacheServer && envs[cacheURLKey] == "" {
 			var err error
 			cacheHandler, err = artifactcache.StartHandler(input.cacheServerPath, input.cacheServerAddr, input.cacheServerPort, common.Logger(ctx))
 			if err != nil {
 				return err
 			}
-			envs[cacheUrlKey] = cacheHandler.ExternalURL() + "/"
+			envs[cacheURLKey] = cacheHandler.ExternalURL() + "/"
 		}
 
 		ctx = common.WithDryrun(ctx, input.dryrun)
