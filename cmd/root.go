@@ -607,7 +607,10 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			return err
 		}
 
+		var finallyFuncs []func()
+
 		cancel := artifacts.Serve(ctx, input.artifactServerPath, input.artifactServerAddr, input.artifactServerPort)
+		finallyFuncs = append(finallyFuncs, cancel)
 
 		if !input.noCacheServer {
 			cacheHandler, err := artifactcache.StartHandler(input.cacheServerPath, input.cacheServerAddr, input.cacheServerPort, common.Logger(ctx))
@@ -615,6 +618,9 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 				return err
 			}
 			envs["ACTIONS_CACHE_URL"] = cacheHandler.ExternalURL() + "/"
+			finallyFuncs = append(finallyFuncs, func() {
+				_ = cacheHandler.Close()
+			})
 		}
 
 		ctx = common.WithDryrun(ctx, input.dryrun)
@@ -629,8 +635,9 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 		}
 
 		executor := r.NewPlanExecutor(plan).Finally(func(ctx context.Context) error {
-			cancel()
-			_ = cacheHandler.Close()
+			for _, f := range finallyFuncs {
+				f()
+			}
 			return nil
 		})
 		err = executor(ctx)
