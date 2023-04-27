@@ -129,6 +129,9 @@ func (h *Handler) ExternalURL() string {
 }
 
 func (h *Handler) Close() error {
+	if h == nil {
+		return nil
+	}
 	var retErr error
 	if h.server != nil {
 		err := h.server.Close()
