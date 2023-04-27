@@ -111,7 +111,7 @@ func StartHandler(dir, outboundIP string, port uint16, logger logrus.FieldLogger
 		Handler:           router,
 	}
 	go func() {
-		if err := server.Serve(listener); err != nil {
+		if err := server.Serve(listener); err != nil && errors.Is(err, net.ErrClosed) {
 			logger.Errorf("http serve: %v", err)
 		}
 	}()
