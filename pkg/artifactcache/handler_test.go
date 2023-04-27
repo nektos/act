@@ -383,6 +383,31 @@ func TestHandler(t *testing.T) {
 			assert.Equal(t, contents[1], got)
 		}
 	})
+
+	t.Run("case insensitive", func(t *testing.T) {
+		version := "c19da02a2bd7e77277f1ac29ab45c09b7d46a4ee758284e26bb3045ad11d9d20"
+		key := strings.ToLower(t.Name())
+		content := make([]byte, 100)
+		_, err := rand.Read(content)
+		require.NoError(t, err)
+		uploadCacheNormally(t, base, key+"_ABC", version, content)
+
+		{
+			reqKey := key + "_aBc"
+			resp, err := http.Get(fmt.Sprintf("%s/cache?keys=%s&version=%s", base, reqKey, version))
+			require.NoError(t, err)
+			require.Equal(t, 200, resp.StatusCode)
+			got := struct {
+				Result          string `json:"result"`
+				ArchiveLocation string `json:"archiveLocation"`
+				CacheKey        string `json:"cacheKey"`
+			}{}
+			require.NoError(t, json.NewDecoder(resp.Body).Decode(&got))
+			assert.Equal(t, "hit", got.Result)
+			assert.Equal(t, key+"_abc", got.CacheKey)
+		}
+	})
+
 }
 
 func uploadCacheNormally(t *testing.T, base, key, version string, content []byte) {
@@ -431,7 +456,7 @@ func uploadCacheNormally(t *testing.T, base, key, version string, content []byte
 		}{}
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(&got))
 		assert.Equal(t, "hit", got.Result)
-		assert.Equal(t, key, got.CacheKey)
+		assert.Equal(t, strings.ToLower(key), got.CacheKey)
 		archiveLocation = got.ArchiveLocation
 	}
 	{
