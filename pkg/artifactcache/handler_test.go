@@ -43,7 +43,7 @@ func TestHandler(t *testing.T) {
 	}()
 
 	t.Run("get not exist", func(t *testing.T) {
-		key := t.Name()
+		key := strings.ToLower(t.Name())
 		version := "c19da02a2bd7e77277f1ac29ab45c09b7d46a4ee758284e26bb3045ad11d9d20"
 		resp, err := http.Get(fmt.Sprintf("%s/cache?keys=%s&version=%s", base, key, version))
 		require.NoError(t, err)
@@ -51,7 +51,7 @@ func TestHandler(t *testing.T) {
 	})
 
 	t.Run("reserve and upload", func(t *testing.T) {
-		key := t.Name()
+		key := strings.ToLower(t.Name())
 		version := "c19da02a2bd7e77277f1ac29ab45c09b7d46a4ee758284e26bb3045ad11d9d20"
 		content := make([]byte, 100)
 		_, err := rand.Read(content)
@@ -74,7 +74,7 @@ func TestHandler(t *testing.T) {
 	})
 
 	t.Run("duplicate reserve", func(t *testing.T) {
-		key := t.Name()
+		key := strings.ToLower(t.Name())
 		version := "c19da02a2bd7e77277f1ac29ab45c09b7d46a4ee758284e26bb3045ad11d9d20"
 		{
 			body, err := json.Marshal(&Request{
@@ -128,7 +128,7 @@ func TestHandler(t *testing.T) {
 	})
 
 	t.Run("upload with complete", func(t *testing.T) {
-		key := t.Name()
+		key := strings.ToLower(t.Name())
 		version := "c19da02a2bd7e77277f1ac29ab45c09b7d46a4ee758284e26bb3045ad11d9d20"
 		var id uint64
 		content := make([]byte, 100)
@@ -179,7 +179,7 @@ func TestHandler(t *testing.T) {
 	})
 
 	t.Run("upload with invalid range", func(t *testing.T) {
-		key := t.Name()
+		key := strings.ToLower(t.Name())
 		version := "c19da02a2bd7e77277f1ac29ab45c09b7d46a4ee758284e26bb3045ad11d9d20"
 		var id uint64
 		content := make([]byte, 100)
@@ -231,7 +231,7 @@ func TestHandler(t *testing.T) {
 	})
 
 	t.Run("duplicate commit", func(t *testing.T) {
-		key := t.Name()
+		key := strings.ToLower(t.Name())
 		version := "c19da02a2bd7e77277f1ac29ab45c09b7d46a4ee758284e26bb3045ad11d9d20"
 		var id uint64
 		content := make([]byte, 100)
@@ -277,7 +277,7 @@ func TestHandler(t *testing.T) {
 	})
 
 	t.Run("commit early", func(t *testing.T) {
-		key := t.Name()
+		key := strings.ToLower(t.Name())
 		version := "c19da02a2bd7e77277f1ac29ab45c09b7d46a4ee758284e26bb3045ad11d9d20"
 		var id uint64
 		content := make([]byte, 100)
@@ -337,11 +337,11 @@ func TestHandler(t *testing.T) {
 
 	t.Run("get with multiple keys", func(t *testing.T) {
 		version := "c19da02a2bd7e77277f1ac29ab45c09b7d46a4ee758284e26bb3045ad11d9d20"
-
+		key := strings.ToLower(t.Name())
 		keys := [3]string{
-			t.Name() + "_a",
-			t.Name() + "_a_b",
-			t.Name() + "_a_b_c",
+			key + "_a",
+			key + "_a_b",
+			key + "_a_b_c",
 		}
 		contents := [3][]byte{
 			make([]byte, 100),
@@ -355,9 +355,9 @@ func TestHandler(t *testing.T) {
 		}
 
 		reqKeys := strings.Join([]string{
-			t.Name() + "_a_b_x",
-			t.Name() + "_a_b",
-			t.Name() + "_a",
+			key + "_a_b_x",
+			key + "_a_b",
+			key + "_a",
 		}, ",")
 		var archiveLocation string
 		{
