@@ -609,12 +609,13 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 
 		cancel := artifacts.Serve(ctx, input.artifactServerPath, input.artifactServerAddr, input.artifactServerPort)
 
-		// TODO: provide a way to configure the cache handler via cli
-		cacheHandler, err := artifactcache.StartHandler("", "", 0, common.Logger(ctx))
-		if err != nil {
-			return err
+		if !input.noCacheServer {
+			cacheHandler, err := artifactcache.StartHandler(input.cacheServerPath, input.cacheServerAddr, input.cacheServerPort, common.Logger(ctx))
+			if err != nil {
+				return err
+			}
+			envs["ACTIONS_CACHE_URL"] = cacheHandler.ExternalURL() + "/"
 		}
-		envs["ACTIONS_CACHE_URL"] = cacheHandler.ExternalURL() + "/"
 
 		ctx = common.WithDryrun(ctx, input.dryrun)
 		if watch, err := cmd.Flags().GetBool("watch"); err != nil {
