@@ -59,6 +59,13 @@ func NewDockerPullExecutor(input NewDockerPullExecutorInput) common.Executor {
 
 		_ = logDockerResponse(logger, reader, err != nil)
 		if err != nil {
+			if imagePullOptions.RegistryAuth != "" {
+				logger.Errorf("pulling image '%v' (%s) failed with credentials %s retrying without them, please check your credentials", imageRef, input.Platform, )
+				imagePullOptions.RegistryAuth = ""
+				reader, err = cli.ImagePull(ctx, imageRef, imagePullOptions)
+
+				_ = logDockerResponse(logger, reader, err != nil)
+			}
 			return err
 		}
 		return nil
@@ -93,6 +100,7 @@ func getImagePullOptions(ctx context.Context, input NewDockerPullExecutorInput) 
 		if authConfig.Username == "" && authConfig.Password == "" {
 			return imagePullOptions, nil
 		}
+		logger.Info("using DockerAuthConfig authentication for docker pull")
 
 		encodedJSON, err := json.Marshal(authConfig)
 		if err != nil {
