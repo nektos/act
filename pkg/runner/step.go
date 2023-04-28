@@ -134,7 +134,16 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 			Mode: 0o666,
 		})(ctx)
 
-		err = executor(ctx)
+		timeout := rc.ExprEval.Interpolate(ctx, stepModel.TimeoutMinutes)
+		timeoutctx := ctx
+		if timeout != "" {
+			if timeOutMinutes, err := strconv.ParseInt(timeout, 10, 64); err == nil {
+				var cancelTimeOut context.CancelFunc
+				timeoutctx, cancelTimeOut = context.WithTimeout(ctx, time.Duration(timeOutMinutes)*time.Minute)
+				defer cancelTimeOut()
+			}
+		}
+		err = executor(timeoutctx)
 
 		if err == nil {
 			logger.WithField("stepResult", stepResult.Outcome).Infof("  \u2705  Success - %s %s", stage, stepString)
