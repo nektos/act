@@ -20,6 +20,7 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
+	"github.com/nektos/act/pkg/artifactcache"
 	"github.com/nektos/act/pkg/artifacts"
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/container"
@@ -87,6 +88,10 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.PersistentFlags().StringVarP(&input.artifactServerAddr, "artifact-server-addr", "", common.GetOutboundIP().String(), "Defines the address to which the artifact server binds.")
 	rootCmd.PersistentFlags().StringVarP(&input.artifactServerPort, "artifact-server-port", "", "34567", "Defines the port where the artifact server listens.")
 	rootCmd.PersistentFlags().BoolVarP(&input.noSkipCheckout, "no-skip-checkout", "", false, "Do not skip actions/checkout")
+	rootCmd.PersistentFlags().BoolVarP(&input.noCacheServer, "no-cache-server", "", false, "Disable cache server")
+	rootCmd.PersistentFlags().StringVarP(&input.cacheServerPath, "cache-server-path", "", filepath.Join(CacheHomeDir, "actcache"), "Defines the path where the cache server stores caches.")
+	rootCmd.PersistentFlags().StringVarP(&input.cacheServerAddr, "cache-server-addr", "", common.GetOutboundIP().String(), "Defines the address to which the cache server binds.")
+	rootCmd.PersistentFlags().Uint16VarP(&input.cacheServerPort, "cache-server-port", "", 0, "Defines the port where the artifact server listens. 0 means a randomly available port.")
 	rootCmd.SetArgs(args())
 
 	if err := rootCmd.Execute(); err != nil {
@@ -95,11 +100,6 @@ func Execute(ctx context.Context, version string) {
 }
 
 func configLocations() []string {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	configFileName := ".actrc"
 
 	// reference: https://specifications.freedesktop.org/basedir-spec/latest/ar01s03.html
@@ -112,7 +112,7 @@ func configLocations() []string {
 	}
 
 	return []string{
-		filepath.Join(home, configFileName),
+		filepath.Join(UserHomeDir, configFileName),
 		actrcXdg,
 		filepath.Join(".", configFileName),
 	}
@@ -609,6 +609,17 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 
 		cancel := artifacts.Serve(ctx, input.artifactServerPath, input.artifactServerAddr, input.artifactServerPort)
 
+		const cacheURLKey = "ACTIONS_CACHE_URL"
+		var cacheHandler *artifactcache.Handler
+		if !input.noCacheServer && envs[cacheURLKey] == "" {
+			var err error
+			cacheHandler, err = artifactcache.StartHandler(input.cacheServerPath, input.cacheServerAddr, input.cacheServerPort, common.Logger(ctx))
+			if err != nil {
+				return err
+			}
+			envs[cacheURLKey] = cacheHandler.ExternalURL() + "/"
+		}
+
 		ctx = common.WithDryrun(ctx, input.dryrun)
 		if watch, err := cmd.Flags().GetBool("watch"); err != nil {
 			return err
@@ -622,6 +633,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 
 		executor := r.NewPlanExecutor(plan).Finally(func(ctx context.Context) error {
 			cancel()
+			_ = cacheHandler.Close()
 			return nil
 		})
 		err = executor(ctx)

@@ -1,0 +1,30 @@
+# Copied from https://github.com/actions/cache#example-cache-workflow
+name: Caching Primes
+
+on: push
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - run: env
+
+      - uses: actions/checkout@v3
+
+      - name: Cache Primes
+        id: cache-primes
+        uses: actions/cache@v3
+        with:
+          path: prime-numbers
+          key: ${{ runner.os }}-primes-${{ github.run_id }}
+          restore-keys: |
+            ${{ runner.os }}-primes
+            ${{ runner.os }}
+
+      - name: Generate Prime Numbers
+        if: steps.cache-primes.outputs.cache-hit != 'true'
+        run: cat /proc/sys/kernel/random/uuid > prime-numbers
+
+      - name: Use Prime Numbers
+        run: cat prime-numbers
