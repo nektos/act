@@ -132,16 +132,7 @@ func saveNoticesEtag(etag string) {
 }
 
 func etagPath() string {
-	var xdgCache string
-	var ok bool
-	if xdgCache, ok = os.LookupEnv("XDG_CACHE_HOME"); !ok || xdgCache == "" {
-		if home, err := os.UserHomeDir(); err == nil {
-			xdgCache = filepath.Join(home, ".cache")
-		} else if xdgCache, err = filepath.Abs("."); err != nil {
-			log.Fatal(err)
-		}
-	}
-	dir := filepath.Join(xdgCache, "act")
+	dir := filepath.Join(CacheHomeDir, "act")
 	if err := os.MkdirAll(dir, 0o777); err != nil {
 		log.Fatal(err)
 	}
