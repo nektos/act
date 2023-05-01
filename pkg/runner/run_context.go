@@ -488,7 +488,7 @@ func (rc *RunContext) containerImage(ctx context.Context) string {
 
 func (rc *RunContext) runsOnImage(ctx context.Context) string {
 	job := rc.Run.Job()
-	
+
 	if job.RunsOn() == nil {
 		common.Logger(ctx).Errorf("'runs-on' key not defined in %s", rc.String())
 	}
