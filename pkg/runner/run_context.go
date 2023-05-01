@@ -420,7 +420,7 @@ func (rc *RunContext) startContainer() common.Executor {
 }
 
 func (rc *RunContext) IsHostEnv(ctx context.Context) bool {
-	image := rc.platformImage(ctx)
+	image := rc.runsOnImage(ctx)
 	return strings.EqualFold(image, "-self-hosted")
 }
 
@@ -474,14 +474,9 @@ func (rc *RunContext) Executor() common.Executor {
 	}
 }
 
-func (rc *RunContext) platformImage(ctx context.Context) string {
+func (rc *RunContext) runsOnImage(ctx context.Context) string {
 	job := rc.Run.Job()
-
-	c := job.Container()
-	if c != nil {
-		return rc.ExprEval.Interpolate(ctx, c.Image)
-	}
-
+	
 	if job.RunsOn() == nil {
 		common.Logger(ctx).Errorf("'runs-on' key not defined in %s", rc.String())
 	}
@@ -495,6 +490,17 @@ func (rc *RunContext) platformImage(ctx context.Context) string {
 	}
 
 	return ""
+}
+
+func (rc *RunContext) platformImage(ctx context.Context) string {
+	job := rc.Run.Job()
+
+	c := job.Container()
+	if c != nil {
+		return rc.ExprEval.Interpolate(ctx, c.Image)
+	}
+
+	return rc.runsOnImage(ctx)
 }
 
 func (rc *RunContext) options(ctx context.Context) string {
