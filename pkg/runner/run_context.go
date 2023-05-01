@@ -420,8 +420,9 @@ func (rc *RunContext) startContainer() common.Executor {
 }
 
 func (rc *RunContext) IsHostEnv(ctx context.Context) bool {
-	image := rc.runsOnImage(ctx)
-	return strings.EqualFold(image, "-self-hosted")
+	platform := rc.runsOnImage(ctx)
+	image := rc.containerImage(ctx)
+	return image == "" && strings.EqualFold(platform, "-self-hosted")
 }
 
 func (rc *RunContext) stopContainer() common.Executor {
@@ -474,6 +475,17 @@ func (rc *RunContext) Executor() common.Executor {
 	}
 }
 
+func (rc *RunContext) containerImage(ctx context.Context) string {
+	job := rc.Run.Job()
+
+	c := job.Container()
+	if c != nil {
+		return rc.ExprEval.Interpolate(ctx, c.Image)
+	}
+
+	return ""
+}
+
 func (rc *RunContext) runsOnImage(ctx context.Context) string {
 	job := rc.Run.Job()
 	
@@ -493,11 +505,8 @@ func (rc *RunContext) runsOnImage(ctx context.Context) string {
 }
 
 func (rc *RunContext) platformImage(ctx context.Context) string {
-	job := rc.Run.Job()
-
-	c := job.Container()
-	if c != nil {
-		return rc.ExprEval.Interpolate(ctx, c.Image)
+	if containerImage := rc.containerImage(ctx); containerImage != "" {
+		return containerImage
 	}
 
 	return rc.runsOnImage(ctx)
