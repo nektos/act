@@ -20,6 +20,7 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
+	"github.com/nektos/act/pkg/artifactcache"
 	"github.com/nektos/act/pkg/artifacts"
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/container"
@@ -80,13 +81,17 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.PersistentFlags().StringVarP(&input.envfile, "env-file", "", ".env", "environment file to read and use as env in the containers")
 	rootCmd.PersistentFlags().StringVarP(&input.inputfile, "input-file", "", ".input", "input file to read and use as action input")
 	rootCmd.PersistentFlags().StringVarP(&input.containerArchitecture, "container-architecture", "", "", "Architecture which should be used to run containers, e.g.: linux/amd64. If not specified, will use host default architecture. Requires Docker server API Version 1.41+. Ignored on earlier Docker server platforms.")
-	rootCmd.PersistentFlags().StringVarP(&input.containerDaemonSocket, "container-daemon-socket", "", "/var/run/docker.sock", "Path to Docker daemon socket which will be mounted to containers")
+	rootCmd.PersistentFlags().StringVarP(&input.containerDaemonSocket, "container-daemon-socket", "", "", "URI to Docker Engine socket (e.g.: unix://~/.docker/run/docker.sock or - to disable bind mounting the socket)")
 	rootCmd.PersistentFlags().StringVarP(&input.containerOptions, "container-options", "", "", "Custom docker container options for the job container without an options property in the job definition")
 	rootCmd.PersistentFlags().StringVarP(&input.githubInstance, "github-instance", "", "github.com", "GitHub instance to use. Don't use this if you are not using GitHub Enterprise Server.")
 	rootCmd.PersistentFlags().StringVarP(&input.artifactServerPath, "artifact-server-path", "", "", "Defines the path where the artifact server stores uploads and retrieves downloads from. If not specified the artifact server will not start.")
 	rootCmd.PersistentFlags().StringVarP(&input.artifactServerAddr, "artifact-server-addr", "", common.GetOutboundIP().String(), "Defines the address to which the artifact server binds.")
 	rootCmd.PersistentFlags().StringVarP(&input.artifactServerPort, "artifact-server-port", "", "34567", "Defines the port where the artifact server listens.")
 	rootCmd.PersistentFlags().BoolVarP(&input.noSkipCheckout, "no-skip-checkout", "", false, "Do not skip actions/checkout")
+	rootCmd.PersistentFlags().BoolVarP(&input.noCacheServer, "no-cache-server", "", false, "Disable cache server")
+	rootCmd.PersistentFlags().StringVarP(&input.cacheServerPath, "cache-server-path", "", filepath.Join(CacheHomeDir, "actcache"), "Defines the path where the cache server stores caches.")
+	rootCmd.PersistentFlags().StringVarP(&input.cacheServerAddr, "cache-server-addr", "", common.GetOutboundIP().String(), "Defines the address to which the cache server binds.")
+	rootCmd.PersistentFlags().Uint16VarP(&input.cacheServerPort, "cache-server-port", "", 0, "Defines the port where the artifact server listens. 0 means a randomly available port.")
 	rootCmd.SetArgs(args())
 
 	if err := rootCmd.Execute(); err != nil {
@@ -95,11 +100,6 @@ func Execute(ctx context.Context, version string) {
 }
 
 func configLocations() []string {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	configFileName := ".actrc"
 
 	// reference: https://specifications.freedesktop.org/basedir-spec/latest/ar01s03.html
@@ -112,10 +112,37 @@ func configLocations() []string {
 	}
 
 	return []string{
-		filepath.Join(home, configFileName),
+		filepath.Join(UserHomeDir, configFileName),
 		actrcXdg,
 		filepath.Join(".", configFileName),
 	}
+}
+
+var commonSocketPaths = []string{
+	"/var/run/docker.sock",
+	"/var/run/podman/podman.sock",
+	"$HOME/.colima/docker.sock",
+	"$XDG_RUNTIME_DIR/docker.sock",
+	`\\.\pipe\docker_engine`,
+	"$HOME/.docker/run/docker.sock",
+}
+
+// returns socket path or false if not found any
+func socketLocation() (string, bool) {
+	if dockerHost, exists := os.LookupEnv("DOCKER_HOST"); exists {
+		return dockerHost, true
+	}
+
+	for _, p := range commonSocketPaths {
+		if _, err := os.Lstat(os.ExpandEnv(p)); err == nil {
+			if strings.HasPrefix(p, `\\.\`) {
+				return "npipe://" + filepath.ToSlash(os.ExpandEnv(p)), true
+			}
+			return "unix://" + filepath.ToSlash(os.ExpandEnv(p)), true
+		}
+	}
+
+	return "", false
 }
 
 func args() []string {
@@ -131,15 +158,6 @@ func args() []string {
 }
 
 func bugReport(ctx context.Context, version string) error {
-	var commonSocketPaths = []string{
-		"/var/run/docker.sock",
-		"/var/run/podman/podman.sock",
-		"$HOME/.colima/docker.sock",
-		"$XDG_RUNTIME_DIR/docker.sock",
-		`\\.\pipe\docker_engine`,
-		"$HOME/.docker/run/docker.sock",
-	}
-
 	sprintf := func(key, val string) string {
 		return fmt.Sprintf("%-24s%s\n", key, val)
 	}
@@ -150,19 +168,20 @@ func bugReport(ctx context.Context, version string) error {
 	report += sprintf("NumCPU:", fmt.Sprint(runtime.NumCPU()))
 
 	var dockerHost string
-	if dockerHost = os.Getenv("DOCKER_HOST"); dockerHost == "" {
-		dockerHost = "DOCKER_HOST environment variable is unset/empty."
+	var exists bool
+	if dockerHost, exists = os.LookupEnv("DOCKER_HOST"); !exists {
+		dockerHost = "DOCKER_HOST environment variable is not set"
+	} else if dockerHost == "" {
+		dockerHost = "DOCKER_HOST environment variable is empty."
 	}
 
 	report += sprintf("Docker host:", dockerHost)
 	report += fmt.Sprintln("Sockets found:")
 	for _, p := range commonSocketPaths {
-		if strings.HasPrefix(p, `$`) {
-			v := strings.Split(p, `/`)[0]
-			p = strings.Replace(p, v, os.Getenv(strings.TrimPrefix(v, `$`)), 1)
-		}
-		if _, err := os.Stat(p); err != nil {
+		if _, err := os.Lstat(os.ExpandEnv(p)); err != nil {
 			continue
+		} else if _, err := os.Stat(os.ExpandEnv(p)); err != nil {
+			report += fmt.Sprintf("\t%s(broken)\n", p)
 		} else {
 			report += fmt.Sprintf("\t%s\n", p)
 		}
@@ -331,6 +350,18 @@ func parseMatrix(matrix []string) map[string]map[string]bool {
 	return matrixes
 }
 
+func isDockerHostURI(daemonPath string) bool {
+	if protoIndex := strings.Index(daemonPath, "://"); protoIndex != -1 {
+		scheme := daemonPath[:protoIndex]
+		if strings.IndexFunc(scheme, func(r rune) bool {
+			return (r < 'a' || r > 'z') && (r < 'A' || r > 'Z')
+		}) == -1 {
+			return true
+		}
+	}
+	return false
+}
+
 //nolint:gocyclo
 func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, args []string) error {
@@ -340,6 +371,28 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 
 		if ok, _ := cmd.Flags().GetBool("bug-report"); ok {
 			return bugReport(ctx, cmd.Version)
+		}
+
+		// Prefer DOCKER_HOST, don't override it
+		socketPath, hasDockerHost := os.LookupEnv("DOCKER_HOST")
+		if !hasDockerHost {
+			// a - in containerDaemonSocket means don't mount, preserve this value
+			// otherwise if input.containerDaemonSocket is a filepath don't use it as socketPath
+			skipMount := input.containerDaemonSocket == "-" || !isDockerHostURI(input.containerDaemonSocket)
+			if input.containerDaemonSocket != "" && !skipMount {
+				socketPath = input.containerDaemonSocket
+			} else {
+				socket, found := socketLocation()
+				if !found {
+					log.Errorln("daemon Docker Engine socket not found and containerDaemonSocket option was not set")
+				} else {
+					socketPath = socket
+				}
+				if !skipMount {
+					input.containerDaemonSocket = socketPath
+				}
+			}
+			os.Setenv("DOCKER_HOST", socketPath)
 		}
 
 		if runtime.GOOS == "darwin" && runtime.GOARCH == "arm64" && input.containerArchitecture == "" {
@@ -556,6 +609,17 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 
 		cancel := artifacts.Serve(ctx, input.artifactServerPath, input.artifactServerAddr, input.artifactServerPort)
 
+		const cacheURLKey = "ACTIONS_CACHE_URL"
+		var cacheHandler *artifactcache.Handler
+		if !input.noCacheServer && envs[cacheURLKey] == "" {
+			var err error
+			cacheHandler, err = artifactcache.StartHandler(input.cacheServerPath, input.cacheServerAddr, input.cacheServerPort, common.Logger(ctx))
+			if err != nil {
+				return err
+			}
+			envs[cacheURLKey] = cacheHandler.ExternalURL() + "/"
+		}
+
 		ctx = common.WithDryrun(ctx, input.dryrun)
 		if watch, err := cmd.Flags().GetBool("watch"); err != nil {
 			return err
@@ -569,6 +633,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 
 		executor := r.NewPlanExecutor(plan).Finally(func(ctx context.Context) error {
 			cancel()
+			_ = cacheHandler.Close()
 			return nil
 		})
 		err = executor(ctx)

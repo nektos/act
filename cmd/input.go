@@ -42,6 +42,10 @@ type Input struct {
 	artifactServerPath                 string
 	artifactServerAddr                 string
 	artifactServerPort                 string
+	noCacheServer                      bool
+	cacheServerPath                    string
+	cacheServerAddr                    string
+	cacheServerPort                    uint16
 	jsonLogger                         bool
 	noSkipCheckout                     bool
 	remoteName                         string
