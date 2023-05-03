@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"path"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/container"
@@ -134,7 +136,9 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 			Mode: 0o666,
 		})(ctx)
 
-		err = executor(ctx)
+		timeoutctx, cancelTimeOut := evaluateStepTimeout(ctx, rc.ExprEval, stepModel)
+		defer cancelTimeOut()
+		err = executor(timeoutctx)
 
 		if err == nil {
 			logger.WithField("stepResult", stepResult.Outcome).Infof("  \u2705  Success - %s %s", stage, stepString)
@@ -180,6 +184,16 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 		}
 		return err
 	}
+}
+
+func evaluateStepTimeout(ctx context.Context, exprEval ExpressionEvaluator, stepModel *model.Step) (context.Context, context.CancelFunc) {
+	timeout := exprEval.Interpolate(ctx, stepModel.TimeoutMinutes)
+	if timeout != "" {
+		if timeOutMinutes, err := strconv.ParseInt(timeout, 10, 64); err == nil {
+			return context.WithTimeout(ctx, time.Duration(timeOutMinutes)*time.Minute)
+		}
+	}
+	return ctx, func() {}
 }
 
 func setupEnv(ctx context.Context, step step) error {

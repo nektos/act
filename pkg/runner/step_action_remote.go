@@ -46,18 +46,17 @@ func (sar *stepActionRemote) prepareActionExecutor() common.Executor {
 			return fmt.Errorf("Expected format {org}/{repo}[/path]@ref. Actual '%s' Input string was not in a correct format", sar.Step.Uses)
 		}
 
-		sar.remoteAction.URL = sar.RunContext.Config.GitHubInstance
-
 		github := sar.getGithubContext(ctx)
+		sar.remoteAction.URL = github.ServerURL
+
 		if sar.remoteAction.IsCheckout() && isLocalCheckout(github, sar.Step) && !sar.RunContext.Config.NoSkipCheckout {
 			common.Logger(ctx).Debugf("Skipping local actions/checkout because workdir was already copied")
 			return nil
 		}
 
-		sar.remoteAction.URL = sar.RunContext.Config.GitHubInstance
 		for _, action := range sar.RunContext.Config.ReplaceGheActionWithGithubCom {
 			if strings.EqualFold(fmt.Sprintf("%s/%s", sar.remoteAction.Org, sar.remoteAction.Repo), action) {
-				sar.remoteAction.URL = "github.com"
+				sar.remoteAction.URL = "https://github.com"
 				github.Token = sar.RunContext.Config.ReplaceGheActionTokenWithGithubCom
 			}
 		}
@@ -214,7 +213,7 @@ type remoteAction struct {
 }
 
 func (ra *remoteAction) CloneURL() string {
-	return fmt.Sprintf("https://%s/%s/%s", ra.URL, ra.Org, ra.Repo)
+	return fmt.Sprintf("%s/%s/%s", ra.URL, ra.Org, ra.Repo)
 }
 
 func (ra *remoteAction) IsCheckout() bool {
@@ -240,7 +239,7 @@ func newRemoteAction(action string) *remoteAction {
 		Repo: matches[2],
 		Path: matches[4],
 		Ref:  matches[6],
-		URL:  "github.com",
+		URL:  "https://github.com",
 	}
 }
 
