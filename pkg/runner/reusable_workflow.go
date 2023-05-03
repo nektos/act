@@ -26,9 +26,12 @@ func newRemoteReusableWorkflowExecutor(rc *RunContext) common.Executor {
 	if remoteReusableWorkflow == nil {
 		return common.NewErrorExecutor(fmt.Errorf("expected format {owner}/{repo}/.github/workflows/{filename}@{ref}. Actual '%s' Input string was not in a correct format", uses))
 	}
-	remoteReusableWorkflow.URL = rc.Config.GitHubInstance
 
-	workflowDir := fmt.Sprintf("%s/%s", rc.ActionCacheDir(), safeFilename(uses))
+	// uses with safe filename makes the target directory look something like this {owner}-{repo}-.github-workflows-{filename}@{ref}
+	// instead we will just use {owner}-{repo}@{ref} as our target directory. This should also improve performance when we are using
+	// multiple reusable workflows from the same repository and ref since for each workflow we won't have to clone it again
+	filename := fmt.Sprintf("%s/%s@%s", remoteReusableWorkflow.Org, remoteReusableWorkflow.Repo, remoteReusableWorkflow.Ref)
+	workflowDir := fmt.Sprintf("%s/%s", rc.ActionCacheDir(), safeFilename(filename))
 
 	return common.NewPipelineExecutor(
 		newMutexExecutor(cloneIfRequired(rc, *remoteReusableWorkflow, workflowDir)),
@@ -56,12 +59,15 @@ func cloneIfRequired(rc *RunContext, remoteReusableWorkflow remoteReusableWorkfl
 			notExists := errors.Is(err, fs.ErrNotExist)
 			return notExists
 		},
-		git.NewGitCloneExecutor(git.NewGitCloneExecutorInput{
-			URL:   remoteReusableWorkflow.CloneURL(),
-			Ref:   remoteReusableWorkflow.Ref,
-			Dir:   targetDirectory,
-			Token: rc.Config.Token,
-		}),
+		func(ctx context.Context) error {
+			remoteReusableWorkflow.URL = rc.getGithubContext(ctx).ServerURL
+			return git.NewGitCloneExecutor(git.NewGitCloneExecutorInput{
+				URL:   remoteReusableWorkflow.CloneURL(),
+				Ref:   remoteReusableWorkflow.Ref,
+				Dir:   targetDirectory,
+				Token: rc.Config.Token,
+			})(ctx)
+		},
 		nil,
 	)
 }
@@ -108,7 +114,7 @@ type remoteReusableWorkflow struct {
 }
 
 func (r *remoteReusableWorkflow) CloneURL() string {
-	return fmt.Sprintf("https://%s/%s/%s", r.URL, r.Org, r.Repo)
+	return fmt.Sprintf("%s/%s/%s", r.URL, r.Org, r.Repo)
 }
 
 func newRemoteReusableWorkflow(uses string) *remoteReusableWorkflow {
@@ -124,6 +130,6 @@ func newRemoteReusableWorkflow(uses string) *remoteReusableWorkflow {
 		Repo:     matches[2],
 		Filename: matches[3],
 		Ref:      matches[4],
-		URL:      "github.com",
+		URL:      "https://github.com",
 	}
 }
