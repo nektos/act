@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/docker/distribution/reference"
 	"github.com/docker/docker/api/types"
@@ -59,6 +60,13 @@ func NewDockerPullExecutor(input NewDockerPullExecutorInput) common.Executor {
 
 		_ = logDockerResponse(logger, reader, err != nil)
 		if err != nil {
+			if imagePullOptions.RegistryAuth != "" && strings.Contains(err.Error(), "unauthorized") {
+				logger.Errorf("pulling image '%v' (%s) failed with credentials %s retrying without them, please check for stale docker config files", imageRef, input.Platform, err.Error())
+				imagePullOptions.RegistryAuth = ""
+				reader, err = cli.ImagePull(ctx, imageRef, imagePullOptions)
+
+				_ = logDockerResponse(logger, reader, err != nil)
+			}
 			return err
 		}
 		return nil
@@ -69,9 +77,9 @@ func getImagePullOptions(ctx context.Context, input NewDockerPullExecutorInput) 
 	imagePullOptions := types.ImagePullOptions{
 		Platform: input.Platform,
 	}
+	logger := common.Logger(ctx)
 
 	if input.Username != "" && input.Password != "" {
-		logger := common.Logger(ctx)
 		logger.Debugf("using authentication for docker pull")
 
 		authConfig := types.AuthConfig{
@@ -93,6 +101,7 @@ func getImagePullOptions(ctx context.Context, input NewDockerPullExecutorInput) 
 		if authConfig.Username == "" && authConfig.Password == "" {
 			return imagePullOptions, nil
 		}
+		logger.Info("using DockerAuthConfig authentication for docker pull")
 
 		encodedJSON, err := json.Marshal(authConfig)
 		if err != nil {
