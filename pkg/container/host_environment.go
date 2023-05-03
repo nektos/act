@@ -362,7 +362,11 @@ func (e *HostEnvironment) ToContainerPath(path string) string {
 }
 
 func (e *HostEnvironment) GetActPath() string {
-	return e.ActPath
+	actPath := e.ActPath
+	if runtime.GOOS == "windows" {
+		actPath = strings.ReplaceAll(actPath, "\\", "/")
+	}
+	return actPath
 }
 
 func (*HostEnvironment) GetPathVariableName() string {
