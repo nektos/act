@@ -164,6 +164,9 @@ act pull_request
 # Run a specific job:
 act -j test
 
+# Run a specific workflow
+act -W .github/workflows/checks.yml
+
 # Collect artifacts to the /tmp/artifacts folder:
 act --artifact-server-path /tmp/artifacts
 
@@ -386,7 +389,7 @@ Act will properly provide `github.head_ref` and `github.base_ref` to the action 
 
 # Pass Inputs to Manually Triggered Workflows
 
-Example workflow file
+Given a workflow file named `dispatch.yaml`
 
 ```yaml
 on:
@@ -432,6 +435,8 @@ Example JSON payload file conveniently named `payload.json`
 Command for triggering the workflow
 
 ```sh
+act workflow_dispatch -e payload.json -W .github/workflows/dispatch.yaml
+# or trigger any workflow with
 act workflow_dispatch -e payload.json
 ```
 
