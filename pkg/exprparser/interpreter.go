@@ -14,7 +14,8 @@ import (
 type EvaluationEnvironment struct {
 	Github   *model.GithubContext
 	Env      map[string]string
-	Job      *model.JobContext
+	Vars     map[string]string
+ 	Job      *model.JobContext
 	Jobs     *map[string]*model.WorkflowCallResult
 	Steps    map[string]*model.StepResult
 	Runner   map[string]interface{}
@@ -154,6 +155,8 @@ func (impl *interperterImpl) evaluateVariable(variableNode *actionlint.VariableN
 		return impl.env.Github, nil
 	case "env":
 		return impl.env.Env, nil
+	case "vars":
+		return impl.env.Vars, nil
 	case "job":
 		return impl.env.Job, nil
 	case "jobs":
