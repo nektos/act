@@ -147,20 +147,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: echo
-  remote-reusable-workflow:
-    runs-on: ubuntu-latest
+  remote-reusable-workflow-yml:
     uses: remote/repo/.github/workflows/workflow.yml@main
-  local-reusable-workflow:
-    runs-on: ubuntu-latest
+  remote-reusable-workflow-yaml:
+    uses: remote/repo/.github/workflows/workflow.yaml@main
+  local-reusable-workflow-yml:
     uses: ./.github/workflows/workflow.yml
+  local-reusable-workflow-yaml:
+    uses: ./.github/workflows/workflow.yaml
 `
 
 	workflow, err := ReadWorkflow(strings.NewReader(yaml))
 	assert.NoError(t, err, "read workflow should succeed")
-	assert.Len(t, workflow.Jobs, 3)
+	assert.Len(t, workflow.Jobs, 5)
 	assert.Equal(t, workflow.Jobs["default-job"].Type(), JobTypeDefault)
-	assert.Equal(t, workflow.Jobs["remote-reusable-workflow"].Type(), JobTypeReusableWorkflowRemote)
-	assert.Equal(t, workflow.Jobs["local-reusable-workflow"].Type(), JobTypeReusableWorkflowLocal)
+	assert.Equal(t, workflow.Jobs["remote-reusable-workflow-yml"].Type(), JobTypeReusableWorkflowRemote)
+	assert.Equal(t, workflow.Jobs["remote-reusable-workflow-yaml"].Type(), JobTypeReusableWorkflowRemote)
+	assert.Equal(t, workflow.Jobs["local-reusable-workflow-yml"].Type(), JobTypeReusableWorkflowLocal)
+	assert.Equal(t, workflow.Jobs["local-reusable-workflow-yaml"].Type(), JobTypeReusableWorkflowLocal)
 }
 
 func TestReadWorkflow_StepsTypes(t *testing.T) {

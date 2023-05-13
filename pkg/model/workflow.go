@@ -468,11 +468,22 @@ func (j JobType) String() string {
 
 // Type returns the type of the job
 func (j *Job) Type() JobType {
-	if strings.HasPrefix(j.Uses, "./.github/workflows") && (strings.HasSuffix(j.Uses, ".yml") || strings.HasSuffix(j.Uses, ".yaml")) {
-		return JobTypeReusableWorkflowLocal
-	} else if !strings.HasPrefix(j.Uses, "./") && strings.Contains(j.Uses, ".github/workflows") && (strings.Contains(j.Uses, ".yml@") || strings.Contains(j.Uses, ".yaml@")) {
-		return JobTypeReusableWorkflowRemote
+	isYaml, _ := regexp.MatchString(`\.(ya?ml)(?:$|@)`, j.Uses)
+
+	if isYaml {
+		isLocalPath := strings.HasPrefix(j.Uses, "./.github/workflows/")
+		isRemotePath := strings.Contains(j.Uses, "/.github/workflows/")
+		hasVersion, _ := regexp.MatchString(`\.ya?ml@`, j.Uses)
+
+		if isLocalPath {
+			return JobTypeReusableWorkflowLocal
+		} else if isRemotePath && hasVersion {
+			return JobTypeReusableWorkflowRemote
+		} else {
+			log.Fatalf("`uses` key references invalid workflow path '%s'. Must start with './.github/workflows/' if it's a local workflow, or must start with '<org>/<repo>/.github/workflows/' and include an '@' if it's a remote workflow.", j.Uses)
+		}
 	}
+
 	return JobTypeDefault
 }
 
