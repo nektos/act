@@ -1,6 +1,7 @@
 package model
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"reflect"
@@ -444,14 +445,17 @@ func commonKeysMatch2(a map[string]interface{}, b map[string]interface{}, m map[
 type JobType int
 
 const (
-	// StepTypeRun is all steps that have a `run` attribute
+	// JobTypeDefault is all jobs that have a `run` attribute
 	JobTypeDefault JobType = iota
 
-	// StepTypeReusableWorkflowLocal is all steps that have a `uses` that is a local workflow in the .github/workflows directory
+	// JobTypeReusableWorkflowLocal is all jobs that have a `uses` that is a local workflow in the .github/workflows directory
 	JobTypeReusableWorkflowLocal
 
-	// JobTypeReusableWorkflowRemote is all steps that have a `uses` that references a workflow file in a github repo
+	// JobTypeReusableWorkflowRemote is all jobs that have a `uses` that references a workflow file in a github repo
 	JobTypeReusableWorkflowRemote
+
+	// JobTypeInvalid represents a job which is not configured correctly
+	JobTypeInvalid
 )
 
 func (j JobType) String() string {
@@ -467,24 +471,28 @@ func (j JobType) String() string {
 }
 
 // Type returns the type of the job
-func (j *Job) Type() JobType {
-	isYaml, _ := regexp.MatchString(`\.(ya?ml)(?:$|@)`, j.Uses)
+func (j *Job) Type() (JobType, error) {
+	isReusable := j.Uses != ""
 
-	if isYaml {
-		isLocalPath := strings.HasPrefix(j.Uses, "./.github/workflows/")
-		isRemotePath := strings.Contains(j.Uses, "/.github/workflows/")
-		hasVersion, _ := regexp.MatchString(`\.ya?ml@`, j.Uses)
+	if isReusable {
+		isYaml, _ := regexp.MatchString(`\.(ya?ml)(?:$|@)`, j.Uses)
 
-		if isLocalPath {
-			return JobTypeReusableWorkflowLocal
-		} else if isRemotePath && hasVersion {
-			return JobTypeReusableWorkflowRemote
-		} else {
-			log.Fatalf("`uses` key references invalid workflow path '%s'. Must start with './.github/workflows/' if it's a local workflow, or must start with '<org>/<repo>/.github/workflows/' and include an '@' if it's a remote workflow.", j.Uses)
+		if isYaml {
+			isLocalPath := strings.HasPrefix(j.Uses, "./.github/workflows/")
+			isRemotePath := strings.Contains(j.Uses, "/.github/workflows/")
+			hasVersion, _ := regexp.MatchString(`\.ya?ml@`, j.Uses)
+
+			if isLocalPath {
+				return JobTypeReusableWorkflowLocal, nil
+			} else if isRemotePath && hasVersion {
+				return JobTypeReusableWorkflowRemote, nil
+			}
 		}
+
+		return JobTypeInvalid, errors.New(fmt.Sprintf("`uses` key references invalid workflow path '%s'. Must start with './.github/workflows/' if it's a local workflow, or must start with '<org>/<repo>/.github/workflows/' and include an '@' if it's a remote workflow.", j.Uses))
 	}
 
-	return JobTypeDefault
+	return JobTypeDefault, nil
 }
 
 // ContainerSpec is the specification of the container to use for the job

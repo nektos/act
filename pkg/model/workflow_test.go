@@ -160,11 +160,68 @@ jobs:
 	workflow, err := ReadWorkflow(strings.NewReader(yaml))
 	assert.NoError(t, err, "read workflow should succeed")
 	assert.Len(t, workflow.Jobs, 5)
-	assert.Equal(t, workflow.Jobs["default-job"].Type(), JobTypeDefault)
-	assert.Equal(t, workflow.Jobs["remote-reusable-workflow-yml"].Type(), JobTypeReusableWorkflowRemote)
-	assert.Equal(t, workflow.Jobs["remote-reusable-workflow-yaml"].Type(), JobTypeReusableWorkflowRemote)
-	assert.Equal(t, workflow.Jobs["local-reusable-workflow-yml"].Type(), JobTypeReusableWorkflowLocal)
-	assert.Equal(t, workflow.Jobs["local-reusable-workflow-yaml"].Type(), JobTypeReusableWorkflowLocal)
+
+	job, err := workflow.Jobs["default-job"].Type()
+	assert.Equal(t, nil, err)
+	assert.Equal(t, JobTypeDefault, job)
+
+	job, err = workflow.Jobs["remote-reusable-workflow-yml"].Type()
+	assert.Equal(t, nil, err)
+	assert.Equal(t, JobTypeReusableWorkflowRemote, job)
+
+	job, err = workflow.Jobs["remote-reusable-workflow-yaml"].Type()
+	assert.Equal(t, nil, err)
+	assert.Equal(t, JobTypeReusableWorkflowRemote, job)
+
+	job, err = workflow.Jobs["local-reusable-workflow-yml"].Type()
+	assert.Equal(t, nil, err)
+	assert.Equal(t, JobTypeReusableWorkflowLocal, job)
+
+	job, err = workflow.Jobs["local-reusable-workflow-yaml"].Type()
+	assert.Equal(t, nil, err)
+	assert.Equal(t, JobTypeReusableWorkflowLocal, job)
+}
+
+func TestReadWorkflow_JobTypes_InvalidPath(t *testing.T) {
+	yaml := `
+name: invalid job definition
+
+jobs:
+  remote-reusable-workflow-missing-version:
+    uses: remote/repo/.github/workflows/workflow.yml
+  remote-reusable-workflow-bad-extension:
+    uses: remote/repo/.github/workflows/workflow.json
+  remote-reusable-workflow-bad-path:
+    uses: remote/repo/github/workflows/workflow.yaml@main
+  local-reusable-workflow-bad-extension:
+    uses: ./.github/workflows/workflow.json
+  local-reusable-workflow-bad-path:
+    uses: ./.github/workflow/workflow.yaml
+`
+
+	workflow, err := ReadWorkflow(strings.NewReader(yaml))
+	assert.NoError(t, err, "read workflow should succeed")
+	assert.Len(t, workflow.Jobs, 5)
+
+	job, err := workflow.Jobs["remote-reusable-workflow-missing-version"].Type()
+	assert.Equal(t, JobTypeInvalid, job)
+	assert.NotEqual(t, nil, err)
+
+	job, err = workflow.Jobs["remote-reusable-workflow-bad-extension"].Type()
+	assert.Equal(t, JobTypeInvalid, job)
+	assert.NotEqual(t, nil, err)
+
+	job, err = workflow.Jobs["remote-reusable-workflow-bad-path"].Type()
+	assert.Equal(t, JobTypeInvalid, job)
+	assert.NotEqual(t, nil, err)
+
+	job, err = workflow.Jobs["local-reusable-workflow-bad-extension"].Type()
+	assert.Equal(t, JobTypeInvalid, job)
+	assert.NotEqual(t, nil, err)
+
+	job, err = workflow.Jobs["local-reusable-workflow-bad-path"].Type()
+	assert.Equal(t, JobTypeInvalid, job)
+	assert.NotEqual(t, nil, err)
 }
 
 func TestReadWorkflow_StepsTypes(t *testing.T) {
