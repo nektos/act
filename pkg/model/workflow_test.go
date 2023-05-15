@@ -138,6 +138,7 @@ jobs:
 	})
 }
 
+// nolint:dupl
 func TestReadWorkflow_JobTypes(t *testing.T) {
 	yaml := `
 name: invalid job definition
@@ -225,7 +226,6 @@ jobs:
 	assert.NotEqual(t, nil, err)
 }
 
-// nolint:dupl
 func TestReadWorkflow_StepsTypes(t *testing.T) {
 	yaml := `
 name: invalid step definition
