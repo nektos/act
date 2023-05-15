@@ -182,6 +182,7 @@ jobs:
 	assert.Equal(t, JobTypeReusableWorkflowLocal, job)
 }
 
+//nolint:dupl
 func TestReadWorkflow_JobTypes_InvalidPath(t *testing.T) {
 	yaml := `
 name: invalid job definition
@@ -224,6 +225,7 @@ jobs:
 	assert.NotEqual(t, nil, err)
 }
 
+// nolint:dupl
 func TestReadWorkflow_StepsTypes(t *testing.T) {
 	yaml := `
 name: invalid step definition
