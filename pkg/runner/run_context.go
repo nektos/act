@@ -18,7 +18,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/docker/docker/errdefs"
 	"github.com/opencontainers/selinux/go-selinux"
 
 	"github.com/nektos/act/pkg/common"
@@ -88,6 +87,12 @@ func (rc *RunContext) GetEnv() map[string]string {
 
 func (rc *RunContext) jobContainerName() string {
 	return createContainerName("act", rc.String())
+}
+
+// networkName return the name of the network which will be created by `act` automatically for job,
+// only create network if `rc.Config.ContainerNetworkMode` is empty string.
+func (rc *RunContext) networkName() string {
+	return fmt.Sprintf("%s-network", rc.jobContainerName())
 }
 
 func getDockerDaemonSocketMountPath(daemonPath string) string {
@@ -262,8 +267,17 @@ func (rc *RunContext) startJobContainer() common.Executor {
 		ext := container.LinuxContainerEnvironmentExtensions{}
 		binds, mounts := rc.GetBindsAndMounts()
 
+		// specify the network to which the container will connect when `docker create` stage. (like execute command line: docker create --network <networkName> <image>)
+		networkName := string(rc.Config.ContainerNetworkMode)
+		if networkName == "" {
+			// if networkName is empty string, will create a new network for the containers.
+			// and it will be removed after at last.
+			networkName = rc.networkName()
+		}
+
 		// add service containers
-		for name, spec := range rc.Run.Job().Services {
+		for serviceId, spec := range rc.Run.Job().Services {
+			// interpolate env
 			interpolatedEnvs := make(map[string]string, len(spec.Env))
 			for k, v := range spec.Env {
 				interpolatedEnvs[k] = rc.ExprEval.Interpolate(ctx, v)
@@ -274,9 +288,9 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			}
 			username, password, err = rc.handleServiceCredentials(ctx, spec.Credentials)
 			if err != nil {
-				return fmt.Errorf("failed to handle service %s credentials: %w", name, err)
+				return fmt.Errorf("failed to handle service %s credentials: %w", serviceId, err)
 			}
-			serviceContainerName := createContainerName(rc.jobContainerName(), name)
+			serviceContainerName := createContainerName(rc.jobContainerName(), serviceId)
 			c := container.NewContainer(&container.NewContainerInput{
 				Name:       serviceContainerName,
 				WorkingDir: ext.ToContainerPath(rc.Config.Workdir),
@@ -286,7 +300,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 				Env:        envs,
 				Mounts: map[string]string{
 					// TODO merge volumes
-					name:            ext.ToContainerPath(rc.Config.Workdir),
+					serviceId:       ext.ToContainerPath(rc.Config.Workdir),
 					"act-toolcache": "/toolcache",
 					"act-actions":   "/actions",
 				},
@@ -297,7 +311,8 @@ func (rc *RunContext) startJobContainer() common.Executor {
 				UsernsMode:     rc.Config.UsernsMode,
 				Platform:       rc.Config.ContainerArchitecture,
 				Options:        spec.Options,
-				NetworkAliases: []string{name},
+				NetworkMode:    networkName,
+				NetworkAliases: []string{serviceId},
 			})
 			rc.ServiceContainers = append(rc.ServiceContainers, c)
 		}
@@ -312,46 +327,36 @@ func (rc *RunContext) startJobContainer() common.Executor {
 		}
 
 		rc.JobContainer = container.NewContainer(&container.NewContainerInput{
-			Cmd:         nil,
-			Entrypoint:  []string{"/bin/sleep", fmt.Sprint(rc.Config.ContainerMaxLifetime.Round(time.Second).Seconds())},
-			WorkingDir:  ext.ToContainerPath(rc.Config.Workdir),
-			Image:       image,
-			Username:    username,
-			Password:    password,
-			Name:        name,
-			Env:         envList,
-			Mounts:      mounts,
-			NetworkMode: rc.Config.ContainerNetworkMode,
-			Binds:       binds,
-			Stdout:      logWriter,
-			Stderr:      logWriter,
-			Privileged:  rc.Config.Privileged,
-			UsernsMode:  rc.Config.UsernsMode,
-			Platform:    rc.Config.ContainerArchitecture,
-			Options:     rc.options(ctx),
+			Cmd:            nil,
+			Entrypoint:     []string{"/bin/sleep", fmt.Sprint(rc.Config.ContainerMaxLifetime.Round(time.Second).Seconds())},
+			WorkingDir:     ext.ToContainerPath(rc.Config.Workdir),
+			Image:          image,
+			Username:       username,
+			Password:       password,
+			Name:           name,
+			Env:            envList,
+			Mounts:         mounts,
+			NetworkMode:    networkName,
+			NetworkAliases: []string{rc.Name},
+			Binds:          binds,
+			Stdout:         logWriter,
+			Stderr:         logWriter,
+			Privileged:     rc.Config.Privileged,
+			UsernsMode:     rc.Config.UsernsMode,
+			Platform:       rc.Config.ContainerArchitecture,
+			Options:        rc.options(ctx),
 		})
 		if rc.JobContainer == nil {
 			return errors.New("Failed to create job container")
 		}
 
-		networkName := fmt.Sprintf("%s-network", rc.jobContainerName())
 		return common.NewPipelineExecutor(
 			rc.pullServicesImages(rc.Config.ForcePull),
 			rc.JobContainer.Pull(rc.Config.ForcePull),
-			rc.stopServiceContainers(),
-			rc.stopJobContainer(),
-			func(ctx context.Context) error {
-				err := rc.removeNetwork(networkName)(ctx)
-				if errdefs.IsNotFound(err) {
-					return nil
-				}
-				return err
-			},
-			rc.createNetwork(networkName),
+			rc.createNetwork(networkName).IfBool(rc.Config.ContainerNetworkMode == ""), // if the value of `ContainerNetworkMode` is empty string, then will create a new network for containers.
 			rc.startServiceContainers(networkName),
 			rc.JobContainer.Create(rc.Config.ContainerCapAdd, rc.Config.ContainerCapDrop),
 			rc.JobContainer.Start(false),
-			rc.JobContainer.ConnectToNetwork(networkName),
 			rc.JobContainer.Copy(rc.JobContainer.GetActPath()+"/", &container.FileEntry{
 				Name: "workflow/event.json",
 				Mode: 0o644,
@@ -465,7 +470,6 @@ func (rc *RunContext) startServiceContainers(networkName string) common.Executor
 				c.Pull(false),
 				c.Create(rc.Config.ContainerCapAdd, rc.Config.ContainerCapDrop),
 				c.Start(false),
-				c.ConnectToNetwork(networkName),
 			))
 		}
 		return common.NewParallelExecutor(len(execs), execs...)(ctx)
