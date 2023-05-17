@@ -488,7 +488,7 @@ func (j *Job) Type() (JobType, error) {
 			}
 		}
 
-		return JobTypeInvalid, fmt.Errorf("`uses` key references invalid workflow path '%s'. Must start with './.github/workflows/' if it's a local workflow, or must start with '<org>/<repo>/.github/workflows/' and include an '@' if it's a remote workflow.", j.Uses)
+		return JobTypeInvalid, fmt.Errorf("`uses` key references invalid workflow path '%s'. Must start with './.github/workflows/' if it's a local workflow, or must start with '<org>/<repo>/.github/workflows/' and include an '@' if it's a remote workflow", j.Uses)
 	}
 
 	return JobTypeDefault, nil
