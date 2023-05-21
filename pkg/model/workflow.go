@@ -477,8 +477,8 @@ func (j *Job) Type() (JobType, error) {
 		isYaml, _ := regexp.MatchString(`\.(ya?ml)(?:$|@)`, j.Uses)
 
 		if isYaml {
-			isLocalPath := strings.HasPrefix(j.Uses, "./.github/workflows/")
-			isRemotePath := strings.Contains(j.Uses, "/.github/workflows/")
+			isLocalPath := strings.HasPrefix(j.Uses, "./")
+			isRemotePath, _ := regexp.MatchString(`^[^.](.+?/){2,}.+\.ya?ml@`, j.Uses)
 			hasVersion, _ := regexp.MatchString(`\.ya?ml@`, j.Uses)
 
 			if isLocalPath {
@@ -488,7 +488,7 @@ func (j *Job) Type() (JobType, error) {
 			}
 		}
 
-		return JobTypeInvalid, fmt.Errorf("`uses` key references invalid workflow path '%s'. Must start with './.github/workflows/' if it's a local workflow, or must start with '<org>/<repo>/.github/workflows/' and include an '@' if it's a remote workflow", j.Uses)
+		return JobTypeInvalid, fmt.Errorf("`uses` key references invalid workflow path '%s'. Must start with './' if it's a local workflow, or must start with '<org>/<repo>/' and include an '@' if it's a remote workflow", j.Uses)
 	}
 
 	return JobTypeDefault, nil

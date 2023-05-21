@@ -149,80 +149,79 @@ jobs:
     steps:
       - run: echo
   remote-reusable-workflow-yml:
-    uses: remote/repo/.github/workflows/workflow.yml@main
+    uses: remote/repo/some/path/to/workflow.yml@main
   remote-reusable-workflow-yaml:
-    uses: remote/repo/.github/workflows/workflow.yaml@main
+    uses: remote/repo/some/path/to/workflow.yaml@main
+  remote-reusable-workflow-custom-path:
+    uses: remote/repo/path/to/workflow.yml@main
   local-reusable-workflow-yml:
-    uses: ./.github/workflows/workflow.yml
+    uses: ./some/path/to/workflow.yml
   local-reusable-workflow-yaml:
-    uses: ./.github/workflows/workflow.yaml
+    uses: ./some/path/to/workflow.yaml
 `
 
 	workflow, err := ReadWorkflow(strings.NewReader(yaml))
 	assert.NoError(t, err, "read workflow should succeed")
-	assert.Len(t, workflow.Jobs, 5)
+	assert.Len(t, workflow.Jobs, 6)
 
-	job, err := workflow.Jobs["default-job"].Type()
+	jobType, err := workflow.Jobs["default-job"].Type()
 	assert.Equal(t, nil, err)
-	assert.Equal(t, JobTypeDefault, job)
+	assert.Equal(t, JobTypeDefault, jobType)
 
-	job, err = workflow.Jobs["remote-reusable-workflow-yml"].Type()
+	jobType, err = workflow.Jobs["remote-reusable-workflow-yml"].Type()
 	assert.Equal(t, nil, err)
-	assert.Equal(t, JobTypeReusableWorkflowRemote, job)
+	assert.Equal(t, JobTypeReusableWorkflowRemote, jobType)
 
-	job, err = workflow.Jobs["remote-reusable-workflow-yaml"].Type()
+	jobType, err = workflow.Jobs["remote-reusable-workflow-yaml"].Type()
 	assert.Equal(t, nil, err)
-	assert.Equal(t, JobTypeReusableWorkflowRemote, job)
+	assert.Equal(t, JobTypeReusableWorkflowRemote, jobType)
 
-	job, err = workflow.Jobs["local-reusable-workflow-yml"].Type()
+	jobType, err = workflow.Jobs["remote-reusable-workflow-custom-path"].Type()
 	assert.Equal(t, nil, err)
-	assert.Equal(t, JobTypeReusableWorkflowLocal, job)
+	assert.Equal(t, JobTypeReusableWorkflowRemote, jobType)
 
-	job, err = workflow.Jobs["local-reusable-workflow-yaml"].Type()
+	jobType, err = workflow.Jobs["local-reusable-workflow-yml"].Type()
 	assert.Equal(t, nil, err)
-	assert.Equal(t, JobTypeReusableWorkflowLocal, job)
+	assert.Equal(t, JobTypeReusableWorkflowLocal, jobType)
+
+	jobType, err = workflow.Jobs["local-reusable-workflow-yaml"].Type()
+	assert.Equal(t, nil, err)
+	assert.Equal(t, JobTypeReusableWorkflowLocal, jobType)
 }
 
-//nolint:dupl
 func TestReadWorkflow_JobTypes_InvalidPath(t *testing.T) {
 	yaml := `
 name: invalid job definition
 
 jobs:
   remote-reusable-workflow-missing-version:
-    uses: remote/repo/.github/workflows/workflow.yml
+    uses: remote/repo/some/path/to/workflow.yml
   remote-reusable-workflow-bad-extension:
-    uses: remote/repo/.github/workflows/workflow.json
-  remote-reusable-workflow-bad-path:
-    uses: remote/repo/github/workflows/workflow.yaml@main
+    uses: remote/repo/some/path/to/workflow.json
   local-reusable-workflow-bad-extension:
-    uses: ./.github/workflows/workflow.json
+    uses: ./some/path/to/workflow.json
   local-reusable-workflow-bad-path:
-    uses: ./.github/workflow/workflow.yaml
+    uses: some/path/to/workflow.yaml
 `
 
 	workflow, err := ReadWorkflow(strings.NewReader(yaml))
 	assert.NoError(t, err, "read workflow should succeed")
-	assert.Len(t, workflow.Jobs, 5)
+	assert.Len(t, workflow.Jobs, 4)
 
-	job, err := workflow.Jobs["remote-reusable-workflow-missing-version"].Type()
-	assert.Equal(t, JobTypeInvalid, job)
+	jobType, err := workflow.Jobs["remote-reusable-workflow-missing-version"].Type()
+	assert.Equal(t, JobTypeInvalid, jobType)
 	assert.NotEqual(t, nil, err)
 
-	job, err = workflow.Jobs["remote-reusable-workflow-bad-extension"].Type()
-	assert.Equal(t, JobTypeInvalid, job)
+	jobType, err = workflow.Jobs["remote-reusable-workflow-bad-extension"].Type()
+	assert.Equal(t, JobTypeInvalid, jobType)
 	assert.NotEqual(t, nil, err)
 
-	job, err = workflow.Jobs["remote-reusable-workflow-bad-path"].Type()
-	assert.Equal(t, JobTypeInvalid, job)
+	jobType, err = workflow.Jobs["local-reusable-workflow-bad-extension"].Type()
+	assert.Equal(t, JobTypeInvalid, jobType)
 	assert.NotEqual(t, nil, err)
 
-	job, err = workflow.Jobs["local-reusable-workflow-bad-extension"].Type()
-	assert.Equal(t, JobTypeInvalid, job)
-	assert.NotEqual(t, nil, err)
-
-	job, err = workflow.Jobs["local-reusable-workflow-bad-path"].Type()
-	assert.Equal(t, JobTypeInvalid, job)
+	jobType, err = workflow.Jobs["local-reusable-workflow-bad-path"].Type()
+	assert.Equal(t, JobTypeInvalid, jobType)
 	assert.NotEqual(t, nil, err)
 }
 
