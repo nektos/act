@@ -535,15 +535,15 @@ func (rc *RunContext) isEnabled(ctx context.Context) (bool, error) {
 		return false, fmt.Errorf("  \u274C  Error in if-expression: \"if: %s\" (%s)", job.If.Value, runJobErr)
 	}
 
-	if !runJob {
-		l.WithField("jobResult", "skipped").Debugf("Skipping job '%s' due to '%s'", job.Name, job.If.Value)
-		return false, nil
-	}
-
 	if jobType == model.JobTypeInvalid {
 		return false, jobTypeErr
 	} else if jobType != model.JobTypeDefault {
 		return true, nil
+	}
+
+	if !runJob {
+		l.WithField("jobResult", "skipped").Debugf("Skipping job '%s' due to '%s'", job.Name, job.If.Value)
+		return false, nil
 	}
 
 	img := rc.platformImage(ctx)
