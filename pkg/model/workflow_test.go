@@ -138,7 +138,6 @@ jobs:
 	})
 }
 
-//nolint:dupl
 func TestReadWorkflow_JobTypes(t *testing.T) {
 	yaml := `
 name: invalid job definition
