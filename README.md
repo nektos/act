@@ -192,6 +192,12 @@ If your workflow depends on this token, you need to create a [personal access to
 act -s GITHUB_TOKEN=[insert token or leave blank and omit equals for secure input]
 ```
 
+If [GitHub CLI](https://cli.github.com/) is installed, the [`gh auth token`](https://cli.github.com/manual/gh_auth_token) command can be used to autmatically pass the token to act
+
+```bash
+act -s GITHUB_TOKEN="$(gh auth token)"
+```
+
 **WARNING**: `GITHUB_TOKEN` will be logged in shell history if not inserted through secure input or (depending on your shell config) the command is prefixed with a whitespace.
 
 # Known Issues
