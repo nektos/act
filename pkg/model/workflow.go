@@ -155,6 +155,7 @@ type Job struct {
 	Uses           string                    `yaml:"uses"`
 	With           map[string]interface{}    `yaml:"with"`
 	RawSecrets     yaml.Node                 `yaml:"secrets"`
+	RawVars        yaml.Node                 `yaml:"vars"`
 	Result         string
 }
 
@@ -229,6 +230,32 @@ func (j *Job) Secrets() map[string]string {
 
 	var val map[string]string
 	if !decodeNode(j.RawSecrets, &val) {
+		return nil
+	}
+
+	return val
+}
+
+func (j *Job) InheritVars() bool {
+	if j.RawVars.Kind != yaml.ScalarNode {
+		return false
+	}
+
+	var val string
+	if !decodeNode(j.RawVars, &val) {
+		return false
+	}
+
+	return val == "inherit"
+}
+
+func (j *Job) Vars() map[string]string {
+	if j.RawVars.Kind != yaml.MappingNode {
+		return nil
+	}
+
+	var val map[string]string
+	if !decodeNode(j.RawVars, &val) {
 		return nil
 	}
 

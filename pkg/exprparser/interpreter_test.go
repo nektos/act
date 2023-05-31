@@ -593,6 +593,9 @@ func TestContexts(t *testing.T) {
 		Secrets: map[string]string{
 			"name": "value",
 		},
+		Vars: map[string]string{
+			"name": "value",
+		},
 		Strategy: map[string]interface{}{
 			"fail-fast": true,
 		},

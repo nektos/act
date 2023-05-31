@@ -19,6 +19,7 @@ type EvaluationEnvironment struct {
 	Steps    map[string]*model.StepResult
 	Runner   map[string]interface{}
 	Secrets  map[string]string
+	Vars     map[string]string
 	Strategy map[string]interface{}
 	Matrix   map[string]interface{}
 	Needs    map[string]Needs
@@ -167,6 +168,8 @@ func (impl *interperterImpl) evaluateVariable(variableNode *actionlint.VariableN
 		return impl.env.Runner, nil
 	case "secrets":
 		return impl.env.Secrets, nil
+	case "vars":
+		return impl.env.Vars, nil
 	case "strategy":
 		return impl.env.Strategy, nil
 	case "matrix":
