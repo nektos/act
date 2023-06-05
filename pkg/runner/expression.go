@@ -395,6 +395,7 @@ func rewriteSubExpression(ctx context.Context, in string, forceFormat bool) (str
 	return out, nil
 }
 
+//nolint:gocyclo
 func getEvaluatorInputs(ctx context.Context, rc *RunContext, step step, ghc *model.GithubContext) map[string]interface{} {
 	inputs := map[string]interface{}{}
 
@@ -430,6 +431,22 @@ func getEvaluatorInputs(ctx context.Context, rc *RunContext, step step, ghc *mod
 		}
 	}
 
+	if ghc.EventName == "workflow_call" {
+		config := rc.Run.Workflow.WorkflowCallConfig()
+		if config != nil && config.Inputs != nil {
+			for k, v := range config.Inputs {
+				value := nestedMapLookup(ghc.Event, "inputs", k)
+				if value == nil {
+					value = v.Default
+				}
+				if v.Type == "boolean" {
+					inputs[k] = value == "true"
+				} else {
+					inputs[k] = value
+				}
+			}
+		}
+	}
 	return inputs
 }
 
