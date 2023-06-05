@@ -290,21 +290,17 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			if err != nil {
 				return fmt.Errorf("failed to handle service %s credentials: %w", serviceId, err)
 			}
+			serviceBinds, serviceMounts := rc.GetServiceBindsAndMounts(spec.Volumes)
 			serviceContainerName := createContainerName(rc.jobContainerName(), serviceId)
 			c := container.NewContainer(&container.NewContainerInput{
-				Name:       serviceContainerName,
-				WorkingDir: ext.ToContainerPath(rc.Config.Workdir),
-				Image:      spec.Image,
-				Username:   username,
-				Password:   password,
-				Env:        envs,
-				Mounts: map[string]string{
-					// TODO merge volumes
-					serviceId:       ext.ToContainerPath(rc.Config.Workdir),
-					"act-toolcache": "/toolcache",
-					"act-actions":   "/actions",
-				},
-				Binds:          binds,
+				Name:           serviceContainerName,
+				WorkingDir:     ext.ToContainerPath(rc.Config.Workdir),
+				Image:          spec.Image,
+				Username:       username,
+				Password:       password,
+				Env:            envs,
+				Mounts:         serviceMounts,
+				Binds:          serviceBinds,
 				Stdout:         logWriter,
 				Stderr:         logWriter,
 				Privileged:     rc.Config.Privileged,
@@ -313,6 +309,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 				Options:        spec.Options,
 				NetworkMode:    networkName,
 				NetworkAliases: []string{serviceId},
+				ValidVolumes:   rc.Config.ValidVolumes,
 			})
 			rc.ServiceContainers = append(rc.ServiceContainers, c)
 		}
@@ -345,6 +342,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			UsernsMode:     rc.Config.UsernsMode,
 			Platform:       rc.Config.ContainerArchitecture,
 			Options:        rc.options(ctx),
+			ValidVolumes:   rc.Config.ValidVolumes,
 		})
 		if rc.JobContainer == nil {
 			return errors.New("Failed to create job container")
@@ -980,4 +978,31 @@ func (rc *RunContext) handleServiceCredentials(ctx context.Context, creds map[st
 	}
 
 	return
+}
+
+// GetServiceBindsAndMounts returns the binds and mounts for the service container, resolving paths as appopriate
+func (rc *RunContext) GetServiceBindsAndMounts(svcVolumes []string) ([]string, map[string]string) {
+	if rc.Config.ContainerDaemonSocket == "" {
+		rc.Config.ContainerDaemonSocket = "/var/run/docker.sock"
+	}
+	binds := []string{}
+	if rc.Config.ContainerDaemonSocket != "-" {
+		daemonPath := getDockerDaemonSocketMountPath(rc.Config.ContainerDaemonSocket)
+		binds = append(binds, fmt.Sprintf("%s:%s", daemonPath, "/var/run/docker.sock"))
+	}
+
+	mounts := map[string]string{}
+
+	for _, v := range svcVolumes {
+		if !strings.Contains(v, ":") || filepath.IsAbs(v) {
+			// Bind anonymous volume or host file.
+			binds = append(binds, v)
+		} else {
+			// Mount existing volume.
+			paths := strings.SplitN(v, ":", 2)
+			mounts[paths[0]] = paths[1]
+		}
+	}
+
+	return binds, mounts
 }

@@ -62,6 +62,7 @@ type Config struct {
 	Matrix                             map[string]map[string]bool   // Matrix config to run
 	ContainerMaxLifetime               time.Duration                // the max lifetime of job containers
 	ContainerNetworkMode               docker_container.NetworkMode // the network mode of job containers (the value of --network)
+	ValidVolumes                       []string                     // only volumes (and bind mounts) in this slice can be mounted on the job container or service containers
 }
 
 type caller struct {
