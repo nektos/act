@@ -5,11 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"runtime"
 
 	log "github.com/sirupsen/logrus"
 
 	"github.com/nektos/act/pkg/common"
-	"github.com/nektos/act/pkg/container"
 	"github.com/nektos/act/pkg/model"
 )
 
@@ -103,15 +103,45 @@ func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 	maxJobNameLen := 0
 
 	stagePipeline := make([]common.Executor, 0)
+	log.Debugf("Plan Stages: %v", plan.Stages)
+
 	for i := range plan.Stages {
 		stage := plan.Stages[i]
 		stagePipeline = append(stagePipeline, func(ctx context.Context) error {
 			pipeline := make([]common.Executor, 0)
 			for _, run := range stage.Runs {
+				log.Debugf("Stages Runs: %v", stage.Runs)
 				stageExecutor := make([]common.Executor, 0)
 				job := run.Job()
+				log.Debugf("Job.Name: %v", job.Name)
+				log.Debugf("Job.RawNeeds: %v", job.RawNeeds)
+				log.Debugf("Job.RawRunsOn: %v", job.RawRunsOn)
+				log.Debugf("Job.Env: %v", job.Env)
+				log.Debugf("Job.If: %v", job.If)
+				for step := range job.Steps {
+					if nil != job.Steps[step] {
+						log.Debugf("Job.Steps: %v", job.Steps[step].String())
+					}
+				}
+				log.Debugf("Job.TimeoutMinutes: %v", job.TimeoutMinutes)
+				log.Debugf("Job.Services: %v", job.Services)
+				log.Debugf("Job.Strategy: %v", job.Strategy)
+				log.Debugf("Job.RawContainer: %v", job.RawContainer)
+				log.Debugf("Job.Defaults.Run.Shell: %v", job.Defaults.Run.Shell)
+				log.Debugf("Job.Defaults.Run.WorkingDirectory: %v", job.Defaults.Run.WorkingDirectory)
+				log.Debugf("Job.Outputs: %v", job.Outputs)
+				log.Debugf("Job.Uses: %v", job.Uses)
+				log.Debugf("Job.With: %v", job.With)
+				// log.Debugf("Job.RawSecrets: %v", job.RawSecrets)
+				log.Debugf("Job.Result: %v", job.Result)
 
 				if job.Strategy != nil {
+					log.Debugf("Job.Strategy.FailFast: %v", job.Strategy.FailFast)
+					log.Debugf("Job.Strategy.MaxParallel: %v", job.Strategy.MaxParallel)
+					log.Debugf("Job.Strategy.FailFastString: %v", job.Strategy.FailFastString)
+					log.Debugf("Job.Strategy.MaxParallelString: %v", job.Strategy.MaxParallelString)
+					log.Debugf("Job.Strategy.RawMatrix: %v", job.Strategy.RawMatrix)
+
 					strategyRc := runner.newRunContext(ctx, run, nil)
 					if err := strategyRc.NewExpressionEvaluator(ctx).EvaluateYamlNode(ctx, &job.Strategy.RawMatrix); err != nil {
 						log.Errorf("Error while evaluating matrix: %v", err)
@@ -122,6 +152,8 @@ func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 				if m, err := job.GetMatrixes(); err != nil {
 					log.Errorf("Error while get job's matrix: %v", err)
 				} else {
+					log.Debugf("Job Matrices: %v", m)
+					log.Debugf("Runner Matrices: %v", runner.config.Matrix)
 					matrixes = selectMatrixes(m, runner.config.Matrix)
 				}
 				log.Debugf("Final matrix after applying user inclusions '%v'", matrixes)
@@ -152,14 +184,11 @@ func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 				}
 				pipeline = append(pipeline, common.NewParallelExecutor(maxParallel, stageExecutor...))
 			}
-			var ncpu int
-			info, err := container.GetHostInfo(ctx)
-			if err != nil {
-				log.Errorf("failed to obtain container engine info: %s", err)
-				ncpu = 1 // sane default?
-			} else {
-				ncpu = info.NCPU
+			ncpu := runtime.NumCPU()
+			if 1 > ncpu {
+				ncpu = 1
 			}
+			log.Debugf("Detected CPUs: %d", ncpu)
 			return common.NewParallelExecutor(ncpu, pipeline...)(ctx)
 		})
 	}
