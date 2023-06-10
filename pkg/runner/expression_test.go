@@ -28,6 +28,9 @@ func createRunContext(t *testing.T) *RunContext {
 			Secrets: map[string]string{
 				"CASE_INSENSITIVE_SECRET": "value",
 			},
+			Vars: map[string]string{
+				"CASE_INSENSITIVE_VAR": "value",
+			},
 		},
 		Env: map[string]string{
 			"key": "value",
@@ -122,8 +125,8 @@ func TestEvaluateRunContext(t *testing.T) {
 		{"env.key", "value", ""},
 		{"secrets.CASE_INSENSITIVE_SECRET", "value", ""},
 		{"secrets.case_insensitive_secret", "value", ""},
-		{"vars.CASE_INSENSITIVE_SECRET", "value", ""},
-		{"vars.case_insensitive_secret", "value", ""},
+		{"vars.CASE_INSENSITIVE_VAR", "value", ""},
+		{"vars.case_insensitive_var", "value", ""},
 		{"format('{{0}}', 'test')", "{0}", ""},
 		{"format('{{{0}}}', 'test')", "{test}", ""},
 		{"format('}}')", "}", ""},
