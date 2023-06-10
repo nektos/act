@@ -487,17 +487,5 @@ func getWorkflowSecrets(ctx context.Context, rc *RunContext) map[string]string {
 }
 
 func getWorkflowVars(ctx context.Context, rc *RunContext) map[string]string {
-	// inherit vars from the caller if caller exists
-	if rc.caller != nil {
-		vars := rc.caller.runContext.Config.Vars
-
-		if vars == nil {
-			vars = map[string]string{}
-		}
-
-		for k, v := range vars {
-			rc.Config.Vars[k] = rc.caller.runContext.ExprEval.Interpolate(ctx, v)
-		}
-	}
 	return rc.Config.Vars
 }
