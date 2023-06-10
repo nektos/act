@@ -34,6 +34,7 @@ type Config struct {
 	Env                                map[string]string          // env for containers
 	Inputs                             map[string]string          // manually passed action inputs
 	Secrets                            map[string]string          // list of secrets
+	Vars                               map[string]string          // list of vars
 	Token                              string                     // GitHub token
 	InsecureSecrets                    bool                       // switch hiding output when printing to terminal
 	Platforms                          map[string]string          // list of platforms
