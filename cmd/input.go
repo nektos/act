@@ -54,6 +54,7 @@ type Input struct {
 	replaceGheActionWithGithubCom      []string
 	replaceGheActionTokenWithGithubCom string
 	matrix                             []string
+	actionCachePath                    string
 }
 
 func (i *Input) resolve(path string) string {
