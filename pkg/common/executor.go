@@ -3,6 +3,8 @@ package common
 import (
 	"context"
 	"fmt"
+
+	log "github.com/sirupsen/logrus"
 )
 
 // Warning that implements `error` but safe to ignore
@@ -93,6 +95,11 @@ func NewParallelExecutor(parallel int, executors ...Executor) Executor {
 	return func(ctx context.Context) error {
 		work := make(chan Executor, len(executors))
 		errs := make(chan error, len(executors))
+
+		if 1 > parallel {
+			log.Infof("Parallel tasks (%d) below minimum, setting to 1", parallel)
+			parallel = 1
+		}
 
 		for i := 0; i < parallel; i++ {
 			go func(work <-chan Executor, errs chan<- error) {

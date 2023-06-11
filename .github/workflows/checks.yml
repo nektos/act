@@ -1,6 +1,10 @@
 name: checks
 on: [pull_request, workflow_dispatch]
 
+concurrency:
+  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.ref }}
+
 env:
   ACT_OWNER: ${{ github.repository_owner }}
   ACT_REPOSITORY: ${{ github.repository }}
@@ -19,10 +23,10 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
           check-latest: true
-      - uses: golangci/golangci-lint-action@v3.4.0
+      - uses: golangci/golangci-lint-action@v3.5.0
         with:
           version: v1.47.2
-      - uses: megalinter/megalinter/flavors/go@v6.21.0
+      - uses: megalinter/megalinter/flavors/go@v7.0.4
         env:
           DEFAULT_BRANCH: master
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -54,8 +58,10 @@ jobs:
         uses: ./.github/actions/run-tests
         with:
           upload-logs-name: logs-linux
+      - name: Run act from cli
+        run: go run main.go -P ubuntu-latest=node:16-buster-slim -C ./pkg/runner/testdata/ -W ./basic/push.yml
       - name: Upload Codecov report
-        uses: codecov/codecov-action@v3.1.1
+        uses: codecov/codecov-action@v3.1.4
         with:
           files: coverage.txt
           fail_ci_if_error: true # optional (default = false)

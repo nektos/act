@@ -16,6 +16,7 @@ type Input struct {
 	reuseContainers                    bool
 	bindWorkdir                        bool
 	secrets                            []string
+	vars                               []string
 	envs                               []string
 	inputs                             []string
 	platforms                          []string
@@ -26,6 +27,7 @@ type Input struct {
 	envfile                            string
 	inputfile                          string
 	secretfile                         string
+	varfile                            string
 	insecureSecrets                    bool
 	defaultBranch                      string
 	privileged                         bool
@@ -42,6 +44,10 @@ type Input struct {
 	artifactServerPath                 string
 	artifactServerAddr                 string
 	artifactServerPort                 string
+	noCacheServer                      bool
+	cacheServerPath                    string
+	cacheServerAddr                    string
+	cacheServerPort                    uint16
 	jsonLogger                         bool
 	noSkipCheckout                     bool
 	remoteName                         string
@@ -72,6 +78,10 @@ func (i *Input) Envfile() string {
 // Secretfile returns path to secrets
 func (i *Input) Secretfile() string {
 	return i.resolve(i.secretfile)
+}
+
+func (i *Input) Varfile() string {
+	return i.resolve(i.varfile)
 }
 
 // Workdir returns path to workdir

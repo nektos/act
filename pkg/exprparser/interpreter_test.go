@@ -557,6 +557,7 @@ func TestContexts(t *testing.T) {
 		// {"contains(steps.*.outputs.name, 'value')", true, "steps-context-array-outputs"},
 		{"runner.os", "Linux", "runner-context"},
 		{"secrets.name", "value", "secrets-context"},
+		{"vars.name", "value", "vars-context"},
 		{"strategy.fail-fast", true, "strategy-context"},
 		{"matrix.os", "Linux", "matrix-context"},
 		{"needs.job-id.outputs.output-name", "value", "needs-context"},
@@ -591,6 +592,9 @@ func TestContexts(t *testing.T) {
 			"tool_cache": "/opt/hostedtoolcache",
 		},
 		Secrets: map[string]string{
+			"name": "value",
+		},
+		Vars: map[string]string{
 			"name": "value",
 		},
 		Strategy: map[string]interface{}{
