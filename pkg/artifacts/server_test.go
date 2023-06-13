@@ -239,11 +239,11 @@ type TestJobFileInfo struct {
 	containerArchitecture string
 }
 
-var artifactsPath = path.Join(os.TempDir(), "test-artifacts")
-
-var artifactsAddr = "127.0.0.1"
-
-var artifactsPort = "12345"
+var (
+	artifactsPath = path.Join(os.TempDir(), "test-artifacts")
+	artifactsAddr = "127.0.0.1"
+	artifactsPort = "12345"
+)
 
 func TestArtifactFlow(t *testing.T) {
 	if testing.Short() {
