@@ -8,6 +8,7 @@ jobs:
     steps:
       - run: echo "hello world" > test.txt
       - name: curl upload
+        # FIXME: wei/curl@v1 is gone
         uses: wei/curl@v1
         with:
           args: -s --fail ${ACTIONS_RUNTIME_URL}upload/1?itemPath=../../my-artifact/secret.txt --upload-file test.txt
