@@ -297,7 +297,7 @@ func runTestJobFile(ctx context.Context, t *testing.T, tjfi TestJobFileInfo) {
 		runner, err := runner.New(runnerConfig)
 		assert.Nil(t, err, tjfi.workflowPath)
 
-		planner, err := model.NewWorkflowPlanner(fullWorkflowPath, true)
+		planner, err := model.NewWorkflowPlanner(workdir, tjfi.workflowPath, true)
 		assert.Nil(t, err, fullWorkflowPath)
 
 		plan, err := planner.PlanEvent(tjfi.eventName)
