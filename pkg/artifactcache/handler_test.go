@@ -25,9 +25,9 @@ func TestHandler(t *testing.T) {
 
 	defer func() {
 		t.Run("inpect db", func(t *testing.T) {
-                        db, err := handler.openDB()
-                        require.NoError(t, err)
-                        defer db.Close()
+			db, err := handler.openDB()
+			require.NoError(t, err)
+			defer db.Close()
 			require.NoError(t, db.Bolt().View(func(tx *bbolt.Tx) error {
 				return tx.Bucket([]byte("Cache")).ForEach(func(k, v []byte) error {
 					t.Logf("%s: %s", k, v)
