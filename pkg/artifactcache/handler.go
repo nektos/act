@@ -27,7 +27,7 @@ const (
 )
 
 type Handler struct {
-	dir	     string
+	dir      string
 	storage  *Storage
 	router   *httprouter.Router
 	listener net.Listener
