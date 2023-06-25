@@ -27,6 +27,7 @@ const (
 )
 
 type Handler struct {
+	dir	     string
 	storage  *Storage
 	router   *httprouter.Router
 	listener net.Listener
@@ -60,6 +61,8 @@ func StartHandler(dir, outboundIP string, port uint16, logger logrus.FieldLogger
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, err
 	}
+
+	h.dir = dir
 
 	storage, err := NewStorage(filepath.Join(dir, "cache"))
 	if err != nil {
@@ -139,7 +142,7 @@ func (h *Handler) Close() error {
 }
 
 func (h *Handler) openDB() (*bolthold.Store, error) {
-	return bolthold.Open(filepath.Join(dir, "bolt.db"), 0o644, &bolthold.Options{
+	return bolthold.Open(filepath.Join(h.dir, "bolt.db"), 0o644, &bolthold.Options{
 		Encoder: json.Marshal,
 		Decoder: json.Unmarshal,
 		Options: &bbolt.Options{
@@ -396,7 +399,6 @@ func (h *Handler) findCache(db *bolthold.Store, keys []string, version string) (
 func (h *Handler) useCache(id int64) {
 	db, err := h.openDB()
 	if err != nil {
-		h.responseJSON(w, r, 500, err)
 		return
 	}
 	defer db.Close()
@@ -432,7 +434,6 @@ func (h *Handler) gcCache() {
 
 	db, err := h.openDB()
 	if err != nil {
-		h.responseJSON(w, r, 500, err)
 		return
 	}
 	defer db.Close()
