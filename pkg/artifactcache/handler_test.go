@@ -25,7 +25,9 @@ func TestHandler(t *testing.T) {
 
 	defer func() {
 		t.Run("inpect db", func(t *testing.T) {
-			require.NoError(t, handler.db.Bolt().View(func(tx *bbolt.Tx) error {
+                        db, err := handler.openDB()
+                        require.NoError(t, err)
+			require.NoError(t, db.Bolt().View(func(tx *bbolt.Tx) error {
 				return tx.Bucket([]byte("Cache")).ForEach(func(k, v []byte) error {
 					t.Logf("%s: %s", k, v)
 					return nil
@@ -36,7 +38,6 @@ func TestHandler(t *testing.T) {
 			require.NoError(t, handler.Close())
 			assert.Nil(t, handler.server)
 			assert.Nil(t, handler.listener)
-			assert.Nil(t, handler.db)
 			_, err := http.Post(fmt.Sprintf("%s/caches/%d", base, 1), "", nil)
 			assert.Error(t, err)
 		})
