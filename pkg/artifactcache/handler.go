@@ -146,7 +146,7 @@ func (h *Handler) openDB() (*bolthold.Store, error) {
 		Encoder: json.Marshal,
 		Decoder: json.Unmarshal,
 		Options: &bbolt.Options{
-			Timeout:      5 * time.Second,
+			Timeout:      50 * time.Second,
 			NoGrowSync:   bbolt.DefaultOptions.NoGrowSync,
 			FreelistType: bbolt.DefaultOptions.FreelistType,
 		},
