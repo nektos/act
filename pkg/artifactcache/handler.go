@@ -290,10 +290,13 @@ func (h *Handler) commit(w http.ResponseWriter, r *http.Request, params httprout
 		return
 	}
 
-	if err := h.storage.Commit(cache.ID, cache.Size); err != nil {
+	size, err := h.storage.Commit(cache.ID, cache.Size)
+	if err != nil {
 		h.responseJSON(w, r, 500, err)
 		return
 	}
+	// write real size back to cache, it may be different from the current value when the request doesn't specify it.
+	cache.Size = size
 
 	cache.Complete = true
 	if err := h.db.Update(cache.ID, cache); err != nil {
