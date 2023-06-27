@@ -321,6 +321,7 @@ func (h *Handler) commit(w http.ResponseWriter, r *http.Request, params httprout
 		h.responseJSON(w, r, 500, err)
 		return
 	}
+	defer db.Close()
 
 	cache.Complete = true
 	if err := db.Update(cache.ID, cache); err != nil {
