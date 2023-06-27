@@ -146,7 +146,7 @@ func (h *Handler) openDB() (*bolthold.Store, error) {
 		Encoder: json.Marshal,
 		Decoder: json.Unmarshal,
 		Options: &bbolt.Options{
-			Timeout:      50 * time.Second,
+			Timeout:      5 * time.Second,
 			NoGrowSync:   bbolt.DefaultOptions.NoGrowSync,
 			FreelistType: bbolt.DefaultOptions.FreelistType,
 		},
@@ -309,7 +309,15 @@ func (h *Handler) commit(w http.ResponseWriter, r *http.Request, params httprout
 		return
 	}
 
+	db.Close()
+
 	if err := h.storage.Commit(cache.ID, cache.Size); err != nil {
+		h.responseJSON(w, r, 500, err)
+		return
+	}
+
+	db, err = h.openDB()
+	if err != nil {
 		h.responseJSON(w, r, 500, err)
 		return
 	}
