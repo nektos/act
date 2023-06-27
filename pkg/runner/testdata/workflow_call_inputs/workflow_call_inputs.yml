@@ -1,0 +1,36 @@
+name: workflow_call
+
+on:
+  workflow_call:
+    inputs:
+      required:
+        description: a required input
+        required: true
+      with_default:
+        description: an input with default
+        required: false
+        default: default
+      boolean:
+        description: an input of type boolean
+        required: false
+        type: boolean
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: test required input
+        run: |
+          echo input.required=${{ inputs.required }}
+          [[ "${{ inputs.required }}" = "required input" ]] || exit 1
+      - name: test input with default
+        run: |
+          echo input.with_default=${{ inputs.with_default }}
+          [[ "${{ inputs.with_default }}" = "default" ]] || exit 1
+      - id: boolean-test
+        name: run on boolean input
+        if: ${{ inputs.boolean == true }}
+        run: echo "::set-output name=value::executed"
+      - name: has boolean test?
+        run: |
+          [[ "${{ steps.boolean-test.outputs.value }}" = "executed" ]] || exit 1
