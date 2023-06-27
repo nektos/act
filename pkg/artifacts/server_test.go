@@ -14,10 +14,11 @@ import (
 	"testing/fstest"
 
 	"github.com/julienschmidt/httprouter"
-	"github.com/nektos/act/pkg/model"
-	"github.com/nektos/act/pkg/runner"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/nektos/act/pkg/model"
+	"github.com/nektos/act/pkg/runner"
 )
 
 type writableMapFile struct {
@@ -238,9 +239,11 @@ type TestJobFileInfo struct {
 	containerArchitecture string
 }
 
-var artifactsPath = path.Join(os.TempDir(), "test-artifacts")
-var artifactsAddr = "127.0.0.1"
-var artifactsPort = "12345"
+var (
+	artifactsPath = path.Join(os.TempDir(), "test-artifacts")
+	artifactsAddr = "127.0.0.1"
+	artifactsPort = "12345"
+)
 
 func TestArtifactFlow(t *testing.T) {
 	if testing.Short() {
@@ -253,7 +256,7 @@ func TestArtifactFlow(t *testing.T) {
 	defer cancel()
 
 	platforms := map[string]string{
-		"ubuntu-latest": "node:16-buster-slim",
+		"ubuntu-latest": "node:16-buster", // Don't use node:16-buster-slim because it doesn't have curl command, which is used in the tests
 	}
 
 	tables := []TestJobFileInfo{
