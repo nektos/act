@@ -347,7 +347,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 		return common.NewPipelineExecutor(
 			rc.pullServicesImages(rc.Config.ForcePull),
 			rc.JobContainer.Pull(rc.Config.ForcePull),
-			rc.createNetwork(networkName).IfBool(rc.Config.ContainerNetworkMode == ""), // if the value of `ContainerNetworkMode` is empty string, then will create a new network for containers.
+			container.NewDockerNetworkCreateExecutor(networkName).IfBool(!rc.IsHostEnv(ctx) && rc.Config.ContainerNetworkMode == ""), // if the value of `ContainerNetworkMode` is empty string, then will create a new network for containers.
 			rc.startServiceContainers(networkName),
 			rc.JobContainer.Create(rc.Config.ContainerCapAdd, rc.Config.ContainerCapDrop),
 			rc.JobContainer.Start(false),
@@ -361,18 +361,6 @@ func (rc *RunContext) startJobContainer() common.Executor {
 				Body: "",
 			}),
 		)(ctx)
-	}
-}
-
-func (rc *RunContext) createNetwork(name string) common.Executor {
-	return func(ctx context.Context) error {
-		return container.NewDockerNetworkCreateExecutor(name)(ctx)
-	}
-}
-
-func (rc *RunContext) removeNetwork(name string) common.Executor {
-	return func(ctx context.Context) error {
-		return container.NewDockerNetworkRemoveExecutor(name)(ctx)
 	}
 }
 

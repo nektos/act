@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/nektos/act/pkg/common"
+	"github.com/nektos/act/pkg/container"
 	"github.com/nektos/act/pkg/model"
 )
 
@@ -113,12 +114,13 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 			if err = info.stopContainer()(ctx); err != nil {
 				logger.Errorf("Error while stop job container: %v", err)
 			}
-			if rc.Config.ContainerNetworkMode == "" {
+			if !rc.IsHostEnv(ctx) && rc.Config.ContainerNetworkMode == "" {
+				// clean network in docker mode only
 				// if the value of `ContainerNetworkMode` is empty string,
 				// it means that the network to which containers are connecting is created by `act_runner`,
 				// so, we should remove the network at last.
 				logger.Infof("Cleaning up network for job %s, and network name is: %s", rc.JobName, rc.networkName())
-				if err := rc.removeNetwork(rc.networkName())(ctx); err != nil {
+				if err := container.NewDockerNetworkRemoveExecutor(rc.networkName())(ctx); err != nil {
 					logger.Errorf("Error while cleaning network: %v", err)
 				}
 			}
