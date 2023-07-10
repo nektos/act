@@ -11,6 +11,7 @@ import (
 
 	"github.com/docker/distribution/reference"
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/registry"
 
 	"github.com/nektos/act/pkg/common"
 )
@@ -82,7 +83,7 @@ func getImagePullOptions(ctx context.Context, input NewDockerPullExecutorInput) 
 	if input.Username != "" && input.Password != "" {
 		logger.Debugf("using authentication for docker pull")
 
-		authConfig := types.AuthConfig{
+		authConfig := registry.AuthConfig{
 			Username: input.Username,
 			Password: input.Password,
 		}
