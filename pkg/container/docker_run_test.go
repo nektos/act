@@ -78,7 +78,7 @@ type endlessReader struct {
 	io.Reader
 }
 
-func (r endlessReader) Read(p []byte) (n int, err error) {
+func (r endlessReader) Read(_ []byte) (n int, err error) {
 	return 1, nil
 }
 

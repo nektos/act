@@ -171,7 +171,7 @@ func unescapeKvPairs(kvPairs map[string]string) map[string]string {
 	return kvPairs
 }
 
-func (rc *RunContext) saveState(ctx context.Context, kvPairs map[string]string, arg string) {
+func (rc *RunContext) saveState(_ context.Context, kvPairs map[string]string, arg string) {
 	stepID := rc.CurrentStep
 	if stepID != "" {
 		if rc.IntraActionState == nil {
