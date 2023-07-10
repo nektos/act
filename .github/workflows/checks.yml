@@ -108,7 +108,7 @@ jobs:
         uses: goreleaser/goreleaser-action@v4
         with:
           version: latest
-          args: release --snapshot --rm-dist
+          args: release --snapshot --clean
       - name: Capture x86_64 (64-bit) Linux binary
         if: ${{ !env.ACT }}
         uses: actions/upload-artifact@v3

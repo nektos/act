@@ -106,7 +106,7 @@ endif
 .PHONY: snapshot
 snapshot:
 	goreleaser build \
-		--rm-dist \
+		--clean \
 		--single-target \
 		--snapshot
 
