@@ -8,9 +8,7 @@ jobs:
     steps:
       - run: echo "hello world" > test.txt
       - name: curl upload
-        uses: wei/curl@v1
-        with:
-          args: -s --fail ${ACTIONS_RUNTIME_URL}upload/1?itemPath=../../my-artifact/secret.txt --upload-file test.txt
+        run: curl --silent --show-error --fail ${ACTIONS_RUNTIME_URL}upload/1?itemPath=../../my-artifact/secret.txt --upload-file test.txt
       - uses: actions/download-artifact@v2
         with:
           name: my-artifact
@@ -27,9 +25,7 @@ jobs:
             exit 1
           fi
       - name: Verify download should work by clean extra dots
-        uses: wei/curl@v1
-        with:
-          args: --path-as-is -s -o out.txt --fail ${ACTIONS_RUNTIME_URL}artifact/1/../../../1/my-artifact/secret.txt
+        run: curl --silent --show-error --fail --path-as-is -o out.txt ${ACTIONS_RUNTIME_URL}artifact/1/../../../1/my-artifact/secret.txt
       - name: 'Verify download content'
         run: |
           file="out.txt"

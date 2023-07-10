@@ -383,6 +383,9 @@ func (rc *RunContext) stopJobContainer() common.Executor {
 
 // ActionCacheDir is for rc
 func (rc *RunContext) ActionCacheDir() string {
+	if rc.Config.ActionCacheDir != "" {
+		return rc.Config.ActionCacheDir
+	}
 	var xdgCache string
 	var ok bool
 	if xdgCache, ok = os.LookupEnv("XDG_CACHE_HOME"); !ok || xdgCache == "" {

@@ -77,6 +77,7 @@ func (rc *RunContext) NewExpressionEvaluatorWithEnv(ctx context.Context, env map
 		// but required to interpolate/evaluate the step outputs on the job
 		Steps:    rc.getStepsContext(),
 		Secrets:  getWorkflowSecrets(ctx, rc),
+		Vars:     getWorkflowVars(ctx, rc),
 		Strategy: strategy,
 		Matrix:   rc.Matrix,
 		Needs:    using,
@@ -124,6 +125,7 @@ func (rc *RunContext) NewStepExpressionEvaluator(ctx context.Context, step step)
 		Job:      rc.getJobContext(),
 		Steps:    rc.getStepsContext(),
 		Secrets:  getWorkflowSecrets(ctx, rc),
+		Vars:     getWorkflowVars(ctx, rc),
 		Strategy: strategy,
 		Matrix:   rc.Matrix,
 		Needs:    using,
@@ -395,6 +397,7 @@ func rewriteSubExpression(ctx context.Context, in string, forceFormat bool) (str
 	return out, nil
 }
 
+//nolint:gocyclo
 func getEvaluatorInputs(ctx context.Context, rc *RunContext, step step, ghc *model.GithubContext) map[string]interface{} {
 	inputs := map[string]interface{}{}
 
@@ -430,6 +433,22 @@ func getEvaluatorInputs(ctx context.Context, rc *RunContext, step step, ghc *mod
 		}
 	}
 
+	if ghc.EventName == "workflow_call" {
+		config := rc.Run.Workflow.WorkflowCallConfig()
+		if config != nil && config.Inputs != nil {
+			for k, v := range config.Inputs {
+				value := nestedMapLookup(ghc.Event, "inputs", k)
+				if value == nil {
+					value = v.Default
+				}
+				if v.Type == "boolean" {
+					inputs[k] = value == "true"
+				} else {
+					inputs[k] = value
+				}
+			}
+		}
+	}
 	return inputs
 }
 
@@ -482,4 +501,8 @@ func getWorkflowSecrets(ctx context.Context, rc *RunContext) map[string]string {
 	}
 
 	return rc.Config.Secrets
+}
+
+func getWorkflowVars(ctx context.Context, rc *RunContext) map[string]string {
+	return rc.Config.Vars
 }

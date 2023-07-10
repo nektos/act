@@ -100,6 +100,17 @@ func TestNewParallelExecutor(t *testing.T) {
 	assert.Equal(3, count, "should run all 3 executors")
 	assert.Equal(2, maxCount, "should run at most 2 executors in parallel")
 	assert.Nil(err)
+
+	// Reset to test running the executor with 0 parallelism
+	count = 0
+	activeCount = 0
+	maxCount = 0
+
+	errSingle := NewParallelExecutor(0, emptyWorkflow, emptyWorkflow, emptyWorkflow)(ctx)
+
+	assert.Equal(3, count, "should run all 3 executors")
+	assert.Equal(1, maxCount, "should run at most 1 executors in parallel")
+	assert.Nil(errSingle)
 }
 
 func TestNewParallelExecutorFailed(t *testing.T) {
