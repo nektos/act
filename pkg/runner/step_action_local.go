@@ -85,7 +85,7 @@ func (sal *stepActionLocal) getEnv() *map[string]string {
 	return &sal.env
 }
 
-func (sal *stepActionLocal) getIfExpression(context context.Context, stage stepStage) string {
+func (sal *stepActionLocal) getIfExpression(_ context.Context, stage stepStage) string {
 	switch stage {
 	case stepStageMain:
 		return sal.Step.If.Value

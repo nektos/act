@@ -181,7 +181,7 @@ func (ee expressionEvaluator) evaluateScalarYamlNode(ctx context.Context, node *
 }
 
 func (ee expressionEvaluator) evaluateMappingYamlNode(ctx context.Context, node *yaml.Node) (*yaml.Node, error) {
-	var ret *yaml.Node = nil
+	var ret *yaml.Node
 	// GitHub has this undocumented feature to merge maps, called insert directive
 	insertDirective := regexp.MustCompile(`\${{\s*insert\s*}}`)
 	for i := 0; i < len(node.Content)/2; i++ {
@@ -239,7 +239,7 @@ func (ee expressionEvaluator) evaluateMappingYamlNode(ctx context.Context, node 
 }
 
 func (ee expressionEvaluator) evaluateSequenceYamlNode(ctx context.Context, node *yaml.Node) (*yaml.Node, error) {
-	var ret *yaml.Node = nil
+	var ret *yaml.Node
 	for i := 0; i < len(node.Content); i++ {
 		v := node.Content[i]
 		// Preserve nested sequences
@@ -397,6 +397,7 @@ func rewriteSubExpression(ctx context.Context, in string, forceFormat bool) (str
 	return out, nil
 }
 
+//nolint:gocyclo
 func getEvaluatorInputs(ctx context.Context, rc *RunContext, step step, ghc *model.GithubContext) map[string]interface{} {
 	inputs := map[string]interface{}{}
 
@@ -432,6 +433,22 @@ func getEvaluatorInputs(ctx context.Context, rc *RunContext, step step, ghc *mod
 		}
 	}
 
+	if ghc.EventName == "workflow_call" {
+		config := rc.Run.Workflow.WorkflowCallConfig()
+		if config != nil && config.Inputs != nil {
+			for k, v := range config.Inputs {
+				value := nestedMapLookup(ghc.Event, "inputs", k)
+				if value == nil {
+					value = v.Default
+				}
+				if v.Type == "boolean" {
+					inputs[k] = value == "true"
+				} else {
+					inputs[k] = value
+				}
+			}
+		}
+	}
 	return inputs
 }
 
@@ -486,6 +503,6 @@ func getWorkflowSecrets(ctx context.Context, rc *RunContext) map[string]string {
 	return rc.Config.Secrets
 }
 
-func getWorkflowVars(ctx context.Context, rc *RunContext) map[string]string {
+func getWorkflowVars(_ context.Context, rc *RunContext) map[string]string {
 	return rc.Config.Vars
 }

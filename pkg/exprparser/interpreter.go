@@ -149,7 +149,7 @@ func (impl *interperterImpl) evaluateNode(exprNode actionlint.ExprNode) (interfa
 	}
 }
 
-// nolint:gocyclo
+//nolint:gocyclo
 func (impl *interperterImpl) evaluateVariable(variableNode *actionlint.VariableNode) (interface{}, error) {
 	switch strings.ToLower(variableNode.Name) {
 	case "github":

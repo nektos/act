@@ -34,7 +34,7 @@ type HostEnvironment struct {
 	StdOut    io.Writer
 }
 
-func (e *HostEnvironment) Create(capAdd []string, capDrop []string) common.Executor {
+func (e *HostEnvironment) Create(_ []string, _ []string) common.Executor {
 	return func(ctx context.Context) error {
 		return nil
 	}
@@ -140,13 +140,13 @@ func (e *HostEnvironment) GetContainerArchive(ctx context.Context, srcPath strin
 	return io.NopCloser(buf), nil
 }
 
-func (e *HostEnvironment) Pull(forcePull bool) common.Executor {
+func (e *HostEnvironment) Pull(_ bool) common.Executor {
 	return func(ctx context.Context) error {
 		return nil
 	}
 }
 
-func (e *HostEnvironment) Start(attach bool) common.Executor {
+func (e *HostEnvironment) Start(_ bool) common.Executor {
 	return func(ctx context.Context) error {
 		return nil
 	}
@@ -240,7 +240,7 @@ func copyPtyOutput(writer io.Writer, ppty io.Reader, finishLog context.CancelFun
 	}
 }
 
-func (e *HostEnvironment) UpdateFromImageEnv(env *map[string]string) common.Executor {
+func (e *HostEnvironment) UpdateFromImageEnv(_ *map[string]string) common.Executor {
 	return func(ctx context.Context) error {
 		return nil
 	}
@@ -254,7 +254,7 @@ func getEnvListFromMap(env map[string]string) []string {
 	return envList
 }
 
-func (e *HostEnvironment) exec(ctx context.Context, command []string, cmdline string, env map[string]string, user, workdir string) error {
+func (e *HostEnvironment) exec(ctx context.Context, command []string, cmdline string, env map[string]string, _, workdir string) error {
 	envList := getEnvListFromMap(env)
 	var wd string
 	if workdir != "" {
@@ -411,7 +411,7 @@ func goOsToActionOs(os string) string {
 	return os
 }
 
-func (e *HostEnvironment) GetRunnerContext(ctx context.Context) map[string]interface{} {
+func (e *HostEnvironment) GetRunnerContext(_ context.Context) map[string]interface{} {
 	return map[string]interface{}{
 		"os":         goOsToActionOs(runtime.GOOS),
 		"arch":       goArchToActionArch(runtime.GOARCH),
@@ -420,7 +420,7 @@ func (e *HostEnvironment) GetRunnerContext(ctx context.Context) map[string]inter
 	}
 }
 
-func (e *HostEnvironment) ReplaceLogWriter(stdout io.Writer, stderr io.Writer) (io.Writer, io.Writer) {
+func (e *HostEnvironment) ReplaceLogWriter(stdout io.Writer, _ io.Writer) (io.Writer, io.Writer) {
 	org := e.StdOut
 	e.StdOut = stdout
 	return org, org

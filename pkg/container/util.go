@@ -9,7 +9,7 @@ import (
 	"github.com/creack/pty"
 )
 
-func getSysProcAttr(cmdLine string, tty bool) *syscall.SysProcAttr {
+func getSysProcAttr(_ string, tty bool) *syscall.SysProcAttr {
 	if tty {
 		return &syscall.SysProcAttr{
 			Setsid:  true,

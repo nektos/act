@@ -79,7 +79,7 @@ func (fwfs readWriteFSImpl) OpenAppendable(name string) (WritableFile, error) {
 		return nil, err
 	}
 
-	_, err = file.Seek(0, os.SEEK_END)
+	_, err = file.Seek(0, io.SeekEnd)
 	if err != nil {
 		return nil, err
 	}
@@ -223,9 +223,13 @@ func downloads(router *httprouter.Router, baseDir string, fsys fs.FS) {
 
 				// if it was upload as gzip
 				rel = strings.TrimSuffix(rel, gzipExtension)
+				path := filepath.Join(itemPath, rel)
+
+				rel = filepath.ToSlash(rel)
+				path = filepath.ToSlash(path)
 
 				files = append(files, ContainerItem{
-					Path:            filepath.Join(itemPath, rel),
+					Path:            path,
 					ItemType:        "file",
 					ContentLocation: fmt.Sprintf("http://%s/artifact/%s/%s/%s", req.Host, container, itemPath, rel),
 				})

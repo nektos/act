@@ -23,9 +23,10 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
           check-latest: true
-      - uses: golangci/golangci-lint-action@v3.5.0
+      - uses: golangci/golangci-lint-action@v3.6.0
         with:
-          version: v1.47.2
+          version: v1.53
+          only-new-issues: true
       - uses: megalinter/megalinter/flavors/go@v7.1.0
         env:
           DEFAULT_BRANCH: master
@@ -108,7 +109,7 @@ jobs:
         uses: goreleaser/goreleaser-action@v4
         with:
           version: latest
-          args: release --snapshot --rm-dist
+          args: release --snapshot --clean
       - name: Capture x86_64 (64-bit) Linux binary
         if: ${{ !env.ACT }}
         uses: actions/upload-artifact@v3
