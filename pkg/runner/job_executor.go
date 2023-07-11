@@ -101,7 +101,7 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 			// always allow 1 min for stopping and removing the runner, even if we were cancelled
 			ctx, cancel := context.WithTimeout(common.WithLogger(context.Background(), common.Logger(ctx)), time.Minute)
 			defer cancel()
-			err = info.stopContainer()(ctx)
+			err = info.stopContainer()(ctx) //nolint:contextcheck
 		}
 		setJobResult(ctx, info, rc, jobError == nil)
 		setJobOutputs(ctx, rc)
@@ -114,7 +114,7 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 	pipeline = append(pipeline, steps...)
 
 	return common.NewPipelineExecutor(info.startContainer(), common.NewPipelineExecutor(pipeline...).
-		Finally(func(ctx context.Context) error {
+		Finally(func(ctx context.Context) error { //nolint:contextcheck
 			var cancel context.CancelFunc
 			if ctx.Err() == context.Canceled {
 				// in case of an aborted run, we still should execute the

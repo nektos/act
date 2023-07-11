@@ -182,7 +182,7 @@ func runActionImpl(step actionStep, actionDir string, remoteAction *remoteAction
 	}
 }
 
-func setupActionEnv(ctx context.Context, step actionStep, remoteAction *remoteAction) error {
+func setupActionEnv(ctx context.Context, step actionStep, _ *remoteAction) error {
 	rc := step.getRunContext()
 
 	// A few fields in the environment (e.g. GITHUB_ACTION_REPOSITORY)

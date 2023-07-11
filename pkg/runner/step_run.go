@@ -59,7 +59,7 @@ func (sr *stepRun) getEnv() *map[string]string {
 	return &sr.env
 }
 
-func (sr *stepRun) getIfExpression(context context.Context, stage stepStage) string {
+func (sr *stepRun) getIfExpression(_ context.Context, _ stepStage) string {
 	return sr.Step.If.Value
 }
 

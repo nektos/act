@@ -273,7 +273,7 @@ func readArgsFile(file string, split bool) []string {
 	return args
 }
 
-func setup(inputs *Input) func(*cobra.Command, []string) {
+func setup(_ *Input) func(*cobra.Command, []string) {
 	return func(cmd *cobra.Command, _ []string) {
 		verbose, _ := cmd.Flags().GetBool("verbose")
 		if verbose {
@@ -343,12 +343,11 @@ func parseMatrix(matrix []string) map[string]map[string]bool {
 		matrix := r.Split(m, 2)
 		if len(matrix) < 2 {
 			log.Fatalf("Invalid matrix format. Failed to parse %s", m)
-		} else {
-			if _, ok := matrixes[matrix[0]]; !ok {
-				matrixes[matrix[0]] = make(map[string]bool)
-			}
-			matrixes[matrix[0]][matrix[1]] = true
 		}
+		if _, ok := matrixes[matrix[0]]; !ok {
+			matrixes[matrix[0]] = make(map[string]bool)
+		}
+		matrixes[matrix[0]][matrix[1]] = true
 	}
 	return matrixes
 }
