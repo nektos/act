@@ -15,11 +15,17 @@ func (c *Request) ToCache() *Cache {
 	if c == nil {
 		return nil
 	}
-	return &Cache{
+	ret := &Cache{
 		Key:     c.Key,
 		Version: c.Version,
 		Size:    c.Size,
 	}
+	if c.Size == 0 {
+		// So the request comes from old versions of actions, like `actions/cache@v2`.
+		// It doesn't send cache size. Set it to -1 to indicate that.
+		ret.Size = -1
+	}
+	return ret
 }
 
 type Cache struct {

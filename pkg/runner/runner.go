@@ -181,7 +181,13 @@ func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 					}
 					stageExecutor = append(stageExecutor, func(ctx context.Context) error {
 						jobName := fmt.Sprintf("%-*s", maxJobNameLen, rc.String())
-						return rc.Executor()(common.WithJobErrorContainer(WithJobLogger(ctx, rc.Run.JobID, jobName, rc.Config, &rc.Masks, matrix)))
+						executor, err := rc.Executor()
+
+						if err != nil {
+							return err
+						}
+
+						return executor(common.WithJobErrorContainer(WithJobLogger(ctx, rc.Run.JobID, jobName, rc.Config, &rc.Masks, matrix)))
 					})
 				}
 				pipeline = append(pipeline, common.NewParallelExecutor(maxParallel, stageExecutor...))

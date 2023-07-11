@@ -1,6 +1,6 @@
 module github.com/nektos/act
 
-go 1.18
+go 1.20
 
 require (
 	github.com/AlecAivazis/survey/v2 v2.3.7
@@ -8,9 +8,9 @@ require (
 	github.com/adrg/xdg v0.4.0
 	github.com/andreaskoch/go-fswatch v1.0.0
 	github.com/creack/pty v1.1.18
-	github.com/docker/cli v24.0.2+incompatible
+	github.com/docker/cli v24.0.4+incompatible
 	github.com/docker/distribution v2.8.2+incompatible
-	github.com/docker/docker v23.0.6+incompatible
+	github.com/docker/docker v24.0.4+incompatible
 	github.com/docker/go-connections v0.4.0
 	github.com/go-git/go-billy/v5 v5.4.1
 	github.com/go-git/go-git/v5 v5.7.0

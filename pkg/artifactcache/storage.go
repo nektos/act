@@ -46,7 +46,7 @@ func (s *Storage) Write(id uint64, offset int64, reader io.Reader) error {
 	return err
 }
 
-func (s *Storage) Commit(id uint64, size int64) error {
+func (s *Storage) Commit(id uint64, size int64) (int64, error) {
 	defer func() {
 		_ = os.RemoveAll(s.tempDir(id))
 	}()
@@ -54,15 +54,15 @@ func (s *Storage) Commit(id uint64, size int64) error {
 	name := s.filename(id)
 	tempNames, err := s.tempNames(id)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	if err := os.MkdirAll(filepath.Dir(name), 0o755); err != nil {
-		return err
+		return 0, err
 	}
 	file, err := os.Create(name)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer file.Close()
 
@@ -70,22 +70,26 @@ func (s *Storage) Commit(id uint64, size int64) error {
 	for _, v := range tempNames {
 		f, err := os.Open(v)
 		if err != nil {
-			return err
+			return 0, err
 		}
 		n, err := io.Copy(file, f)
 		_ = f.Close()
 		if err != nil {
-			return err
+			return 0, err
 		}
 		written += n
 	}
 
-	if written != size {
+	// If size is less than 0, it means the size is unknown.
+	// We can't check the size of the file, just skip the check.
+	// It happens when the request comes from old versions of actions, like `actions/cache@v2`.
+	if size >= 0 && written != size {
 		_ = file.Close()
 		_ = os.Remove(name)
-		return fmt.Errorf("broken file: %v != %v", written, size)
+		return 0, fmt.Errorf("broken file: %v != %v", written, size)
 	}
-	return nil
+
+	return written, nil
 }
 
 func (s *Storage) Serve(w http.ResponseWriter, r *http.Request, id uint64) {
