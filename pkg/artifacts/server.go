@@ -79,7 +79,7 @@ func (fwfs readWriteFSImpl) OpenAppendable(name string) (WritableFile, error) {
 		return nil, err
 	}
 
-	_, err = file.Seek(0, os.SEEK_END)
+	_, err = file.Seek(0, io.SeekEnd)
 	if err != nil {
 		return nil, err
 	}

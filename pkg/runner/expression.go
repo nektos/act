@@ -181,7 +181,7 @@ func (ee expressionEvaluator) evaluateScalarYamlNode(ctx context.Context, node *
 }
 
 func (ee expressionEvaluator) evaluateMappingYamlNode(ctx context.Context, node *yaml.Node) (*yaml.Node, error) {
-	var ret *yaml.Node = nil
+	var ret *yaml.Node
 	// GitHub has this undocumented feature to merge maps, called insert directive
 	insertDirective := regexp.MustCompile(`\${{\s*insert\s*}}`)
 	for i := 0; i < len(node.Content)/2; i++ {
@@ -239,7 +239,7 @@ func (ee expressionEvaluator) evaluateMappingYamlNode(ctx context.Context, node 
 }
 
 func (ee expressionEvaluator) evaluateSequenceYamlNode(ctx context.Context, node *yaml.Node) (*yaml.Node, error) {
-	var ret *yaml.Node = nil
+	var ret *yaml.Node
 	for i := 0; i < len(node.Content); i++ {
 		v := node.Content[i]
 		// Preserve nested sequences
@@ -503,6 +503,6 @@ func getWorkflowSecrets(ctx context.Context, rc *RunContext) map[string]string {
 	return rc.Config.Secrets
 }
 
-func getWorkflowVars(ctx context.Context, rc *RunContext) map[string]string {
+func getWorkflowVars(_ context.Context, rc *RunContext) map[string]string {
 	return rc.Config.Vars
 }
