@@ -8,7 +8,7 @@ concurrency:
 env:
   ACT_OWNER: ${{ github.repository_owner }}
   ACT_REPOSITORY: ${{ github.repository }}
-  GO_VERSION: 1.20
+  GO_VERSION: '1.20'
   CGO_ENABLED: 0
 
 jobs:
