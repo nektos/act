@@ -454,16 +454,19 @@ func (rc *RunContext) steps() []*model.Step {
 }
 
 // Executor returns a pipeline executor for all the steps in the job
-func (rc *RunContext) Executor() common.Executor {
+func (rc *RunContext) Executor() (common.Executor, error) {
 	var executor common.Executor
+	var jobType, err = rc.Run.Job().Type()
 
-	switch rc.Run.Job().Type() {
+	switch jobType {
 	case model.JobTypeDefault:
 		executor = newJobExecutor(rc, &stepFactoryImpl{}, rc)
 	case model.JobTypeReusableWorkflowLocal:
 		executor = newLocalReusableWorkflowExecutor(rc)
 	case model.JobTypeReusableWorkflowRemote:
 		executor = newRemoteReusableWorkflowExecutor(rc)
+	case model.JobTypeInvalid:
+		return nil, err
 	}
 
 	return func(ctx context.Context) error {
@@ -475,7 +478,7 @@ func (rc *RunContext) Executor() common.Executor {
 			return executor(ctx)
 		}
 		return nil
-	}
+	}, nil
 }
 
 func (rc *RunContext) containerImage(ctx context.Context) string {
@@ -528,17 +531,22 @@ func (rc *RunContext) options(_ context.Context) string {
 func (rc *RunContext) isEnabled(ctx context.Context) (bool, error) {
 	job := rc.Run.Job()
 	l := common.Logger(ctx)
-	runJob, err := EvalBool(ctx, rc.ExprEval, job.If.Value, exprparser.DefaultStatusCheckSuccess)
-	if err != nil {
-		return false, fmt.Errorf("  \u274C  Error in if-expression: \"if: %s\" (%s)", job.If.Value, err)
+	runJob, runJobErr := EvalBool(ctx, rc.ExprEval, job.If.Value, exprparser.DefaultStatusCheckSuccess)
+	jobType, jobTypeErr := job.Type()
+
+	if runJobErr != nil {
+		return false, fmt.Errorf("  \u274C  Error in if-expression: \"if: %s\" (%s)", job.If.Value, runJobErr)
 	}
+
+	if jobType == model.JobTypeInvalid {
+		return false, jobTypeErr
+	} else if jobType != model.JobTypeDefault {
+		return true, nil
+	}
+
 	if !runJob {
 		l.WithField("jobResult", "skipped").Debugf("Skipping job '%s' due to '%s'", job.Name, job.If.Value)
 		return false, nil
-	}
-
-	if job.Type() != model.JobTypeDefault {
-		return true, nil
 	}
 
 	img := rc.platformImage(ctx)
