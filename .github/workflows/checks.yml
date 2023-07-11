@@ -8,7 +8,6 @@ concurrency:
 env:
   ACT_OWNER: ${{ github.repository_owner }}
   ACT_REPOSITORY: ${{ github.repository }}
-  GO_VERSION: 1.18
   CGO_ENABLED: 0
 
 jobs:
@@ -21,7 +20,7 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-go@v4
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version-file: go.mod
           check-latest: true
       - uses: golangci/golangci-lint-action@v3.6.0
         with:
@@ -46,7 +45,7 @@ jobs:
         uses: docker/setup-qemu-action@v2
       - uses: actions/setup-go@v4
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version-file: go.mod
           check-latest: true
       - uses: actions/cache@v3
         if: ${{ !env.ACT }}
@@ -81,7 +80,7 @@ jobs:
           fetch-depth: 2
       - uses: actions/setup-go@v4
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version-file: go.mod
           check-latest: true
       - name: Run Tests
         uses: ./.github/actions/run-tests
@@ -96,7 +95,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/setup-go@v4
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version-file: go.mod
           check-latest: true
       - uses: actions/cache@v3
         if: ${{ !env.ACT }}
