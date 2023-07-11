@@ -174,7 +174,7 @@ func FindGithubRepo(ctx context.Context, file, githubInstance, remoteName string
 	return slug, err
 }
 
-func findGitRemoteURL(ctx context.Context, file, remoteName string) (string, error) {
+func findGitRemoteURL(_ context.Context, file, remoteName string) (string, error) {
 	repo, err := git.PlainOpenWithOptions(
 		file,
 		&git.PlainOpenOptions{

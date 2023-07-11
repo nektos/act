@@ -19,17 +19,15 @@ linters-settings:
       - pkg: 'github.com/stretchr/testify/assert'
         alias: assert
   depguard:
-    list-type: blacklist
-    include-go-root: true
-    packages:
-      - github.com/pkg/errors
-      - gotest.tools/v3/assert
-      - log
-    packages-with-error-message:
-      - github.com/pkg/errors: 'Please use "errors" package from standard library'
-      - gotest.tools/v3: 'Please keep tests unified using only github.com/stretchr/testify'
-      - log: 'Please keep logging unified using only github.com/sirupsen/logrus'
-
+    rules:
+      main:
+        deny:
+          - pkg: github.com/pkg/errors
+            desc: Please use "errors" package from standard library
+          - pkg: gotest.tools/v3
+            desc: Please keep tests unified using only github.com/stretchr/testify
+          - pkg: log
+            desc: Please keep logging unified using only github.com/sirupsen/logrus
 linters:
   enable:
     - megacheck

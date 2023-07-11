@@ -518,7 +518,7 @@ func (rc *RunContext) platformImage(ctx context.Context) string {
 	return rc.runsOnImage(ctx)
 }
 
-func (rc *RunContext) options(ctx context.Context) string {
+func (rc *RunContext) options(_ context.Context) string {
 	job := rc.Run.Job()
 	c := job.Container()
 	if c == nil {
@@ -821,35 +821,35 @@ func setActionRuntimeVars(rc *RunContext, env map[string]string) {
 	env["ACTIONS_RUNTIME_TOKEN"] = actionsRuntimeToken
 }
 
-func (rc *RunContext) handleCredentials(ctx context.Context) (username, password string, err error) {
+func (rc *RunContext) handleCredentials(ctx context.Context) (string, string, error) {
 	// TODO: remove below 2 lines when we can release act with breaking changes
-	username = rc.Config.Secrets["DOCKER_USERNAME"]
-	password = rc.Config.Secrets["DOCKER_PASSWORD"]
+	username := rc.Config.Secrets["DOCKER_USERNAME"]
+	password := rc.Config.Secrets["DOCKER_PASSWORD"]
 
 	container := rc.Run.Job().Container()
 	if container == nil || container.Credentials == nil {
-		return
+		return username, password, nil
 	}
 
 	if container.Credentials != nil && len(container.Credentials) != 2 {
-		err = fmt.Errorf("invalid property count for key 'credentials:'")
-		return
+		err := fmt.Errorf("invalid property count for key 'credentials:'")
+		return "", "", err
 	}
 
 	ee := rc.NewExpressionEvaluator(ctx)
 	if username = ee.Interpolate(ctx, container.Credentials["username"]); username == "" {
-		err = fmt.Errorf("failed to interpolate container.credentials.username")
-		return
+		err := fmt.Errorf("failed to interpolate container.credentials.username")
+		return "", "", err
 	}
 	if password = ee.Interpolate(ctx, container.Credentials["password"]); password == "" {
-		err = fmt.Errorf("failed to interpolate container.credentials.password")
-		return
+		err := fmt.Errorf("failed to interpolate container.credentials.password")
+		return "", "", err
 	}
 
 	if container.Credentials["username"] == "" || container.Credentials["password"] == "" {
-		err = fmt.Errorf("container.credentials cannot be empty")
-		return
+		err := fmt.Errorf("container.credentials cannot be empty")
+		return "", "", err
 	}
 
-	return username, password, err
+	return username, password, nil
 }
