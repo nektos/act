@@ -272,6 +272,15 @@ If you need an environment that works just like the corresponding GitHub runner 
 
 - [`catthehacker/ubuntu:full-*`](https://github.com/catthehacker/docker_images/pkgs/container/ubuntu) - built from Packer template provided by GitHub, see [catthehacker/virtual-environments-fork](https://github.com/catthehacker/virtual-environments-fork) or [catthehacker/docker_images](https://github.com/catthehacker/docker_images) for more information
 
+## Using local runner images
+
+The `--pull` flag is set to true by default due to a breaking on older default docker images. This would would the docker image everytime act is executed.
+
+Set `--pull` to false if a local docker image is needed
+```sh
+  act --pull=false
+```
+
 ## Use an alternative runner image
 
 To use a different image for the runner, use the `-P` option.
