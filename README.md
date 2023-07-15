@@ -274,7 +274,7 @@ If you need an environment that works just like the corresponding GitHub runner 
 
 ## Using local runner images
 
-The `--pull` flag is set to true by default due to a breaking on older default docker images. This would would the docker image everytime act is executed.
+The `--pull` flag is set to true by default due to a breaking on older default docker images. This would pull the docker image everytime act is executed.
 
 Set `--pull` to false if a local docker image is needed
 ```sh
