@@ -42,15 +42,23 @@ func (sal *stepActionLocal) main() common.Executor {
 		localReader := func(ctx context.Context) actionYamlReader {
 			_, cpath := getContainerActionPaths(sal.Step, path.Join(actionDir, ""), sal.RunContext)
 			return func(filename string) (io.Reader, io.Closer, error) {
-				tars, err := sal.RunContext.JobContainer.GetContainerArchive(ctx, path.Join(cpath, filename))
-				if err != nil {
-					return nil, nil, os.ErrNotExist
+				spath := path.Join(cpath, filename)
+				for {
+					tars, err := sal.RunContext.JobContainer.GetContainerArchive(ctx, spath)
+					if err != nil {
+						return nil, nil, os.ErrNotExist
+					}
+					treader := tar.NewReader(tars)
+					header, err := treader.Next()
+					if err != nil {
+						return nil, nil, os.ErrNotExist
+					}
+					if header.FileInfo().Mode()&os.ModeSymlink == os.ModeSymlink {
+						spath = path.Join(path.Dir(spath), header.Linkname)
+					} else {
+						return treader, tars, nil
+					}
 				}
-				treader := tar.NewReader(tars)
-				if _, err := treader.Next(); err != nil {
-					return nil, nil, os.ErrNotExist
-				}
-				return treader, tars, nil
 			}
 		}
 
