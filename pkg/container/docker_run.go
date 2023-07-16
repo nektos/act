@@ -650,7 +650,7 @@ func (cr *containerReference) waitForCommand(ctx context.Context, isTerminal boo
 }
 
 func (cr *containerReference) CopyTarStream(ctx context.Context, destPath string, tarStream io.Reader) error {
-	err := cr.cli.CopyToContainer(ctx, cr.id, "/", tarStream, types.CopyToContainerOptions{})
+	err := cr.cli.CopyToContainer(ctx, cr.id, destPath, tarStream, types.CopyToContainerOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to copy content to container: %w", err)
 	}
