@@ -139,7 +139,7 @@ func (c GoGitActionCache) GetTarArchive(ctx context.Context, cacheDir, sha, fpat
 			name := f.Name
 			if strings.HasPrefix(name, fcpath+"/") {
 				name = name[len(fcpath)+1:]
-			} else if fcpath != "" && name != fcpath {
+			} else if fcpath != "." && name != fcpath {
 				return nil
 			}
 			fmode, err := f.Mode.ToOSFileMode()
