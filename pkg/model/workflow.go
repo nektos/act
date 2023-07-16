@@ -584,14 +584,17 @@ func commonKeysMatch2(a map[string]interface{}, b map[string]interface{}, m map[
 type JobType int
 
 const (
-	// StepTypeRun is all steps that have a `run` attribute
+	// JobTypeDefault is all jobs that have a `run` attribute
 	JobTypeDefault JobType = iota
 
-	// StepTypeReusableWorkflowLocal is all steps that have a `uses` that is a local workflow in the .github/workflows directory
+	// JobTypeReusableWorkflowLocal is all jobs that have a `uses` that is a local workflow in the .github/workflows directory
 	JobTypeReusableWorkflowLocal
 
-	// JobTypeReusableWorkflowRemote is all steps that have a `uses` that references a workflow file in a github repo
+	// JobTypeReusableWorkflowRemote is all jobs that have a `uses` that references a workflow file in a github repo
 	JobTypeReusableWorkflowRemote
+
+	// JobTypeInvalid represents a job which is not configured correctly
+	JobTypeInvalid
 )
 
 func (j JobType) String() string {
@@ -607,13 +610,28 @@ func (j JobType) String() string {
 }
 
 // Type returns the type of the job
-func (j *Job) Type() JobType {
-	if strings.HasPrefix(j.Uses, "./.github/workflows") && (strings.HasSuffix(j.Uses, ".yml") || strings.HasSuffix(j.Uses, ".yaml")) {
-		return JobTypeReusableWorkflowLocal
-	} else if !strings.HasPrefix(j.Uses, "./") && strings.Contains(j.Uses, ".github/workflows") && (strings.Contains(j.Uses, ".yml@") || strings.Contains(j.Uses, ".yaml@")) {
-		return JobTypeReusableWorkflowRemote
+func (j *Job) Type() (JobType, error) {
+	isReusable := j.Uses != ""
+
+	if isReusable {
+		isYaml, _ := regexp.MatchString(`\.(ya?ml)(?:$|@)`, j.Uses)
+
+		if isYaml {
+			isLocalPath := strings.HasPrefix(j.Uses, "./")
+			isRemotePath, _ := regexp.MatchString(`^[^.](.+?/){2,}.+\.ya?ml@`, j.Uses)
+			hasVersion, _ := regexp.MatchString(`\.ya?ml@`, j.Uses)
+
+			if isLocalPath {
+				return JobTypeReusableWorkflowLocal, nil
+			} else if isRemotePath && hasVersion {
+				return JobTypeReusableWorkflowRemote, nil
+			}
+		}
+
+		return JobTypeInvalid, fmt.Errorf("`uses` key references invalid workflow path '%s'. Must start with './' if it's a local workflow, or must start with '<org>/<repo>/' and include an '@' if it's a remote workflow", j.Uses)
 	}
-	return JobTypeDefault
+
+	return JobTypeDefault, nil
 }
 
 // ContainerSpec is the specification of the container to use for the job

@@ -460,7 +460,7 @@ Want to contribute to act? Awesome! Check out the [contributing guidelines](CONT
 
 ## Manually building from source
 
-- Install Go tools 1.18+ - (<https://golang.org/doc/install>)
+- Install Go tools 1.20+ - (<https://golang.org/doc/install>)
 - Clone this repo `git clone git@github.com:nektos/act.git`
 - Run unit tests with `make test`
 - Build and install: `make install`

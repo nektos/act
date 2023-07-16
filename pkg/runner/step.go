@@ -256,7 +256,7 @@ func isStepEnabled(ctx context.Context, expr string, step step, stage stepStage)
 	return runStep, nil
 }
 
-func isContinueOnError(ctx context.Context, expr string, step step, stage stepStage) (bool, error) {
+func isContinueOnError(ctx context.Context, expr string, step step, _ stepStage) (bool, error) {
 	// https://github.com/github/docs/blob/3ae84420bd10997bb5f35f629ebb7160fe776eae/content/actions/reference/workflow-syntax-for-github-actions.md?plain=true#L962
 	if len(strings.TrimSpace(expr)) == 0 {
 		return false, nil
