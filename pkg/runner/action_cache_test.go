@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+//nolint:gosec
 func TestActionCache(t *testing.T) {
 	a := assert.New(t)
 	cache := &GoGitActionCache{
@@ -28,6 +29,7 @@ func TestActionCache(t *testing.T) {
 	a.NoError(err)
 	a.NotEqual(0, th.Size)
 	buf := &bytes.Buffer{}
+	// G110: Potential DoS vulnerability via decompression bomb (gosec)
 	_, err = io.Copy(buf, mytar)
 	a.NoError(err)
 	str := buf.String()

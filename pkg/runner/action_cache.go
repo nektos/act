@@ -38,7 +38,9 @@ func (c GoGitActionCache) Fetch(ctx context.Context, cacheDir, url, ref, token s
 		return "", err
 	}
 	tmpBranch := make([]byte, 12)
-	rand.Read(tmpBranch)
+	if _, err := rand.Read(tmpBranch); err != nil {
+		return "", err
+	}
 	branchName := hex.EncodeToString(tmpBranch)
 	var refSpec config.RefSpec
 	spec := config.RefSpec(ref + ":" + branchName)
@@ -116,11 +118,24 @@ func (c GoGitActionCache) GetTarArchive(ctx context.Context, cacheDir, sha, fpat
 		return nil, err
 	}
 	rpipe, wpipe := io.Pipe()
+	// Interrupt io.Copy using ctx
+	ch := make(chan int, 1)
+	go func() {
+		select {
+		case <-ctx.Done():
+			wpipe.CloseWithError(ctx.Err())
+		case <-ch:
+		}
+	}()
 	go func() {
 		defer wpipe.Close()
+		defer close(ch)
 		tw := tar.NewWriter(wpipe)
 		fcpath := path.Clean(fpath)
-		_ = files.ForEach(func(f *object.File) error {
+		wpipe.CloseWithError(files.ForEach(func(f *object.File) error {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
 			name := f.Name
 			if strings.HasPrefix(name, fcpath+"/") {
 				name = name[len(fcpath)+1:]
@@ -156,7 +171,7 @@ func (c GoGitActionCache) GetTarArchive(ctx context.Context, cacheDir, sha, fpat
 			}
 			_, err = io.Copy(tw, reader)
 			return err
-		})
+		}))
 	}()
 	return rpipe, err
 }
