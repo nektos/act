@@ -3,11 +3,11 @@ package runner
 import (
 	"archive/tar"
 	"context"
+	"crypto/rand"
 	"encoding/hex"
 	"errors"
 	"io"
 	"io/fs"
-	"math/rand"
 	"path"
 	"strings"
 
@@ -69,7 +69,7 @@ func (c GoGitActionCache) Fetch(ctx context.Context, cacheDir, url, ref, token s
 	}
 	defer func() {
 		if refs, err := gogitrepo.References(); err == nil {
-			refs.ForEach(func(r *plumbing.Reference) error {
+			_ = refs.ForEach(func(r *plumbing.Reference) error {
 				if strings.Contains(r.Name().String(), branchName) {
 					return gogitrepo.DeleteBranch(r.Name().String())
 				}
@@ -120,7 +120,7 @@ func (c GoGitActionCache) GetTarArchive(ctx context.Context, cacheDir, sha, fpat
 		defer wpipe.Close()
 		tw := tar.NewWriter(wpipe)
 		fcpath := path.Clean(fpath)
-		files.ForEach(func(f *object.File) error {
+		_ = files.ForEach(func(f *object.File) error {
 			name := f.Name
 			if strings.HasPrefix(name, fcpath+"/") {
 				name = name[len(fcpath)+1:]
@@ -141,22 +141,21 @@ func (c GoGitActionCache) GetTarArchive(ctx context.Context, cacheDir, sha, fpat
 					Mode:     int64(fmode),
 					Linkname: content,
 				})
-			} else {
-				err = tw.WriteHeader(&tar.Header{
-					Name: name,
-					Mode: int64(fmode),
-					Size: f.Size,
-				})
-				if err != nil {
-					return err
-				}
-				reader, err := f.Reader()
-				if err != nil {
-					return err
-				}
-				_, err = io.Copy(tw, reader)
+			}
+			err = tw.WriteHeader(&tar.Header{
+				Name: name,
+				Mode: int64(fmode),
+				Size: f.Size,
+			})
+			if err != nil {
 				return err
 			}
+			reader, err := f.Reader()
+			if err != nil {
+				return err
+			}
+			_, err = io.Copy(tw, reader)
+			return err
 		})
 	}()
 	return rpipe, err

@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -13,7 +14,7 @@ import (
 func TestActionCache(t *testing.T) {
 	a := assert.New(t)
 	cache := &GoGitActionCache{
-		Path: "C:\\Users\\Christopher\\Downloads\\act-windows-amd64 (1)\\github-act-runner\\act\\pkg\\runner\\testdata",
+		Path: os.TempDir(),
 	}
 	ctx := context.Background()
 	sha, err := cache.Fetch(ctx, "christopherhx/script", "https://github.com/christopherhx/script", "main", "")
