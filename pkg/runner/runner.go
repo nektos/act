@@ -32,6 +32,7 @@ type Config struct {
 	ForceRebuild                       bool                       // force rebuilding local docker image action
 	LogOutput                          bool                       // log the output from docker run
 	JSONLogger                         bool                       // use json or text logger
+	LogPrefixJobID                     bool                       // switches from the full job name to the job id
 	Env                                map[string]string          // env for containers
 	Inputs                             map[string]string          // manually passed action inputs
 	Secrets                            map[string]string          // list of secrets
