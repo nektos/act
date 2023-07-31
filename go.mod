@@ -10,7 +10,7 @@ require (
 	github.com/creack/pty v1.1.18
 	github.com/docker/cli v24.0.5+incompatible
 	github.com/docker/distribution v2.8.2+incompatible
-	github.com/docker/docker v24.0.5-0.20230714235725-36e9e796c6fc+incompatible // 24.0 branch
+	github.com/docker/docker v24.0.5+incompatible // 24.0 branch
 	github.com/docker/go-connections v0.4.0
 	github.com/go-git/go-billy/v5 v5.4.1
 	github.com/go-git/go-git/v5 v5.8.0
