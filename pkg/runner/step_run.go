@@ -3,6 +3,7 @@ package runner
 import (
 	"context"
 	"fmt"
+	"runtime"
 	"strings"
 
 	"github.com/kballard/go-shellquote"
