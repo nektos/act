@@ -89,7 +89,7 @@ func (rc *RunContext) NewExpressionEvaluatorWithEnv(ctx context.Context, env map
 		Matrix:    rc.Matrix,
 		Needs:     using,
 		Inputs:    inputs,
-		HashFiles: getHashFilesFunction(rc, ctx),
+		HashFiles: getHashFilesFunction(ctx, rc),
 	}
 	if rc.JobContainer != nil {
 		ee.Runner = rc.JobContainer.GetRunnerContext(ctx)
@@ -142,8 +142,8 @@ func (rc *RunContext) NewStepExpressionEvaluator(ctx context.Context, step step)
 		Needs:    using,
 		// todo: should be unavailable
 		// but required to interpolate/evaluate the inputs in actions/composite
-		Inputs:      inputs,
-		HashFiles:   getHashFilesFunction(rc, ctx),
+		Inputs:    inputs,
+		HashFiles: getHashFilesFunction(ctx, rc),
 	}
 	if rc.JobContainer != nil {
 		ee.Runner = rc.JobContainer.GetRunnerContext(ctx)
@@ -157,7 +157,7 @@ func (rc *RunContext) NewStepExpressionEvaluator(ctx context.Context, step step)
 	}
 }
 
-func getHashFilesFunction(rc *RunContext, ctx context.Context) func(v []reflect.Value) (interface{}, error) {
+func getHashFilesFunction(ctx context.Context, rc *RunContext) func(v []reflect.Value) (interface{}, error) {
 	hashFiles := func(v []reflect.Value) (interface{}, error) {
 		if rc.JobContainer != nil {
 			timeed, cancel := context.WithTimeout(ctx, time.Minute)
@@ -174,9 +174,8 @@ func getHashFilesFunction(rc *RunContext, ctx context.Context) func(v []reflect.
 					if strings.HasPrefix(s, "--") {
 						if strings.EqualFold(s, "--follow-symbolic-links") {
 							continue
-						} else {
-							return "", fmt.Errorf("Invalid glob option %s, available option: '--follow-symbolic-links'", s)
 						}
+						return "", fmt.Errorf("Invalid glob option %s, available option: '--follow-symbolic-links'", s)
 					}
 				}
 				patterns = append(patterns, s)
@@ -191,7 +190,7 @@ func getHashFilesFunction(rc *RunContext, ctx context.Context) func(v []reflect.
 			}
 
 			stdout, stderr := rc.JobContainer.ReplaceLogWriter(hout, herr)
-			rc.JobContainer.Copy(rc.JobContainer.GetActPath(), &container.FileEntry{
+			_ = rc.JobContainer.Copy(rc.JobContainer.GetActPath(), &container.FileEntry{
 				Name: name,
 				Mode: 0o644,
 				Body: hashfiles,
