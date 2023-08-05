@@ -32,7 +32,7 @@ func tryParseRawActionCommand(line string) (command string, kvPairs map[string]s
 }
 
 func (rc *RunContext) commandHandler(ctx context.Context) common.LineHandler {
-	logger := common.Logger(ctx)
+	logger := common.OutputLogger(ctx)
 	resumeCommand := ""
 	return func(line string) bool {
 		command, kvPairs, arg, ok := tryParseRawActionCommand(line)

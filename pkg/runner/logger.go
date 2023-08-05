@@ -74,8 +74,10 @@ func WithJobLogger(ctx context.Context, jobID string, jobName string, config *Co
 	ctx = WithMasks(ctx, masks)
 
 	var logger *logrus.Logger
+	var outputLogger *logrus.Logger
 	if jobLoggerFactory, ok := ctx.Value(jobLoggerFactoryContextKeyVal).(JobLoggerFactory); ok && jobLoggerFactory != nil {
 		logger = jobLoggerFactory.WithJobLogger()
+		outputLogger = jobLoggerFactory.WithJobLogger()
 	} else {
 		var formatter logrus.Formatter
 		if config.JSONLogger {
@@ -94,6 +96,15 @@ func WithJobLogger(ctx context.Context, jobID string, jobName string, config *Co
 		logger.SetOutput(os.Stdout)
 		logger.SetLevel(logrus.GetLevel())
 		logger.SetFormatter(formatter)
+
+		outputLogger = logrus.New()
+		outputLogger.SetOutput(os.Stdout)
+		if config.LogFocus {
+			outputLogger.SetLevel(logrus.InfoLevel)
+		} else {
+			outputLogger.SetLevel(logrus.GetLevel())
+		}
+		outputLogger.SetFormatter(formatter)
 	}
 
 	logger.SetFormatter(&maskedFormatter{
@@ -107,7 +118,18 @@ func WithJobLogger(ctx context.Context, jobID string, jobName string, config *Co
 		"matrix": matrix,
 	}).WithContext(ctx)
 
-	return common.WithLogger(ctx, rtn)
+	outputLogger.SetFormatter(&maskedFormatter{
+		Formatter: outputLogger.Formatter,
+		masker:    valueMasker(config.InsecureSecrets, config.Secrets),
+	})
+	rtn2 := outputLogger.WithFields(logrus.Fields{
+		"job":    jobName,
+		"jobID":  jobID,
+		"dryrun": common.Dryrun(ctx),
+		"matrix": matrix,
+	}).WithContext(ctx)
+
+	return common.WithLogger(common.WithOutputLogger(ctx, rtn2), rtn)
 }
 
 func WithCompositeLogger(ctx context.Context, masks *[]string) context.Context {

@@ -93,7 +93,10 @@ func (sd *stepDocker) newStepContainer(ctx context.Context, image string, cmd []
 	rc := sd.RunContext
 	step := sd.Step
 
-	rawLogger := common.Logger(ctx).WithField("raw_output", true)
+	rawLogger := common.OutputLogger(ctx)
+	if !rc.Config.LogFocus {
+		rawLogger = rawLogger.WithField("raw_output", true)
+	}
 	logWriter := common.NewLineWriter(rc.commandHandler(ctx), func(s string) bool {
 		if rc.Config.LogOutput {
 			rawLogger.Infof("%s", s)

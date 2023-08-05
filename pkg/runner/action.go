@@ -336,7 +336,10 @@ func evalDockerArgs(ctx context.Context, step step, action *model.Action, cmd *[
 func newStepContainer(ctx context.Context, step step, image string, cmd []string, entrypoint []string) container.Container {
 	rc := step.getRunContext()
 	stepModel := step.getStepModel()
-	rawLogger := common.Logger(ctx).WithField("raw_output", true)
+	rawLogger := common.OutputLogger(ctx)
+	if !rc.Config.LogFocus {
+		rawLogger = rawLogger.WithField("raw_output", true)
+	}
 	logWriter := common.NewLineWriter(rc.commandHandler(ctx), func(s string) bool {
 		if rc.Config.LogOutput {
 			rawLogger.Infof("%s", s)

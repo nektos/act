@@ -198,7 +198,10 @@ func (rc *RunContext) newCompositeCommandExecutor(executor common.Executor) comm
 		// handler into the current running job container
 		// We need this, to support scoping commands to the composite action
 		// executing.
-		rawLogger := common.Logger(ctx).WithField("raw_output", true)
+		rawLogger := common.OutputLogger(ctx)
+		if !rc.Config.LogFocus {
+			rawLogger = rawLogger.WithField("raw_output", true)
+		}
 		logWriter := common.NewLineWriter(rc.commandHandler(ctx), func(s string) bool {
 			if rc.Config.LogOutput {
 				rawLogger.Infof("%s", s)
