@@ -27,7 +27,6 @@ type NewContainerInput struct {
 	Platform       string
 	Options        string
 	NetworkAliases []string
-	ValidVolumes   []string
 }
 
 // FileEntry is a file to copy to a container

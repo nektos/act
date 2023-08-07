@@ -307,7 +307,6 @@ func (rc *RunContext) startJobContainer() common.Executor {
 				Options:        spec.Options,
 				NetworkMode:    networkName,
 				NetworkAliases: []string{serviceID},
-				ValidVolumes:   rc.Config.ValidVolumes,
 			})
 			rc.ServiceContainers = append(rc.ServiceContainers, c)
 		}
@@ -340,7 +339,6 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			UsernsMode:     rc.Config.UsernsMode,
 			Platform:       rc.Config.ContainerArchitecture,
 			Options:        rc.options(ctx),
-			ValidVolumes:   rc.Config.ValidVolumes,
 		})
 		if rc.JobContainer == nil {
 			return errors.New("Failed to create job container")
