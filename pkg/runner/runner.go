@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 
@@ -58,6 +59,8 @@ type Config struct {
 	ReplaceGheActionWithGithubCom      []string                   // Use actions from GitHub Enterprise instance to GitHub
 	ReplaceGheActionTokenWithGithubCom string                     // Token of private action repo on GitHub.
 	Matrix                             map[string]map[string]bool // Matrix config to run
+	ContainerMaxLifetime               time.Duration              // the max lifetime of job containers
+	ContainerNetworkMode               string                     // the network mode of job containers
 }
 
 type caller struct {

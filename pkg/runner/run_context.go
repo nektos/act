@@ -16,6 +16,7 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/docker/docker/errdefs"
 	"github.com/opencontainers/selinux/go-selinux"
@@ -312,7 +313,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 
 		rc.JobContainer = container.NewContainer(&container.NewContainerInput{
 			Cmd:         nil,
-			Entrypoint:  []string{"tail", "-f", "/dev/null"},
+			Entrypoint:  []string{"/bin/sleep", fmt.Sprint(rc.Config.ContainerMaxLifetime.Round(time.Second).Seconds())},
 			WorkingDir:  ext.ToContainerPath(rc.Config.Workdir),
 			Image:       image,
 			Username:    username,
@@ -320,7 +321,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			Name:        name,
 			Env:         envList,
 			Mounts:      mounts,
-			NetworkMode: "host",
+			NetworkMode: rc.Config.ContainerNetworkMode,
 			Binds:       binds,
 			Stdout:      logWriter,
 			Stderr:      logWriter,
