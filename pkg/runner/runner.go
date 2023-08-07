@@ -6,13 +6,11 @@ import (
 	"fmt"
 	"os"
 	"runtime"
-	"time"
-
-	log "github.com/sirupsen/logrus"
 
 	docker_container "github.com/docker/docker/api/types/container"
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/model"
+	log "github.com/sirupsen/logrus"
 )
 
 // Runner provides capabilities to run GitHub actions
@@ -60,7 +58,6 @@ type Config struct {
 	ReplaceGheActionWithGithubCom      []string                     // Use actions from GitHub Enterprise instance to GitHub
 	ReplaceGheActionTokenWithGithubCom string                       // Token of private action repo on GitHub.
 	Matrix                             map[string]map[string]bool   // Matrix config to run
-	ContainerMaxLifetime               time.Duration                // the max lifetime of job containers
 	ContainerNetworkMode               docker_container.NetworkMode // the network mode of job containers (the value of --network)
 	ValidVolumes                       []string                     // only volumes (and bind mounts) in this slice can be mounted on the job container or service containers
 }

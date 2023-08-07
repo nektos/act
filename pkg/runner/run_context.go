@@ -16,14 +16,12 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
-	"time"
-
-	"github.com/opencontainers/selinux/go-selinux"
 
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/container"
 	"github.com/nektos/act/pkg/exprparser"
 	"github.com/nektos/act/pkg/model"
+	"github.com/opencontainers/selinux/go-selinux"
 )
 
 // RunContext contains info about current job
@@ -276,7 +274,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 		}
 
 		// add service containers
-		for serviceId, spec := range rc.Run.Job().Services {
+		for serviceID, spec := range rc.Run.Job().Services {
 			// interpolate env
 			interpolatedEnvs := make(map[string]string, len(spec.Env))
 			for k, v := range spec.Env {
@@ -288,10 +286,10 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			}
 			username, password, err = rc.handleServiceCredentials(ctx, spec.Credentials)
 			if err != nil {
-				return fmt.Errorf("failed to handle service %s credentials: %w", serviceId, err)
+				return fmt.Errorf("failed to handle service %s credentials: %w", serviceID, err)
 			}
 			serviceBinds, serviceMounts := rc.GetServiceBindsAndMounts(spec.Volumes)
-			serviceContainerName := createContainerName(rc.jobContainerName(), serviceId)
+			serviceContainerName := createContainerName(rc.jobContainerName(), serviceID)
 			c := container.NewContainer(&container.NewContainerInput{
 				Name:           serviceContainerName,
 				WorkingDir:     ext.ToContainerPath(rc.Config.Workdir),
@@ -308,7 +306,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 				Platform:       rc.Config.ContainerArchitecture,
 				Options:        spec.Options,
 				NetworkMode:    networkName,
-				NetworkAliases: []string{serviceId},
+				NetworkAliases: []string{serviceID},
 				ValidVolumes:   rc.Config.ValidVolumes,
 			})
 			rc.ServiceContainers = append(rc.ServiceContainers, c)
@@ -325,7 +323,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 
 		rc.JobContainer = container.NewContainer(&container.NewContainerInput{
 			Cmd:            nil,
-			Entrypoint:     []string{"/bin/sleep", fmt.Sprint(rc.Config.ContainerMaxLifetime.Round(time.Second).Seconds())},
+			Entrypoint:     []string{"/usr/bin/tail", "-f", "/dev/null"},
 			WorkingDir:     ext.ToContainerPath(rc.Config.Workdir),
 			Image:          image,
 			Username:       username,
@@ -460,7 +458,7 @@ func (rc *RunContext) pullServicesImages(forcePull bool) common.Executor {
 	}
 }
 
-func (rc *RunContext) startServiceContainers(networkName string) common.Executor {
+func (rc *RunContext) startServiceContainers(_ string) common.Executor {
 	return func(ctx context.Context) error {
 		execs := []common.Executor{}
 		for _, c := range rc.ServiceContainers {
