@@ -259,7 +259,7 @@ func execAsDocker(ctx context.Context, step actionStep, actionName string, based
 				buildContext, err = rc.JobContainer.GetContainerArchive(ctx, contextDir+"/.")
 			} else {
 				rstep := step.(*stepActionRemote)
-				buildContext, err = rc.ActionCache.GetTarArchive(ctx, path.Join(rstep.remoteAction.Org, rstep.remoteAction.Repo), rstep.remoteAction.Ref, contextDir)
+				buildContext, err = rc.ActionCache.GetTarArchive(ctx, rstep.cacheDir, rstep.resolvedSha, contextDir)
 			}
 			if err != nil {
 				return err
