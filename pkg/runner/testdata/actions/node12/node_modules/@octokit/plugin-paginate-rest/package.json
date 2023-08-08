@@ -1,0 +1,51 @@
+{
+  "name": "@octokit/plugin-paginate-rest",
+  "description": "Octokit plugin to paginate REST API endpoint responses",
+  "version": "2.21.3",
+  "license": "MIT",
+  "files": [
+    "dist-*/",
+    "bin/"
+  ],
+  "source": "dist-src/index.js",
+  "types": "dist-types/index.d.ts",
+  "main": "dist-node/index.js",
+  "module": "dist-web/index.js",
+  "pika": true,
+  "sideEffects": false,
+  "keywords": [
+    "github",
+    "api",
+    "sdk",
+    "toolkit"
+  ],
+  "repository": "github:octokit/plugin-paginate-rest.js",
+  "dependencies": {
+    "@octokit/types": "^6.40.0"
+  },
+  "peerDependencies": {
+    "@octokit/core": ">=2"
+  },
+  "devDependencies": {
+    "@octokit/core": "^4.0.0",
+    "@octokit/plugin-rest-endpoint-methods": "^6.0.0",
+    "@pika/pack": "^0.3.7",
+    "@pika/plugin-build-node": "^0.9.0",
+    "@pika/plugin-build-web": "^0.9.0",
+    "@pika/plugin-ts-standard-pkg": "^0.9.0",
+    "@types/fetch-mock": "^7.3.1",
+    "@types/jest": "^28.0.0",
+    "@types/node": "^16.0.0",
+    "fetch-mock": "^9.0.0",
+    "github-openapi-graphql-query": "^2.0.0",
+    "jest": "^28.0.0",
+    "npm-run-all": "^4.1.5",
+    "prettier": "2.7.1",
+    "semantic-release-plugin-update-version-in-files": "^1.0.0",
+    "ts-jest": "^28.0.0",
+    "typescript": "^4.0.2"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
