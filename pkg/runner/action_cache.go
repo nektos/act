@@ -21,7 +21,7 @@ import (
 
 type ActionCache interface {
 	Fetch(ctx context.Context, cacheDir, url, ref, token string) (string, error)
-	GetTarArchive(ctx context.Context, cacheDir, sha, fpath string) (io.ReadCloser, error)
+	GetTarArchive(ctx context.Context, cacheDir, sha, includePrefix string) (io.ReadCloser, error)
 }
 
 type GoGitActionCache struct {
@@ -103,7 +103,7 @@ func (c GoGitActionCache) Fetch(ctx context.Context, cacheDir, url, ref, token s
 	return hash.String(), nil
 }
 
-func (c GoGitActionCache) GetTarArchive(ctx context.Context, cacheDir, sha, fpath string) (io.ReadCloser, error) {
+func (c GoGitActionCache) GetTarArchive(ctx context.Context, cacheDir, sha, includePrefix string) (io.ReadCloser, error) {
 	gitPath := path.Join(c.Path, safeFilename(cacheDir)+".git")
 	gogitrepo, err := git.PlainOpen(gitPath)
 	if err != nil {
@@ -131,15 +131,15 @@ func (c GoGitActionCache) GetTarArchive(ctx context.Context, cacheDir, sha, fpat
 		defer wpipe.Close()
 		defer close(ch)
 		tw := tar.NewWriter(wpipe)
-		fcpath := path.Clean(fpath)
+		cleanIncludePrefix := path.Clean(includePrefix)
 		wpipe.CloseWithError(files.ForEach(func(f *object.File) error {
 			if err := ctx.Err(); err != nil {
 				return err
 			}
 			name := f.Name
-			if strings.HasPrefix(name, fcpath+"/") {
-				name = name[len(fcpath)+1:]
-			} else if fcpath != "." && name != fcpath {
+			if strings.HasPrefix(name, cleanIncludePrefix+"/") {
+				name = name[len(cleanIncludePrefix)+1:]
+			} else if cleanIncludePrefix != "." && name != cleanIncludePrefix {
 				return nil
 			}
 			fmode, err := f.Mode.ToOSFileMode()
