@@ -1,8 +1,8 @@
 package runner
 
 import (
+	"archive/tar"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -10,8 +10,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-
-	gogit "github.com/go-git/go-git/v5"
 
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/common/git"
@@ -28,6 +26,8 @@ type stepActionRemote struct {
 	action              *model.Action
 	env                 map[string]string
 	remoteAction        *remoteAction
+	cacheDir            string
+	resolvedSha         string
 }
 
 var (
@@ -60,41 +60,52 @@ func (sar *stepActionRemote) prepareActionExecutor() common.Executor {
 				github.Token = sar.RunContext.Config.ReplaceGheActionTokenWithGithubCom
 			}
 		}
-
-		actionDir := fmt.Sprintf("%s/%s", sar.RunContext.ActionCacheDir(), safeFilename(sar.Step.Uses))
-		gitClone := stepActionRemoteNewCloneExecutor(git.NewGitCloneExecutorInput{
-			URL:   sar.remoteAction.CloneURL(),
-			Ref:   sar.remoteAction.Ref,
-			Dir:   actionDir,
-			Token: github.Token,
-		})
-		var ntErr common.Executor
-		if err := gitClone(ctx); err != nil {
-			if errors.Is(err, git.ErrShortRef) {
-				return fmt.Errorf("Unable to resolve action `%s`, the provided ref `%s` is the shortened version of a commit SHA, which is not supported. Please use the full commit SHA `%s` instead",
-					sar.Step.Uses, sar.remoteAction.Ref, err.(*git.Error).Commit())
-			} else if errors.Is(err, gogit.ErrForceNeeded) { // TODO: figure out if it will be easy to shadow/alias go-git err's
-				ntErr = common.NewInfoExecutor("Non-terminating error while running 'git clone': %v", err)
-			} else {
-				return err
+		var cache ActionCache
+		if sar.RunContext.ActionCache != nil {
+			cache = sar.RunContext.ActionCache
+		} else {
+			cache = &GoGitActionCache{
+				Path: sar.RunContext.ActionCacheDir(),
 			}
+			sar.RunContext.ActionCache = cache
+		}
+
+		var err error
+		sar.cacheDir = fmt.Sprintf("%s/%s", sar.remoteAction.Org, sar.remoteAction.Repo)
+		sar.resolvedSha, err = cache.Fetch(ctx, sar.cacheDir, sar.remoteAction.URL+"/"+sar.cacheDir, sar.remoteAction.Ref, github.Token)
+		if err != nil {
+			return err
 		}
 
 		remoteReader := func(ctx context.Context) actionYamlReader {
 			return func(filename string) (io.Reader, io.Closer, error) {
-				f, err := os.Open(filepath.Join(actionDir, sar.remoteAction.Path, filename))
-				return f, f, err
+				spath := filename
+				for i := 0; i < maxSymlinkDepth; i++ {
+					tars, err := cache.GetTarArchive(ctx, sar.cacheDir, sar.resolvedSha, spath)
+					if err != nil {
+						return nil, nil, os.ErrNotExist
+					}
+					treader := tar.NewReader(tars)
+					header, err := treader.Next()
+					if err != nil {
+						return nil, nil, os.ErrNotExist
+					}
+					if header.FileInfo().Mode()&os.ModeSymlink == os.ModeSymlink {
+						spath, err = symlinkJoin(spath, header.Linkname, ".")
+						if err != nil {
+							return nil, nil, err
+						}
+					} else {
+						return treader, tars, nil
+					}
+				}
+				return nil, nil, fmt.Errorf("max depth %d of symlinks exceeded while reading %s", maxSymlinkDepth, spath)
 			}
 		}
 
-		return common.NewPipelineExecutor(
-			ntErr,
-			func(ctx context.Context) error {
-				actionModel, err := sar.readAction(ctx, sar.Step, actionDir, sar.remoteAction.Path, remoteReader(ctx), os.WriteFile)
-				sar.action = actionModel
-				return err
-			},
-		)(ctx)
+		actionModel, err := sar.readAction(ctx, sar.Step, sar.resolvedSha, sar.remoteAction.Path, remoteReader(ctx), os.WriteFile)
+		sar.action = actionModel
+		return err
 	}
 }
 

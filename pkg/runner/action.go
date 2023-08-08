@@ -44,7 +44,7 @@ func readActionImpl(ctx context.Context, step *model.Step, actionDir string, act
 	reader, closer, err := readFile("action.yml")
 	if os.IsNotExist(err) {
 		reader, closer, err = readFile("action.yaml")
-		if err != nil {
+		if os.IsNotExist(err) {
 			if _, closer, err2 := readFile("Dockerfile"); err2 == nil {
 				closer.Close()
 				action := &model.Action{
@@ -91,6 +91,8 @@ func readActionImpl(ctx context.Context, step *model.Step, actionDir string, act
 				}
 			}
 			return nil, err
+		} else if err != nil {
+			return nil, err
 		}
 	} else if err != nil {
 		return nil, err
@@ -103,25 +105,20 @@ func readActionImpl(ctx context.Context, step *model.Step, actionDir string, act
 }
 
 func maybeCopyToActionDir(ctx context.Context, step actionStep, actionDir string, actionPath string, containerActionDir string) error {
-	logger := common.Logger(ctx)
 	rc := step.getRunContext()
 	stepModel := step.getStepModel()
 
 	if stepModel.Type() != model.StepTypeUsesActionRemote {
 		return nil
 	}
-	if err := removeGitIgnore(ctx, actionDir); err != nil {
+
+	raction := step.(*stepActionRemote)
+	ta, err := rc.ActionCache.GetTarArchive(ctx, raction.cacheDir, raction.resolvedSha, "")
+	if err != nil {
 		return err
 	}
-
-	var containerActionDirCopy string
-	containerActionDirCopy = strings.TrimSuffix(containerActionDir, actionPath)
-	logger.Debug(containerActionDirCopy)
-
-	if !strings.HasSuffix(containerActionDirCopy, `/`) {
-		containerActionDirCopy += `/`
-	}
-	return rc.JobContainer.CopyDir(containerActionDirCopy, actionDir+"/", rc.Config.UseGitIgnore)(ctx)
+	defer ta.Close()
+	return rc.JobContainer.CopyTarStream(ctx, containerActionDir, ta)
 }
 
 func runActionImpl(step actionStep, actionDir string, remoteAction *remoteAction) common.Executor {
@@ -260,11 +257,14 @@ func execAsDocker(ctx context.Context, step actionStep, actionName string, based
 			var buildContext io.ReadCloser
 			if localAction {
 				buildContext, err = rc.JobContainer.GetContainerArchive(ctx, contextDir+"/.")
-				if err != nil {
-					return err
-				}
-				defer buildContext.Close()
+			} else {
+				rstep := step.(*stepActionRemote)
+				buildContext, err = rc.ActionCache.GetTarArchive(ctx, path.Join(rstep.remoteAction.Org, rstep.remoteAction.Repo), rstep.remoteAction.Ref, contextDir)
 			}
+			if err != nil {
+				return err
+			}
+			defer buildContext.Close()
 			prepImage = container.NewDockerBuildExecutor(container.NewDockerBuildExecutorInput{
 				ContextDir:   contextDir,
 				Dockerfile:   fileName,

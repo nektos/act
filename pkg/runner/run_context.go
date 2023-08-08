@@ -47,6 +47,7 @@ type RunContext struct {
 	Masks               []string
 	cleanUpJobContainer common.Executor
 	caller              *caller // job calling this RunContext (reusable workflows)
+	ActionCache         ActionCache
 }
 
 func (rc *RunContext) AddMask(mask string) {
