@@ -55,6 +55,7 @@ type Input struct {
 	replaceGheActionTokenWithGithubCom string
 	matrix                             []string
 	actionCachePath                    string
+	logPrefixJobID                     bool
 }
 
 func (i *Input) resolve(path string) string {

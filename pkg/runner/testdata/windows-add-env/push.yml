@@ -1,8 +1,5 @@
 on:
   push:
-defaults:
-  run:
-    shell: pwsh
 jobs:
   test:
     runs-on: windows-latest
