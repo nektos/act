@@ -108,7 +108,7 @@ func maybeCopyToActionDir(ctx context.Context, step actionStep, actionDir string
 	rc := step.getRunContext()
 	stepModel := step.getStepModel()
 
-	if stepModel.Type() != model.StepTypeUsesActionRemote {
+	if stepModel.Type() != model.StepTypeUsesActionRemote || rc.ActionCache == nil {
 		return nil
 	}
 
