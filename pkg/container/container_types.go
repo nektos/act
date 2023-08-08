@@ -53,11 +53,11 @@ type Container interface {
 
 // NewDockerBuildExecutorInput the input for the NewDockerBuildExecutor function
 type NewDockerBuildExecutorInput struct {
-	ContextDir string
-	Dockerfile string
-	Container  Container
-	ImageTag   string
-	Platform   string
+	ContextDir   string
+	Dockerfile   string
+	BuildContext io.Reader
+	ImageTag     string
+	Platform     string
 }
 
 // NewDockerPullExecutorInput the input for the NewDockerPullExecutor function
