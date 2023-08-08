@@ -75,6 +75,7 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.PersistentFlags().StringVarP(&input.workdir, "directory", "C", ".", "working directory")
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "verbose output")
 	rootCmd.PersistentFlags().BoolVar(&input.jsonLogger, "json", false, "Output logs in json format")
+	rootCmd.PersistentFlags().BoolVar(&input.logPrefixJobID, "log-prefix-job-id", false, "Output the job id within non-json logs instead of the entire name")
 	rootCmd.PersistentFlags().BoolVarP(&input.noOutput, "quiet", "q", false, "disable logging of output from steps")
 	rootCmd.PersistentFlags().BoolVarP(&input.dryrun, "dryrun", "n", false, "dryrun mode")
 	rootCmd.PersistentFlags().StringVarP(&input.secretfile, "secret-file", "", ".secrets", "file with list of secrets to read from (e.g. --secret-file .secrets)")
@@ -584,6 +585,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			BindWorkdir:                        input.bindWorkdir,
 			LogOutput:                          !input.noOutput,
 			JSONLogger:                         input.jsonLogger,
+			LogPrefixJobID:                     input.logPrefixJobID,
 			Env:                                envs,
 			Secrets:                            secrets,
 			Vars:                               vars,

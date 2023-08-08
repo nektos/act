@@ -554,6 +554,10 @@ func (impl *interperterImpl) evaluateLogicalCompare(compareNode *actionlint.Logi
 
 	leftValue := reflect.ValueOf(left)
 
+	if IsTruthy(left) == (compareNode.Kind == actionlint.LogicalOpNodeKindOr) {
+		return impl.getSafeValue(leftValue), nil
+	}
+
 	right, err := impl.evaluateNode(compareNode.Right)
 	if err != nil {
 		return nil, err
@@ -563,17 +567,8 @@ func (impl *interperterImpl) evaluateLogicalCompare(compareNode *actionlint.Logi
 
 	switch compareNode.Kind {
 	case actionlint.LogicalOpNodeKindAnd:
-		if IsTruthy(left) {
-			return impl.getSafeValue(rightValue), nil
-		}
-
-		return impl.getSafeValue(leftValue), nil
-
+		return impl.getSafeValue(rightValue), nil
 	case actionlint.LogicalOpNodeKindOr:
-		if IsTruthy(left) {
-			return impl.getSafeValue(leftValue), nil
-		}
-
 		return impl.getSafeValue(rightValue), nil
 	}
 
