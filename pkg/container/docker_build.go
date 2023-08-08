@@ -48,8 +48,8 @@ func NewDockerBuildExecutor(input NewDockerBuildExecutorInput) common.Executor {
 			Dockerfile:  input.Dockerfile,
 		}
 		var buildContext io.ReadCloser
-		if input.Container != nil {
-			buildContext, err = input.Container.GetContainerArchive(ctx, input.ContextDir+"/.")
+		if input.BuildContext != nil {
+			buildContext = io.NopCloser(input.BuildContext)
 		} else {
 			buildContext, err = createBuildContext(ctx, input.ContextDir, input.Dockerfile)
 		}
