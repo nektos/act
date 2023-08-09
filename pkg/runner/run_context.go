@@ -789,17 +789,15 @@ func (rc *RunContext) withGithubEnv(ctx context.Context, github *model.GithubCon
 	}
 
 	job := rc.Run.Job()
-	if job.RunsOn() != nil {
-		for _, runnerLabel := range job.RunsOn() {
-			platformName := rc.ExprEval.Interpolate(ctx, runnerLabel)
-			if platformName != "" {
-				if platformName == "ubuntu-latest" {
-					// hardcode current ubuntu-latest since we have no way to check that 'on the fly'
-					env["ImageOS"] = "ubuntu20"
-				} else {
-					platformName = strings.SplitN(strings.Replace(platformName, `-`, ``, 1), `.`, 2)[0]
-					env["ImageOS"] = platformName
-				}
+	for _, runnerLabel := range job.RunsOn() {
+		platformName := rc.ExprEval.Interpolate(ctx, runnerLabel)
+		if platformName != "" {
+			if platformName == "ubuntu-latest" {
+				// hardcode current ubuntu-latest since we have no way to check that 'on the fly'
+				env["ImageOS"] = "ubuntu20"
+			} else {
+				platformName = strings.SplitN(strings.Replace(platformName, `-`, ``, 1), `.`, 2)[0]
+				env["ImageOS"] = platformName
 			}
 		}
 	}
