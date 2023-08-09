@@ -351,7 +351,7 @@ func (cr *containerReference) mergeContainerConfigs(ctx context.Context, config 
 		}
 	}
 
-	containerConfig, err := parse(flags, copts, "")
+	containerConfig, err := parse(flags, copts, runtime.GOOS)
 	if err != nil {
 		return nil, nil, fmt.Errorf("Cannot process container options: '%s': '%w'", input.Options, err)
 	}
