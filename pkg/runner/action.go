@@ -257,16 +257,20 @@ func execAsDocker(ctx context.Context, step actionStep, actionName string, based
 
 		if !correctArchExists || rc.Config.ForceRebuild {
 			logger.Debugf("image '%s' for architecture '%s' will be built from context '%s", image, rc.Config.ContainerArchitecture, contextDir)
-			var actionContainer container.Container
+			var buildContext io.ReadCloser
 			if localAction {
-				actionContainer = rc.JobContainer
+				buildContext, err = rc.JobContainer.GetContainerArchive(ctx, contextDir+"/.")
+				if err != nil {
+					return err
+				}
+				defer buildContext.Close()
 			}
 			prepImage = container.NewDockerBuildExecutor(container.NewDockerBuildExecutorInput{
-				ContextDir: contextDir,
-				Dockerfile: fileName,
-				ImageTag:   image,
-				Container:  actionContainer,
-				Platform:   rc.Config.ContainerArchitecture,
+				ContextDir:   contextDir,
+				Dockerfile:   fileName,
+				ImageTag:     image,
+				BuildContext: buildContext,
+				Platform:     rc.Config.ContainerArchitecture,
 			})
 		} else {
 			logger.Debugf("image '%s' for architecture '%s' already exists", image, rc.Config.ContainerArchitecture)
