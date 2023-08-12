@@ -88,9 +88,15 @@ func (rc *RunContext) jobContainerName() string {
 }
 
 // networkName return the name of the network which will be created by `act` automatically for job,
-// only create network if `rc.Config.ContainerNetworkMode` is empty string.
+// only create network if using a service container
 func (rc *RunContext) networkName() string {
-	return fmt.Sprintf("%s-network", rc.jobContainerName())
+	if rc.Config.ContainerNetworkMode == "" {
+		return "host"
+	}
+	if len(rc.Run.Job().Services) > 0 {
+		return fmt.Sprintf("%s-%s-network", rc.jobContainerName(), rc.Run.JobID)
+	}
+	return string(rc.Config.ContainerNetworkMode)
 }
 
 func getDockerDaemonSocketMountPath(daemonPath string) string {
@@ -266,12 +272,9 @@ func (rc *RunContext) startJobContainer() common.Executor {
 		binds, mounts := rc.GetBindsAndMounts()
 
 		// specify the network to which the container will connect when `docker create` stage. (like execute command line: docker create --network <networkName> <image>)
-		networkName := string(rc.Config.ContainerNetworkMode)
-		if networkName == "" {
-			// if networkName is empty string, will create a new network for the containers.
-			// and it will be removed after at last.
-			networkName = rc.networkName()
-		}
+		// if using service containers, will create a new network for the containers.
+		// and it will be removed after at last.
+		networkName := rc.networkName()
 
 		// add service containers
 		for serviceID, spec := range rc.Run.Job().Services {
@@ -317,9 +320,9 @@ func (rc *RunContext) startJobContainer() common.Executor {
 				if err := rc.stopServiceContainers()(ctx); err != nil {
 					logger.Errorf("Error while cleaning services: %v", err)
 				}
-				if !rc.IsHostEnv(ctx) && rc.Config.ContainerNetworkMode == "" {
+				if !rc.IsHostEnv(ctx) {
 					// clean network in docker mode only
-					// if the value of `ContainerNetworkMode` is empty string,
+					// if using service containers
 					// it means that the network to which containers are connecting is created by `act_runner`,
 					// so, we should remove the network at last.
 					logger.Infof("Cleaning up network for job %s, and network name is: %s", rc.JobName, rc.networkName())
@@ -363,7 +366,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 		return common.NewPipelineExecutor(
 			rc.pullServicesImages(rc.Config.ForcePull),
 			rc.JobContainer.Pull(rc.Config.ForcePull),
-			container.NewDockerNetworkCreateExecutor(networkName).IfBool(!rc.IsHostEnv(ctx) && rc.Config.ContainerNetworkMode == ""), // if the value of `ContainerNetworkMode` is empty string, then will create a new network for containers.
+			container.NewDockerNetworkCreateExecutor(networkName).IfBool(!rc.IsHostEnv(ctx) && networkName != "host"),
 			rc.startServiceContainers(networkName),
 			rc.JobContainer.Create(rc.Config.ContainerCapAdd, rc.Config.ContainerCapDrop),
 			rc.JobContainer.Start(false),
