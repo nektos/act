@@ -16,8 +16,6 @@ import (
 	"strconv"
 	"strings"
 
-	networktypes "github.com/docker/docker/api/types/network"
-
 	"github.com/go-git/go-billy/v5/helper/polyfill"
 	"github.com/go-git/go-billy/v5/osfs"
 	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
@@ -46,25 +44,6 @@ func NewContainer(input *NewContainerInput) ExecutionsEnvironment {
 	cr := new(containerReference)
 	cr.input = input
 	return cr
-}
-
-func (cr *containerReference) ConnectToNetwork(name string) common.Executor {
-	return common.
-		NewDebugExecutor("%sdocker network connect %s %s", logPrefix, name, cr.input.Name).
-		Then(
-			common.NewPipelineExecutor(
-				cr.connect(),
-				cr.connectToNetwork(name, cr.input.NetworkAliases),
-			).IfNot(common.Dryrun),
-		)
-}
-
-func (cr *containerReference) connectToNetwork(name string, aliases []string) common.Executor {
-	return func(ctx context.Context) error {
-		return cr.cli.NetworkConnect(ctx, name, cr.input.Name, &networktypes.EndpointSettings{
-			Aliases: aliases,
-		})
-	}
 }
 
 // supportsContainerImagePlatform returns true if the underlying Docker server
