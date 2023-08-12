@@ -55,3 +55,15 @@ func NewDockerVolumeRemoveExecutor(volume string, force bool) common.Executor {
 		return nil
 	}
 }
+
+func NewDockerNetworkCreateExecutor(name string) common.Executor {
+	return func(ctx context.Context) error {
+		return nil
+	}
+}
+
+func NewDockerNetworkRemoveExecutor(name string) common.Executor {
+	return func(ctx context.Context) error {
+		return nil
+	}
+}
