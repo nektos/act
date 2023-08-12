@@ -13,6 +13,7 @@ func NewDockerNetworkCreateExecutor(name string) common.Executor {
 		if err != nil {
 			return err
 		}
+		defer cli.Close()
 
 		_, err = cli.NetworkCreate(ctx, name, types.NetworkCreate{
 			Driver: "bridge",
@@ -32,6 +33,7 @@ func NewDockerNetworkRemoveExecutor(name string) common.Executor {
 		if err != nil {
 			return err
 		}
+		defer cli.Close()
 
 		return cli.NetworkRemove(ctx, name)
 	}
