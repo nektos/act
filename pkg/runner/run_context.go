@@ -312,6 +312,22 @@ func (rc *RunContext) startJobContainer() common.Executor {
 		}
 
 		rc.cleanUpJobContainer = func(ctx context.Context) error {
+			if len(rc.ServiceContainers) > 0 {
+				logger.Infof("Cleaning up services for job %s", rc.JobName)
+				if err := rc.stopServiceContainers()(ctx); err != nil {
+					logger.Errorf("Error while cleaning services: %v", err)
+				}
+				if !rc.IsHostEnv(ctx) && rc.Config.ContainerNetworkMode == "" {
+					// clean network in docker mode only
+					// if the value of `ContainerNetworkMode` is empty string,
+					// it means that the network to which containers are connecting is created by `act_runner`,
+					// so, we should remove the network at last.
+					logger.Infof("Cleaning up network for job %s, and network name is: %s", rc.JobName, rc.networkName())
+					if err := container.NewDockerNetworkRemoveExecutor(rc.networkName())(ctx); err != nil {
+						logger.Errorf("Error while cleaning network: %v", err)
+					}
+				}
+			}
 			if rc.JobContainer != nil && !rc.Config.ReuseContainers {
 				return rc.JobContainer.Remove().
 					Then(container.NewDockerVolumeRemoveExecutor(rc.jobContainerName(), false)).
