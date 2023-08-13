@@ -481,8 +481,7 @@ func (rc *RunContext) stopServiceContainers() common.Executor {
 	return func(ctx context.Context) error {
 		execs := []common.Executor{}
 		for _, c := range rc.ServiceContainers {
-			execs = append(execs, c.Remove())
-			c.Close()
+			execs = append(execs, c.Remove().Finally(c.Close()))
 		}
 		return common.NewParallelExecutor(len(execs), execs...)(ctx)
 	}
