@@ -302,14 +302,21 @@ For example, if your workflow uses `ubuntu-18.04`, `ubuntu-16.04` and `ubuntu-la
 act -P ubuntu-18.04=nektos/act-environments-ubuntu:18.04 -P ubuntu-latest=ubuntu:latest -P ubuntu-16.04=node:16-buster-slim
 ```
 
-# Secrets
+# Secrets and Variables
 
-To run `act` with secrets, you can enter them interactively, supply them as environment variables or load them from a file. The following options are available for providing secrets:
+To run `act` with secrets and variables, you can enter them interactively, supply them as environment variables, or load them from a file. The following options are available for providing secrets and variables:
 
+Both file formats are the same as `.env` format
+
+## Secrets
 - `act -s MY_SECRET=somevalue` - use `somevalue` as the value for `MY_SECRET`.
 - `act -s MY_SECRET` - check for an environment variable named `MY_SECRET` and use it if it exists. If the environment variable is not defined, prompt the user for a value.
-- `act --secret-file my.secrets` - load secrets values from `my.secrets` file.
-  - secrets file format is the same as `.env` format
+- `act --secret-file my.secrets` - load secrets values from `my.secrets` file.  
+ 
+## Variables
+- `act -var MY_VAR=somevalue` - use `somevalue` as the value for `MY_VAR`.
+- `act -var MY_VAR` - check for an environment variable named `MY_VAR` and use it if it exists. If the environment variable is not defined, prompt the user for a value.
+- `act --var-file my.vars` - load secrets values from `my.vars` file.
 
 # Configuration
 
