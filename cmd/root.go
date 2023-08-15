@@ -527,9 +527,15 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 		if jobID != "" {
 			log.Debugf("Planning job: %s", jobID)
 			plan, plannerErr = planner.PlanJob(jobID)
+			if len(plan.Stages) == 0 {
+				log.Warnf("Could not find any stages to run with the job ID %s. View the valid job IDs with `act --list`", jobID)
+			}
 		} else {
 			log.Debugf("Planning jobs for event: %s", eventName)
 			plan, plannerErr = planner.PlanEvent(eventName)
+			if len(plan.Stages) == 0 {
+				log.Warnf("Could not find any stages to run with the event name %s. View the valid event names with `act --list`", eventName)
+			}
 		}
 		if plan == nil && plannerErr != nil {
 			return plannerErr
