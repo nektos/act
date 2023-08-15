@@ -87,10 +87,10 @@ winget install nektos.act
 yay -Syu act
 ```
 
-### [COPR](https://copr.fedorainfracloud.org/coprs/rubemlrm/act-cli/) (Linux)
+### [COPR](https://copr.fedorainfracloud.org/coprs/goncalossilva/act/) (Linux)
 
 ```shell
-dnf copr enable rubemlrm/act-cli
+dnf copr enable goncalossilva/act
 dnf install act-cli
 ```
 
