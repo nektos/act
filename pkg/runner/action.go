@@ -105,20 +105,36 @@ func readActionImpl(ctx context.Context, step *model.Step, actionDir string, act
 }
 
 func maybeCopyToActionDir(ctx context.Context, step actionStep, actionDir string, actionPath string, containerActionDir string) error {
+	logger := common.Logger(ctx)
 	rc := step.getRunContext()
 	stepModel := step.getStepModel()
 
-	if stepModel.Type() != model.StepTypeUsesActionRemote || rc.ActionCache == nil {
+	if stepModel.Type() != model.StepTypeUsesActionRemote {
 		return nil
 	}
 
-	raction := step.(*stepActionRemote)
-	ta, err := rc.ActionCache.GetTarArchive(ctx, raction.cacheDir, raction.resolvedSha, "")
-	if err != nil {
+	if rc.Config.ActionCache != nil {
+		raction := step.(*stepActionRemote)
+		ta, err := rc.Config.ActionCache.GetTarArchive(ctx, raction.cacheDir, raction.resolvedSha, "")
+		if err != nil {
+			return err
+		}
+		defer ta.Close()
+		return rc.JobContainer.CopyTarStream(ctx, containerActionDir, ta)
+	}
+
+	if err := removeGitIgnore(ctx, actionDir); err != nil {
 		return err
 	}
-	defer ta.Close()
-	return rc.JobContainer.CopyTarStream(ctx, containerActionDir, ta)
+
+	var containerActionDirCopy string
+	containerActionDirCopy = strings.TrimSuffix(containerActionDir, actionPath)
+	logger.Debug(containerActionDirCopy)
+
+	if !strings.HasSuffix(containerActionDirCopy, `/`) {
+		containerActionDirCopy += `/`
+	}
+	return rc.JobContainer.CopyDir(containerActionDirCopy, actionDir+"/", rc.Config.UseGitIgnore)(ctx)
 }
 
 func runActionImpl(step actionStep, actionDir string, remoteAction *remoteAction) common.Executor {
@@ -259,7 +275,7 @@ func execAsDocker(ctx context.Context, step actionStep, actionName string, based
 				buildContext, err = rc.JobContainer.GetContainerArchive(ctx, contextDir+"/.")
 			} else {
 				rstep := step.(*stepActionRemote)
-				buildContext, err = rc.ActionCache.GetTarArchive(ctx, rstep.cacheDir, rstep.resolvedSha, contextDir)
+				buildContext, err = rc.Config.ActionCache.GetTarArchive(ctx, rstep.cacheDir, rstep.resolvedSha, contextDir)
 			}
 			if err != nil {
 				return err

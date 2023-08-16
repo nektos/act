@@ -56,6 +56,7 @@ type Input struct {
 	matrix                             []string
 	actionCachePath                    string
 	logPrefixJobID                     bool
+	useNewActionCache                  bool
 }
 
 func (i *Input) resolve(path string) string {

@@ -96,6 +96,7 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.PersistentFlags().StringVarP(&input.cacheServerAddr, "cache-server-addr", "", common.GetOutboundIP().String(), "Defines the address to which the cache server binds.")
 	rootCmd.PersistentFlags().Uint16VarP(&input.cacheServerPort, "cache-server-port", "", 0, "Defines the port where the artifact server listens. 0 means a randomly available port.")
 	rootCmd.PersistentFlags().StringVarP(&input.actionCachePath, "action-cache-path", "", filepath.Join(CacheHomeDir, "act"), "Defines the path where the actions get cached and host workspaces created.")
+	rootCmd.PersistentFlags().BoolVarP(&input.useNewActionCache, "use-new-action-cache", "", false, "Enable using the new Action Cache for storing Actions locally")
 	rootCmd.SetArgs(args())
 
 	if err := rootCmd.Execute(); err != nil {
@@ -611,6 +612,11 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			ReplaceGheActionWithGithubCom:      input.replaceGheActionWithGithubCom,
 			ReplaceGheActionTokenWithGithubCom: input.replaceGheActionTokenWithGithubCom,
 			Matrix:                             matrixes,
+		}
+		if input.useNewActionCache {
+			config.ActionCache = &GoGitActionCache{
+				Path: sar.RunContext.ActionCacheDir(),
+			}
 		}
 		r, err := runner.New(config)
 		if err != nil {

@@ -58,6 +58,7 @@ type Config struct {
 	ReplaceGheActionWithGithubCom      []string                   // Use actions from GitHub Enterprise instance to GitHub
 	ReplaceGheActionTokenWithGithubCom string                     // Token of private action repo on GitHub.
 	Matrix                             map[string]map[string]bool // Matrix config to run
+	ActionCache                        ActionCache
 }
 
 type caller struct {
