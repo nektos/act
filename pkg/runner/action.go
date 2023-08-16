@@ -273,14 +273,18 @@ func execAsDocker(ctx context.Context, step actionStep, actionName string, based
 			var buildContext io.ReadCloser
 			if localAction {
 				buildContext, err = rc.JobContainer.GetContainerArchive(ctx, contextDir+"/.")
+				if err != nil {
+					return err
+				}
+				defer buildContext.Close()
 			} else if rc.Config.ActionCache != nil {
 				rstep := step.(*stepActionRemote)
 				buildContext, err = rc.Config.ActionCache.GetTarArchive(ctx, rstep.cacheDir, rstep.resolvedSha, contextDir)
+				if err != nil {
+					return err
+				}
+				defer buildContext.Close()
 			}
-			if err != nil {
-				return err
-			}
-			defer buildContext.Close()
 			prepImage = container.NewDockerBuildExecutor(container.NewDockerBuildExecutorInput{
 				ContextDir:   contextDir,
 				Dockerfile:   fileName,
