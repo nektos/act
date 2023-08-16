@@ -113,7 +113,7 @@ func maybeCopyToActionDir(ctx context.Context, step actionStep, actionDir string
 		return nil
 	}
 
-	if rc.Config.ActionCache != nil {
+	if rc.Config != nil && rc.Config.ActionCache != nil {
 		raction := step.(*stepActionRemote)
 		ta, err := rc.Config.ActionCache.GetTarArchive(ctx, raction.cacheDir, raction.resolvedSha, "")
 		if err != nil {
