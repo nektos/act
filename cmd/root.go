@@ -614,7 +614,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			Matrix:                             matrixes,
 		}
 		if input.useNewActionCache {
-			config.ActionCache = &GoGitActionCache{
+			config.ActionCache = &runner.GoGitActionCache{
 				Path: CacheHomeDir,
 			}
 		}
