@@ -616,7 +616,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 		}
 		if input.useNewActionCache {
 			config.ActionCache = &runner.GoGitActionCache{
-				Path: CacheHomeDir,
+				Path: config.ActionCacheDir,
 			}
 		}
 		r, err := runner.New(config)
