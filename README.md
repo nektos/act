@@ -17,6 +17,10 @@ Let's see it in action with a [sample repo](https://github.com/cplee/github-acti
 
 ![Demo](https://github.com/nektos/act/wiki/quickstart/act-quickstart-2.gif)
 
+# Act User Guide
+
+Please look at the [act user guide](https://nektosact.com) for more documentation.
+
 # Installation
 
 ## Necessary prerequisites for running `act`
