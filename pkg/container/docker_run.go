@@ -347,8 +347,8 @@ func (cr *containerReference) mergeContainerConfigs(ctx context.Context, config 
 	}
 
 	if len(copts.netMode.Value()) == 0 {
-		if err = copts.netMode.Set("host"); err != nil {
-			return nil, nil, fmt.Errorf("Cannot parse networkmode=host. This is an internal error and should not happen: '%w'", err)
+		if err = copts.netMode.Set(cr.input.NetworkMode); err != nil {
+			return nil, nil, fmt.Errorf("Cannot parse networkmode=%s. This is an internal error and should not happen: '%w'", cr.input.NetworkMode, err)
 		}
 	}
 
