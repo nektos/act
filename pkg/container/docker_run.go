@@ -29,6 +29,7 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/mount"
+	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stdcopy"
 	specs "github.com/opencontainers/image-spec/specs-go/v1"
@@ -445,7 +446,22 @@ func (cr *containerReference) create(capAdd []string, capDrop []string) common.E
 			return err
 		}
 
-		resp, err := cr.cli.ContainerCreate(ctx, config, hostConfig, nil, platSpecs, input.Name)
+		var networkingConfig *network.NetworkingConfig
+		logger.Debugf("input.NetworkAliases ==> %v", input.NetworkAliases)
+		if hostConfig.NetworkMode.IsUserDefined() && len(input.NetworkAliases) > 0 {
+			endpointConfig := &network.EndpointSettings{
+				Aliases: input.NetworkAliases,
+			}
+			networkingConfig = &network.NetworkingConfig{
+				EndpointsConfig: map[string]*network.EndpointSettings{
+					input.NetworkMode: endpointConfig,
+				},
+			}
+		} else {
+			logger.Debugf("not a use defined config??")
+		}
+
+		resp, err := cr.cli.ContainerCreate(ctx, config, hostConfig, networkingConfig, platSpecs, input.Name)
 		if err != nil {
 			return fmt.Errorf("failed to create container: '%w'", err)
 		}
