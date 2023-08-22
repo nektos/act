@@ -315,26 +315,29 @@ func (rc *RunContext) startJobContainer() common.Executor {
 		}
 
 		rc.cleanUpJobContainer = func(ctx context.Context) error {
-			if len(rc.ServiceContainers) > 0 {
-				logger.Infof("Cleaning up services for job %s", rc.JobName)
-				if err := rc.stopServiceContainers()(ctx); err != nil {
-					logger.Errorf("Error while cleaning services: %v", err)
-				}
-				if !rc.IsHostEnv(ctx) {
-					// clean network in docker mode only
-					// if using service containers
-					// it means that the network to which containers are connecting is created by `act_runner`,
-					// so, we should remove the network at last.
-					logger.Infof("Cleaning up network for job %s, and network name is: %s", rc.JobName, rc.networkName())
-					if err := container.NewDockerNetworkRemoveExecutor(rc.networkName())(ctx); err != nil {
-						logger.Errorf("Error while cleaning network: %v", err)
-					}
-				}
-			}
 			if rc.JobContainer != nil && !rc.Config.ReuseContainers {
 				return rc.JobContainer.Remove().
 					Then(container.NewDockerVolumeRemoveExecutor(rc.jobContainerName(), false)).
-					Then(container.NewDockerVolumeRemoveExecutor(rc.jobContainerName()+"-env", false))(ctx)
+					Then(container.NewDockerVolumeRemoveExecutor(rc.jobContainerName()+"-env", false)).
+					Then(func(ctx context.Context) error {
+						if len(rc.ServiceContainers) > 0 {
+							logger.Infof("Cleaning up services for job %s", rc.JobName)
+							if err := rc.stopServiceContainers()(ctx); err != nil {
+								logger.Errorf("Error while cleaning services: %v", err)
+							}
+							if !rc.IsHostEnv(ctx) {
+								// clean network in docker mode only
+								// if using service containers
+								// it means that the network to which containers are connecting is created by `act_runner`,
+								// so, we should remove the network at last.
+								logger.Infof("Cleaning up network for job %s, and network name is: %s", rc.JobName, rc.networkName())
+								if err := container.NewDockerNetworkRemoveExecutor(rc.networkName())(ctx); err != nil {
+									logger.Errorf("Error while cleaning network: %v", err)
+								}
+							}
+						}
+						return nil
+					})(ctx)
 			}
 			return nil
 		}

@@ -15,6 +15,19 @@ func NewDockerNetworkCreateExecutor(name string) common.Executor {
 		}
 		defer cli.Close()
 
+		// Only create the network if it doesn't exist
+		networks, err := cli.NetworkList(ctx, types.NetworkListOptions{})
+		if err != nil {
+			return err
+		}
+		common.Logger(ctx).Debugf("%v", networks)
+		for _, network := range networks {
+			if network.Name == name {
+				common.Logger(ctx).Debugf("Network %v exists", name)
+				return nil
+			}
+		}
+
 		_, err = cli.NetworkCreate(ctx, name, types.NetworkCreate{
 			Driver: "bridge",
 			Scope:  "local",
@@ -35,6 +48,21 @@ func NewDockerNetworkRemoveExecutor(name string) common.Executor {
 		}
 		defer cli.Close()
 
-		return cli.NetworkRemove(ctx, name)
+		// Make shure that all network of the specified name are removed
+		// cli.NetworkRemove refuses to remove a network if there are duplicates
+		networks, err := cli.NetworkList(ctx, types.NetworkListOptions{})
+		if err != nil {
+			return err
+		}
+		common.Logger(ctx).Debugf("%v", networks)
+		for _, network := range networks {
+			if network.Name == name {
+				if err = cli.NetworkRemove(ctx, network.ID); err != nil {
+					common.Logger(ctx).Debugf("%v", err)
+				}
+			}
+		}
+
+		return err
 	}
 }
