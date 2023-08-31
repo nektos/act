@@ -176,6 +176,7 @@ func runActionImpl(step actionStep, actionDir string, remoteAction *remoteAction
 				model.ActionRunsUsingDocker,
 				model.ActionRunsUsingNode12,
 				model.ActionRunsUsingNode16,
+				model.ActionRunsUsingNode20,
 				model.ActionRunsUsingComposite,
 			}, action.Runs.Using))
 		}
@@ -456,7 +457,7 @@ func hasPreStep(step actionStep) common.Conditional {
 		action := step.getActionModel()
 		return action.Runs.Using == model.ActionRunsUsingComposite ||
 			((action.Runs.Using == model.ActionRunsUsingNode12 ||
-				action.Runs.Using == model.ActionRunsUsingNode16) &&
+				action.Runs.Using == model.ActionRunsUsingNode16 || action.Runs.Using == model.ActionRunsUsingNode20) &&
 				action.Runs.Pre != "")
 	}
 }
