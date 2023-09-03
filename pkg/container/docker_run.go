@@ -392,10 +392,11 @@ func (cr *containerReference) create(capAdd []string, capDrop []string) common.E
 		input := cr.input
 
 		config := &container.Config{
-			Image:      input.Image,
-			WorkingDir: input.WorkingDir,
-			Env:        input.Env,
-			Tty:        isTerminal,
+			Image:        input.Image,
+			WorkingDir:   input.WorkingDir,
+			Env:          input.Env,
+			ExposedPorts: input.ExposedPorts,
+			Tty:          isTerminal,
 		}
 		logger.Debugf("Common container.Config ==> %+v", config)
 
@@ -431,13 +432,14 @@ func (cr *containerReference) create(capAdd []string, capDrop []string) common.E
 		}
 
 		hostConfig := &container.HostConfig{
-			CapAdd:      capAdd,
-			CapDrop:     capDrop,
-			Binds:       input.Binds,
-			Mounts:      mounts,
-			NetworkMode: container.NetworkMode(input.NetworkMode),
-			Privileged:  input.Privileged,
-			UsernsMode:  container.UsernsMode(input.UsernsMode),
+			CapAdd:       capAdd,
+			CapDrop:      capDrop,
+			Binds:        input.Binds,
+			Mounts:       mounts,
+			NetworkMode:  container.NetworkMode(input.NetworkMode),
+			Privileged:   input.Privileged,
+			UsernsMode:   container.UsernsMode(input.UsernsMode),
+			PortBindings: input.PortBindings,
 		}
 		logger.Debugf("Common container.HostConfig ==> %+v", hostConfig)
 

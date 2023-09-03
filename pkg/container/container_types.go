@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 
+	"github.com/docker/go-connections/nat"
 	"github.com/nektos/act/pkg/common"
 )
 
@@ -27,6 +28,8 @@ type NewContainerInput struct {
 	Platform       string
 	Options        string
 	NetworkAliases []string
+	ExposedPorts   nat.PortSet
+	PortBindings   nat.PortMap
 }
 
 // FileEntry is a file to copy to a container

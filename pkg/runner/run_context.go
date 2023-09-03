@@ -17,6 +17,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/docker/go-connections/nat"
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/container"
 	"github.com/nektos/act/pkg/exprparser"
@@ -238,6 +239,7 @@ func (rc *RunContext) startHostEnvironment() common.Executor {
 	}
 }
 
+//nolint:gocyclo
 func (rc *RunContext) startJobContainer() common.Executor {
 	return func(ctx context.Context) error {
 		logger := common.Logger(ctx)
@@ -292,6 +294,12 @@ func (rc *RunContext) startJobContainer() common.Executor {
 				return fmt.Errorf("failed to handle service %s credentials: %w", serviceID, err)
 			}
 			serviceBinds, serviceMounts := rc.GetServiceBindsAndMounts(spec.Volumes)
+
+			exposedPorts, portBindings, err := nat.ParsePortSpecs(spec.Ports)
+			if err != nil {
+				return fmt.Errorf("failed to parse service %s ports: %w", serviceID, err)
+			}
+
 			serviceContainerName := createContainerName(rc.jobContainerName(), serviceID)
 			c := container.NewContainer(&container.NewContainerInput{
 				Name:           serviceContainerName,
@@ -310,6 +318,8 @@ func (rc *RunContext) startJobContainer() common.Executor {
 				Options:        spec.Options,
 				NetworkMode:    networkName,
 				NetworkAliases: []string{serviceID},
+				ExposedPorts:   exposedPorts,
+				PortBindings:   portBindings,
 			})
 			rc.ServiceContainers = append(rc.ServiceContainers, c)
 		}
@@ -342,6 +352,11 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			return nil
 		}
 
+		jobContainerNetwork := rc.Config.ContainerNetworkMode.NetworkName()
+		if rc.Run.Job().Container() != nil {
+			jobContainerNetwork = networkName
+		}
+
 		rc.JobContainer = container.NewContainer(&container.NewContainerInput{
 			Cmd:            nil,
 			Entrypoint:     []string{"tail", "-f", "/dev/null"},
@@ -352,7 +367,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			Name:           name,
 			Env:            envList,
 			Mounts:         mounts,
-			NetworkMode:    networkName,
+			NetworkMode:    jobContainerNetwork,
 			NetworkAliases: []string{rc.Name},
 			Binds:          binds,
 			Stdout:         logWriter,
