@@ -305,6 +305,8 @@ func TestRunEvent(t *testing.T) {
 
 		// services
 		{workdir, "services", "push", "", platforms, secrets},
+		{workdir, "services-host-network", "push", "", platforms, secrets},
+		{workdir, "services-with-container", "push", "", platforms, secrets},
 	}
 
 	for _, table := range tables {
