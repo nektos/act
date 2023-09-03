@@ -187,6 +187,7 @@ func (j *TestJobFileInfo) runTest(ctx context.Context, t *testing.T, cfg *Config
 		GitHubInstance:        "github.com",
 		ContainerArchitecture: cfg.ContainerArchitecture,
 		Matrix:                cfg.Matrix,
+		ContainerNetworkMode:  "host",
 	}
 
 	runner, err := New(runnerConfig)
@@ -301,6 +302,9 @@ func TestRunEvent(t *testing.T) {
 		{workdir, "set-env-step-env-override", "push", "", platforms, secrets},
 		{workdir, "set-env-new-env-file-per-step", "push", "", platforms, secrets},
 		{workdir, "no-panic-on-invalid-composite-action", "push", "jobs failed due to invalid action", platforms, secrets},
+
+		// services
+		{workdir, "services", "push", "", platforms, secrets},
 	}
 
 	for _, table := range tables {
@@ -546,43 +550,6 @@ func TestRunEventSecrets(t *testing.T) {
 	assert.NoError(t, err, "Failed to read .secrets")
 
 	tjfi.runTest(context.Background(), t, &Config{Secrets: secrets, Env: env})
-}
-
-func TestRunWithService(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping integration test")
-	}
-
-	log.SetLevel(log.DebugLevel)
-	ctx := context.Background()
-
-	platforms := map[string]string{
-		"ubuntu-latest": "node:12.20.1-buster-slim",
-	}
-
-	workflowPath := "services"
-	eventName := "push"
-
-	workdir, err := filepath.Abs("testdata")
-	assert.NoError(t, err, workflowPath)
-
-	runnerConfig := &Config{
-		Workdir:         workdir,
-		EventName:       eventName,
-		Platforms:       platforms,
-		ReuseContainers: false,
-	}
-	runner, err := New(runnerConfig)
-	assert.NoError(t, err, workflowPath)
-
-	planner, err := model.NewWorkflowPlanner(fmt.Sprintf("testdata/%s", workflowPath), true)
-	assert.NoError(t, err, workflowPath)
-
-	plan, err := planner.PlanEvent(eventName)
-	assert.NoError(t, err, workflowPath)
-
-	err = runner.NewPlanExecutor(plan)(ctx)
-	assert.NoError(t, err, workflowPath)
 }
 
 func TestRunActionInputs(t *testing.T) {
