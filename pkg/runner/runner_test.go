@@ -187,7 +187,6 @@ func (j *TestJobFileInfo) runTest(ctx context.Context, t *testing.T, cfg *Config
 		GitHubInstance:        "github.com",
 		ContainerArchitecture: cfg.ContainerArchitecture,
 		Matrix:                cfg.Matrix,
-		ContainerNetworkMode:  "host",
 	}
 
 	runner, err := New(runnerConfig)

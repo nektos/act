@@ -292,7 +292,6 @@ func runTestJobFile(ctx context.Context, t *testing.T, tjfi TestJobFileInfo) {
 			ArtifactServerPath:    artifactsPath,
 			ArtifactServerAddr:    artifactsAddr,
 			ArtifactServerPort:    artifactsPort,
-			ContainerNetworkMode:  "host",
 		}
 
 		runner, err := runner.New(runnerConfig)
