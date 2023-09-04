@@ -91,11 +91,11 @@ func (rc *RunContext) jobContainerName() string {
 // networkName return the name of the network which will be created by `act` automatically for job,
 // only create network if using a service container
 func (rc *RunContext) networkName() (string, bool) {
-	if rc.Config.ContainerNetworkMode == "" {
-		return "host", false
-	}
 	if len(rc.Run.Job().Services) > 0 {
 		return fmt.Sprintf("%s-%s-network", rc.jobContainerName(), rc.Run.JobID), true
+	}
+	if rc.Config.ContainerNetworkMode == "" {
+		return "host", false
 	}
 	return string(rc.Config.ContainerNetworkMode), false
 }
