@@ -149,7 +149,7 @@ func runActionImpl(step actionStep, actionDir string, remoteAction *remoteAction
 		logger.Debugf("type=%v actionDir=%s actionPath=%s workdir=%s actionCacheDir=%s actionName=%s containerActionDir=%s", stepModel.Type(), actionDir, actionPath, rc.Config.Workdir, rc.ActionCacheDir(), actionName, containerActionDir)
 
 		switch action.Runs.Using {
-		case model.ActionRunsUsingNode12, model.ActionRunsUsingNode16:
+		case model.ActionRunsUsingNode12, model.ActionRunsUsingNode16, model.ActionRunsUsingNode20:
 			if err := maybeCopyToActionDir(ctx, step, actionDir, actionPath, containerActionDir); err != nil {
 				return err
 			}
@@ -176,6 +176,7 @@ func runActionImpl(step actionStep, actionDir string, remoteAction *remoteAction
 				model.ActionRunsUsingDocker,
 				model.ActionRunsUsingNode12,
 				model.ActionRunsUsingNode16,
+				model.ActionRunsUsingNode20,
 				model.ActionRunsUsingComposite,
 			}, action.Runs.Using))
 		}
@@ -456,7 +457,8 @@ func hasPreStep(step actionStep) common.Conditional {
 		action := step.getActionModel()
 		return action.Runs.Using == model.ActionRunsUsingComposite ||
 			((action.Runs.Using == model.ActionRunsUsingNode12 ||
-				action.Runs.Using == model.ActionRunsUsingNode16) &&
+				action.Runs.Using == model.ActionRunsUsingNode16 ||
+				action.Runs.Using == model.ActionRunsUsingNode20) &&
 				action.Runs.Pre != "")
 	}
 }
@@ -471,7 +473,7 @@ func runPreStep(step actionStep) common.Executor {
 		action := step.getActionModel()
 
 		switch action.Runs.Using {
-		case model.ActionRunsUsingNode12, model.ActionRunsUsingNode16:
+		case model.ActionRunsUsingNode12, model.ActionRunsUsingNode16, model.ActionRunsUsingNode20:
 			// defaults in pre steps were missing, however provided inputs are available
 			populateEnvsFromInput(ctx, step.getEnv(), action, rc)
 			// todo: refactor into step
@@ -551,7 +553,8 @@ func hasPostStep(step actionStep) common.Conditional {
 		action := step.getActionModel()
 		return action.Runs.Using == model.ActionRunsUsingComposite ||
 			((action.Runs.Using == model.ActionRunsUsingNode12 ||
-				action.Runs.Using == model.ActionRunsUsingNode16) &&
+				action.Runs.Using == model.ActionRunsUsingNode16 ||
+				action.Runs.Using == model.ActionRunsUsingNode20) &&
 				action.Runs.Post != "")
 	}
 }
@@ -586,7 +589,7 @@ func runPostStep(step actionStep) common.Executor {
 		_, containerActionDir := getContainerActionPaths(stepModel, actionLocation, rc)
 
 		switch action.Runs.Using {
-		case model.ActionRunsUsingNode12, model.ActionRunsUsingNode16:
+		case model.ActionRunsUsingNode12, model.ActionRunsUsingNode16, model.ActionRunsUsingNode20:
 
 			populateEnvsFromSavedState(step.getEnv(), step, rc)
 
