@@ -46,7 +46,9 @@ func newRemoteReusableWorkflowExecutor(rc *RunContext) common.Executor {
 
 func newActionCacheReusableWorkflowExecutor(rc *RunContext, filename string, remoteReusableWorkflow *remoteReusableWorkflow) common.Executor {
 	return func(ctx context.Context) error {
-		sha, err := rc.Config.ActionCache.Fetch(ctx, filename, "", remoteReusableWorkflow.Ref, "")
+		ghctx := rc.getGithubContext(ctx)
+		remoteReusableWorkflow.URL = ghctx.ServerURL
+		sha, err := rc.Config.ActionCache.Fetch(ctx, filename, remoteReusableWorkflow.CloneURL(), remoteReusableWorkflow.Ref, ghctx.Token)
 		if err != nil {
 			return err
 		}
