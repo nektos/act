@@ -4,9 +4,15 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/common/git"
+)
+
+var (
+	loggedWarnings = make(map[string]bool)
+	mu             sync.Mutex
 )
 
 type GithubContext struct {
@@ -168,7 +174,11 @@ func (ghc *GithubContext) SetRepositoryAndOwner(ctx context.Context, githubInsta
 	if ghc.Repository == "" {
 		repo, err := git.FindGithubRepo(ctx, repoPath, githubInstance, remoteName)
 		if err != nil {
-			common.Logger(ctx).Warningf("unable to get git repo: %v", err)
+			warningMsg := fmt.Sprintf("unable to get git repo: %v", err)
+			if !hasLoggedWarning(warningMsg) {
+				common.Logger(ctx).Warningf(warningMsg)
+				markWarningAsLogged(warningMsg)
+			}
 			return
 		}
 		ghc.Repository = repo
@@ -210,4 +220,17 @@ func (ghc *GithubContext) SetBaseAndHeadRef() {
 			ghc.HeadRef = asString(nestedMapLookup(ghc.Event, "pull_request", "head", "ref"))
 		}
 	}
+}
+
+func hasLoggedWarning(msg string) bool {
+	mu.Lock()
+	defer mu.Unlock()
+	_, exists := loggedWarnings[msg]
+	return exists
+}
+
+func markWarningAsLogged(msg string) {
+	mu.Lock()
+	defer mu.Unlock()
+	loggedWarnings[msg] = true
 }
