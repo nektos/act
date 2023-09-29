@@ -317,7 +317,7 @@ To run `act` with secrets, you can enter them interactively, supply them as envi
 
 # Vars
 
-To run `act` with repository variables that are acessible inside the workflow via ${{ vars.VARIABLE }}, you can enter them interactively or load them from a file. The following options are available for providing secrets:
+To run `act` with repository variables that are acessible inside the workflow via ${{ vars.VARIABLE }}, you can enter them interactively or load them from a file. The following options are available for providing github repository variables:
 
 - `act --var VARIABLE=somevalue` - use `somevalue` as the value for `VARIABLE`.
 - `act --var-file my.variables` - load variables values from `my.variables` file.
