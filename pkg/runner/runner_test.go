@@ -390,6 +390,7 @@ func TestRunEventHostEnvironment(t *testing.T) {
 		tables = append(tables, []TestJobFileInfo{
 			{workdir, "windows-prepend-path", "push", "", platforms, secrets},
 			{workdir, "windows-add-env", "push", "", platforms, secrets},
+			{workdir, "windows-shell-cmd", "push", "", platforms, secrets},
 		}...)
 	} else {
 		platforms := map[string]string{

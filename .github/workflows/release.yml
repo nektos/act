@@ -24,12 +24,18 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
       - name: GoReleaser
-        uses: goreleaser/goreleaser-action@v4
+        uses: goreleaser/goreleaser-action@v5
         with:
           version: latest
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GORELEASER_GITHUB_TOKEN }}
+      - name: Winget
+        uses: vedantmgoyal2009/winget-releaser@v2
+        with:
+          identifier: nektos.act
+          installers-regex: '_Windows_\w+\.zip$'
+          token: ${{ secrets.WINGET_TOKEN }}
       - name: Chocolatey
         uses: ./.github/actions/choco
         with:
@@ -53,12 +59,3 @@ jobs:
               ref: context.ref,
               sha: mainRef.object.sha,
             });
-  winget:
-    needs: release
-    runs-on: windows-latest # Action can only run on Windows
-    steps:
-      - uses: vedantmgoyal2009/winget-releaser@v2
-        with:
-          identifier: nektos.act
-          installers-regex: '_Windows_\w+\.zip$'
-          token: ${{ secrets.WINGET_TOKEN }}

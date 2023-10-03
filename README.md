@@ -17,6 +17,10 @@ Let's see it in action with a [sample repo](https://github.com/cplee/github-acti
 
 ![Demo](https://github.com/nektos/act/wiki/quickstart/act-quickstart-2.gif)
 
+# Act User Guide
+
+Please look at the [act user guide](https://nektosact.com) for more documentation.
+
 # Installation
 
 ## Necessary prerequisites for running `act`
@@ -310,6 +314,14 @@ To run `act` with secrets, you can enter them interactively, supply them as envi
 - `act -s MY_SECRET` - check for an environment variable named `MY_SECRET` and use it if it exists. If the environment variable is not defined, prompt the user for a value.
 - `act --secret-file my.secrets` - load secrets values from `my.secrets` file.
   - secrets file format is the same as `.env` format
+
+# Vars
+
+To run `act` with repository variables that are acessible inside the workflow via ${{ vars.VARIABLE }}, you can enter them interactively or load them from a file. The following options are available for providing github repository variables:
+
+- `act --var VARIABLE=somevalue` - use `somevalue` as the value for `VARIABLE`.
+- `act --var-file my.variables` - load variables values from `my.variables` file.
+  - variables file format is the same as `.env` format
 
 # Configuration
 

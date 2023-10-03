@@ -22,11 +22,11 @@ jobs:
         with:
           go-version-file: go.mod
           check-latest: true
-      - uses: golangci/golangci-lint-action@v3.6.0
+      - uses: golangci/golangci-lint-action@v3.7.0
         with:
           version: v1.53
           only-new-issues: true
-      - uses: megalinter/megalinter/flavors/go@v7.1.0
+      - uses: megalinter/megalinter/flavors/go@v7.4.0
         env:
           DEFAULT_BRANCH: master
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -42,7 +42,7 @@ jobs:
         with:
           fetch-depth: 2
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
+        uses: docker/setup-qemu-action@v3
       - uses: actions/setup-go@v4
         with:
           go-version-file: go.mod
@@ -105,7 +105,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
       - name: GoReleaser
-        uses: goreleaser/goreleaser-action@v4
+        uses: goreleaser/goreleaser-action@v5
         with:
           version: latest
           args: release --snapshot --clean
