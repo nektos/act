@@ -237,6 +237,7 @@ func TestRunEvent(t *testing.T) {
 		{workdir, "uses-composite-with-error", "push", "Job 'failing-composite-action' failed", platforms, secrets},
 		{workdir, "uses-nested-composite", "push", "", platforms, secrets},
 		{workdir, "remote-action-composite-js-pre-with-defaults", "push", "", platforms, secrets},
+		{workdir, "remote-action-composite-action-ref", "push", "", platforms, secrets},
 		{workdir, "uses-workflow", "push", "", platforms, map[string]string{"secret": "keep_it_private"}},
 		{workdir, "uses-workflow", "pull_request", "", platforms, map[string]string{"secret": "keep_it_private"}},
 		{workdir, "uses-docker-url", "push", "", platforms, secrets},

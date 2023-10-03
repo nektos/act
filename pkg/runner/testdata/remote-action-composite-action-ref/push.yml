@@ -1,0 +1,8 @@
+name: remote-action-composite-action-ref
+on: push
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: nektos/act-test-actions/composite-assert-action-ref-action@main
