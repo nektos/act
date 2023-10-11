@@ -57,8 +57,17 @@ func NewDockerNetworkRemoveExecutor(name string) common.Executor {
 		common.Logger(ctx).Debugf("%v", networks)
 		for _, network := range networks {
 			if network.Name == name {
-				if err = cli.NetworkRemove(ctx, network.ID); err != nil {
-					common.Logger(ctx).Debugf("%v", err)
+				result, err := cli.NetworkInspect(ctx, network.ID, types.NetworkInspectOptions{})
+				if err != nil {
+					return err
+				}
+
+				if len(result.Containers) == 0 {
+					if err = cli.NetworkRemove(ctx, network.ID); err != nil {
+						common.Logger(ctx).Debugf("%v", err)
+					}
+				} else {
+					common.Logger(ctx).Debugf("Refusing to remove network %v because it still has active endpoints", name)
 				}
 			}
 		}
