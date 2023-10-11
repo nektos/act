@@ -325,10 +325,14 @@ func (rc *RunContext) startJobContainer() common.Executor {
 		}
 
 		rc.cleanUpJobContainer = func(ctx context.Context) error {
-			if rc.JobContainer != nil && !rc.Config.ReuseContainers {
-				return rc.JobContainer.Remove().
-					Then(container.NewDockerVolumeRemoveExecutor(rc.jobContainerName(), false)).
-					Then(container.NewDockerVolumeRemoveExecutor(rc.jobContainerName()+"-env", false)).
+			reuseJobContainer := func(ctx context.Context) bool {
+				return rc.Config.ReuseContainers
+			}
+
+			if rc.JobContainer != nil {
+				return rc.JobContainer.Remove().IfNot(reuseJobContainer).
+					Then(container.NewDockerVolumeRemoveExecutor(rc.jobContainerName(), false)).IfNot(reuseJobContainer).
+					Then(container.NewDockerVolumeRemoveExecutor(rc.jobContainerName()+"-env", false)).IfNot(reuseJobContainer).
 					Then(func(ctx context.Context) error {
 						if len(rc.ServiceContainers) > 0 {
 							logger.Infof("Cleaning up services for job %s", rc.JobName)
@@ -463,10 +467,10 @@ func (rc *RunContext) UpdateExtraPath(ctx context.Context, githubEnvPath string)
 	return nil
 }
 
-// stopJobContainer removes the job container (if it exists) and its volume (if it exists) if !rc.Config.ReuseContainers
+// stopJobContainer removes the job container (if it exists) and its volume (if it exists)
 func (rc *RunContext) stopJobContainer() common.Executor {
 	return func(ctx context.Context) error {
-		if rc.cleanUpJobContainer != nil && !rc.Config.ReuseContainers {
+		if rc.cleanUpJobContainer != nil {
 			return rc.cleanUpJobContainer(ctx)
 		}
 		return nil
