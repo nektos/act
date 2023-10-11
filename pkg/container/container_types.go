@@ -39,6 +39,7 @@ type FileEntry struct {
 type Container interface {
 	Create(capAdd []string, capDrop []string) common.Executor
 	Copy(destPath string, files ...*FileEntry) common.Executor
+	CopyTarStream(ctx context.Context, destPath string, tarStream io.Reader) error
 	CopyDir(destPath string, srcPath string, useGitIgnore bool) common.Executor
 	GetContainerArchive(ctx context.Context, srcPath string) (io.ReadCloser, error)
 	Pull(forcePull bool) common.Executor
@@ -53,11 +54,11 @@ type Container interface {
 
 // NewDockerBuildExecutorInput the input for the NewDockerBuildExecutor function
 type NewDockerBuildExecutorInput struct {
-	ContextDir string
-	Dockerfile string
-	Container  Container
-	ImageTag   string
-	Platform   string
+	ContextDir   string
+	Dockerfile   string
+	BuildContext io.Reader
+	ImageTag     string
+	Platform     string
 }
 
 // NewDockerPullExecutorInput the input for the NewDockerPullExecutor function

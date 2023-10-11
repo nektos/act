@@ -60,6 +60,33 @@ func (e *HostEnvironment) Copy(destPath string, files ...*FileEntry) common.Exec
 	}
 }
 
+func (e *HostEnvironment) CopyTarStream(ctx context.Context, destPath string, tarStream io.Reader) error {
+	if err := os.RemoveAll(destPath); err != nil {
+		return err
+	}
+	tr := tar.NewReader(tarStream)
+	cp := &copyCollector{
+		DstDir: destPath,
+	}
+	for {
+		ti, err := tr.Next()
+		if errors.Is(err, io.EOF) {
+			return nil
+		} else if err != nil {
+			return err
+		}
+		if ti.FileInfo().IsDir() {
+			continue
+		}
+		if ctx.Err() != nil {
+			return fmt.Errorf("CopyTarStream has been cancelled")
+		}
+		if err := cp.WriteFile(ti.Name, ti.FileInfo(), ti.Linkname, tr); err != nil {
+			return err
+		}
+	}
+}
+
 func (e *HostEnvironment) CopyDir(destPath string, srcPath string, useGitIgnore bool) common.Executor {
 	return func(ctx context.Context) error {
 		logger := common.Logger(ctx)
@@ -326,8 +353,12 @@ func (e *HostEnvironment) exec(ctx context.Context, command []string, cmdline st
 }
 
 func (e *HostEnvironment) Exec(command []string /*cmdline string, */, env map[string]string, user, workdir string) common.Executor {
+	return e.ExecWithCmdLine(command, "", env, user, workdir)
+}
+
+func (e *HostEnvironment) ExecWithCmdLine(command []string, cmdline string, env map[string]string, user, workdir string) common.Executor {
 	return func(ctx context.Context) error {
-		if err := e.exec(ctx, command, "" /*cmdline*/, env, user, workdir); err != nil {
+		if err := e.exec(ctx, command, cmdline, env, user, workdir); err != nil {
 			select {
 			case <-ctx.Done():
 				return fmt.Errorf("this step has been cancelled: %w", err)

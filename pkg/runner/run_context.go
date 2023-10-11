@@ -518,14 +518,14 @@ func (rc *RunContext) platformImage(ctx context.Context) string {
 	return rc.runsOnImage(ctx)
 }
 
-func (rc *RunContext) options(_ context.Context) string {
+func (rc *RunContext) options(ctx context.Context) string {
 	job := rc.Run.Job()
 	c := job.Container()
-	if c == nil {
-		return rc.Config.ContainerOptions
+	if c != nil {
+		return rc.ExprEval.Interpolate(ctx, c.Options)
 	}
 
-	return c.Options
+	return rc.Config.ContainerOptions
 }
 
 func (rc *RunContext) isEnabled(ctx context.Context) (bool, error) {
@@ -627,6 +627,8 @@ func (rc *RunContext) getGithubContext(ctx context.Context) *model.GithubContext
 		Token:            rc.Config.Token,
 		Job:              rc.Run.JobID,
 		ActionPath:       rc.ActionPath,
+		ActionRepository: rc.Env["GITHUB_ACTION_REPOSITORY"],
+		ActionRef:        rc.Env["GITHUB_ACTION_REF"],
 		RepositoryOwner:  rc.Config.Env["GITHUB_REPOSITORY_OWNER"],
 		RetentionDays:    rc.Config.Env["GITHUB_RETENTION_DAYS"],
 		RunnerPerflog:    rc.Config.Env["RUNNER_PERFLOG"],
@@ -789,17 +791,15 @@ func (rc *RunContext) withGithubEnv(ctx context.Context, github *model.GithubCon
 	}
 
 	job := rc.Run.Job()
-	if job.RunsOn() != nil {
-		for _, runnerLabel := range job.RunsOn() {
-			platformName := rc.ExprEval.Interpolate(ctx, runnerLabel)
-			if platformName != "" {
-				if platformName == "ubuntu-latest" {
-					// hardcode current ubuntu-latest since we have no way to check that 'on the fly'
-					env["ImageOS"] = "ubuntu20"
-				} else {
-					platformName = strings.SplitN(strings.Replace(platformName, `-`, ``, 1), `.`, 2)[0]
-					env["ImageOS"] = platformName
-				}
+	for _, runnerLabel := range job.RunsOn() {
+		platformName := rc.ExprEval.Interpolate(ctx, runnerLabel)
+		if platformName != "" {
+			if platformName == "ubuntu-latest" {
+				// hardcode current ubuntu-latest since we have no way to check that 'on the fly'
+				env["ImageOS"] = "ubuntu20"
+			} else {
+				platformName = strings.SplitN(strings.Replace(platformName, `-`, ``, 1), `.`, 2)[0]
+				env["ImageOS"] = platformName
 			}
 		}
 	}

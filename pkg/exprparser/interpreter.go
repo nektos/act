@@ -12,18 +12,19 @@ import (
 )
 
 type EvaluationEnvironment struct {
-	Github   *model.GithubContext
-	Env      map[string]string
-	Job      *model.JobContext
-	Jobs     *map[string]*model.WorkflowCallResult
-	Steps    map[string]*model.StepResult
-	Runner   map[string]interface{}
-	Secrets  map[string]string
-	Vars     map[string]string
-	Strategy map[string]interface{}
-	Matrix   map[string]interface{}
-	Needs    map[string]Needs
-	Inputs   map[string]interface{}
+	Github    *model.GithubContext
+	Env       map[string]string
+	Job       *model.JobContext
+	Jobs      *map[string]*model.WorkflowCallResult
+	Steps     map[string]*model.StepResult
+	Runner    map[string]interface{}
+	Secrets   map[string]string
+	Vars      map[string]string
+	Strategy  map[string]interface{}
+	Matrix    map[string]interface{}
+	Needs     map[string]Needs
+	Inputs    map[string]interface{}
+	HashFiles func([]reflect.Value) (interface{}, error)
 }
 
 type Needs struct {
@@ -554,6 +555,10 @@ func (impl *interperterImpl) evaluateLogicalCompare(compareNode *actionlint.Logi
 
 	leftValue := reflect.ValueOf(left)
 
+	if IsTruthy(left) == (compareNode.Kind == actionlint.LogicalOpNodeKindOr) {
+		return impl.getSafeValue(leftValue), nil
+	}
+
 	right, err := impl.evaluateNode(compareNode.Right)
 	if err != nil {
 		return nil, err
@@ -563,17 +568,8 @@ func (impl *interperterImpl) evaluateLogicalCompare(compareNode *actionlint.Logi
 
 	switch compareNode.Kind {
 	case actionlint.LogicalOpNodeKindAnd:
-		if IsTruthy(left) {
-			return impl.getSafeValue(rightValue), nil
-		}
-
-		return impl.getSafeValue(leftValue), nil
-
+		return impl.getSafeValue(rightValue), nil
 	case actionlint.LogicalOpNodeKindOr:
-		if IsTruthy(left) {
-			return impl.getSafeValue(leftValue), nil
-		}
-
 		return impl.getSafeValue(rightValue), nil
 	}
 
@@ -612,6 +608,9 @@ func (impl *interperterImpl) evaluateFuncCall(funcCallNode *actionlint.FuncCallN
 	case "fromjson":
 		return impl.fromJSON(args[0])
 	case "hashfiles":
+		if impl.env.HashFiles != nil {
+			return impl.env.HashFiles(args)
+		}
 		return impl.hashFiles(args...)
 	case "always":
 		return impl.always()
