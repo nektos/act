@@ -37,6 +37,9 @@ func evaluateCompositeInputAndEnv(ctx context.Context, parent *RunContext, step 
 			env[envKey] = ee.Interpolate(ctx, input.Default)
 		}
 	}
+	gh := step.getGithubContext(ctx)
+	env["GITHUB_ACTION_REPOSITORY"] = gh.ActionRepository
+	env["GITHUB_ACTION_REF"] = gh.ActionRef
 
 	return env
 }
@@ -53,11 +56,11 @@ func newCompositeRunContext(ctx context.Context, parent *RunContext, step action
 		Name:    parent.Name,
 		JobName: parent.JobName,
 		Run: &model.Run{
-			JobID: "composite-job",
+			JobID: parent.Run.JobID,
 			Workflow: &model.Workflow{
 				Name: parent.Run.Workflow.Name,
 				Jobs: map[string]*model.Job{
-					"composite-job": {},
+					parent.Run.JobID: {},
 				},
 			},
 		},
