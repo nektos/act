@@ -447,7 +447,7 @@ func (impl *interperterImpl) coerceToString(value reflect.Value) reflect.Value {
 		} else if math.IsInf(value.Float(), -1) {
 			return reflect.ValueOf("-Infinity")
 		}
-		return reflect.ValueOf(fmt.Sprint(value))
+		return reflect.ValueOf(fmt.Sprintf("%.15G", value.Float()))
 
 	case reflect.Slice:
 		return reflect.ValueOf("Array")
