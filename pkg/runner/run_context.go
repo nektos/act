@@ -390,6 +390,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 		return common.NewPipelineExecutor(
 			rc.pullServicesImages(rc.Config.ForcePull),
 			rc.JobContainer.Pull(rc.Config.ForcePull),
+			rc.stopJobContainer(),
 			container.NewDockerNetworkCreateExecutor(networkName).IfBool(createAndDeleteNetwork),
 			rc.startServiceContainers(networkName),
 			rc.JobContainer.Create(rc.Config.ContainerCapAdd, rc.Config.ContainerCapDrop),
