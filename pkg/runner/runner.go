@@ -31,6 +31,7 @@ type Config struct {
 	ForcePull                          bool                       // force pulling of the image, even if already present
 	ForceRebuild                       bool                       // force rebuilding local docker image action
 	LogOutput                          bool                       // log the output from docker run
+	LogFocus                           bool                       // hide everything but the output from docker run
 	JSONLogger                         bool                       // use json or text logger
 	LogPrefixJobID                     bool                       // switches from the full job name to the job id
 	Env                                map[string]string          // env for containers

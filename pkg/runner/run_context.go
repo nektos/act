@@ -159,8 +159,11 @@ func (rc *RunContext) GetBindsAndMounts() ([]string, map[string]string) {
 
 func (rc *RunContext) startHostEnvironment() common.Executor {
 	return func(ctx context.Context) error {
-		logger := common.Logger(ctx)
-		rawLogger := logger.WithField("raw_output", true)
+		logger := common.OutputLogger(ctx)
+		rawLogger := logger
+		if !rc.Config.LogFocus {
+			rawLogger = rawLogger.WithField("raw_output", true)
+		}
 		logWriter := common.NewLineWriter(rc.commandHandler(ctx), func(s string) bool {
 			if rc.Config.LogOutput {
 				rawLogger.Infof("%s", s)
@@ -228,9 +231,12 @@ func (rc *RunContext) startHostEnvironment() common.Executor {
 
 func (rc *RunContext) startJobContainer() common.Executor {
 	return func(ctx context.Context) error {
-		logger := common.Logger(ctx)
+		logger := common.OutputLogger(ctx)
 		image := rc.platformImage(ctx)
-		rawLogger := logger.WithField("raw_output", true)
+		rawLogger := logger
+		if !rc.Config.LogFocus {
+			rawLogger = rawLogger.WithField("raw_output", true)
+		}
 		logWriter := common.NewLineWriter(rc.commandHandler(ctx), func(s string) bool {
 			if rc.Config.LogOutput {
 				rawLogger.Infof("%s", s)
@@ -245,6 +251,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			return fmt.Errorf("failed to handle credentials: %s", err)
 		}
 
+		logger = common.Logger(ctx)
 		logger.Infof("\U0001f680  Start image=%s", image)
 		name := rc.jobContainerName()
 

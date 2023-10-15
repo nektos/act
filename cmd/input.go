@@ -24,6 +24,7 @@ type Input struct {
 	forcePull                          bool
 	forceRebuild                       bool
 	noOutput                           bool
+	focusOutput                        bool
 	envfile                            string
 	inputfile                          string
 	secretfile                         string
