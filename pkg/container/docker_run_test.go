@@ -19,6 +19,7 @@ func TestDocker(t *testing.T) {
 	ctx := context.Background()
 	client, err := GetDockerClient(ctx)
 	assert.NoError(t, err)
+	defer client.Close()
 
 	dockerBuild := NewDockerBuildExecutor(NewDockerBuildExecutorInput{
 		ContextDir: "testdata",

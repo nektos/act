@@ -29,6 +29,7 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/mount"
+	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stdcopy"
 	specs "github.com/opencontainers/image-spec/specs-go/v1"
@@ -66,7 +67,7 @@ func supportsContainerImagePlatform(ctx context.Context, cli client.APIClient) b
 
 func (cr *containerReference) Create(capAdd []string, capDrop []string) common.Executor {
 	return common.
-		NewInfoExecutor("%sdocker create image=%s platform=%s entrypoint=%+q cmd=%+q", logPrefix, cr.input.Image, cr.input.Platform, cr.input.Entrypoint, cr.input.Cmd).
+		NewInfoExecutor("%sdocker create image=%s platform=%s entrypoint=%+q cmd=%+q network=%+q", logPrefix, cr.input.Image, cr.input.Platform, cr.input.Entrypoint, cr.input.Cmd, cr.input.NetworkMode).
 		Then(
 			common.NewPipelineExecutor(
 				cr.connect(),
@@ -78,7 +79,7 @@ func (cr *containerReference) Create(capAdd []string, capDrop []string) common.E
 
 func (cr *containerReference) Start(attach bool) common.Executor {
 	return common.
-		NewInfoExecutor("%sdocker run image=%s platform=%s entrypoint=%+q cmd=%+q", logPrefix, cr.input.Image, cr.input.Platform, cr.input.Entrypoint, cr.input.Cmd).
+		NewInfoExecutor("%sdocker run image=%s platform=%s entrypoint=%+q cmd=%+q network=%+q", logPrefix, cr.input.Image, cr.input.Platform, cr.input.Entrypoint, cr.input.Cmd, cr.input.NetworkMode).
 		Then(
 			common.NewPipelineExecutor(
 				cr.connect(),
@@ -346,8 +347,8 @@ func (cr *containerReference) mergeContainerConfigs(ctx context.Context, config 
 	}
 
 	if len(copts.netMode.Value()) == 0 {
-		if err = copts.netMode.Set("host"); err != nil {
-			return nil, nil, fmt.Errorf("Cannot parse networkmode=host. This is an internal error and should not happen: '%w'", err)
+		if err = copts.netMode.Set(cr.input.NetworkMode); err != nil {
+			return nil, nil, fmt.Errorf("Cannot parse networkmode=%s. This is an internal error and should not happen: '%w'", cr.input.NetworkMode, err)
 		}
 	}
 
@@ -391,10 +392,11 @@ func (cr *containerReference) create(capAdd []string, capDrop []string) common.E
 		input := cr.input
 
 		config := &container.Config{
-			Image:      input.Image,
-			WorkingDir: input.WorkingDir,
-			Env:        input.Env,
-			Tty:        isTerminal,
+			Image:        input.Image,
+			WorkingDir:   input.WorkingDir,
+			Env:          input.Env,
+			ExposedPorts: input.ExposedPorts,
+			Tty:          isTerminal,
 		}
 		logger.Debugf("Common container.Config ==> %+v", config)
 
@@ -430,13 +432,14 @@ func (cr *containerReference) create(capAdd []string, capDrop []string) common.E
 		}
 
 		hostConfig := &container.HostConfig{
-			CapAdd:      capAdd,
-			CapDrop:     capDrop,
-			Binds:       input.Binds,
-			Mounts:      mounts,
-			NetworkMode: container.NetworkMode(input.NetworkMode),
-			Privileged:  input.Privileged,
-			UsernsMode:  container.UsernsMode(input.UsernsMode),
+			CapAdd:       capAdd,
+			CapDrop:      capDrop,
+			Binds:        input.Binds,
+			Mounts:       mounts,
+			NetworkMode:  container.NetworkMode(input.NetworkMode),
+			Privileged:   input.Privileged,
+			UsernsMode:   container.UsernsMode(input.UsernsMode),
+			PortBindings: input.PortBindings,
 		}
 		logger.Debugf("Common container.HostConfig ==> %+v", hostConfig)
 
@@ -445,7 +448,22 @@ func (cr *containerReference) create(capAdd []string, capDrop []string) common.E
 			return err
 		}
 
-		resp, err := cr.cli.ContainerCreate(ctx, config, hostConfig, nil, platSpecs, input.Name)
+		var networkingConfig *network.NetworkingConfig
+		logger.Debugf("input.NetworkAliases ==> %v", input.NetworkAliases)
+		if hostConfig.NetworkMode.IsUserDefined() && len(input.NetworkAliases) > 0 {
+			endpointConfig := &network.EndpointSettings{
+				Aliases: input.NetworkAliases,
+			}
+			networkingConfig = &network.NetworkingConfig{
+				EndpointsConfig: map[string]*network.EndpointSettings{
+					input.NetworkMode: endpointConfig,
+				},
+			}
+		} else {
+			logger.Debugf("not a use defined config??")
+		}
+
+		resp, err := cr.cli.ContainerCreate(ctx, config, hostConfig, networkingConfig, platSpecs, input.Name)
 		if err != nil {
 			return fmt.Errorf("failed to create container: '%w'", err)
 		}

@@ -302,6 +302,11 @@ func TestRunEvent(t *testing.T) {
 		{workdir, "set-env-step-env-override", "push", "", platforms, secrets},
 		{workdir, "set-env-new-env-file-per-step", "push", "", platforms, secrets},
 		{workdir, "no-panic-on-invalid-composite-action", "push", "jobs failed due to invalid action", platforms, secrets},
+
+		// services
+		{workdir, "services", "push", "", platforms, secrets},
+		{workdir, "services-host-network", "push", "", platforms, secrets},
+		{workdir, "services-with-container", "push", "", platforms, secrets},
 	}
 
 	for _, table := range tables {
