@@ -651,14 +651,14 @@ func (rc *RunContext) platformImage(ctx context.Context) string {
 	return rc.runsOnImage(ctx)
 }
 
-func (rc *RunContext) options(_ context.Context) string {
+func (rc *RunContext) options(ctx context.Context) string {
 	job := rc.Run.Job()
 	c := job.Container()
-	if c == nil {
-		return rc.Config.ContainerOptions
+	if c != nil {
+		return rc.ExprEval.Interpolate(ctx, c.Options)
 	}
 
-	return c.Options
+	return rc.Config.ContainerOptions
 }
 
 func (rc *RunContext) isEnabled(ctx context.Context) (bool, error) {
@@ -760,6 +760,8 @@ func (rc *RunContext) getGithubContext(ctx context.Context) *model.GithubContext
 		Token:            rc.Config.Token,
 		Job:              rc.Run.JobID,
 		ActionPath:       rc.ActionPath,
+		ActionRepository: rc.Env["GITHUB_ACTION_REPOSITORY"],
+		ActionRef:        rc.Env["GITHUB_ACTION_REF"],
 		RepositoryOwner:  rc.Config.Env["GITHUB_REPOSITORY_OWNER"],
 		RetentionDays:    rc.Config.Env["GITHUB_RETENTION_DAYS"],
 		RunnerPerflog:    rc.Config.Env["RUNNER_PERFLOG"],

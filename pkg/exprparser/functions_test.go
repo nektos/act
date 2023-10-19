@@ -230,6 +230,7 @@ func TestFunctionFormat(t *testing.T) {
 		{"format('{0', '{1}', 'World')", nil, "Unclosed brackets. The following format string is invalid: '{0'", "format-invalid-format-string"},
 		{"format('{2}', '{1}', 'World')", "", "The following format string references more arguments than were supplied: '{2}'", "format-invalid-replacement-reference"},
 		{"format('{2147483648}')", "", "The following format string is invalid: '{2147483648}'", "format-invalid-replacement-reference"},
+		{"format('{0} {1} {2} {3}', 1.0, 1.1, 1234567890.0, 12345678901234567890.0)", "1 1.1 1234567890 1.23456789012346E+19", nil, "format-floats"},
 	}
 
 	env := &EvaluationEnvironment{
