@@ -164,6 +164,7 @@ func TestGitFindRef(t *testing.T) {
 		},
 		"current_head_is_master_and_pointer_exists_to_another_branch": {
 			Prepare: func(t *testing.T, dir string) {
+				require.NoError(t, gitCmd("-C", dir, "commit", "--allow-empty", "-m", "msg"))
 				require.NoError(t, gitCmd("-C", dir, "checkout", "-b", "mybranch"))
 				require.NoError(t, gitCmd("-C", dir, "checkout", "master"))
 			},

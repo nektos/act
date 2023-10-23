@@ -100,7 +100,10 @@ func FindGitRef(ctx context.Context, file string) (string, error) {
 		return "", err
 	}
 
-	headRef, _ := repo.Head()
+	headRef, err := repo.Head()
+	if err != nil {
+		return "", err
+	}
 	logger.Debugf("HEAD points to revision '%s'", headRef.Hash().String())
 
 	// The assumption is made that if the revision has a tag associated with it the ref and ref_name should reference it.
