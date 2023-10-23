@@ -126,9 +126,9 @@ func FindGitRef(ctx context.Context, file string) (string, error) {
 
 	if refName != "" {
 		return refName, err
-	} else {
-		return "", fmt.Errorf("Failed to identify preference (tag/branch) for the checked-out revision '%s'", headRef.Hash().String())
 	}
+
+	return "", fmt.Errorf("Failed to identify preference (tag/branch) for the checked-out revision '%s'", headRef.Hash().String())
 }
 
 // FindGithubRepo get the repo
