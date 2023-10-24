@@ -275,15 +275,39 @@ func (j *Job) Needs() []string {
 // RunsOn list for Job
 func (j *Job) RunsOn() []string {
 	switch j.RawRunsOn.Kind {
+	case yaml.MappingNode:
+		var val struct {
+			Group  string
+			Labels yaml.Node
+		}
+
+		if !decodeNode(j.RawRunsOn, &val) {
+			return nil
+		}
+
+		labels := nodeAsStringSlice(val.Labels)
+
+		if val.Group != "" {
+			labels = append(labels, val.Group)
+		}
+
+		return labels
+	default:
+		return nodeAsStringSlice(j.RawRunsOn)
+	}
+}
+
+func nodeAsStringSlice(node yaml.Node) []string {
+	switch node.Kind {
 	case yaml.ScalarNode:
 		var val string
-		if !decodeNode(j.RawRunsOn, &val) {
+		if !decodeNode(node, &val) {
 			return nil
 		}
 		return []string{val}
 	case yaml.SequenceNode:
 		var val []string
-		if !decodeNode(j.RawRunsOn, &val) {
+		if !decodeNode(node, &val) {
 			return nil
 		}
 		return val
