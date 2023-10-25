@@ -19,6 +19,7 @@ type jobInfo interface {
 	result(result string)
 }
 
+//nolint:contextcheck,gocyclo
 func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executor {
 	steps := make([]common.Executor, 0)
 	preSteps := make([]common.Executor, 0)
@@ -87,7 +88,7 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 
 		postExec := useStepLogger(rc, stepModel, stepStagePost, step.post())
 		if postExecutor != nil {
-			// run the post exector in reverse order
+			// run the post executor in reverse order
 			postExecutor = postExec.Finally(postExecutor)
 		} else {
 			postExecutor = postExec
@@ -101,7 +102,12 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 			// always allow 1 min for stopping and removing the runner, even if we were cancelled
 			ctx, cancel := context.WithTimeout(common.WithLogger(context.Background(), common.Logger(ctx)), time.Minute)
 			defer cancel()
-			err = info.stopContainer()(ctx) //nolint:contextcheck
+
+			logger := common.Logger(ctx)
+			logger.Infof("Cleaning up container for job %s", rc.JobName)
+			if err = info.stopContainer()(ctx); err != nil {
+				logger.Errorf("Error while stop job container: %v", err)
+			}
 		}
 		setJobResult(ctx, info, rc, jobError == nil)
 		setJobOutputs(ctx, rc)

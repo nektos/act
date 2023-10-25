@@ -1,0 +1,14 @@
+name: services-host-network
+on: push
+jobs:
+  services-host-network:
+    runs-on: ubuntu-latest
+    services:
+      nginx:
+        image: "nginx:latest"
+        ports:
+          - "8080:80"
+    steps:
+      - run: apt-get -qq update && apt-get -yqq install --no-install-recommends curl net-tools
+      - run: netstat -tlpen
+      - run: curl -v http://localhost:8080

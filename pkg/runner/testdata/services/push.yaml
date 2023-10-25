@@ -1,0 +1,26 @@
+name: services
+on: push
+jobs:
+  services:
+    name: Reproduction of failing Services interpolation
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:12
+        env:
+          POSTGRES_USER: runner
+          POSTGRES_PASSWORD: mysecretdbpass
+          POSTGRES_DB: mydb
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    steps:
+      - name: Echo the Postgres service ID / Network / Ports
+        run: |
+          echo "id: ${{ job.services.postgres.id }}"
+          echo "network: ${{ job.services.postgres.network }}"
+          echo "ports: ${{ job.services.postgres.ports }}"
