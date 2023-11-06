@@ -147,6 +147,9 @@ func CompilePatterns(patterns ...string) ([]*WorkflowPattern, error) {
 	return ret, nil
 }
 
+//FilterInputsFunc defines the signature that both Skip() and Filter() implement
+type FilterInputsFunc func(sequence []*WorkflowPattern, input []string, traceWriter TraceWriter) bool
+
 // returns true if the workflow should be skipped paths/branches
 func Skip(sequence []*WorkflowPattern, input []string, traceWriter TraceWriter) bool {
 	if len(sequence) == 0 {

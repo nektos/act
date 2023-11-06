@@ -184,6 +184,8 @@ func (wp *workflowPlanner) PlanEvent(eventName string) (*Plan, error) {
 			continue
 		}
 
+		//TODO: filter out workflow using ShouldFilterWorkflow() - we will need to provide the GitHub/Event context
+
 		for _, e := range events {
 			if e == eventName {
 				stages, err := createStages(w, w.GetJobIDs()...)
@@ -208,6 +210,9 @@ func (wp *workflowPlanner) PlanJob(jobName string) (*Plan, error) {
 	var lastErr error
 
 	for _, w := range wp.workflows {
+		//TODO: do we filter out workflows here? We want to run a specific job, not the full workflow - so should
+		//  the workflow-level filters (e.g. "tags", "branches-ignore") still apply?
+
 		stages, err := createStages(w, jobName)
 		if err != nil {
 			log.Warn(err)
@@ -229,6 +234,8 @@ func (wp *workflowPlanner) PlanAll() (*Plan, error) {
 	var lastErr error
 
 	for _, w := range wp.workflows {
+		//TODO: filter out workflow using ShouldFilterWorkflow() - we will need to provide the GitHub/Event context
+
 		stages, err := createStages(w, w.GetJobIDs()...)
 		if err != nil {
 			log.Warn(err)
