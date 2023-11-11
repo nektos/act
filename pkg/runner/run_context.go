@@ -626,14 +626,7 @@ func (rc *RunContext) containerImage(ctx context.Context) string {
 }
 
 func (rc *RunContext) runsOnImage(ctx context.Context) string {
-	job := rc.Run.Job()
-
-	if job.RunsOn() == nil {
-		common.Logger(ctx).Errorf("'runs-on' key not defined in %s", rc.String())
-	}
-
-	for _, runnerLabel := range job.RunsOn() {
-		platformName := rc.ExprEval.Interpolate(ctx, runnerLabel)
+	for _, platformName := range rc.runsOnPlatformNames(ctx) {
 		image := rc.Config.Platforms[strings.ToLower(platformName)]
 		if image != "" {
 			return image
@@ -641,6 +634,44 @@ func (rc *RunContext) runsOnImage(ctx context.Context) string {
 	}
 
 	return ""
+}
+
+func (rc *RunContext) runsOnPlatformNames(ctx context.Context) []string {
+	job := rc.Run.Job()
+
+	runsOnString, runsOnList, err := job.RunsOn()
+	if err != nil {
+		common.Logger(ctx).Errorf("'runs-on' key not defined or invalid in %s", rc.String())
+	}
+
+	platformNames := []string{}
+	if runsOnString != "" {
+		var runsOn interface{}
+		if !strings.Contains(runsOnString, "${{") || !strings.Contains(runsOnString, "}}") {
+			runsOn = runsOnString
+		} else {
+			var runsOnErr error
+			runsOn, runsOnErr = rc.ExprEval.evaluate(ctx, runsOnString, exprparser.DefaultStatusCheckNone)
+			if runsOnErr != nil {
+				common.Logger(ctx).Errorf("Unable to interpolate expression '%s': %s", runsOnString, runsOnErr)
+			}
+		}
+
+		if platformNameList, ok := runsOn.([]interface{}); ok {
+			for _, platformName := range platformNameList {
+				platformNames = append(platformNames, fmt.Sprintf("%v", platformName))
+			}
+		} else {
+			platformNames = append(platformNames, fmt.Sprintf("%v", runsOn))
+		}
+	} else {
+		for _, runnerLabel := range runsOnList {
+			platformName := rc.ExprEval.Interpolate(ctx, runnerLabel)
+			platformNames = append(platformNames, platformName)
+		}
+	}
+
+	return platformNames
 }
 
 func (rc *RunContext) platformImage(ctx context.Context) string {
@@ -684,13 +715,8 @@ func (rc *RunContext) isEnabled(ctx context.Context) (bool, error) {
 
 	img := rc.platformImage(ctx)
 	if img == "" {
-		if job.RunsOn() == nil {
-			l.Errorf("'runs-on' key not defined in %s", rc.String())
-		}
-
-		for _, runnerLabel := range job.RunsOn() {
-			platformName := rc.ExprEval.Interpolate(ctx, runnerLabel)
-			l.Infof("\U0001F6A7  Skipping unsupported platform -- Try running with `-P %+v=...`", platformName)
+		for _, platformName := range rc.runsOnPlatformNames(ctx) {
+			l.Infof("\U0001F6A7  Skipping unsupported platform -- Try running with `-P %+v=...`", strings.ToLower(platformName))
 		}
 		return false, nil
 	}
@@ -923,9 +949,7 @@ func (rc *RunContext) withGithubEnv(ctx context.Context, github *model.GithubCon
 		setActionRuntimeVars(rc, env)
 	}
 
-	job := rc.Run.Job()
-	for _, runnerLabel := range job.RunsOn() {
-		platformName := rc.ExprEval.Interpolate(ctx, runnerLabel)
+	for _, platformName := range rc.runsOnPlatformNames(ctx) {
 		if platformName != "" {
 			if platformName == "ubuntu-latest" {
 				// hardcode current ubuntu-latest since we have no way to check that 'on the fly'

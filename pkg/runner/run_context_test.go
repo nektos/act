@@ -470,6 +470,36 @@ func createJob(t *testing.T, input string, result string) *model.Job {
 	return job
 }
 
+func TestRunContextRunsOnPlatformNames(t *testing.T) {
+	log.SetLevel(log.DebugLevel)
+	assertObject := assert.New(t)
+
+	rc := createIfTestRunContext(map[string]*model.Job{
+		"job1": createJob(t, `runs-on: ubuntu-latest`, ""),
+	})
+	assertObject.Equal(rc.runsOnPlatformNames(context.Background()), []string{"ubuntu-latest"})
+
+	rc = createIfTestRunContext(map[string]*model.Job{
+		"job1": createJob(t, `runs-on: ${{ 'ubuntu-latest' }}`, ""),
+	})
+	assertObject.Equal(rc.runsOnPlatformNames(context.Background()), []string{"ubuntu-latest"})
+
+	rc = createIfTestRunContext(map[string]*model.Job{
+		"job1": createJob(t, `runs-on: [self-hosted, my-runner]`, ""),
+	})
+	assertObject.Equal(rc.runsOnPlatformNames(context.Background()), []string{"self-hosted", "my-runner"})
+
+	rc = createIfTestRunContext(map[string]*model.Job{
+		"job1": createJob(t, `runs-on: [self-hosted, "${{ 'my-runner' }}"]`, ""),
+	})
+	assertObject.Equal(rc.runsOnPlatformNames(context.Background()), []string{"self-hosted", "my-runner"})
+
+	rc = createIfTestRunContext(map[string]*model.Job{
+		"job1": createJob(t, `runs-on: ${{ fromJSON('["ubuntu-latest"]') }}`, ""),
+	})
+	assertObject.Equal(rc.runsOnPlatformNames(context.Background()), []string{"ubuntu-latest"})
+}
+
 func TestRunContextIsEnabled(t *testing.T) {
 	log.SetLevel(log.DebugLevel)
 	assertObject := assert.New(t)
