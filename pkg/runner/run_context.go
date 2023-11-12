@@ -293,9 +293,18 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			if err != nil {
 				return fmt.Errorf("failed to handle service %s credentials: %w", serviceID, err)
 			}
-			serviceBinds, serviceMounts := rc.GetServiceBindsAndMounts(spec.Volumes)
 
-			exposedPorts, portBindings, err := nat.ParsePortSpecs(spec.Ports)
+			interpolatedVolumes := make([]string, 0, len(spec.Volumes))
+			for _, volume := range spec.Volumes {
+				interpolatedVolumes = append(interpolatedVolumes, rc.ExprEval.Interpolate(ctx, volume))
+			}
+			serviceBinds, serviceMounts := rc.GetServiceBindsAndMounts(interpolatedVolumes)
+
+			interpolatedPorts := make([]string, 0, len(spec.Ports))
+			for _, port := range spec.Ports {
+				interpolatedPorts = append(interpolatedPorts, rc.ExprEval.Interpolate(ctx, port))
+			}
+			exposedPorts, portBindings, err := nat.ParsePortSpecs(interpolatedPorts)
 			if err != nil {
 				return fmt.Errorf("failed to parse service %s ports: %w", serviceID, err)
 			}
@@ -304,7 +313,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			c := container.NewContainer(&container.NewContainerInput{
 				Name:           serviceContainerName,
 				WorkingDir:     ext.ToContainerPath(rc.Config.Workdir),
-				Image:          spec.Image,
+				Image:          rc.ExprEval.Interpolate(ctx, spec.Image),
 				Username:       username,
 				Password:       password,
 				Env:            envs,
@@ -315,7 +324,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 				Privileged:     rc.Config.Privileged,
 				UsernsMode:     rc.Config.UsernsMode,
 				Platform:       rc.Config.ContainerArchitecture,
-				Options:        spec.Options,
+				Options:        rc.ExprEval.Interpolate(ctx, spec.Options),
 				NetworkMode:    networkName,
 				NetworkAliases: []string{serviceID},
 				ExposedPorts:   exposedPorts,
