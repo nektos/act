@@ -71,6 +71,41 @@ jobs:
 	assert.Contains(t, workflow.On(), "pull_request")
 }
 
+func TestReadWorkflow_RunsOnLabels(t *testing.T) {
+	yaml := `
+name: local-action-docker-url
+
+jobs:
+  test:
+    container: nginx:latest
+    runs-on:
+      labels: ubuntu-latest
+    steps:
+    - uses: ./actions/docker-url`
+
+	workflow, err := ReadWorkflow(strings.NewReader(yaml))
+	assert.NoError(t, err, "read workflow should succeed")
+	assert.Equal(t, workflow.Jobs["test"].RunsOn(), []string{"ubuntu-latest"})
+}
+
+func TestReadWorkflow_RunsOnLabelsWithGroup(t *testing.T) {
+	yaml := `
+name: local-action-docker-url
+
+jobs:
+  test:
+    container: nginx:latest
+    runs-on:
+      labels: [ubuntu-latest]
+      group: linux
+    steps:
+    - uses: ./actions/docker-url`
+
+	workflow, err := ReadWorkflow(strings.NewReader(yaml))
+	assert.NoError(t, err, "read workflow should succeed")
+	assert.Equal(t, workflow.Jobs["test"].RunsOn(), []string{"ubuntu-latest", "linux"})
+}
+
 func TestReadWorkflow_StringContainer(t *testing.T) {
 	yaml := `
 name: local-action-docker-url
