@@ -26,7 +26,7 @@ jobs:
         with:
           version: v1.53
           only-new-issues: true
-      - uses: megalinter/megalinter/flavors/go@v7.4.0
+      - uses: megalinter/megalinter/flavors/go@v7.5.0
         env:
           DEFAULT_BRANCH: master
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
