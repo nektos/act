@@ -64,7 +64,7 @@ func (rc *RunContext) String() string {
 	if rc.caller != nil {
 		// prefix the reusable workflow with the caller job
 		// this is required to create unique container names
-		name = fmt.Sprintf("%s/%s", rc.caller.runContext.Run.JobID, name)
+		name = fmt.Sprintf("%s/%s", rc.caller.runContext.Name, name)
 	}
 	return name
 }
