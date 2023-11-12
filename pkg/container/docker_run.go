@@ -16,15 +16,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/go-git/go-billy/v5/helper/polyfill"
-	"github.com/go-git/go-billy/v5/osfs"
-	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
-	"github.com/joho/godotenv"
-
-	"github.com/imdario/mergo"
-	"github.com/kballard/go-shellquote"
-	"github.com/spf13/pflag"
-
+	"github.com/Masterminds/semver"
 	"github.com/docker/cli/cli/connhelper"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -32,9 +24,14 @@ import (
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stdcopy"
+	"github.com/go-git/go-billy/v5/helper/polyfill"
+	"github.com/go-git/go-billy/v5/osfs"
+	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
+	"github.com/imdario/mergo"
+	"github.com/joho/godotenv"
+	"github.com/kballard/go-shellquote"
 	specs "github.com/opencontainers/image-spec/specs-go/v1"
-
-	"github.com/Masterminds/semver"
+	"github.com/spf13/pflag"
 	"golang.org/x/term"
 
 	"github.com/nektos/act/pkg/common"
@@ -484,11 +481,17 @@ func (cr *containerReference) extractFromImageEnv(env *map[string]string) common
 		inspect, _, err := cr.cli.ImageInspectWithRaw(ctx, cr.input.Image)
 		if err != nil {
 			logger.Error(err)
+			return fmt.Errorf("inspect image: %w", err)
+		}
+
+		if inspect.Config == nil {
+			return nil
 		}
 
 		imageEnv, err := godotenv.Unmarshal(strings.Join(inspect.Config.Env, "\n"))
 		if err != nil {
 			logger.Error(err)
+			return fmt.Errorf("unmarshal image env: %w", err)
 		}
 
 		for k, v := range imageEnv {
