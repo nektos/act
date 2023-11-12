@@ -639,39 +639,17 @@ func (rc *RunContext) runsOnImage(ctx context.Context) string {
 func (rc *RunContext) runsOnPlatformNames(ctx context.Context) []string {
 	job := rc.Run.Job()
 
-	runsOnString, runsOnList, err := job.RunsOn()
-	if err != nil {
-		common.Logger(ctx).Errorf("'runs-on' key not defined or invalid in %s", rc.String())
+	if job.RunsOn() == nil {
+		common.Logger(ctx).Errorf("'runs-on' key not defined in %s", rc.String())
+		return []string{}
 	}
 
-	platformNames := []string{}
-	if runsOnString != "" {
-		var runsOn interface{}
-		if !strings.Contains(runsOnString, "${{") || !strings.Contains(runsOnString, "}}") {
-			runsOn = runsOnString
-		} else {
-			var runsOnErr error
-			runsOn, runsOnErr = rc.ExprEval.evaluate(ctx, runsOnString, exprparser.DefaultStatusCheckNone)
-			if runsOnErr != nil {
-				common.Logger(ctx).Errorf("Unable to interpolate expression '%s': %s", runsOnString, runsOnErr)
-			}
-		}
-
-		if platformNameList, ok := runsOn.([]interface{}); ok {
-			for _, platformName := range platformNameList {
-				platformNames = append(platformNames, fmt.Sprintf("%v", platformName))
-			}
-		} else {
-			platformNames = append(platformNames, fmt.Sprintf("%v", runsOn))
-		}
-	} else {
-		for _, runnerLabel := range runsOnList {
-			platformName := rc.ExprEval.Interpolate(ctx, runnerLabel)
-			platformNames = append(platformNames, platformName)
-		}
+	if err := rc.ExprEval.EvaluateYamlNode(ctx, &job.RawRunsOn); err != nil {
+		common.Logger(ctx).Errorf("Error while evaluating runs-on: %v", err)
+		return []string{}
 	}
 
-	return platformNames
+	return job.RunsOn()
 }
 
 func (rc *RunContext) platformImage(ctx context.Context) string {
@@ -716,7 +694,7 @@ func (rc *RunContext) isEnabled(ctx context.Context) (bool, error) {
 	img := rc.platformImage(ctx)
 	if img == "" {
 		for _, platformName := range rc.runsOnPlatformNames(ctx) {
-			l.Infof("\U0001F6A7  Skipping unsupported platform -- Try running with `-P %+v=...`", strings.ToLower(platformName))
+			l.Infof("\U0001F6A7  Skipping unsupported platform -- Try running with `-P %+v=...`", platformName)
 		}
 		return false, nil
 	}

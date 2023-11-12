@@ -272,20 +272,23 @@ func (j *Job) Needs() []string {
 	return nil
 }
 
-// RunsOn string or list for Job
-func (j *Job) RunsOn() (runsOnString string, runsOnList []string, err error) {
+// RunsOn list for Job
+func (j *Job) RunsOn() []string {
 	switch j.RawRunsOn.Kind {
 	case yaml.ScalarNode:
-		if decodeNode(j.RawRunsOn, &runsOnString) && runsOnString != "" {
-			return
+		var val string
+		if !decodeNode(j.RawRunsOn, &val) {
+			return nil
 		}
+		return []string{val}
 	case yaml.SequenceNode:
-		if decodeNode(j.RawRunsOn, &runsOnList) && len(runsOnList) > 0 {
-			return
+		var val []string
+		if !decodeNode(j.RawRunsOn, &val) {
+			return nil
 		}
+		return val
 	}
-	err = fmt.Errorf("'runs-on' key not defined or invalid")
-	return
+	return nil
 }
 
 func environment(yml yaml.Node) map[string]string {
