@@ -470,6 +470,53 @@ func createJob(t *testing.T, input string, result string) *model.Job {
 	return job
 }
 
+func TestRunContextRunsOnPlatformNames(t *testing.T) {
+	log.SetLevel(log.DebugLevel)
+	assertObject := assert.New(t)
+
+	rc := createIfTestRunContext(map[string]*model.Job{
+		"job1": createJob(t, `runs-on: ubuntu-latest`, ""),
+	})
+	assertObject.Equal([]string{"ubuntu-latest"}, rc.runsOnPlatformNames(context.Background()))
+
+	rc = createIfTestRunContext(map[string]*model.Job{
+		"job1": createJob(t, `runs-on: ${{ 'ubuntu-latest' }}`, ""),
+	})
+	assertObject.Equal([]string{"ubuntu-latest"}, rc.runsOnPlatformNames(context.Background()))
+
+	rc = createIfTestRunContext(map[string]*model.Job{
+		"job1": createJob(t, `runs-on: [self-hosted, my-runner]`, ""),
+	})
+	assertObject.Equal([]string{"self-hosted", "my-runner"}, rc.runsOnPlatformNames(context.Background()))
+
+	rc = createIfTestRunContext(map[string]*model.Job{
+		"job1": createJob(t, `runs-on: [self-hosted, "${{ 'my-runner' }}"]`, ""),
+	})
+	assertObject.Equal([]string{"self-hosted", "my-runner"}, rc.runsOnPlatformNames(context.Background()))
+
+	rc = createIfTestRunContext(map[string]*model.Job{
+		"job1": createJob(t, `runs-on: ${{ fromJSON('["ubuntu-latest"]') }}`, ""),
+	})
+	assertObject.Equal([]string{"ubuntu-latest"}, rc.runsOnPlatformNames(context.Background()))
+
+	// test missing / invalid runs-on
+	rc = createIfTestRunContext(map[string]*model.Job{
+		"job1": createJob(t, `name: something`, ""),
+	})
+	assertObject.Equal([]string{}, rc.runsOnPlatformNames(context.Background()))
+
+	rc = createIfTestRunContext(map[string]*model.Job{
+		"job1": createJob(t, `runs-on:
+  mapping: value`, ""),
+	})
+	assertObject.Equal([]string{}, rc.runsOnPlatformNames(context.Background()))
+
+	rc = createIfTestRunContext(map[string]*model.Job{
+		"job1": createJob(t, `runs-on: ${{ invalid expression }}`, ""),
+	})
+	assertObject.Equal([]string{}, rc.runsOnPlatformNames(context.Background()))
+}
+
 func TestRunContextIsEnabled(t *testing.T) {
 	log.SetLevel(log.DebugLevel)
 	assertObject := assert.New(t)
