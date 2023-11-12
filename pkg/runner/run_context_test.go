@@ -619,6 +619,17 @@ if: always()`, ""),
 	})
 	rc.Run.JobID = "job2"
 	assertObject.True(rc.isEnabled(context.Background()))
+
+	rc = createIfTestRunContext(map[string]*model.Job{
+		"job1": createJob(t, `uses: ./.github/workflows/reusable.yml`, ""),
+	})
+	assertObject.True(rc.isEnabled(context.Background()))
+
+	rc = createIfTestRunContext(map[string]*model.Job{
+		"job1": createJob(t, `uses: ./.github/workflows/reusable.yml
+if: false`, ""),
+	})
+	assertObject.False(rc.isEnabled(context.Background()))
 }
 
 func TestRunContextGetEnv(t *testing.T) {
