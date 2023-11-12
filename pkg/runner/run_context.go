@@ -64,7 +64,7 @@ func (rc *RunContext) String() string {
 	if rc.caller != nil {
 		// prefix the reusable workflow with the caller job
 		// this is required to create unique container names
-		name = fmt.Sprintf("%s/%s", rc.caller.runContext.Run.JobID, name)
+		name = fmt.Sprintf("%s/%s", rc.caller.runContext.Name, name)
 	}
 	return name
 }
@@ -635,14 +635,7 @@ func (rc *RunContext) containerImage(ctx context.Context) string {
 }
 
 func (rc *RunContext) runsOnImage(ctx context.Context) string {
-	job := rc.Run.Job()
-
-	if job.RunsOn() == nil {
-		common.Logger(ctx).Errorf("'runs-on' key not defined in %s", rc.String())
-	}
-
-	for _, runnerLabel := range job.RunsOn() {
-		platformName := rc.ExprEval.Interpolate(ctx, runnerLabel)
+	for _, platformName := range rc.runsOnPlatformNames(ctx) {
 		image := rc.Config.Platforms[strings.ToLower(platformName)]
 		if image != "" {
 			return image
@@ -650,6 +643,22 @@ func (rc *RunContext) runsOnImage(ctx context.Context) string {
 	}
 
 	return ""
+}
+
+func (rc *RunContext) runsOnPlatformNames(ctx context.Context) []string {
+	job := rc.Run.Job()
+
+	if job.RunsOn() == nil {
+		common.Logger(ctx).Errorf("'runs-on' key not defined in %s", rc.String())
+		return []string{}
+	}
+
+	if err := rc.ExprEval.EvaluateYamlNode(ctx, &job.RawRunsOn); err != nil {
+		common.Logger(ctx).Errorf("Error while evaluating runs-on: %v", err)
+		return []string{}
+	}
+
+	return job.RunsOn()
 }
 
 func (rc *RunContext) platformImage(ctx context.Context) string {
@@ -693,12 +702,7 @@ func (rc *RunContext) isEnabled(ctx context.Context) (bool, error) {
 
 	img := rc.platformImage(ctx)
 	if img == "" {
-		if job.RunsOn() == nil {
-			l.Errorf("'runs-on' key not defined in %s", rc.String())
-		}
-
-		for _, runnerLabel := range job.RunsOn() {
-			platformName := rc.ExprEval.Interpolate(ctx, runnerLabel)
+		for _, platformName := range rc.runsOnPlatformNames(ctx) {
 			l.Infof("\U0001F6A7  Skipping unsupported platform -- Try running with `-P %+v=...`", platformName)
 		}
 		return false, nil
@@ -916,7 +920,6 @@ func (rc *RunContext) withGithubEnv(ctx context.Context, github *model.GithubCon
 	env["GITHUB_REF"] = github.Ref
 	env["GITHUB_REF_NAME"] = github.RefName
 	env["GITHUB_REF_TYPE"] = github.RefType
-	env["GITHUB_TOKEN"] = github.Token
 	env["GITHUB_JOB"] = github.Job
 	env["GITHUB_REPOSITORY_OWNER"] = github.RepositoryOwner
 	env["GITHUB_RETENTION_DAYS"] = github.RetentionDays
@@ -932,9 +935,7 @@ func (rc *RunContext) withGithubEnv(ctx context.Context, github *model.GithubCon
 		setActionRuntimeVars(rc, env)
 	}
 
-	job := rc.Run.Job()
-	for _, runnerLabel := range job.RunsOn() {
-		platformName := rc.ExprEval.Interpolate(ctx, runnerLabel)
+	for _, platformName := range rc.runsOnPlatformNames(ctx) {
 		if platformName != "" {
 			if platformName == "ubuntu-latest" {
 				// hardcode current ubuntu-latest since we have no way to check that 'on the fly'
