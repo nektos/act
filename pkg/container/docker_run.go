@@ -449,7 +449,7 @@ func (cr *containerReference) create(capAdd []string, capDrop []string) common.E
 		logger.Debugf("input.NetworkAliases ==> %v", input.NetworkAliases)
 		n := hostConfig.NetworkMode
 		// IsUserDefined and IsHost are broken on windows
-		if h.IsUserDefined() && h != "host"  && len(input.NetworkAliases) > 0 {
+		if n.IsUserDefined() && n != "host"  && len(input.NetworkAliases) > 0 {
 			endpointConfig := &network.EndpointSettings{
 				Aliases: input.NetworkAliases,
 			}
@@ -458,8 +458,6 @@ func (cr *containerReference) create(capAdd []string, capDrop []string) common.E
 					input.NetworkMode: endpointConfig,
 				},
 			}
-		} else {
-			logger.Debugf("not a use defined config??")
 		}
 
 		resp, err := cr.cli.ContainerCreate(ctx, config, hostConfig, networkingConfig, platSpecs, input.Name)
