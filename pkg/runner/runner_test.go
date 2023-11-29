@@ -243,6 +243,7 @@ func TestRunEvent(t *testing.T) {
 		{workdir, "local-action-dockerfile", "push", "", platforms, secrets},
 		{workdir, "local-action-via-composite-dockerfile", "push", "", platforms, secrets},
 		{workdir, "local-action-js", "push", "", platforms, secrets},
+		{workdir, "local-action-outside-workspace", "push", "", platforms, secrets},
 
 		// Uses
 		{workdir, "uses-composite", "push", "", platforms, secrets},
