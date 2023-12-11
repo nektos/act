@@ -15,7 +15,7 @@ jobs:
           ref: master
           token: ${{ secrets.GORELEASER_GITHUB_TOKEN }}
       - uses: fregante/setup-git-user@v2
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
           check-latest: true
