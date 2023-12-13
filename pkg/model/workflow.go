@@ -5,7 +5,6 @@ import (
 	"io"
 	"reflect"
 	"regexp"
-	"slices"
 	"strconv"
 	"strings"
 
@@ -94,8 +93,10 @@ func (w *Workflow) WorkflowDispatchConfig() *WorkflowDispatch {
 		if !decodeNode(w.RawOn, &val) {
 			return nil
 		}
-		if slices.Contains(val, "workflow_dispatch") {
-			return &WorkflowDispatch{}
+		for _, v := range val {
+			if v == "workflow_dispatch" {
+				return &WorkflowDispatch{}
+			}
 		}
 	case yaml.MappingNode:
 		var val map[string]yaml.Node
