@@ -83,9 +83,7 @@ func (w *Workflow) WorkflowDispatchConfig() *WorkflowDispatch {
 	switch w.RawOn.Kind {
 	case yaml.ScalarNode:
 		var val string
-		err := w.RawOn.Decode(&val)
-		if err != nil {
-			log.Fatal(err)
+		if !decodeNode(w.RawOn, &val) {
 			return nil
 		}
 		if val == "workflow_dispatch" {
@@ -93,9 +91,7 @@ func (w *Workflow) WorkflowDispatchConfig() *WorkflowDispatch {
 		}
 	case yaml.SequenceNode:
 		var val []string
-		err := w.RawOn.Decode(&val)
-		if err != nil {
-			log.Fatal(err)
+		if !decodeNode(w.RawOn, &val) {
 			return nil
 		}
 		if slices.Contains(val, "workflow_dispatch") {
