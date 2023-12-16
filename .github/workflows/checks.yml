@@ -10,6 +10,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+    - uses: actions/checkout@v4
     - run: gh pr merge --admin --squash ${{ inputs.number }}
       env:
         GITHUB_TOKEN: ${{ secrets[inputs.token] }}
