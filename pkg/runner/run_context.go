@@ -635,6 +635,10 @@ func (rc *RunContext) containerImage(ctx context.Context) string {
 }
 
 func (rc *RunContext) runsOnImage(ctx context.Context) string {
+	if rc.Run.Job().RunsOn() == nil {
+		common.Logger(ctx).Errorf("'runs-on' key not defined in %s", rc.String())
+	}
+
 	for _, platformName := range rc.runsOnPlatformNames(ctx) {
 		image := rc.Config.Platforms[strings.ToLower(platformName)]
 		if image != "" {
@@ -649,7 +653,6 @@ func (rc *RunContext) runsOnPlatformNames(ctx context.Context) []string {
 	job := rc.Run.Job()
 
 	if job.RunsOn() == nil {
-		common.Logger(ctx).Errorf("'runs-on' key not defined in %s", rc.String())
 		return []string{}
 	}
 
