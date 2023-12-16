@@ -448,8 +448,8 @@ func (cr *containerReference) create(capAdd []string, capDrop []string) common.E
 		var networkingConfig *network.NetworkingConfig
 		logger.Debugf("input.NetworkAliases ==> %v", input.NetworkAliases)
 		n := hostConfig.NetworkMode
-		// TODO: use IsUserDefined() once it's windows implementation matches the unix one
-		if !n.IsDefault() && !n.IsBridge() && !n.IsHost() && !n.IsNone() && !n.IsContainer() && len(input.NetworkAliases) > 0 {
+		// IsUserDefined and IsHost are broken on windows
+		if n.IsUserDefined() && n != "host" && len(input.NetworkAliases) > 0 {
 			endpointConfig := &network.EndpointSettings{
 				Aliases: input.NetworkAliases,
 			}
@@ -458,8 +458,6 @@ func (cr *containerReference) create(capAdd []string, capDrop []string) common.E
 					input.NetworkMode: endpointConfig,
 				},
 			}
-		} else {
-			logger.Debugf("not a use defined config??")
 		}
 
 		resp, err := cr.cli.ContainerCreate(ctx, config, hostConfig, networkingConfig, platSpecs, input.Name)
