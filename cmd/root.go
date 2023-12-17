@@ -267,7 +267,8 @@ func readArgsFile(file string, split bool) []string {
 	}()
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
-		arg := strings.TrimSpace(scanner.Text())
+		arg := os.ExpandEnv(strings.TrimSpace(scanner.Text()))
+
 		if strings.HasPrefix(arg, "-") && split {
 			args = append(args, regexp.MustCompile(`\s`).Split(arg, 2)...)
 		} else if !split {
