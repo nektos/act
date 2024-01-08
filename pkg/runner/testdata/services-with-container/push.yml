@@ -1,0 +1,16 @@
+name: services-with-containers
+on: push
+jobs:
+  services-with-containers:
+    runs-on: ubuntu-latest
+    # https://docs.github.com/en/actions/using-containerized-services/about-service-containers#running-jobs-in-a-container
+    container:
+      image: "ubuntu:latest"
+    services:
+      nginx:
+        image: "nginx:latest"
+        ports:
+          - "8080:80"
+    steps:
+      - run: apt-get -qq update && apt-get -yqq install --no-install-recommends curl
+      - run: curl -v http://nginx:80

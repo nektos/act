@@ -56,6 +56,7 @@ type Input struct {
 	matrix                             []string
 	actionCachePath                    string
 	logPrefixJobID                     bool
+	networkName                        string
 	useNewActionCache                  bool
 }
 

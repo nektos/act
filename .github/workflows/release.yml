@@ -9,10 +9,10 @@ jobs:
     name: release
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
           check-latest: true
@@ -43,7 +43,7 @@ jobs:
           apiKey: ${{ secrets.CHOCO_APIKEY }}
           push: true
       - name: GitHub CLI extension
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GORELEASER_GITHUB_TOKEN }}
           script: |
