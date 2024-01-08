@@ -1,4 +1,4 @@
-//go:build WITHOUT_DOCKER || !(linux || darwin || windows)
+//go:build WITHOUT_DOCKER || !(linux || darwin || windows || netbsd)
 
 package container
 
