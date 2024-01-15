@@ -386,7 +386,7 @@ func (h *Handler) findCache(db *bolthold.Store, keys []string, version string) (
 
 	for _, prefix := range keys[1:] {
 		found := false
-		if err := db.ForEach(bolthold.Where("Key").Ge(prefix).And("Version").Eq(version).SortBy("Key"), func(v *Cache) error {
+		if err := db.ForEach(bolthold.Where("Key").Ge(prefix).And("Version").Eq(version).SortBy("CreatedAt").Reverse(), func(v *Cache) error {
 			if !strings.HasPrefix(v.Key, prefix) {
 				return stop
 			}
