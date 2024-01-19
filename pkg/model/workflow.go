@@ -276,15 +276,39 @@ func (j *Job) Needs() []string {
 // RunsOn list for Job
 func (j *Job) RunsOn() []string {
 	switch j.RawRunsOn.Kind {
+	case yaml.MappingNode:
+		var val struct {
+			Group  string
+			Labels yaml.Node
+		}
+
+		if !decodeNode(j.RawRunsOn, &val) {
+			return nil
+		}
+
+		labels := nodeAsStringSlice(val.Labels)
+
+		if val.Group != "" {
+			labels = append(labels, val.Group)
+		}
+
+		return labels
+	default:
+		return nodeAsStringSlice(j.RawRunsOn)
+	}
+}
+
+func nodeAsStringSlice(node yaml.Node) []string {
+	switch node.Kind {
 	case yaml.ScalarNode:
 		var val string
-		if !decodeNode(j.RawRunsOn, &val) {
+		if !decodeNode(node, &val) {
 			return nil
 		}
 		return []string{val}
 	case yaml.SequenceNode:
 		var val []string
-		if !decodeNode(j.RawRunsOn, &val) {
+		if !decodeNode(node, &val) {
 			return nil
 		}
 		return val
@@ -569,7 +593,7 @@ func (s *Step) ShellCommand() string {
 	case "sh":
 		shellCommand = "sh -e {0}"
 	case "cmd":
-		shellCommand = "%ComSpec% /D /E:ON /V:OFF /S /C \"CALL \"{0}\"\""
+		shellCommand = "cmd /D /E:ON /V:OFF /S /C \"CALL \"{0}\"\""
 	case "powershell":
 		shellCommand = "powershell -command . '{0}'"
 	default:

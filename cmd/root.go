@@ -14,6 +14,7 @@ import (
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/adrg/xdg"
 	"github.com/andreaskoch/go-fswatch"
+	docker_container "github.com/docker/docker/api/types/container"
 	"github.com/joho/godotenv"
 	gitignore "github.com/sabhiram/go-gitignore"
 	log "github.com/sirupsen/logrus"
@@ -75,6 +76,7 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.PersistentFlags().StringVarP(&input.workdir, "directory", "C", ".", "working directory")
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "verbose output")
 	rootCmd.PersistentFlags().BoolVar(&input.jsonLogger, "json", false, "Output logs in json format")
+	rootCmd.PersistentFlags().BoolVar(&input.logPrefixJobID, "log-prefix-job-id", false, "Output the job id within non-json logs instead of the entire name")
 	rootCmd.PersistentFlags().BoolVarP(&input.noOutput, "quiet", "q", false, "disable logging of output from steps")
 	rootCmd.PersistentFlags().BoolVarP(&input.dryrun, "dryrun", "n", false, "dryrun mode")
 	rootCmd.PersistentFlags().StringVarP(&input.secretfile, "secret-file", "", ".secrets", "file with list of secrets to read from (e.g. --secret-file .secrets)")
@@ -95,6 +97,8 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.PersistentFlags().StringVarP(&input.cacheServerAddr, "cache-server-addr", "", common.GetOutboundIP().String(), "Defines the address to which the cache server binds.")
 	rootCmd.PersistentFlags().Uint16VarP(&input.cacheServerPort, "cache-server-port", "", 0, "Defines the port where the artifact server listens. 0 means a randomly available port.")
 	rootCmd.PersistentFlags().StringVarP(&input.actionCachePath, "action-cache-path", "", filepath.Join(CacheHomeDir, "act"), "Defines the path where the actions get cached and host workspaces created.")
+	rootCmd.PersistentFlags().StringVarP(&input.networkName, "network", "", "host", "Sets a docker network name. Defaults to host.")
+	rootCmd.PersistentFlags().BoolVarP(&input.useNewActionCache, "use-new-action-cache", "", false, "Enable using the new Action Cache for storing Actions locally")
 	rootCmd.SetArgs(args())
 
 	if err := rootCmd.Execute(); err != nil {
@@ -123,9 +127,10 @@ func configLocations() []string {
 
 var commonSocketPaths = []string{
 	"/var/run/docker.sock",
-	"/var/run/podman/podman.sock",
+	"/run/podman/podman.sock",
 	"$HOME/.colima/docker.sock",
 	"$XDG_RUNTIME_DIR/docker.sock",
+	"$XDG_RUNTIME_DIR/podman/podman.sock",
 	`\\.\pipe\docker_engine`,
 	"$HOME/.docker/run/docker.sock",
 }
@@ -263,7 +268,8 @@ func readArgsFile(file string, split bool) []string {
 	}()
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
-		arg := strings.TrimSpace(scanner.Text())
+		arg := os.ExpandEnv(strings.TrimSpace(scanner.Text()))
+
 		if strings.HasPrefix(arg, "-") && split {
 			args = append(args, regexp.MustCompile(`\s`).Split(arg, 2)...)
 		} else if !split {
@@ -584,6 +590,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			BindWorkdir:                        input.bindWorkdir,
 			LogOutput:                          !input.noOutput,
 			JSONLogger:                         input.jsonLogger,
+			LogPrefixJobID:                     input.logPrefixJobID,
 			Env:                                envs,
 			Secrets:                            secrets,
 			Vars:                               vars,
@@ -609,6 +616,12 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			ReplaceGheActionWithGithubCom:      input.replaceGheActionWithGithubCom,
 			ReplaceGheActionTokenWithGithubCom: input.replaceGheActionTokenWithGithubCom,
 			Matrix:                             matrixes,
+			ContainerNetworkMode:               docker_container.NetworkMode(input.networkName),
+		}
+		if input.useNewActionCache {
+			config.ActionCache = &runner.GoGitActionCache{
+				Path: config.ActionCacheDir,
+			}
 		}
 		r, err := runner.New(config)
 		if err != nil {
@@ -655,7 +668,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 func defaultImageSurvey(actrc string) error {
 	var answer string
 	confirmation := &survey.Select{
-		Message: "Please choose the default image you want to use with act:\n\n  - Large size image: +20GB Docker image, includes almost all tools used on GitHub Actions (IMPORTANT: currently only ubuntu-18.04 platform is available)\n  - Medium size image: ~500MB, includes only necessary tools to bootstrap actions and aims to be compatible with all actions\n  - Micro size image: <200MB, contains only NodeJS required to bootstrap actions, doesn't work with all actions\n\nDefault image and other options can be changed manually in ~/.actrc (please refer to https://github.com/nektos/act#configuration for additional information about file structure)",
+		Message: "Please choose the default image you want to use with act:\n  - Large size image: ca. 17GB download + 53.1GB storage, you will need 75GB of free disk space, snapshots of GitHub Hosted Runners without snap and pulled docker images\n  - Medium size image: ~500MB, includes only necessary tools to bootstrap actions and aims to be compatible with most actions\n  - Micro size image: <200MB, contains only NodeJS required to bootstrap actions, doesn't work with all actions\n\nDefault image and other options can be changed manually in ~/.actrc (please refer to https://github.com/nektos/act#configuration for additional information about file structure)",
 		Help:    "If you want to know why act asks you that, please go to https://github.com/nektos/act/issues/107",
 		Default: "Medium",
 		Options: []string{"Large", "Medium", "Micro"},
@@ -669,7 +682,7 @@ func defaultImageSurvey(actrc string) error {
 	var option string
 	switch answer {
 	case "Large":
-		option = "-P ubuntu-latest=catthehacker/ubuntu:full-latest\n-P ubuntu-latest=catthehacker/ubuntu:full-20.04\n-P ubuntu-18.04=catthehacker/ubuntu:full-18.04\n"
+		option = "-P ubuntu-latest=catthehacker/ubuntu:full-latest\n-P ubuntu-22.04=catthehacker/ubuntu:full-22.04\n-P ubuntu-20.04=catthehacker/ubuntu:full-20.04\n-P ubuntu-18.04=catthehacker/ubuntu:full-18.04\n"
 	case "Medium":
 		option = "-P ubuntu-latest=catthehacker/ubuntu:act-latest\n-P ubuntu-22.04=catthehacker/ubuntu:act-22.04\n-P ubuntu-20.04=catthehacker/ubuntu:act-20.04\n-P ubuntu-18.04=catthehacker/ubuntu:act-18.04\n"
 	case "Micro":

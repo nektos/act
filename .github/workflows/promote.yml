@@ -9,13 +9,13 @@ jobs:
     name: promote
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           ref: master
           token: ${{ secrets.GORELEASER_GITHUB_TOKEN }}
       - uses: fregante/setup-git-user@v2
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
           check-latest: true

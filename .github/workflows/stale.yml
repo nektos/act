@@ -8,7 +8,7 @@ jobs:
     name: Stale
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/stale@v8
+      - uses: actions/stale@v9
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           stale-issue-message: 'Issue is stale and will be closed in 14 days unless there is new activity'
