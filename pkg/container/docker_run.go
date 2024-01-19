@@ -671,9 +671,27 @@ func (cr *containerReference) waitForCommand(ctx context.Context, isTerminal boo
 }
 
 func (cr *containerReference) CopyTarStream(ctx context.Context, destPath string, tarStream io.Reader) error {
-	err := cr.cli.CopyToContainer(ctx, cr.id, destPath, tarStream, types.CopyToContainerOptions{})
+	// Mkdir
+	buf := &bytes.Buffer{}
+	tw := tar.NewWriter(buf)
+	_ = tw.WriteHeader(&tar.Header{
+		Name:     destPath,
+		Mode:     777,
+		Typeflag: tar.TypeDir,
+	})
+	tw.Close()
+	err := cr.cli.CopyToContainer(ctx, cr.id, "/", buf, types.CopyToContainerOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to mkdir to copy content to container: %w", err)
+	}
+	// Copy Content
+	err = cr.cli.CopyToContainer(ctx, cr.id, destPath, tarStream, types.CopyToContainerOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to copy content to container: %w", err)
+	}
+	// If this fails, then folders have wrong permissions on non root container
+	if cr.UID != 0 || cr.GID != 0 {
+		_ = cr.Exec([]string{"chown", "-R", fmt.Sprintf("%d:%d", cr.UID, cr.GID), destPath}, nil, "0", "")(ctx)
 	}
 	return nil
 }

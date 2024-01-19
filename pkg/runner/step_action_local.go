@@ -3,7 +3,10 @@ package runner
 import (
 	"archive/tar"
 	"context"
+	"errors"
+	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
@@ -42,15 +45,31 @@ func (sal *stepActionLocal) main() common.Executor {
 		localReader := func(ctx context.Context) actionYamlReader {
 			_, cpath := getContainerActionPaths(sal.Step, path.Join(actionDir, ""), sal.RunContext)
 			return func(filename string) (io.Reader, io.Closer, error) {
-				tars, err := sal.RunContext.JobContainer.GetContainerArchive(ctx, path.Join(cpath, filename))
-				if err != nil {
-					return nil, nil, os.ErrNotExist
+				spath := path.Join(cpath, filename)
+				for i := 0; i < maxSymlinkDepth; i++ {
+					tars, err := sal.RunContext.JobContainer.GetContainerArchive(ctx, spath)
+					if errors.Is(err, fs.ErrNotExist) {
+						return nil, nil, err
+					} else if err != nil {
+						return nil, nil, fs.ErrNotExist
+					}
+					treader := tar.NewReader(tars)
+					header, err := treader.Next()
+					if errors.Is(err, io.EOF) {
+						return nil, nil, os.ErrNotExist
+					} else if err != nil {
+						return nil, nil, err
+					}
+					if header.FileInfo().Mode()&os.ModeSymlink == os.ModeSymlink {
+						spath, err = symlinkJoin(spath, header.Linkname, cpath)
+						if err != nil {
+							return nil, nil, err
+						}
+					} else {
+						return treader, tars, nil
+					}
 				}
-				treader := tar.NewReader(tars)
-				if _, err := treader.Next(); err != nil {
-					return nil, nil, os.ErrNotExist
-				}
-				return treader, tars, nil
+				return nil, nil, fmt.Errorf("max depth %d of symlinks exceeded while reading %s", maxSymlinkDepth, spath)
 			}
 		}
 
