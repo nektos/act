@@ -71,6 +71,10 @@ pull_request_rules:
           - and:
               - 'approved-reviews-by=@nektos/act-maintainers'
               - '#approved-reviews-by>=2'
+          - and:
+              - 'author=@nektos/act-maintainers'
+              - 'approved-reviews-by=@nektos/act-maintainers'
+              - '#approved-reviews-by>=1'
       - -draft
       - -merged
       - -closed
