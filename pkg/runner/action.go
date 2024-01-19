@@ -44,7 +44,7 @@ func readActionImpl(ctx context.Context, step *model.Step, actionDir string, act
 	reader, closer, err := readFile("action.yml")
 	if os.IsNotExist(err) {
 		reader, closer, err = readFile("action.yaml")
-		if err != nil {
+		if os.IsNotExist(err) {
 			if _, closer, err2 := readFile("Dockerfile"); err2 == nil {
 				closer.Close()
 				action := &model.Action{
@@ -91,6 +91,8 @@ func readActionImpl(ctx context.Context, step *model.Step, actionDir string, act
 				}
 			}
 			return nil, err
+		} else if err != nil {
+			return nil, err
 		}
 	} else if err != nil {
 		return nil, err
@@ -110,6 +112,17 @@ func maybeCopyToActionDir(ctx context.Context, step actionStep, actionDir string
 	if stepModel.Type() != model.StepTypeUsesActionRemote {
 		return nil
 	}
+
+	if rc.Config != nil && rc.Config.ActionCache != nil {
+		raction := step.(*stepActionRemote)
+		ta, err := rc.Config.ActionCache.GetTarArchive(ctx, raction.cacheDir, raction.resolvedSha, "")
+		if err != nil {
+			return err
+		}
+		defer ta.Close()
+		return rc.JobContainer.CopyTarStream(ctx, containerActionDir, ta)
+	}
+
 	if err := removeGitIgnore(ctx, actionDir); err != nil {
 		return err
 	}
@@ -261,6 +274,13 @@ func execAsDocker(ctx context.Context, step actionStep, actionName string, based
 			var buildContext io.ReadCloser
 			if localAction {
 				buildContext, err = rc.JobContainer.GetContainerArchive(ctx, contextDir+"/.")
+				if err != nil {
+					return err
+				}
+				defer buildContext.Close()
+			} else if rc.Config.ActionCache != nil {
+				rstep := step.(*stepActionRemote)
+				buildContext, err = rc.Config.ActionCache.GetTarArchive(ctx, rstep.cacheDir, rstep.resolvedSha, contextDir)
 				if err != nil {
 					return err
 				}

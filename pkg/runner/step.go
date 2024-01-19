@@ -34,6 +34,9 @@ const (
 	stepStagePost
 )
 
+// Controls how many symlinks are resolved for local and remote Actions
+const maxSymlinkDepth = 10
+
 func (s stepStage) String() string {
 	switch s {
 	case stepStagePre:
@@ -306,4 +309,14 @@ func mergeIntoMapCaseInsensitive(target map[string]string, maps ...map[string]st
 			target[toKey(k)] = v
 		}
 	}
+}
+
+func symlinkJoin(filename, sym, parent string) (string, error) {
+	dir := path.Dir(filename)
+	dest := path.Join(dir, sym)
+	prefix := path.Clean(parent) + "/"
+	if strings.HasPrefix(dest, prefix) || prefix == "./" {
+		return dest, nil
+	}
+	return "", fmt.Errorf("symlink tries to access file '%s' outside of '%s'", strings.ReplaceAll(dest, "'", "''"), strings.ReplaceAll(parent, "'", "''"))
 }
