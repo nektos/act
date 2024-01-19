@@ -148,12 +148,10 @@ func NewWorkflowPlanner(path string, noWorkflowRecurse bool) (WorkflowPlanner, e
 				workflow.Name = wf.workflowDirEntry.Name()
 			}
 
-			jobNameRegex := regexp.MustCompile(`^([[:alpha:]_][[:alnum:]_\-]*)$`)
-			for k := range workflow.Jobs {
-				if ok := jobNameRegex.MatchString(k); !ok {
-					_ = f.Close()
-					return nil, fmt.Errorf("workflow is not valid. '%s': Job name '%s' is invalid. Names must start with a letter or '_' and contain only alphanumeric characters, '-', or '_'", workflow.Name, k)
-				}
+			err = validateJobName(workflow)
+			if err != nil {
+				_ = f.Close()
+				return nil, err
 			}
 
 			wp.workflows = append(wp.workflows, workflow)
@@ -162,6 +160,42 @@ func NewWorkflowPlanner(path string, noWorkflowRecurse bool) (WorkflowPlanner, e
 	}
 
 	return wp, nil
+}
+
+func NewSingleWorkflowPlanner(name string, f io.Reader) (WorkflowPlanner, error) {
+	wp := new(workflowPlanner)
+
+	log.Debugf("Reading workflow %s", name)
+	workflow, err := ReadWorkflow(f)
+	if err != nil {
+		if err == io.EOF {
+			return nil, fmt.Errorf("unable to read workflow '%s': file is empty: %w", name, err)
+		}
+		return nil, fmt.Errorf("workflow is not valid. '%s': %w", name, err)
+	}
+	workflow.File = name
+	if workflow.Name == "" {
+		workflow.Name = name
+	}
+
+	err = validateJobName(workflow)
+	if err != nil {
+		return nil, err
+	}
+
+	wp.workflows = append(wp.workflows, workflow)
+
+	return wp, nil
+}
+
+func validateJobName(workflow *Workflow) error {
+	jobNameRegex := regexp.MustCompile(`^([[:alpha:]_][[:alnum:]_\-]*)$`)
+	for k := range workflow.Jobs {
+		if ok := jobNameRegex.MatchString(k); !ok {
+			return fmt.Errorf("workflow is not valid. '%s': Job name '%s' is invalid. Names must start with a letter or '_' and contain only alphanumeric characters, '-', or '_'", workflow.Name, k)
+		}
+	}
+	return nil
 }
 
 type workflowPlanner struct {
