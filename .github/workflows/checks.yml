@@ -111,67 +111,67 @@ jobs:
           args: release --snapshot --clean
       - name: Capture x86_64 (64-bit) Linux binary
         if: ${{ !env.ACT }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: act-linux-amd64
           path: dist/act_linux_amd64_v1/act
       - name: Capture i386 (32-bit) Linux binary
         if: ${{ !env.ACT }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: act-linux-i386
           path: dist/act_linux_386/act
       - name: Capture arm64 (64-bit) Linux binary
         if: ${{ !env.ACT }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: act-linux-arm64
           path: dist/act_linux_arm64/act
       - name: Capture armv6 (32-bit) Linux binary
         if: ${{ !env.ACT }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: act-linux-armv6
           path: dist/act_linux_arm_6/act
       - name: Capture armv7 (32-bit) Linux binary
         if: ${{ !env.ACT }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: act-linux-armv7
           path: dist/act_linux_arm_7/act
       - name: Capture x86_64 (64-bit) Windows binary
         if: ${{ !env.ACT }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: act-windows-amd64
           path: dist/act_windows_amd64_v1/act.exe
       - name: Capture i386 (32-bit) Windows binary
         if: ${{ !env.ACT }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: act-windows-i386
           path: dist/act_windows_386/act.exe
       - name: Capture arm64 (64-bit) Windows binary
         if: ${{ !env.ACT }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: act-windows-arm64
           path: dist/act_windows_arm64/act.exe
       - name: Capture armv7 (32-bit) Windows binary
         if: ${{ !env.ACT }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: act-windows-armv7
           path: dist/act_windows_arm_7/act.exe
       - name: Capture x86_64 (64-bit) MacOS binary
         if: ${{ !env.ACT }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: act-macos-amd64
           path: dist/act_darwin_amd64_v1/act
       - name: Capture arm64 (64-bit) MacOS binary
         if: ${{ !env.ACT }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: act-macos-arm64
           path: dist/act_darwin_arm64/act
