@@ -79,22 +79,40 @@ type WorkflowDispatch struct {
 }
 
 func (w *Workflow) WorkflowDispatchConfig() *WorkflowDispatch {
-	if w.RawOn.Kind != yaml.MappingNode {
+	switch w.RawOn.Kind {
+	case yaml.ScalarNode:
+		var val string
+		if !decodeNode(w.RawOn, &val) {
+			return nil
+		}
+		if val == "workflow_dispatch" {
+			return &WorkflowDispatch{}
+		}
+	case yaml.SequenceNode:
+		var val []string
+		if !decodeNode(w.RawOn, &val) {
+			return nil
+		}
+		for _, v := range val {
+			if v == "workflow_dispatch" {
+				return &WorkflowDispatch{}
+			}
+		}
+	case yaml.MappingNode:
+		var val map[string]yaml.Node
+		if !decodeNode(w.RawOn, &val) {
+			return nil
+		}
+
+		n, found := val["workflow_dispatch"]
+		var workflowDispatch WorkflowDispatch
+		if found && decodeNode(n, &workflowDispatch) {
+			return &workflowDispatch
+		}
+	default:
 		return nil
 	}
-
-	var val map[string]yaml.Node
-	if !decodeNode(w.RawOn, &val) {
-		return nil
-	}
-
-	var config WorkflowDispatch
-	node := val["workflow_dispatch"]
-	if !decodeNode(node, &config) {
-		return nil
-	}
-
-	return &config
+	return nil
 }
 
 type WorkflowCallInput struct {

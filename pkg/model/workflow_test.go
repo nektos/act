@@ -417,3 +417,107 @@ func TestStep_ShellCommand(t *testing.T) {
 		})
 	}
 }
+
+func TestReadWorkflow_WorkflowDispatchConfig(t *testing.T) {
+	yaml := `
+    name: local-action-docker-url
+    `
+	workflow, err := ReadWorkflow(strings.NewReader(yaml))
+	assert.NoError(t, err, "read workflow should succeed")
+	workflowDispatch := workflow.WorkflowDispatchConfig()
+	assert.Nil(t, workflowDispatch)
+
+	yaml = `
+    name: local-action-docker-url
+    on: push
+    `
+	workflow, err = ReadWorkflow(strings.NewReader(yaml))
+	assert.NoError(t, err, "read workflow should succeed")
+	workflowDispatch = workflow.WorkflowDispatchConfig()
+	assert.Nil(t, workflowDispatch)
+
+	yaml = `
+    name: local-action-docker-url
+    on: workflow_dispatch
+    `
+	workflow, err = ReadWorkflow(strings.NewReader(yaml))
+	assert.NoError(t, err, "read workflow should succeed")
+	workflowDispatch = workflow.WorkflowDispatchConfig()
+	assert.NotNil(t, workflowDispatch)
+	assert.Nil(t, workflowDispatch.Inputs)
+
+	yaml = `
+    name: local-action-docker-url
+    on: [push, pull_request]
+    `
+	workflow, err = ReadWorkflow(strings.NewReader(yaml))
+	assert.NoError(t, err, "read workflow should succeed")
+	workflowDispatch = workflow.WorkflowDispatchConfig()
+	assert.Nil(t, workflowDispatch)
+
+	yaml = `
+    name: local-action-docker-url
+    on: [push, workflow_dispatch]
+    `
+	workflow, err = ReadWorkflow(strings.NewReader(yaml))
+	assert.NoError(t, err, "read workflow should succeed")
+	workflowDispatch = workflow.WorkflowDispatchConfig()
+	assert.NotNil(t, workflowDispatch)
+	assert.Nil(t, workflowDispatch.Inputs)
+
+	yaml = `
+    name: local-action-docker-url
+    on:
+        - push
+        - workflow_dispatch
+    `
+	workflow, err = ReadWorkflow(strings.NewReader(yaml))
+	assert.NoError(t, err, "read workflow should succeed")
+	workflowDispatch = workflow.WorkflowDispatchConfig()
+	assert.NotNil(t, workflowDispatch)
+	assert.Nil(t, workflowDispatch.Inputs)
+
+	yaml = `
+    name: local-action-docker-url
+    on:
+        push:
+        pull_request:
+    `
+	workflow, err = ReadWorkflow(strings.NewReader(yaml))
+	assert.NoError(t, err, "read workflow should succeed")
+	workflowDispatch = workflow.WorkflowDispatchConfig()
+	assert.Nil(t, workflowDispatch)
+
+	yaml = `
+    name: local-action-docker-url
+    on:
+        push:
+        pull_request:
+        workflow_dispatch:
+            inputs:
+                logLevel:
+                    description: 'Log level'
+                    required: true
+                    default: 'warning'
+                    type: choice
+                    options:
+                    - info
+                    - warning
+                    - debug
+    `
+	workflow, err = ReadWorkflow(strings.NewReader(yaml))
+	assert.NoError(t, err, "read workflow should succeed")
+	workflowDispatch = workflow.WorkflowDispatchConfig()
+	assert.NotNil(t, workflowDispatch)
+	assert.Equal(t, WorkflowDispatchInput{
+		Default:     "warning",
+		Description: "Log level",
+		Options: []string{
+			"info",
+			"warning",
+			"debug",
+		},
+		Required: true,
+		Type:     "choice",
+	}, workflowDispatch.Inputs["logLevel"])
+}
