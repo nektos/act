@@ -102,10 +102,11 @@ func cloneIfRequired(rc *RunContext, remoteReusableWorkflow remoteReusableWorkfl
 		func(ctx context.Context) error {
 			remoteReusableWorkflow.URL = rc.getGithubContext(ctx).ServerURL
 			return git.NewGitCloneExecutor(git.NewGitCloneExecutorInput{
-				URL:   remoteReusableWorkflow.CloneURL(),
-				Ref:   remoteReusableWorkflow.Ref,
-				Dir:   targetDirectory,
-				Token: rc.Config.Token,
+				URL:         remoteReusableWorkflow.CloneURL(),
+				Ref:         remoteReusableWorkflow.Ref,
+				Dir:         targetDirectory,
+				Token:       rc.Config.Token,
+				OfflineMode: rc.Config.ActionOfflineMode,
 			})(ctx)
 		},
 		nil,
