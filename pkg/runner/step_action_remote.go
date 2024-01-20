@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"archive/tar"
 	"context"
 	"errors"
 	"fmt"
@@ -28,6 +29,8 @@ type stepActionRemote struct {
 	action              *model.Action
 	env                 map[string]string
 	remoteAction        *remoteAction
+	cacheDir            string
+	resolvedSha         string
 }
 
 var (
@@ -59,6 +62,46 @@ func (sar *stepActionRemote) prepareActionExecutor() common.Executor {
 				sar.remoteAction.URL = "https://github.com"
 				github.Token = sar.RunContext.Config.ReplaceGheActionTokenWithGithubCom
 			}
+		}
+		if sar.RunContext.Config.ActionCache != nil {
+			cache := sar.RunContext.Config.ActionCache
+
+			var err error
+			sar.cacheDir = fmt.Sprintf("%s/%s", sar.remoteAction.Org, sar.remoteAction.Repo)
+			sar.resolvedSha, err = cache.Fetch(ctx, sar.cacheDir, sar.remoteAction.URL+"/"+sar.cacheDir, sar.remoteAction.Ref, github.Token)
+			if err != nil {
+				return err
+			}
+
+			remoteReader := func(ctx context.Context) actionYamlReader {
+				return func(filename string) (io.Reader, io.Closer, error) {
+					spath := filename
+					for i := 0; i < maxSymlinkDepth; i++ {
+						tars, err := cache.GetTarArchive(ctx, sar.cacheDir, sar.resolvedSha, spath)
+						if err != nil {
+							return nil, nil, os.ErrNotExist
+						}
+						treader := tar.NewReader(tars)
+						header, err := treader.Next()
+						if err != nil {
+							return nil, nil, os.ErrNotExist
+						}
+						if header.FileInfo().Mode()&os.ModeSymlink == os.ModeSymlink {
+							spath, err = symlinkJoin(spath, header.Linkname, ".")
+							if err != nil {
+								return nil, nil, err
+							}
+						} else {
+							return treader, tars, nil
+						}
+					}
+					return nil, nil, fmt.Errorf("max depth %d of symlinks exceeded while reading %s", maxSymlinkDepth, spath)
+				}
+			}
+
+			actionModel, err := sar.readAction(ctx, sar.Step, sar.resolvedSha, sar.remoteAction.Path, remoteReader(ctx), os.WriteFile)
+			sar.action = actionModel
+			return err
 		}
 
 		actionDir := fmt.Sprintf("%s/%s", sar.RunContext.ActionCacheDir(), safeFilename(sar.Step.Uses))
