@@ -14,9 +14,12 @@ func (i *Input) newPlatforms() map[string]string {
 
 	for _, p := range i.platforms {
 		pParts := strings.Split(p, "=")
-		if len(pParts) == 2 {
-			platforms[strings.ToLower(pParts[0])] = pParts[1]
-		}
+		// pop operation
+		pValue := pParts[len(pParts)-1]
+		pParts = pParts[:len(pParts)-1]
+
+		pName := strings.Join(pParts, "=")
+		platforms[strings.ToLower(pName)] = pValue
 	}
 	return platforms
 }
