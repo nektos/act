@@ -55,8 +55,10 @@ type Input struct {
 	replaceGheActionTokenWithGithubCom string
 	matrix                             []string
 	actionCachePath                    string
+	actionOfflineMode                  bool
 	logPrefixJobID                     bool
 	networkName                        string
+	useNewActionCache                  bool
 }
 
 func (i *Input) resolve(path string) string {
