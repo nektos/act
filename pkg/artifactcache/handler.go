@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -386,7 +387,12 @@ func (h *Handler) findCache(db *bolthold.Store, keys []string, version string) (
 
 	for _, prefix := range keys[1:] {
 		found := false
-		if err := db.ForEach(bolthold.Where("Key").Ge(prefix).And("Version").Eq(version).SortBy("Key"), func(v *Cache) error {
+		prefixPattern := fmt.Sprintf("^%s", regexp.QuoteMeta(prefix))
+		re, err := regexp.Compile(prefixPattern)
+		if err != nil {
+			continue
+		}
+		if err := db.ForEach(bolthold.Where("Key").RegExp(re).And("Version").Eq(version).SortBy("CreatedAt").Reverse(), func(v *Cache) error {
 			if !strings.HasPrefix(v.Key, prefix) {
 				return stop
 			}
