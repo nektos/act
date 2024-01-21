@@ -107,6 +107,7 @@ func Execute(ctx context.Context, version string) {
 	}
 }
 
+// Return locations where Act's config can be found in order : XDG spec, .actrc in HOME directory, .actrc in invocation directory
 func configLocations() []string {
 	configFileName := ".actrc"
 
@@ -120,8 +121,8 @@ func configLocations() []string {
 	}
 
 	return []string{
-		filepath.Join(UserHomeDir, configFileName),
 		actrcXdg,
+		filepath.Join(UserHomeDir, configFileName),
 		filepath.Join(".", configFileName),
 	}
 }
@@ -557,6 +558,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 				}
 			}
 			if !cfgFound && len(cfgLocations) > 0 {
+				// The first config location refers to the XDG spec one
 				if err := defaultImageSurvey(cfgLocations[0]); err != nil {
 					log.Fatal(err)
 				}
