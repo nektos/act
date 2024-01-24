@@ -297,19 +297,17 @@ func cleanup(inputs *Input) func(*cobra.Command, []string) {
 	}
 }
 
-func parseEnvs(env []string, envs map[string]string) bool {
-	if env != nil {
-		for _, envVar := range env {
-			e := strings.SplitN(envVar, `=`, 2)
-			if len(e) == 2 {
-				envs[e[0]] = e[1]
-			} else {
-				envs[e[0]] = ""
-			}
+func parseEnvs(env []string) map[string]string {
+	envs := make(map[string]string, len(env))
+	for _, envVar := range env {
+		e := strings.SplitN(envVar, `=`, 2)
+		if len(e) == 2 {
+			envs[e[0]] = e[1]
+		} else {
+			envs[e[0]] = ""
 		}
-		return true
 	}
-	return false
+	return envs
 }
 
 func readYamlFile(file string) (map[string]string, error) {
@@ -415,13 +413,11 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 		}
 
 		log.Debugf("Loading environment from %s", input.Envfile())
-		envs := make(map[string]string)
-		_ = parseEnvs(input.envs, envs)
+		envs := parseEnvs(input.envs)
 		_ = readEnvs(input.Envfile(), envs)
 
 		log.Debugf("Loading action inputs from %s", input.Inputfile())
-		inputs := make(map[string]string)
-		_ = parseEnvs(input.inputs, inputs)
+		inputs := parseEnvs(input.inputs)
 		_ = readEnvs(input.Inputfile(), inputs)
 
 		log.Debugf("Loading secrets from %s", input.Secretfile())
