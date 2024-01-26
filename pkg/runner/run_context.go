@@ -1028,7 +1028,7 @@ func (rc *RunContext) handleServiceCredentials(ctx context.Context, creds map[st
 // GetServiceBindsAndMounts returns the binds and mounts for the service container, resolving paths as appopriate
 func (rc *RunContext) GetServiceBindsAndMounts(svcVolumes []string) ([]string, map[string]string) {
 	if rc.Config.ContainerDaemonSocket == "" {
-		rc.Config.ContainerDaemonSocket = "/var/run/docker.sock"
+		rc.Config.ContainerDaemonSocket = getDockerDaemonSocketMountPath(rc.Config.ContainerDaemonSocket)
 	}
 	binds := []string{}
 	if rc.Config.ContainerDaemonSocket != "-" {
