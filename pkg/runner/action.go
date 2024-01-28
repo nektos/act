@@ -3,6 +3,7 @@ package runner
 import (
 	"context"
 	"embed"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -41,11 +42,24 @@ var trampoline embed.FS
 
 func readActionImpl(ctx context.Context, step *model.Step, actionDir string, actionPath string, readFile actionYamlReader, writeFile fileWriter) (*model.Action, error) {
 	logger := common.Logger(ctx)
+	allErrors := []error{}
+	addError := func(fileName string, err error) {
+		if err != nil {
+			allErrors = append(allErrors, fmt.Errorf("failed to read '%s' from action '%s' with path '%s' of step %w", fileName, step.String(), actionPath, err))
+		} else {
+			// One successful read, clear error state
+			allErrors = nil
+		}
+	}
 	reader, closer, err := readFile("action.yml")
+	addError("action.yml", err)
 	if os.IsNotExist(err) {
 		reader, closer, err = readFile("action.yaml")
+		addError("action.yaml", err)
 		if os.IsNotExist(err) {
-			if _, closer, err2 := readFile("Dockerfile"); err2 == nil {
+			_, closer, err := readFile("Dockerfile")
+			addError("Dockerfile", err)
+			if err == nil {
 				closer.Close()
 				action := &model.Action{
 					Name: "(Synthetic)",
@@ -90,12 +104,10 @@ func readActionImpl(ctx context.Context, step *model.Step, actionDir string, act
 					return action, nil
 				}
 			}
-			return nil, err
-		} else if err != nil {
-			return nil, err
 		}
-	} else if err != nil {
-		return nil, err
+	}
+	if allErrors != nil {
+		return nil, errors.Join(allErrors...)
 	}
 	defer closer.Close()
 
