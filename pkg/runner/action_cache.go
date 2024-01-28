@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"path"
@@ -86,6 +87,9 @@ func (c GoGitActionCache) Fetch(ctx context.Context, cacheDir, url, ref, token s
 		Auth:  auth,
 		Force: true,
 	}); err != nil {
+		if tagOrSha && errors.Is(err, git.NoErrAlreadyUpToDate) {
+			return "", fmt.Errorf("couldn't find remote ref \"%s\"", ref)
+		}
 		return "", err
 	}
 	if tagOrSha {

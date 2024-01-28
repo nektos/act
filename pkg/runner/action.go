@@ -125,20 +125,6 @@ func maybeCopyToActionDir(ctx context.Context, step actionStep, actionDir string
 		return nil
 	}
 
-	if rc.Config != nil && rc.Config.ActionCache != nil {
-		raction := step.(*stepActionRemote)
-		ta, err := rc.Config.ActionCache.GetTarArchive(ctx, raction.cacheDir, raction.resolvedSha, "")
-		if err != nil {
-			return err
-		}
-		defer ta.Close()
-		return rc.JobContainer.CopyTarStream(ctx, containerActionDir, ta)
-	}
-
-	if err := removeGitIgnore(ctx, actionDir); err != nil {
-		return err
-	}
-
 	var containerActionDirCopy string
 	containerActionDirCopy = strings.TrimSuffix(containerActionDir, actionPath)
 	logger.Debug(containerActionDirCopy)
@@ -146,6 +132,21 @@ func maybeCopyToActionDir(ctx context.Context, step actionStep, actionDir string
 	if !strings.HasSuffix(containerActionDirCopy, `/`) {
 		containerActionDirCopy += `/`
 	}
+
+	if rc.Config != nil && rc.Config.ActionCache != nil {
+		raction := step.(*stepActionRemote)
+		ta, err := rc.Config.ActionCache.GetTarArchive(ctx, raction.cacheDir, raction.resolvedSha, "")
+		if err != nil {
+			return err
+		}
+		defer ta.Close()
+		return rc.JobContainer.CopyTarStream(ctx, containerActionDirCopy, ta)
+	}
+
+	if err := removeGitIgnore(ctx, actionDir); err != nil {
+		return err
+	}
+
 	return rc.JobContainer.CopyDir(containerActionDirCopy, actionDir+"/", rc.Config.UseGitIgnore)(ctx)
 }
 
