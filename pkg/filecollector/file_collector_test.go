@@ -1,4 +1,4 @@
-package container
+package filecollector
 
 import (
 	"archive/tar"
@@ -95,16 +95,16 @@ func TestIgnoredTrackedfile(t *testing.T) {
 	tw := tar.NewWriter(tmpTar)
 	ps, _ := gitignore.ReadPatterns(worktree, []string{})
 	ignorer := gitignore.NewMatcher(ps)
-	fc := &fileCollector{
+	fc := &FileCollector{
 		Fs:        &memoryFs{Filesystem: fs},
 		Ignorer:   ignorer,
 		SrcPath:   "mygitrepo",
 		SrcPrefix: "mygitrepo" + string(filepath.Separator),
-		Handler: &tarCollector{
+		Handler: &TarCollector{
 			TarWriter: tw,
 		},
 	}
-	err := fc.Fs.Walk("mygitrepo", fc.collectFiles(context.Background(), []string{}))
+	err := fc.Fs.Walk("mygitrepo", fc.CollectFiles(context.Background(), []string{}))
 	assert.NoError(t, err, "successfully collect files")
 	tw.Close()
 	_, _ = tmpTar.Seek(0, io.SeekStart)
