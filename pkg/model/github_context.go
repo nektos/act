@@ -168,7 +168,7 @@ func (ghc *GithubContext) SetRepositoryAndOwner(ctx context.Context, githubInsta
 	if ghc.Repository == "" {
 		repo, err := git.FindGithubRepo(ctx, repoPath, githubInstance, remoteName)
 		if err != nil {
-			common.Logger(ctx).Warningf("unable to get git repo: %v", err)
+			common.Logger(ctx).Warningf("unable to get git repo (githubInstance: %v; remoteName: %v, repoPath: %v): %v", githubInstance, remoteName, repoPath, err)
 			return
 		}
 		ghc.Repository = repo
