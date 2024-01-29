@@ -324,6 +324,7 @@ type containerConfig struct {
 //
 //nolint:gocyclo
 func parse(flags *pflag.FlagSet, copts *containerOptions, serverOS string) (*containerConfig, error) {
+	logrus.Debugf("parsing container config")
 	var (
 		attachStdin  = copts.attach.Get("stdin")
 		attachStdout = copts.attach.Get("stdout")
@@ -361,6 +362,7 @@ func parse(flags *pflag.FlagSet, copts *containerOptions, serverOS string) (*con
 	// add any bind targets to the list of container volumes
 	for bind := range copts.volumes.GetMap() {
 		parsed, _ := loader.ParseVolume(bind)
+		logrus.Debugf("Parsed volume %s: %+v", bind, parsed)
 
 		if parsed.Source != "" {
 			toBind := bind

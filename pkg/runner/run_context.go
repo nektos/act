@@ -563,6 +563,8 @@ func (rc *RunContext) startContainer() common.Executor {
 		if rc.IsHostEnv(ctx) {
 			return rc.startHostEnvironment()(ctx)
 		}
+		logger := common.Logger(ctx)
+		logger.Infof("Starting container with config: %+v", rc.Config)
 		return rc.startJobContainer()(ctx)
 	}
 }
