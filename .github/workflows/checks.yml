@@ -61,7 +61,7 @@ jobs:
       - name: Run act from cli
         run: go run main.go -P ubuntu-latest=node:16-buster-slim -C ./pkg/runner/testdata/ -W ./basic/push.yml
       - name: Upload Codecov report
-        uses: codecov/codecov-action@v3.1.4
+        uses: codecov/codecov-action@v3.1.5
         with:
           files: coverage.txt
           fail_ci_if_error: true # optional (default = false)
