@@ -122,13 +122,16 @@ func getDockerDaemonSocketMountPath(daemonPath string) string {
 func (rc *RunContext) GetBindsAndMounts() ([]string, map[string]string) {
 	name := rc.jobContainerName()
 
-	if rc.Config.ContainerDaemonSocket == "" {
-		rc.Config.ContainerDaemonSocket = "/var/run/docker.sock"
+	// Get socket path as <protocol>://<path>
+	daemonPath := getDockerDaemonSocketMountPath(rc.Config.ContainerDaemonSocket)
+
+	if rc.Config.ContainerDaemonSocket != "" && strings.Contains(rc.Config.ContainerDaemonSocket, "://") {
+		parts := strings.Split(rc.Config.ContainerDaemonSocket, "://")
+		rc.Config.ContainerDaemonSocket = parts[1]
 	}
 
 	binds := []string{}
 	if rc.Config.ContainerDaemonSocket != "-" {
-		daemonPath := getDockerDaemonSocketMountPath(rc.Config.ContainerDaemonSocket)
 		binds = append(binds, fmt.Sprintf("%s:%s", daemonPath, "/var/run/docker.sock"))
 	}
 
