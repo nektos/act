@@ -131,7 +131,7 @@ func (e *HostEnvironment) GetContainerArchive(ctx context.Context, srcPath strin
 		TarWriter: tw,
 	}
 	if fi.IsDir() {
-		srcPrefix := filepath.Dir(srcPath)
+		srcPrefix := srcPath
 		if !strings.HasSuffix(srcPrefix, string(filepath.Separator)) {
 			srcPrefix += string(filepath.Separator)
 		}
