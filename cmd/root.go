@@ -32,7 +32,7 @@ import (
 // Execute is the entry point to running the CLI
 func Execute(ctx context.Context, version string) {
 	input := new(Input)
-	var rootCmd = &cobra.Command{
+	rootCmd := &cobra.Command{
 		Use:               "act [event name to run] [flags]\n\nIf no event name passed, will default to \"on: push\"\nIf actions handles only one event it will be used as default instead of \"on: push\"",
 		Short:             "Run GitHub actions locally by specifying the event name (e.g. `push`) or an action name directly.",
 		Args:              cobra.MaximumNArgs(1),
@@ -358,6 +358,11 @@ func parseMatrix(matrix []string) map[string]map[string]bool {
 	return matrixes
 }
 
+// This function, `isDockerHostURI`, takes a string argument `daemonPath`. It checks if the
+// `daemonPath` is a valid Docker host URI. It does this by checking if the scheme of the URI (the
+// part before "://") contains only alphabetic characters. If it does, the function returns true,
+// indicating that the `daemonPath` is a Docker host URI. If it doesn't, or if the "://" delimiter
+// is not found in the `daemonPath`, the function returns false.
 func isDockerHostURI(daemonPath string) bool {
 	if protoIndex := strings.Index(daemonPath, "://"); protoIndex != -1 {
 		scheme := daemonPath[:protoIndex]
@@ -383,24 +388,19 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 
 		// Prefer DOCKER_HOST, don't override it
 		socketPath, hasDockerHost := os.LookupEnv("DOCKER_HOST")
-		if !hasDockerHost {
-			// a - in containerDaemonSocket means don't mount, preserve this value
-			// otherwise if input.containerDaemonSocket is a filepath don't use it as socketPath
-			skipMount := input.containerDaemonSocket == "-" || !isDockerHostURI(input.containerDaemonSocket)
-			if input.containerDaemonSocket != "" && !skipMount {
-				socketPath = input.containerDaemonSocket
-			} else {
-				socket, found := socketLocation()
-				if !found {
-					log.Errorln("daemon Docker Engine socket not found and containerDaemonSocket option was not set")
-				} else {
-					socketPath = socket
-				}
-				if !skipMount {
-					input.containerDaemonSocket = socketPath
-				}
-			}
-			os.Setenv("DOCKER_HOST", socketPath)
+		log.Debugf("Found docker host: %s", socketPath)
+		// A - (dash) in containerDaemonSocket means don't mount, preserve this value
+		// otherwise if input.containerDaemonSocket is a filepath don't use it as socketPath
+		// because it might not be a valid or accessible socket location.
+		// This is implied in isDockerHostURI (a dash isn't a valid URI)
+		shouldMount := isDockerHostURI(input.containerDaemonSocket)
+
+		if input.containerDaemonSocket == "" {
+			// Naïvely assume a default socket exists
+			input.containerDaemonSocket, _ = socketLocation()
+		}
+		if !hasDockerHost && shouldMount {
+			os.Setenv("DOCKER_HOST", input.containerDaemonSocket)
 		}
 
 		if runtime.GOOS == "darwin" && runtime.GOARCH == "arm64" && input.containerArchitecture == "" {
