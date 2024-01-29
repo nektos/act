@@ -58,9 +58,8 @@ func (w *Workflow) On() []string {
 func (w *Workflow) OnEvent(event string) interface{} {
 	if w.RawOn.Kind == yaml.MappingNode {
 		var val map[string]interface{}
-		err := w.RawOn.Decode(&val)
-		if err != nil {
-			log.Fatal(err)
+		if !decodeNode(w.RawOn, &val) {
+			return nil
 		}
 		return val[event]
 	}
@@ -80,24 +79,40 @@ type WorkflowDispatch struct {
 }
 
 func (w *Workflow) WorkflowDispatchConfig() *WorkflowDispatch {
-	if w.RawOn.Kind != yaml.MappingNode {
+	switch w.RawOn.Kind {
+	case yaml.ScalarNode:
+		var val string
+		if !decodeNode(w.RawOn, &val) {
+			return nil
+		}
+		if val == "workflow_dispatch" {
+			return &WorkflowDispatch{}
+		}
+	case yaml.SequenceNode:
+		var val []string
+		if !decodeNode(w.RawOn, &val) {
+			return nil
+		}
+		for _, v := range val {
+			if v == "workflow_dispatch" {
+				return &WorkflowDispatch{}
+			}
+		}
+	case yaml.MappingNode:
+		var val map[string]yaml.Node
+		if !decodeNode(w.RawOn, &val) {
+			return nil
+		}
+
+		n, found := val["workflow_dispatch"]
+		var workflowDispatch WorkflowDispatch
+		if found && decodeNode(n, &workflowDispatch) {
+			return &workflowDispatch
+		}
+	default:
 		return nil
 	}
-
-	var val map[string]yaml.Node
-	err := w.RawOn.Decode(&val)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	var config WorkflowDispatch
-	node := val["workflow_dispatch"]
-	err = node.Decode(&config)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	return &config
+	return nil
 }
 
 type WorkflowCallInput struct {
@@ -128,16 +143,14 @@ func (w *Workflow) WorkflowCallConfig() *WorkflowCall {
 	}
 
 	var val map[string]yaml.Node
-	err := w.RawOn.Decode(&val)
-	if err != nil {
-		log.Fatal(err)
+	if !decodeNode(w.RawOn, &val) {
+		return &WorkflowCall{}
 	}
 
 	var config WorkflowCall
 	node := val["workflow_call"]
-	err = node.Decode(&config)
-	if err != nil {
-		log.Fatal(err)
+	if !decodeNode(node, &config) {
+		return &WorkflowCall{}
 	}
 
 	return &config
@@ -220,9 +233,8 @@ func (j *Job) InheritSecrets() bool {
 	}
 
 	var val string
-	err := j.RawSecrets.Decode(&val)
-	if err != nil {
-		log.Fatal(err)
+	if !decodeNode(j.RawSecrets, &val) {
+		return false
 	}
 
 	return val == "inherit"
@@ -234,9 +246,8 @@ func (j *Job) Secrets() map[string]string {
 	}
 
 	var val map[string]string
-	err := j.RawSecrets.Decode(&val)
-	if err != nil {
-		log.Fatal(err)
+	if !decodeNode(j.RawSecrets, &val) {
+		return nil
 	}
 
 	return val
@@ -248,15 +259,13 @@ func (j *Job) Container() *ContainerSpec {
 	switch j.RawContainer.Kind {
 	case yaml.ScalarNode:
 		val = new(ContainerSpec)
-		err := j.RawContainer.Decode(&val.Image)
-		if err != nil {
-			log.Fatal(err)
+		if !decodeNode(j.RawContainer, &val.Image) {
+			return nil
 		}
 	case yaml.MappingNode:
 		val = new(ContainerSpec)
-		err := j.RawContainer.Decode(val)
-		if err != nil {
-			log.Fatal(err)
+		if !decodeNode(j.RawContainer, val) {
+			return nil
 		}
 	}
 	return val
@@ -267,16 +276,14 @@ func (j *Job) Needs() []string {
 	switch j.RawNeeds.Kind {
 	case yaml.ScalarNode:
 		var val string
-		err := j.RawNeeds.Decode(&val)
-		if err != nil {
-			log.Fatal(err)
+		if !decodeNode(j.RawNeeds, &val) {
+			return nil
 		}
 		return []string{val}
 	case yaml.SequenceNode:
 		var val []string
-		err := j.RawNeeds.Decode(&val)
-		if err != nil {
-			log.Fatal(err)
+		if !decodeNode(j.RawNeeds, &val) {
+			return nil
 		}
 		return val
 	}
@@ -286,18 +293,40 @@ func (j *Job) Needs() []string {
 // RunsOn list for Job
 func (j *Job) RunsOn() []string {
 	switch j.RawRunsOn.Kind {
+	case yaml.MappingNode:
+		var val struct {
+			Group  string
+			Labels yaml.Node
+		}
+
+		if !decodeNode(j.RawRunsOn, &val) {
+			return nil
+		}
+
+		labels := nodeAsStringSlice(val.Labels)
+
+		if val.Group != "" {
+			labels = append(labels, val.Group)
+		}
+
+		return labels
+	default:
+		return nodeAsStringSlice(j.RawRunsOn)
+	}
+}
+
+func nodeAsStringSlice(node yaml.Node) []string {
+	switch node.Kind {
 	case yaml.ScalarNode:
 		var val string
-		err := j.RawRunsOn.Decode(&val)
-		if err != nil {
-			log.Fatal(err)
+		if !decodeNode(node, &val) {
+			return nil
 		}
 		return []string{val}
 	case yaml.SequenceNode:
 		var val []string
-		err := j.RawRunsOn.Decode(&val)
-		if err != nil {
-			log.Fatal(err)
+		if !decodeNode(node, &val) {
+			return nil
 		}
 		return val
 	}
@@ -307,8 +336,8 @@ func (j *Job) RunsOn() []string {
 func environment(yml yaml.Node) map[string]string {
 	env := make(map[string]string)
 	if yml.Kind == yaml.MappingNode {
-		if err := yml.Decode(&env); err != nil {
-			log.Fatal(err)
+		if !decodeNode(yml, &env) {
+			return nil
 		}
 	}
 	return env
@@ -323,8 +352,8 @@ func (j *Job) Environment() map[string]string {
 func (j *Job) Matrix() map[string][]interface{} {
 	if j.Strategy.RawMatrix.Kind == yaml.MappingNode {
 		var val map[string][]interface{}
-		if err := j.Strategy.RawMatrix.Decode(&val); err != nil {
-			log.Fatal(err)
+		if !decodeNode(j.Strategy.RawMatrix, &val) {
+			return nil
 		}
 		return val
 	}
@@ -335,7 +364,7 @@ func (j *Job) Matrix() map[string][]interface{} {
 // It skips includes and hard fails excludes for non-existing keys
 //
 //nolint:gocyclo
-func (j *Job) GetMatrixes() []map[string]interface{} {
+func (j *Job) GetMatrixes() ([]map[string]interface{}, error) {
 	matrixes := make([]map[string]interface{}, 0)
 	if j.Strategy != nil {
 		j.Strategy.FailFast = j.Strategy.GetFailFast()
@@ -386,7 +415,7 @@ func (j *Job) GetMatrixes() []map[string]interface{} {
 						excludes = append(excludes, e)
 					} else {
 						// We fail completely here because that's what GitHub does for non-existing matrix keys, fail on exclude, silent skip on include
-						log.Fatalf("The workflow is not valid. Matrix exclude key '%s' does not match any key within the matrix", k)
+						return nil, fmt.Errorf("the workflow is not valid. Matrix exclude key %q does not match any key within the matrix", k)
 					}
 				}
 			}
@@ -430,8 +459,9 @@ func (j *Job) GetMatrixes() []map[string]interface{} {
 		}
 	} else {
 		matrixes = append(matrixes, make(map[string]interface{}))
+		log.Debugf("Empty Strategy, matrixes=%v", matrixes)
 	}
-	return matrixes
+	return matrixes, nil
 }
 
 func commonKeysMatch(a map[string]interface{}, b map[string]interface{}) bool {
@@ -457,14 +487,17 @@ func commonKeysMatch2(a map[string]interface{}, b map[string]interface{}, m map[
 type JobType int
 
 const (
-	// StepTypeRun is all steps that have a `run` attribute
+	// JobTypeDefault is all jobs that have a `run` attribute
 	JobTypeDefault JobType = iota
 
-	// StepTypeReusableWorkflowLocal is all steps that have a `uses` that is a local workflow in the .github/workflows directory
+	// JobTypeReusableWorkflowLocal is all jobs that have a `uses` that is a local workflow in the .github/workflows directory
 	JobTypeReusableWorkflowLocal
 
-	// JobTypeReusableWorkflowRemote is all steps that have a `uses` that references a workflow file in a github repo
+	// JobTypeReusableWorkflowRemote is all jobs that have a `uses` that references a workflow file in a github repo
 	JobTypeReusableWorkflowRemote
+
+	// JobTypeInvalid represents a job which is not configured correctly
+	JobTypeInvalid
 )
 
 func (j JobType) String() string {
@@ -480,13 +513,28 @@ func (j JobType) String() string {
 }
 
 // Type returns the type of the job
-func (j *Job) Type() JobType {
-	if strings.HasPrefix(j.Uses, "./.github/workflows") && (strings.HasSuffix(j.Uses, ".yml") || strings.HasSuffix(j.Uses, ".yaml")) {
-		return JobTypeReusableWorkflowLocal
-	} else if !strings.HasPrefix(j.Uses, "./") && strings.Contains(j.Uses, ".github/workflows") && (strings.Contains(j.Uses, ".yml@") || strings.Contains(j.Uses, ".yaml@")) {
-		return JobTypeReusableWorkflowRemote
+func (j *Job) Type() (JobType, error) {
+	isReusable := j.Uses != ""
+
+	if isReusable {
+		isYaml, _ := regexp.MatchString(`\.(ya?ml)(?:$|@)`, j.Uses)
+
+		if isYaml {
+			isLocalPath := strings.HasPrefix(j.Uses, "./")
+			isRemotePath, _ := regexp.MatchString(`^[^.](.+?/){2,}.+\.ya?ml@`, j.Uses)
+			hasVersion, _ := regexp.MatchString(`\.ya?ml@`, j.Uses)
+
+			if isLocalPath {
+				return JobTypeReusableWorkflowLocal, nil
+			} else if isRemotePath && hasVersion {
+				return JobTypeReusableWorkflowRemote, nil
+			}
+		}
+
+		return JobTypeInvalid, fmt.Errorf("`uses` key references invalid workflow path '%s'. Must start with './' if it's a local workflow, or must start with '<org>/<repo>/' and include an '@' if it's a remote workflow", j.Uses)
 	}
-	return JobTypeDefault
+
+	return JobTypeDefault, nil
 }
 
 // ContainerSpec is the specification of the container to use for the job
@@ -562,7 +610,7 @@ func (s *Step) ShellCommand() string {
 	case "sh":
 		shellCommand = "sh -e {0}"
 	case "cmd":
-		shellCommand = "%ComSpec% /D /E:ON /V:OFF /S /C \"CALL \"{0}\"\""
+		shellCommand = "cmd /D /E:ON /V:OFF /S /C \"CALL \"{0}\"\""
 	case "powershell":
 		shellCommand = "powershell -command . '{0}'"
 	default:
@@ -670,4 +718,18 @@ func (w *Workflow) GetJobIDs() []string {
 		ids = append(ids, id)
 	}
 	return ids
+}
+
+var OnDecodeNodeError = func(node yaml.Node, out interface{}, err error) {
+	log.Fatalf("Failed to decode node %v into %T: %v", node, out, err)
+}
+
+func decodeNode(node yaml.Node, out interface{}) bool {
+	if err := node.Decode(out); err != nil {
+		if OnDecodeNodeError != nil {
+			OnDecodeNodeError(node, out, err)
+		}
+		return false
+	}
+	return true
 }

@@ -4,20 +4,17 @@ on:
     tags:
       - v*
 
-env:
-  GO_VERSION: 1.18
-
 jobs:
   release:
     name: release
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version-file: go.mod
           check-latest: true
       - uses: actions/cache@v3
         if: ${{ !env.ACT }}
@@ -27,12 +24,18 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
       - name: GoReleaser
-        uses: goreleaser/goreleaser-action@v4
+        uses: goreleaser/goreleaser-action@v5
         with:
           version: latest
-          args: release --rm-dist
+          args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GORELEASER_GITHUB_TOKEN }}
+      - name: Winget
+        uses: vedantmgoyal2009/winget-releaser@v2
+        with:
+          identifier: nektos.act
+          installers-regex: '_Windows_\w+\.zip$'
+          token: ${{ secrets.WINGET_TOKEN }}
       - name: Chocolatey
         uses: ./.github/actions/choco
         with:
@@ -40,7 +43,7 @@ jobs:
           apiKey: ${{ secrets.CHOCO_APIKEY }}
           push: true
       - name: GitHub CLI extension
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GORELEASER_GITHUB_TOKEN }}
           script: |
@@ -56,12 +59,3 @@ jobs:
               ref: context.ref,
               sha: mainRef.object.sha,
             });
-  winget:
-    needs: release
-    runs-on: windows-latest # Action can only run on Windows
-    steps:
-      - uses: vedantmgoyal2009/winget-releaser@v2
-        with:
-          identifier: nektos.act
-          installers-regex: '_Windows_\w+\.zip$'
-          token: ${{ secrets.WINGET_TOKEN }}

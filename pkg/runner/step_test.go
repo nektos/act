@@ -63,7 +63,9 @@ func TestMergeIntoMap(t *testing.T) {
 
 	for _, tt := range table {
 		t.Run(tt.name, func(t *testing.T) {
-			mergeIntoMap(&tt.target, tt.maps...)
+			mergeIntoMapCaseSensitive(tt.target, tt.maps...)
+			assert.Equal(t, tt.expected, tt.target)
+			mergeIntoMapCaseInsensitive(tt.target, tt.maps...)
 			assert.Equal(t, tt.expected, tt.target)
 		})
 	}
@@ -180,7 +182,6 @@ func TestSetupEnv(t *testing.T) {
 		"GITHUB_RUN_ID":            "runId",
 		"GITHUB_RUN_NUMBER":        "1",
 		"GITHUB_SERVER_URL":        "https://",
-		"GITHUB_TOKEN":             "",
 		"GITHUB_WORKFLOW":          "",
 		"INPUT_STEP_WITH":          "with-value",
 		"RC_KEY":                   "rcvalue",

@@ -82,7 +82,7 @@ type jobContainerMock struct {
 	container.LinuxContainerEnvironmentExtensions
 }
 
-func (jcm *jobContainerMock) ReplaceLogWriter(stdout, stderr io.Writer) (io.Writer, io.Writer) {
+func (jcm *jobContainerMock) ReplaceLogWriter(_, _ io.Writer) (io.Writer, io.Writer) {
 	return nil, nil
 }
 

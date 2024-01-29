@@ -37,6 +37,9 @@ func evaluateCompositeInputAndEnv(ctx context.Context, parent *RunContext, step 
 			env[envKey] = ee.Interpolate(ctx, input.Default)
 		}
 	}
+	gh := step.getGithubContext(ctx)
+	env["GITHUB_ACTION_REPOSITORY"] = gh.ActionRepository
+	env["GITHUB_ACTION_REF"] = gh.ActionRef
 
 	return env
 }
@@ -53,11 +56,11 @@ func newCompositeRunContext(ctx context.Context, parent *RunContext, step action
 		Name:    parent.Name,
 		JobName: parent.JobName,
 		Run: &model.Run{
-			JobID: "composite-job",
+			JobID: parent.Run.JobID,
 			Workflow: &model.Workflow{
 				Name: parent.Run.Workflow.Name,
 				Jobs: map[string]*model.Job{
-					"composite-job": {},
+					parent.Run.JobID: {},
 				},
 			},
 		},
@@ -105,13 +108,15 @@ func execAsComposite(step actionStep) common.Executor {
 		rc.Masks = append(rc.Masks, compositeRC.Masks...)
 		rc.ExtraPath = compositeRC.ExtraPath
 		// compositeRC.Env is dirty, contains INPUT_ and merged step env, only rely on compositeRC.GlobalEnv
-		for k, v := range compositeRC.GlobalEnv {
-			rc.Env[k] = v
-			if rc.GlobalEnv == nil {
-				rc.GlobalEnv = map[string]string{}
-			}
-			rc.GlobalEnv[k] = v
+		mergeIntoMap := mergeIntoMapCaseSensitive
+		if rc.JobContainer.IsEnvironmentCaseInsensitive() {
+			mergeIntoMap = mergeIntoMapCaseInsensitive
 		}
+		if rc.GlobalEnv == nil {
+			rc.GlobalEnv = map[string]string{}
+		}
+		mergeIntoMap(rc.GlobalEnv, compositeRC.GlobalEnv)
+		mergeIntoMap(rc.Env, compositeRC.GlobalEnv)
 
 		return err
 	}

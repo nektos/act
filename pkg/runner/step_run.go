@@ -3,12 +3,14 @@ package runner
 import (
 	"context"
 	"fmt"
+	"runtime"
 	"strings"
 
 	"github.com/kballard/go-shellquote"
 
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/container"
+	"github.com/nektos/act/pkg/lookpath"
 	"github.com/nektos/act/pkg/model"
 )
 
@@ -16,6 +18,7 @@ type stepRun struct {
 	Step             *model.Step
 	RunContext       *RunContext
 	cmd              []string
+	cmdline          string
 	env              map[string]string
 	WorkingDirectory string
 }
@@ -32,6 +35,9 @@ func (sr *stepRun) main() common.Executor {
 		sr.setupShellCommandExecutor(),
 		func(ctx context.Context) error {
 			sr.getRunContext().ApplyExtraPath(ctx, &sr.env)
+			if he, ok := sr.getRunContext().JobContainer.(*container.HostEnvironment); ok && he != nil {
+				return he.ExecWithCmdLine(sr.cmd, sr.cmdline, sr.env, "", sr.WorkingDirectory)(ctx)
+			}
 			return sr.getRunContext().JobContainer.Exec(sr.cmd, sr.env, "", sr.WorkingDirectory)(ctx)
 		},
 	))
@@ -59,7 +65,7 @@ func (sr *stepRun) getEnv() *map[string]string {
 	return &sr.env
 }
 
-func (sr *stepRun) getIfExpression(context context.Context, stage stepStage) string {
+func (sr *stepRun) getIfExpression(_ context.Context, _ stepStage) string {
 	return sr.Step.If.Value
 }
 
@@ -133,9 +139,26 @@ func (sr *stepRun) setupShellCommand(ctx context.Context) (name, script string, 
 
 	rc := sr.getRunContext()
 	scriptPath := fmt.Sprintf("%s/%s", rc.JobContainer.GetActPath(), name)
-	sr.cmd, err = shellquote.Split(strings.Replace(scCmd, `{0}`, scriptPath, 1))
+	sr.cmdline = strings.Replace(scCmd, `{0}`, scriptPath, 1)
+	sr.cmd, err = shellquote.Split(sr.cmdline)
 
 	return name, script, err
+}
+
+type localEnv struct {
+	env map[string]string
+}
+
+func (l *localEnv) Getenv(name string) string {
+	if runtime.GOOS == "windows" {
+		for k, v := range l.env {
+			if strings.EqualFold(name, k) {
+				return v
+			}
+		}
+		return ""
+	}
+	return l.env[name]
 }
 
 func (sr *stepRun) setupShell(ctx context.Context) {
@@ -152,13 +175,25 @@ func (sr *stepRun) setupShell(ctx context.Context) {
 		step.Shell = rc.Run.Workflow.Defaults.Run.Shell
 	}
 
-	// current GitHub Runner behaviour is that default is `sh`,
-	// but if it's not container it validates with `which` command
-	// if `bash` is available, and provides `bash` if it is
-	// for now I'm going to leave below logic, will address it in different PR
-	// https://github.com/actions/runner/blob/9a829995e02d2db64efb939dc2f283002595d4d9/src/Runner.Worker/Handlers/ScriptHandler.cs#L87-L91
-	if rc.Run.Job().Container() != nil {
-		if rc.Run.Job().Container().Image != "" && step.Shell == "" {
+	if step.Shell == "" {
+		if _, ok := rc.JobContainer.(*container.HostEnvironment); ok {
+			shellWithFallback := []string{"bash", "sh"}
+			// Don't use bash on windows by default, if not using a docker container
+			if runtime.GOOS == "windows" {
+				shellWithFallback = []string{"pwsh", "powershell"}
+			}
+			step.Shell = shellWithFallback[0]
+			lenv := &localEnv{env: map[string]string{}}
+			for k, v := range sr.env {
+				lenv.env[k] = v
+			}
+			sr.getRunContext().ApplyExtraPath(ctx, &lenv.env)
+			_, err := lookpath.LookPath2(shellWithFallback[0], lenv)
+			if err != nil {
+				step.Shell = shellWithFallback[1]
+			}
+		} else if containerImage := rc.containerImage(ctx); containerImage != "" {
+			// Currently only linux containers are supported, use sh by default like actions/runner
 			step.Shell = "sh"
 		}
 	}

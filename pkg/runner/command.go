@@ -87,12 +87,18 @@ func (rc *RunContext) setEnv(ctx context.Context, kvPairs map[string]string, arg
 	if rc.Env == nil {
 		rc.Env = make(map[string]string)
 	}
-	rc.Env[name] = arg
-	// for composite action GITHUB_ENV and set-env passing
 	if rc.GlobalEnv == nil {
 		rc.GlobalEnv = map[string]string{}
 	}
-	rc.GlobalEnv[name] = arg
+	newenv := map[string]string{
+		name: arg,
+	}
+	mergeIntoMap := mergeIntoMapCaseSensitive
+	if rc.JobContainer != nil && rc.JobContainer.IsEnvironmentCaseInsensitive() {
+		mergeIntoMap = mergeIntoMapCaseInsensitive
+	}
+	mergeIntoMap(rc.Env, newenv)
+	mergeIntoMap(rc.GlobalEnv, newenv)
 }
 func (rc *RunContext) setOutput(ctx context.Context, kvPairs map[string]string, arg string) {
 	logger := common.Logger(ctx)
@@ -165,7 +171,7 @@ func unescapeKvPairs(kvPairs map[string]string) map[string]string {
 	return kvPairs
 }
 
-func (rc *RunContext) saveState(ctx context.Context, kvPairs map[string]string, arg string) {
+func (rc *RunContext) saveState(_ context.Context, kvPairs map[string]string, arg string) {
 	stepID := rc.CurrentStep
 	if stepID != "" {
 		if rc.IntraActionState == nil {

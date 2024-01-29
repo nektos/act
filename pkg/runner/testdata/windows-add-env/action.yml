@@ -1,0 +1,7 @@
+runs:
+  using: composite
+  steps:
+  - run: |
+      echo $env:GITHUB_ENV
+      echo "kEy=n/a" > $env:GITHUB_ENV
+    shell: pwsh

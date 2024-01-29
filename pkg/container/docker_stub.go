@@ -1,4 +1,4 @@
-//go:build WITHOUT_DOCKER || !(linux || darwin || windows)
+//go:build WITHOUT_DOCKER || !(linux || darwin || windows || netbsd)
 
 package container
 
@@ -51,6 +51,18 @@ func GetHostInfo(ctx context.Context) (info types.Info, err error) {
 }
 
 func NewDockerVolumeRemoveExecutor(volume string, force bool) common.Executor {
+	return func(ctx context.Context) error {
+		return nil
+	}
+}
+
+func NewDockerNetworkCreateExecutor(name string) common.Executor {
+	return func(ctx context.Context) error {
+		return nil
+	}
+}
+
+func NewDockerNetworkRemoveExecutor(name string) common.Executor {
 	return func(ctx context.Context) error {
 		return nil
 	}

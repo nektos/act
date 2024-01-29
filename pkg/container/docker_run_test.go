@@ -19,6 +19,7 @@ func TestDocker(t *testing.T) {
 	ctx := context.Background()
 	client, err := GetDockerClient(ctx)
 	assert.NoError(t, err)
+	defer client.Close()
 
 	dockerBuild := NewDockerBuildExecutor(NewDockerBuildExecutorInput{
 		ContextDir: "testdata",
@@ -78,7 +79,7 @@ type endlessReader struct {
 	io.Reader
 }
 
-func (r endlessReader) Read(p []byte) (n int, err error) {
+func (r endlessReader) Read(_ []byte) (n int, err error) {
 	return 1, nil
 }
 

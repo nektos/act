@@ -1,8 +1,5 @@
 on:
   push:
-defaults:
-  run:
-    shell: pwsh
 jobs:
   test:
     runs-on: windows-latest
@@ -25,3 +22,20 @@ jobs:
           echo "Unexpected value for `$env:key2: $env:key2"
           exit 1
         }
+    - run: |
+        echo $env:GITHUB_ENV
+        echo "KEY=test" > $env:GITHUB_ENV
+        echo "Key=expected" > $env:GITHUB_ENV
+    - name: Assert GITHUB_ENV is merged case insensitive
+      run: exit 1
+      if: env.KEY != 'expected' || env.Key != 'expected' || env.key != 'expected'
+    - name: Assert step env is merged case insensitive
+      run: exit 1
+      if: env.KEY != 'n/a' || env.Key != 'n/a' || env.key != 'n/a'
+      env:
+        KeY: 'n/a'
+    - uses: actions/checkout@v3
+    - uses: ./windows-add-env
+    - name: Assert composite env is merged case insensitive
+      run: exit 1
+      if: env.KEY != 'n/a' || env.Key != 'n/a' || env.key != 'n/a'

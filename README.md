@@ -17,6 +17,10 @@ Let's see it in action with a [sample repo](https://github.com/cplee/github-acti
 
 ![Demo](https://github.com/nektos/act/wiki/quickstart/act-quickstart-2.gif)
 
+# Act User Guide
+
+Please look at the [act user guide](https://nektosact.com) for more documentation.
+
 # Installation
 
 ## Necessary prerequisites for running `act`
@@ -192,6 +196,12 @@ If your workflow depends on this token, you need to create a [personal access to
 act -s GITHUB_TOKEN=[insert token or leave blank and omit equals for secure input]
 ```
 
+If [GitHub CLI](https://cli.github.com/) is installed, the [`gh auth token`](https://cli.github.com/manual/gh_auth_token) command can be used to automatically pass the token to act
+
+```bash
+act -s GITHUB_TOKEN="$(gh auth token)"
+```
+
 **WARNING**: `GITHUB_TOKEN` will be logged in shell history if not inserted through secure input or (depending on your shell config) the command is prefixed with a whitespace.
 
 # Known Issues
@@ -266,6 +276,15 @@ If you need an environment that works just like the corresponding GitHub runner 
 
 - [`catthehacker/ubuntu:full-*`](https://github.com/catthehacker/docker_images/pkgs/container/ubuntu) - built from Packer template provided by GitHub, see [catthehacker/virtual-environments-fork](https://github.com/catthehacker/virtual-environments-fork) or [catthehacker/docker_images](https://github.com/catthehacker/docker_images) for more information
 
+## Using local runner images
+
+The `--pull` flag is set to true by default due to a breaking on older default docker images. This would pull the docker image everytime act is executed.
+
+Set `--pull` to false if a local docker image is needed
+```sh
+  act --pull=false
+```
+
 ## Use an alternative runner image
 
 To use a different image for the runner, use the `-P` option.
@@ -295,6 +314,14 @@ To run `act` with secrets, you can enter them interactively, supply them as envi
 - `act -s MY_SECRET` - check for an environment variable named `MY_SECRET` and use it if it exists. If the environment variable is not defined, prompt the user for a value.
 - `act --secret-file my.secrets` - load secrets values from `my.secrets` file.
   - secrets file format is the same as `.env` format
+
+# Vars
+
+To run `act` with repository variables that are acessible inside the workflow via ${{ vars.VARIABLE }}, you can enter them interactively or load them from a file. The following options are available for providing github repository variables:
+
+- `act --var VARIABLE=somevalue` - use `somevalue` as the value for `VARIABLE`.
+- `act --var-file my.variables` - load variables values from `my.variables` file.
+  - variables file format is the same as `.env` format
 
 # Configuration
 
@@ -454,7 +481,7 @@ Want to contribute to act? Awesome! Check out the [contributing guidelines](CONT
 
 ## Manually building from source
 
-- Install Go tools 1.18+ - (<https://golang.org/doc/install>)
+- Install Go tools 1.20+ - (<https://golang.org/doc/install>)
 - Clone this repo `git clone git@github.com:nektos/act.git`
 - Run unit tests with `make test`
 - Build and install: `make install`
