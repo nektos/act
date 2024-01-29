@@ -122,16 +122,13 @@ func getDockerDaemonSocketMountPath(daemonPath string) string {
 func (rc *RunContext) GetBindsAndMounts() ([]string, map[string]string) {
 	name := rc.jobContainerName()
 
-	// Get socket path as <protocol>://<path>
-	daemonPath := getDockerDaemonSocketMountPath(rc.Config.ContainerDaemonSocket)
-
-	if rc.Config.ContainerDaemonSocket != "" && strings.Contains(rc.Config.ContainerDaemonSocket, "://") {
-		parts := strings.Split(rc.Config.ContainerDaemonSocket, "://")
-		rc.Config.ContainerDaemonSocket = parts[1]
+	if rc.Config.ContainerDaemonSocket == "" {
+		rc.Config.ContainerDaemonSocket = "/var/run/docker.sock"
 	}
 
 	binds := []string{}
 	if rc.Config.ContainerDaemonSocket != "-" {
+		daemonPath := getDockerDaemonSocketMountPath(rc.Config.ContainerDaemonSocket)
 		binds = append(binds, fmt.Sprintf("%s:%s", daemonPath, "/var/run/docker.sock"))
 	}
 
@@ -563,8 +560,6 @@ func (rc *RunContext) startContainer() common.Executor {
 		if rc.IsHostEnv(ctx) {
 			return rc.startHostEnvironment()(ctx)
 		}
-		logger := common.Logger(ctx)
-		logger.Infof("Starting container with config: %+v", rc.Config)
 		return rc.startJobContainer()(ctx)
 	}
 }
@@ -1033,7 +1028,7 @@ func (rc *RunContext) handleServiceCredentials(ctx context.Context, creds map[st
 // GetServiceBindsAndMounts returns the binds and mounts for the service container, resolving paths as appopriate
 func (rc *RunContext) GetServiceBindsAndMounts(svcVolumes []string) ([]string, map[string]string) {
 	if rc.Config.ContainerDaemonSocket == "" {
-		rc.Config.ContainerDaemonSocket = getDockerDaemonSocketMountPath(rc.Config.ContainerDaemonSocket)
+		rc.Config.ContainerDaemonSocket = "/var/run/docker.sock"
 	}
 	binds := []string{}
 	if rc.Config.ContainerDaemonSocket != "-" {
