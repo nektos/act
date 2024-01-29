@@ -3,6 +3,7 @@ package runner
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/kballard/go-shellquote"
@@ -85,9 +86,7 @@ func (sd *stepDocker) runUsesContainer() common.Executor {
 	}
 }
 
-var (
-	ContainerNewContainer = container.NewContainer
-)
+var ContainerNewContainer = container.NewContainer
 
 func (sd *stepDocker) newStepContainer(ctx context.Context, image string, cmd []string, entrypoint []string) container.Container {
 	rc := sd.RunContext
@@ -107,7 +106,12 @@ func (sd *stepDocker) newStepContainer(ctx context.Context, image string, cmd []
 		envList = append(envList, fmt.Sprintf("%s=%s", k, v))
 	}
 
-	envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_TOOL_CACHE", "/opt/hostedtoolcache"))
+	toolCache, found := os.LookupEnv("RUNNER_TOOL_CACHE")
+	if found {
+		envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_TOOL_CACHE", toolCache))
+	} else {
+		envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_TOOL_CACHE", "/opt/hostedtoolcache"))
+	}
 	envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_OS", "Linux"))
 	envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_ARCH", container.RunnerArch(ctx)))
 	envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_TEMP", "/tmp"))
