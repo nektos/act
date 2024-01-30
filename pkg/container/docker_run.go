@@ -451,24 +451,18 @@ func (cr *containerReference) create(capAdd []string, capDrop []string) common.E
 		var networkingConfig *network.NetworkingConfig
 		logger.Debugf("input.NetworkAliases ==> %v", input.NetworkAliases)
 		n := hostConfig.NetworkMode
-		logger.Debugf("NetworkMode ==> %v", n)
 		// IsUserDefined and IsHost are broken on windows
 		if n.IsUserDefined() && n != "host" && len(input.NetworkAliases) > 0 {
-			logger.Debugf("Getting endpoint settings")
 			endpointConfig := &network.EndpointSettings{
 				Aliases: input.NetworkAliases,
 			}
-			logger.Debugf("endpointConfig ==> %v", endpointConfig)
 			networkingConfig = &network.NetworkingConfig{
 				EndpointsConfig: map[string]*network.EndpointSettings{
 					input.NetworkMode: endpointConfig,
 				},
 			}
-			logger.Debugf("networkingConfig ==> %v", networkingConfig)
 		}
 
-		logger.Infof("Creating container: %v", input.Name)
-		logger.Debugf("Creating container args: %+v", config, hostConfig, networkingConfig, platSpecs)
 		resp, err := cr.cli.ContainerCreate(ctx, config, hostConfig, networkingConfig, platSpecs, input.Name)
 		if err != nil {
 			return fmt.Errorf("failed to create container: '%w'", err)
