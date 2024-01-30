@@ -1,4 +1,4 @@
-package container
+package filecollector
 
 import (
 	"archive/tar"
@@ -17,18 +17,18 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/format/index"
 )
 
-type fileCollectorHandler interface {
+type Handler interface {
 	WriteFile(path string, fi fs.FileInfo, linkName string, f io.Reader) error
 }
 
-type tarCollector struct {
+type TarCollector struct {
 	TarWriter *tar.Writer
 	UID       int
 	GID       int
 	DstDir    string
 }
 
-func (tc tarCollector) WriteFile(fpath string, fi fs.FileInfo, linkName string, f io.Reader) error {
+func (tc TarCollector) WriteFile(fpath string, fi fs.FileInfo, linkName string, f io.Reader) error {
 	// create a new dir/file header
 	header, err := tar.FileInfoHeader(fi, linkName)
 	if err != nil {
@@ -59,11 +59,11 @@ func (tc tarCollector) WriteFile(fpath string, fi fs.FileInfo, linkName string, 
 	return nil
 }
 
-type copyCollector struct {
+type CopyCollector struct {
 	DstDir string
 }
 
-func (cc *copyCollector) WriteFile(fpath string, fi fs.FileInfo, linkName string, f io.Reader) error {
+func (cc *CopyCollector) WriteFile(fpath string, fi fs.FileInfo, linkName string, f io.Reader) error {
 	fdestpath := filepath.Join(cc.DstDir, fpath)
 	if err := os.MkdirAll(filepath.Dir(fdestpath), 0o777); err != nil {
 		return err
@@ -82,29 +82,29 @@ func (cc *copyCollector) WriteFile(fpath string, fi fs.FileInfo, linkName string
 	return nil
 }
 
-type fileCollector struct {
+type FileCollector struct {
 	Ignorer   gitignore.Matcher
 	SrcPath   string
 	SrcPrefix string
-	Fs        fileCollectorFs
-	Handler   fileCollectorHandler
+	Fs        Fs
+	Handler   Handler
 }
 
-type fileCollectorFs interface {
+type Fs interface {
 	Walk(root string, fn filepath.WalkFunc) error
 	OpenGitIndex(path string) (*index.Index, error)
 	Open(path string) (io.ReadCloser, error)
 	Readlink(path string) (string, error)
 }
 
-type defaultFs struct {
+type DefaultFs struct {
 }
 
-func (*defaultFs) Walk(root string, fn filepath.WalkFunc) error {
+func (*DefaultFs) Walk(root string, fn filepath.WalkFunc) error {
 	return filepath.Walk(root, fn)
 }
 
-func (*defaultFs) OpenGitIndex(path string) (*index.Index, error) {
+func (*DefaultFs) OpenGitIndex(path string) (*index.Index, error) {
 	r, err := git.PlainOpen(path)
 	if err != nil {
 		return nil, err
@@ -116,16 +116,16 @@ func (*defaultFs) OpenGitIndex(path string) (*index.Index, error) {
 	return i, nil
 }
 
-func (*defaultFs) Open(path string) (io.ReadCloser, error) {
+func (*DefaultFs) Open(path string) (io.ReadCloser, error) {
 	return os.Open(path)
 }
 
-func (*defaultFs) Readlink(path string) (string, error) {
+func (*DefaultFs) Readlink(path string) (string, error) {
 	return os.Readlink(path)
 }
 
 //nolint:gocyclo
-func (fc *fileCollector) collectFiles(ctx context.Context, submodulePath []string) filepath.WalkFunc {
+func (fc *FileCollector) CollectFiles(ctx context.Context, submodulePath []string) filepath.WalkFunc {
 	i, _ := fc.Fs.OpenGitIndex(path.Join(fc.SrcPath, path.Join(submodulePath...)))
 	return func(file string, fi os.FileInfo, err error) error {
 		if err != nil {
@@ -166,7 +166,7 @@ func (fc *fileCollector) collectFiles(ctx context.Context, submodulePath []strin
 			}
 		}
 		if err == nil && entry.Mode == filemode.Submodule {
-			err = fc.Fs.Walk(file, fc.collectFiles(ctx, split))
+			err = fc.Fs.Walk(file, fc.CollectFiles(ctx, split))
 			if err != nil {
 				return err
 			}
