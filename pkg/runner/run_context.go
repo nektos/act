@@ -135,7 +135,7 @@ func (rc *RunContext) GetBindsAndMounts() ([]string, map[string]string) {
 	ext := container.LinuxContainerEnvironmentExtensions{}
 
 	mounts := map[string]string{
-		"act-toolcache": "/toolcache",
+		"act-toolcache": "/opt/hostedtoolcache",
 		name + "-env":   ext.GetActPath(),
 	}
 
