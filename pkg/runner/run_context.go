@@ -264,12 +264,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 
 		envList := make([]string, 0)
 
-		toolCache, found := os.LookupEnv("RUNNER_TOOL_CACHE")
-		if found {
-			envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_TOOL_CACHE", toolCache))
-		} else {
-			envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_TOOL_CACHE", "/opt/hostedtoolcache"))
-		}
+		envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_TOOL_CACHE", "/opt/hostedtoolcache"))
 		envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_OS", "Linux"))
 		envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_ARCH", container.RunnerArch(ctx)))
 		envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_TEMP", "/tmp"))
@@ -603,7 +598,7 @@ func (rc *RunContext) steps() []*model.Step {
 // Executor returns a pipeline executor for all the steps in the job
 func (rc *RunContext) Executor() (common.Executor, error) {
 	var executor common.Executor
-	jobType, err := rc.Run.Job().Type()
+	var jobType, err = rc.Run.Job().Type()
 
 	switch jobType {
 	case model.JobTypeDefault:
