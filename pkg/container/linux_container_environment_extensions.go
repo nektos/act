@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/nektos/act/pkg/common"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -66,8 +67,8 @@ func (*LinuxContainerEnvironmentExtensions) GetRunnerContext(ctx context.Context
 	return map[string]interface{}{
 		"os":         "Linux",
 		"arch":       RunnerArch(ctx),
-		"temp":       lookupDefaultEnv("RUNNER_TMP"),
-		"tool_cache": lookupDefaultEnv("RUNNER_TOOL_CACHE"),
+		"temp":       common.LookupDefaultEnv("RUNNER_TMP"),
+		"tool_cache": common.LookupDefaultEnv("RUNNER_TOOL_CACHE"),
 	}
 }
 
