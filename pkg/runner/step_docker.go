@@ -3,7 +3,6 @@ package runner
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/kballard/go-shellquote"
@@ -106,10 +105,10 @@ func (sd *stepDocker) newStepContainer(ctx context.Context, image string, cmd []
 		envList = append(envList, fmt.Sprintf("%s=%s", k, v))
 	}
 
-	envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_TOOL_CACHE", lookupDefaultEnv("RUNNER_TOOL_CACHE")))
+	envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_TOOL_CACHE", common.LookupDefaultEnv("RUNNER_TOOL_CACHE")))
 	envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_OS", "Linux"))
 	envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_ARCH", container.RunnerArch(ctx)))
-	envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_TEMP", lookupDefaultEnv("RUNNER_TEMP")))
+	envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_TEMP", common.LookupDefaultEnv("RUNNER_TEMP")))
 
 	binds, mounts := rc.GetBindsAndMounts()
 	stepContainer := ContainerNewContainer(&container.NewContainerInput{
