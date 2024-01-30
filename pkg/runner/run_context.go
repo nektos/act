@@ -264,15 +264,10 @@ func (rc *RunContext) startJobContainer() common.Executor {
 
 		envList := make([]string, 0)
 
-		toolCache, found := os.LookupEnv("RUNNER_TOOL_CACHE")
-		if found {
-			envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_TOOL_CACHE", toolCache))
-		} else {
-			envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_TOOL_CACHE", "/opt/hostedtoolcache"))
-		}
+		envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_TOOL_CACHE", lookupDefaultEnv("RUNNER_TOOL_CACHE")))
 		envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_OS", "Linux"))
 		envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_ARCH", container.RunnerArch(ctx)))
-		envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_TEMP", "/tmp"))
+		envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_TEMP", lookupDefaultEnv("RUNNER_TEMP")))
 		envList = append(envList, fmt.Sprintf("%s=%s", "LANG", "C.UTF-8")) // Use same locale as GitHub Actions
 
 		ext := container.LinuxContainerEnvironmentExtensions{}

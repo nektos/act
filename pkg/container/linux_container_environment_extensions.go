@@ -10,8 +10,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type LinuxContainerEnvironmentExtensions struct {
-}
+type LinuxContainerEnvironmentExtensions struct{}
 
 // Resolves the equivalent host path inside the container
 // This is required for windows and WSL 2 to translate things like C:\Users\Myproject to /mnt/users/Myproject
@@ -67,8 +66,8 @@ func (*LinuxContainerEnvironmentExtensions) GetRunnerContext(ctx context.Context
 	return map[string]interface{}{
 		"os":         "Linux",
 		"arch":       RunnerArch(ctx),
-		"temp":       "/tmp",
-		"tool_cache": "/opt/hostedtoolcache",
+		"temp":       lookupDefaultEnv("RUNNER_TMP"),
+		"tool_cache": lookupDefaultEnv("RUNNER_TOOL_CACHE"),
 	}
 }
 
