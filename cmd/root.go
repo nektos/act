@@ -127,34 +127,6 @@ func configLocations() []string {
 	}
 }
 
-var commonSocketPaths = []string{
-	"/var/run/docker.sock",
-	"/run/podman/podman.sock",
-	"$HOME/.colima/docker.sock",
-	"$XDG_RUNTIME_DIR/docker.sock",
-	"$XDG_RUNTIME_DIR/podman/podman.sock",
-	`\\.\pipe\docker_engine`,
-	"$HOME/.docker/run/docker.sock",
-}
-
-// returns socket path or false if not found any
-func socketLocation() (string, bool) {
-	if dockerHost, exists := os.LookupEnv("DOCKER_HOST"); exists {
-		return dockerHost, true
-	}
-
-	for _, p := range commonSocketPaths {
-		if _, err := os.Lstat(os.ExpandEnv(p)); err == nil {
-			if strings.HasPrefix(p, `\\.\`) {
-				return "npipe://" + filepath.ToSlash(os.ExpandEnv(p)), true
-			}
-			return "unix://" + filepath.ToSlash(os.ExpandEnv(p)), true
-		}
-	}
-
-	return "", false
-}
-
 func args() []string {
 	actrc := configLocations()
 
@@ -184,10 +156,11 @@ func bugReport(ctx context.Context, version string) error {
 	} else if dockerHost == "" {
 		dockerHost = "DOCKER_HOST environment variable is empty."
 	}
-
 	report += sprintf("Docker host:", dockerHost)
+
 	report += fmt.Sprintln("Sockets found:")
-	for _, p := range commonSocketPaths {
+	// FIXME: Get common paths from container util.go
+	for _, p := range getCommonSocketPaths() {
 		if _, err := os.Lstat(os.ExpandEnv(p)); err != nil {
 			continue
 		} else if _, err := os.Stat(os.ExpandEnv(p)); err != nil {

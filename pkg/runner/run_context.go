@@ -100,34 +100,17 @@ func (rc *RunContext) networkName() (string, bool) {
 	return string(rc.Config.ContainerNetworkMode), false
 }
 
-func getDockerDaemonSocketMountPath(daemonPath string) string {
-	if protoIndex := strings.Index(daemonPath, "://"); protoIndex != -1 {
-		scheme := daemonPath[:protoIndex]
-		if strings.EqualFold(scheme, "npipe") {
-			// linux container mount on windows, use the default socket path of the VM / wsl2
-			return "/var/run/docker.sock"
-		} else if strings.EqualFold(scheme, "unix") {
-			return daemonPath[protoIndex+3:]
-		} else if strings.IndexFunc(scheme, func(r rune) bool {
-			return (r < 'a' || r > 'z') && (r < 'A' || r > 'Z')
-		}) == -1 {
-			// unknown protocol use default
-			return "/var/run/docker.sock"
-		}
-	}
-	return daemonPath
-}
-
 // Returns the binds and mounts for the container, resolving paths as appopriate
 func (rc *RunContext) GetBindsAndMounts() ([]string, map[string]string) {
 	name := rc.jobContainerName()
 
 	if rc.Config.ContainerDaemonSocket == "" {
-		rc.Config.ContainerDaemonSocket = "/var/run/docker.sock"
+		rc.Config.ContainerDaemonSocket = socketLocation()
 	}
 
 	binds := []string{}
 	if rc.Config.ContainerDaemonSocket != "-" {
+		// FIXME: import from container util.go
 		daemonPath := getDockerDaemonSocketMountPath(rc.Config.ContainerDaemonSocket)
 		binds = append(binds, fmt.Sprintf("%s:%s", daemonPath, "/var/run/docker.sock"))
 	}
@@ -598,7 +581,7 @@ func (rc *RunContext) steps() []*model.Step {
 // Executor returns a pipeline executor for all the steps in the job
 func (rc *RunContext) Executor() (common.Executor, error) {
 	var executor common.Executor
-	var jobType, err = rc.Run.Job().Type()
+	jobType, err := rc.Run.Job().Type()
 
 	switch jobType {
 	case model.JobTypeDefault:
@@ -1028,7 +1011,7 @@ func (rc *RunContext) handleServiceCredentials(ctx context.Context, creds map[st
 // GetServiceBindsAndMounts returns the binds and mounts for the service container, resolving paths as appopriate
 func (rc *RunContext) GetServiceBindsAndMounts(svcVolumes []string) ([]string, map[string]string) {
 	if rc.Config.ContainerDaemonSocket == "" {
-		rc.Config.ContainerDaemonSocket = "/var/run/docker.sock"
+		rc.Config.ContainerDaemonSocket = socketLocation()
 	}
 	binds := []string{}
 	if rc.Config.ContainerDaemonSocket != "-" {
