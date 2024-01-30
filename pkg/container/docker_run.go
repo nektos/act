@@ -35,6 +35,7 @@ import (
 	"golang.org/x/term"
 
 	"github.com/nektos/act/pkg/common"
+	"github.com/nektos/act/pkg/filecollector"
 )
 
 // NewContainer creates a reference to a container
@@ -741,12 +742,12 @@ func (cr *containerReference) copyDir(dstPath string, srcPath string, useGitIgno
 			ignorer = gitignore.NewMatcher(ps)
 		}
 
-		fc := &fileCollector{
-			Fs:        &defaultFs{},
+		fc := &filecollector.FileCollector{
+			Fs:        &filecollector.DefaultFs{},
 			Ignorer:   ignorer,
 			SrcPath:   srcPath,
 			SrcPrefix: srcPrefix,
-			Handler: &tarCollector{
+			Handler: &filecollector.TarCollector{
 				TarWriter: tw,
 				UID:       cr.UID,
 				GID:       cr.GID,
@@ -754,7 +755,7 @@ func (cr *containerReference) copyDir(dstPath string, srcPath string, useGitIgno
 			},
 		}
 
-		err = filepath.Walk(srcPath, fc.collectFiles(ctx, []string{}))
+		err = filepath.Walk(srcPath, fc.CollectFiles(ctx, []string{}))
 		if err != nil {
 			return err
 		}
