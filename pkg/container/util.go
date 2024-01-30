@@ -36,12 +36,12 @@ var commonSocketPaths = []string{
 	"$HOME/.docker/run/docker.sock",
 }
 
-func getCommonSocketPath() ([]string, bool) {
+func GetCommonSocketPaths() ([]string, bool) {
 	return commonSocketPaths, true
 }
 
 // returns socket path or false if not found any
-func socketLocation() (string, bool) {
+func SocketLocation() (string, bool) {
 	if dockerHost, exists := os.LookupEnv("DOCKER_HOST"); exists {
 		return dockerHost, true
 	}
@@ -58,7 +58,7 @@ func socketLocation() (string, bool) {
 	return "", false
 }
 
-func getDockerDaemonSocketMountPath(daemonPath string) string {
+func GetDockerDaemonSocketMountPath(daemonPath string) string {
 	if protoIndex := strings.Index(daemonPath, "://"); protoIndex != -1 {
 		scheme := daemonPath[:protoIndex]
 		if strings.EqualFold(scheme, "npipe") {
@@ -70,7 +70,7 @@ func getDockerDaemonSocketMountPath(daemonPath string) string {
 			return (r < 'a' || r > 'z') && (r < 'A' || r > 'Z')
 		}) == -1 {
 			// unknown protocol use default
-			socket, _ := socketLocation()
+			socket, _ := SocketLocation()
 			// Strip protocol prefix
 			return strings.TrimPrefix(strings.TrimPrefix(socket, "unix://"), "npipe://")
 		}

@@ -159,8 +159,8 @@ func bugReport(ctx context.Context, version string) error {
 	report += sprintf("Docker host:", dockerHost)
 
 	report += fmt.Sprintln("Sockets found:")
-	// FIXME: Get common paths from container util.go
-	for _, p := range getCommonSocketPaths() {
+	commonSocketPaths, _ := container.GetCommonSocketPaths()
+	for _, p := range commonSocketPaths {
 		if _, err := os.Lstat(os.ExpandEnv(p)); err != nil {
 			continue
 		} else if _, err := os.Stat(os.ExpandEnv(p)); err != nil {
@@ -370,7 +370,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 
 		if input.containerDaemonSocket == "" {
 			// Naïvely assume a default socket exists
-			input.containerDaemonSocket, _ = socketLocation()
+			input.containerDaemonSocket, _ = container.SocketLocation()
 		}
 		if !hasDockerHost && shouldMount {
 			os.Setenv("DOCKER_HOST", input.containerDaemonSocket)
