@@ -486,7 +486,7 @@ func shouldRunPreStep(step actionStep) common.Conditional {
 }
 
 func hasPreStep(step actionStep) common.Conditional {
-	return func(ctx context.Context) bool {
+	return func(_ context.Context) bool {
 		action := step.getActionModel()
 		return action.Runs.Using == model.ActionRunsUsingComposite ||
 			((action.Runs.Using == model.ActionRunsUsingNode12 ||
@@ -582,7 +582,7 @@ func shouldRunPostStep(step actionStep) common.Conditional {
 }
 
 func hasPostStep(step actionStep) common.Conditional {
-	return func(ctx context.Context) bool {
+	return func(_ context.Context) bool {
 		action := step.getActionModel()
 		return action.Runs.Using == model.ActionRunsUsingComposite ||
 			((action.Runs.Using == model.ActionRunsUsingNode12 ||
