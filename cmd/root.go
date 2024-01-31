@@ -383,11 +383,14 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 
 		// Prefer DOCKER_HOST, don't override it
 		socketPath, hasDockerHost := os.LookupEnv("DOCKER_HOST")
-		if !hasDockerHost {
-			// a - in containerDaemonSocket means don't mount, preserve this value
-			// otherwise if input.containerDaemonSocket is a filepath don't use it as socketPath
-			skipMount := input.containerDaemonSocket == "-" || !isDockerHostURI(input.containerDaemonSocket)
-			if input.containerDaemonSocket != "" && !skipMount {
+		if hasDockerHost {
+			// Try to mount tge socket in DOCKER_HOST, remote uris have a fallback deeper in the codebase
+			if input.containerDaemonSocket == "" {
+				input.containerDaemonSocket = socketPath
+			}
+		} else {
+			// if input.containerDaemonSocket is a uri use it for DOCKER_HOST, while unset
+			if isDockerHostURI(input.containerDaemonSocket) {
 				socketPath = input.containerDaemonSocket
 			} else {
 				socket, found := socketLocation()
@@ -396,7 +399,8 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 				} else {
 					socketPath = socket
 				}
-				if !skipMount {
+				// Try to mount the found socket, remote uris have a fallback deeper in the codebase
+				if input.containerDaemonSocket == "" {
 					input.containerDaemonSocket = socketPath
 				}
 			}
