@@ -9,7 +9,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-var CommonSocketPaths = []string{
+var CommonSocketLocations = []string{
 	"/var/run/docker.sock",
 	"/run/podman/podman.sock",
 	"$HOME/.colima/docker.sock",
@@ -19,13 +19,13 @@ var CommonSocketPaths = []string{
 	"$HOME/.docker/run/docker.sock",
 }
 
-// returns socket path or false if not found any
+// returns socket URI or false if not found any
 func socketLocation() (string, bool) {
 	if dockerHost, exists := os.LookupEnv("DOCKER_HOST"); exists {
 		return dockerHost, true
 	}
 
-	for _, p := range CommonSocketPaths {
+	for _, p := range CommonSocketLocations {
 		if _, err := os.Lstat(os.ExpandEnv(p)); err == nil {
 			if strings.HasPrefix(p, `\\.\`) {
 				return "npipe://" + filepath.ToSlash(os.ExpandEnv(p)), true

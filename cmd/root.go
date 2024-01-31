@@ -159,7 +159,7 @@ func bugReport(ctx context.Context, version string) error {
 
 	report += sprintf("Docker host:", dockerHost)
 	report += fmt.Sprintln("Sockets found:")
-	for _, p := range container.CommonSocketPaths {
+	for _, p := range container.CommonSocketLocations {
 		if _, err := os.Lstat(os.ExpandEnv(p)); err != nil {
 			continue
 		} else if _, err := os.Stat(os.ExpandEnv(p)); err != nil {
@@ -341,10 +341,11 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			return bugReport(ctx, cmd.Version)
 		}
 		if ret, err := container.GetSocketAndHost(input.containerDaemonSocket); err != nil {
-			return err
+			log.Warnf("Couldn't get a valid docker connection: %+v", err)
 		} else {
 			os.Setenv("DOCKER_HOST", ret.Host)
 			input.containerDaemonSocket = ret.Socket
+			log.Infof("Using docker host '%s', and daemon socket '%s'", ret.Host, ret.Socket)
 		}
 
 		if runtime.GOOS == "darwin" && runtime.GOARCH == "arm64" && input.containerArchitecture == "" {
