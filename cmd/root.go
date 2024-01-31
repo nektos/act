@@ -384,7 +384,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 		// Prefer DOCKER_HOST, don't override it
 		socketPath, hasDockerHost := os.LookupEnv("DOCKER_HOST")
 		if hasDockerHost {
-			// Try to mount tge socket in DOCKER_HOST, remote uris have a fallback deeper in the codebase
+			// Try to mount the socket in DOCKER_HOST, remote uris have a fallback deeper in the codebase
 			if input.containerDaemonSocket == "" {
 				input.containerDaemonSocket = socketPath
 			}
