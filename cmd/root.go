@@ -340,7 +340,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 		if ok, _ := cmd.Flags().GetBool("bug-report"); ok {
 			return bugReport(ctx, cmd.Version)
 		}
-		socketAndHost, err := container.GetSocketAndHost(input.containerDaemonSocket, "DOCKER_HOST")
+		socketAndHost, err := container.GetSocketAndHost(input.containerDaemonSocket)
 		if err != nil {
 			return err
 		}
