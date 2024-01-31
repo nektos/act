@@ -96,9 +96,12 @@ func GetSocketAndHost(containerSocket string) (SocketAndHost, error) {
 	// Case A: DOCKER_HOST is set; use it, i.e. do nothing
 	// Case B: DOCKER_HOST is empty; use sane defaults
 
-	if !hasDockerHost && socketHost.Socket == "-" {
+	// Set host for sanity's sake, when the socket isn't useful
+	if !hasDockerHost && (socketHost.Socket == "-" || !isDockerHostURI(socketHost.Socket) || socketHost.Socket == "") {
+		// Cases: 1B, 2B, 4B
 		socket, _ := socketLocation()
-		socketHost.Socket = socket
+		socketHost.Host = socket
+		hasDockerHost = true
 	}
 
 	// A - (dash) in socketHost.socket means don't mount, preserve this value
