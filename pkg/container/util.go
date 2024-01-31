@@ -79,12 +79,12 @@ type SocketAndHost struct {
 	Host   string
 }
 
-func GetSocketAndHost(containerSocket string, dockerHost string) (SocketAndHost, error) {
-	socketHost := SocketAndHost{Socket: containerSocket, Host: dockerHost}
+func GetSocketAndHost(containerSocket string, dockerHostEnvName string) (SocketAndHost, error) {
 	log.Debugf("Handling container host and socket")
 
 	// Prefer DOCKER_HOST, don't override it
-	dockerHost, hasDockerHost := os.LookupEnv(socketHost.Host)
+	dockerHost, hasDockerHost := os.LookupEnv(dockerHostEnvName)
+	socketHost := SocketAndHost{Socket: containerSocket, Host: dockerHost}
 
 	// ** socketHost.socket cases **
 	// Case 1: User does _not_ want to mount a daemon socket (passes a dash)
