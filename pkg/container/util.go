@@ -75,16 +75,17 @@ func isDockerHostURI(daemonPath string) bool {
 }
 
 type SocketAndHost struct {
-	Socket string
-	Host   string
+	Socket        string
+	Host          string
+	hasDockerHost bool
 }
 
-func GetSocketAndHost(containerSocket string, dockerHostEnvName string) (SocketAndHost, error) {
+func GetSocketAndHost(containerSocket string) (SocketAndHost, error) {
 	log.Debugf("Handling container host and socket")
 
 	// Prefer DOCKER_HOST, don't override it
 	dockerHost, hasDockerHost := os.LookupEnv(dockerHostEnvName)
-	socketHost := SocketAndHost{Socket: containerSocket, Host: dockerHost}
+	socketHost := SocketAndHost{Socket: containerSocket, Host: dockerHost, hasDockerHost: hasDockerHost}
 
 	// ** socketHost.socket cases **
 	// Case 1: User does _not_ want to mount a daemon socket (passes a dash)
@@ -96,20 +97,25 @@ func GetSocketAndHost(containerSocket string, dockerHostEnvName string) (SocketA
 	// Case A: DOCKER_HOST is set; use it, i.e. do nothing
 	// Case B: DOCKER_HOST is empty; use sane defaults
 
+	if !socketHost.hasDockerHost && socketHost.Socket == "-" {
+		socket, _ := socketLocation()
+		socketHost.Socket = socket
+	}
+
 	// A - (dash) in socketHost.socket means don't mount, preserve this value
 	// otherwise if socketHost.socket is a filepath don't use it as socket
 	// Exit early if we're in an invalid state (e.g. when no DOCKER_HOST and user supplied "-", a dash or omitted)
-	if !hasDockerHost && socketHost.Socket != "" && !isDockerHostURI(socketHost.Socket) {
+	if !socketHost.hasDockerHost && socketHost.Socket != "" && !isDockerHostURI(socketHost.Socket) {
 		// Cases: 1B, 2B
 		// Should we early-exit here, since there is no host nor socket to talk to?
-		return SocketAndHost{}, fmt.Errorf("daemon Docker Engine socket not found and socketHost.socket option was not set")
+		return SocketAndHost{}, fmt.Errorf("DOCKER_HOST was not set, couldn't be found in the usual locations, and the container daemon socket ('%s') is invalid", socketHost.Socket)
 	}
 
 	// Default to DOCKER_HOST if set
-	if socketHost.Socket == "" && hasDockerHost {
+	if socketHost.Socket == "" && socketHost.hasDockerHost {
 		// Cases: 4A
 		log.Debugf("Defaulting container socket to DOCKER_HOST")
-		socketHost.Socket = dockerHost
+		socketHost.Socket = socketHost.Host
 	}
 	// Set sane default socket location if user omitted it
 	if socketHost.Socket == "" {
@@ -121,7 +127,7 @@ func GetSocketAndHost(containerSocket string, dockerHostEnvName string) (SocketA
 	}
 
 	// Exit if both the DOCKER_HOST and socket are fulfilled
-	if hasDockerHost {
+	if socketHost.hasDockerHost {
 		// Cases: 1A, 2A, 3A, 4A
 		if !isDockerHostURI(socketHost.Socket) {
 			// Cases: 1A, 2A
