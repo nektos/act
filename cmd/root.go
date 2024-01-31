@@ -340,12 +340,12 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 		if ok, _ := cmd.Flags().GetBool("bug-report"); ok {
 			return bugReport(ctx, cmd.Version)
 		}
-		socketAndHost, err := container.GetSocketAndHost(input.containerDaemonSocket)
-		if err != nil {
+		if ret, err := container.GetSocketAndHost(input.containerDaemonSocket); err != nil {
 			return err
+		} else {
+			os.Setenv("DOCKER_HOST", ret.Host)
+			input.containerDaemonSocket = ret.Socket
 		}
-		os.Setenv("DOCKER_HOST", socketAndHost.Host)
-		input.containerDaemonSocket = socketAndHost.Socket
 
 		if runtime.GOOS == "darwin" && runtime.GOARCH == "arm64" && input.containerArchitecture == "" {
 			l := log.New()
