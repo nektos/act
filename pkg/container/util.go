@@ -84,7 +84,7 @@ func GetSocketAndHost(containerSocket string) (SocketAndHost, error) {
 	log.Debugf("Handling container host and socket")
 
 	// Prefer DOCKER_HOST, don't override it
-	dockerHost, hasDockerHost := os.LookupEnv(dockerHostEnvName)
+	dockerHost, hasDockerHost := socketLocation()
 	socketHost := SocketAndHost{Socket: containerSocket, Host: dockerHost, hasDockerHost: hasDockerHost}
 
 	// ** socketHost.socket cases **
