@@ -1,6 +1,7 @@
 package container
 
 import (
+	"fmt"
 	"os"
 	"testing"
 
@@ -112,4 +113,39 @@ func TestGetSocketAndHostNoDefaultNoHost(t *testing.T) {
 	assert.Equal(t, found, false, "Expected no default socket to be found")
 	assert.Equal(t, err, nil, "Expected no error from GetSocketAndHost")
 	assert.Equal(t, SocketAndHost{"-", defaultSocket}, ret, "Expected to match default socket location")
+}
+
+func TestGetSocketAndHostNoHostInvalidSocket(t *testing.T) {
+	// Arrange
+	os.Unsetenv("DOCKER_HOST")
+	mySocket := "/my/socket/path.sock"
+	CommonSocketLocations = []string{"/unusual", "/socket", "/location"}
+	defaultSocket, found := socketLocation()
+
+	// Act
+	ret, err := GetSocketAndHost(mySocket)
+
+	// Assert
+	assert.Equal(t, found, false, "Expected no default socket to be found")
+	assert.ErrorIs(t, err, fmt.Errorf("Invalid socket location: %s", mySocket))
+	assert.Equal(t, SocketAndHost{mySocket, defaultSocket}, ret, "Expected to match default socket location")
+}
+
+func TestGetSocketAndHostOnlySocketValidButUnusualLocation(t *testing.T) {
+	// Arrange
+	socketURI := "unix:///path/to/my.socket"
+	CommonSocketLocations = []string{"/unusual", "/location"}
+	os.Unsetenv("DOCKER_HOST")
+	defaultSocket, found := socketLocation()
+
+	// Act
+	ret, err := GetSocketAndHost(socketURI)
+
+	// Assert
+	// Default socket locations
+	assert.Equal(t, "", defaultSocket, "Expect default socket location to be empty")
+	assert.Equal(t, false, found, "Expected no default socket to be found")
+	// Sane default
+	assert.Nil(t, err, "Expect no error from GetSocketAndHost")
+	assert.Equal(t, socketURI, ret.Host, "Expect host to default to unusual socket")
 }
