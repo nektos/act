@@ -1,7 +1,6 @@
 package container
 
 import (
-	"fmt"
 	"os"
 	"testing"
 
@@ -13,8 +12,11 @@ func init() {
 	log.SetLevel(log.DebugLevel)
 }
 
+var originalCommonSocketLocations = CommonSocketLocations
+
 func TestGetSocketAndHostWithSocket(t *testing.T) {
 	// Arrange
+	CommonSocketLocations = originalCommonSocketLocations
 	dockerHost := "unix:///my/docker/host.sock"
 	socketURI := "/path/to/my.socket"
 	os.Setenv("DOCKER_HOST", dockerHost)
@@ -43,18 +45,18 @@ func TestGetSocketAndHostNoSocket(t *testing.T) {
 func TestGetSocketAndHostOnlySocket(t *testing.T) {
 	// Arrange
 	socketURI := "/path/to/my.socket"
-	mySocketEnv := "$HOME/home.sock"
-	CommonSocketLocations = []string{mySocketEnv}
+	commonLocationEnv := "$HOME/home.sock"
+	CommonSocketLocations = []string{commonLocationEnv}
 	os.Unsetenv("DOCKER_HOST")
-	defaultSocket, _ := socketLocation()
-	mySocket := os.ExpandEnv(mySocketEnv)
+	defaultSocket, defaultSocketFound := socketLocation()
+	commonSocket := os.ExpandEnv(commonLocationEnv)
 
 	// Act
 	ret, err := GetSocketAndHost(socketURI)
 
 	// Assert
 	assert.NoError(t, err, "Expected no error from GetSocketAndHost")
-	assert.Equal(t, socketURI, ret.Socket, "Expected ret.Socket to match socketURI")
+	assert.Equal(t, socketURI, ret.Socket, "Expected socket to match common location")
 	assert.Equal(t, defaultSocket, ret.Host, "Expected ret.Host to match default socket location")
 
 	// Expand environment variables in CommonSocketLocations
@@ -64,13 +66,15 @@ func TestGetSocketAndHostOnlySocket(t *testing.T) {
 	}
 
 	// Assert that ret is in the list of expanded common locations
-	assert.Equal(t, mySocket, ret.Host, "Expect the default socket as host")
+	assert.Equal(t, false, defaultSocketFound, "Expect the default socket to be empty")
+	assert.Equal(t, "", defaultSocket, "Expect the default socket to be empty")
 
-	assert.Equal(t, expandedLocations, []string{mySocket}, "Expected specific default socket URIs")
+	assert.Equal(t, expandedLocations, []string{commonSocket}, "Expected specific default socket URIs")
 }
 
 func TestGetSocketAndHostDontMount(t *testing.T) {
 	// Arrange
+	CommonSocketLocations = originalCommonSocketLocations
 	dockerHost := "unix:///my/docker/host.sock"
 	os.Setenv("DOCKER_HOST", dockerHost)
 
@@ -84,6 +88,7 @@ func TestGetSocketAndHostDontMount(t *testing.T) {
 
 func TestGetSocketAndHostNoHostNoSocket(t *testing.T) {
 	// Arrange
+	CommonSocketLocations = originalCommonSocketLocations
 	os.Unsetenv("DOCKER_HOST")
 	defaultSocket, found := socketLocation()
 
@@ -127,7 +132,7 @@ func TestGetSocketAndHostNoHostInvalidSocket(t *testing.T) {
 
 	// Assert
 	assert.Equal(t, found, false, "Expected no default socket to be found")
-	assert.ErrorIs(t, err, fmt.Errorf("Invalid socket location: %s", mySocket))
+	assert.Error(t, err, "Expected an error in invalid state")
 	assert.Equal(t, SocketAndHost{mySocket, defaultSocket}, ret, "Expected to match default socket location")
 }
 
