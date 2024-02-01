@@ -122,6 +122,7 @@ func GetSocketAndHost(containerSocket string) (SocketAndHost, error) {
 	if isDockerHostURI(socketHost.Socket) {
 		// Cases: 3B
 		log.Debugf("Setting DOCKER_HOST to container socket '%s'", socketHost.Socket)
+		socketHost.Host = socketHost.Socket
 		// Both DOCKER_HOST and container socket are valid; short-circuit exit
 		return socketHost, nil
 	}
