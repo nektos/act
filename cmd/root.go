@@ -107,24 +107,22 @@ func Execute(ctx context.Context, version string) {
 	}
 }
 
-// Return locations where Act's config can be found in order : XDG spec, .actrc in HOME directory, .actrc in invocation directory
+// Return locations where Act's config can be found in order: XDG spec, .actrc in HOME directory, .actrc in invocation directory
 func configLocations() []string {
 	configFileName := ".actrc"
 
-	// reference: https://specifications.freedesktop.org/basedir-spec/latest/ar01s03.html
-	var actrcXdg string
-	for _, fileName := range []string{"act/actrc", configFileName} {
-		if foundConfig, err := xdg.SearchConfigFile(fileName); foundConfig != "" && err == nil {
-			actrcXdg = foundConfig
-			break
-		}
+	homePath := filepath.Join(UserHomeDir, configFileName)
+	invocationPath := filepath.Join(".", configFileName)
+
+	// Though named xdg, adrg's lib support macOS and Windows config paths as well
+	// It also takes cares of creating the parent folder so we don't need to bother later
+	specPath, err := xdg.ConfigFile("act/actrc")
+	if err != nil {
+		specPath = homePath
 	}
 
-	return []string{
-		actrcXdg,
-		filepath.Join(UserHomeDir, configFileName),
-		filepath.Join(".", configFileName),
-	}
+	// This order should be enforced since the survey part relies on it
+	return []string{specPath, homePath, invocationPath}
 }
 
 var commonSocketPaths = []string{
@@ -554,7 +552,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 				}
 			}
 			if !cfgFound && len(cfgLocations) > 0 {
-				// The first config location refers to the XDG spec one
+				// The first config location refers to the global config folder one
 				if err := defaultImageSurvey(cfgLocations[0]); err != nil {
 					log.Fatal(err)
 				}
