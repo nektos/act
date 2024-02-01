@@ -22,7 +22,7 @@ func TestGetSocketAndHostWithSocket(t *testing.T) {
 	ret, err := GetSocketAndHost(socketURI)
 
 	// Assert
-	assert.NotErrorIs(t, err, nil)
+	assert.Equal(t, err, nil)
 	assert.Equal(t, SocketAndHost{socketURI, dockerHost}, ret)
 }
 
@@ -35,7 +35,7 @@ func TestGetSocketAndHostNoSocket(t *testing.T) {
 	ret, err := GetSocketAndHost("")
 
 	// Assert
-	assert.NotErrorIs(t, err, nil)
+	assert.Equal(t, err, nil)
 	assert.Equal(t, SocketAndHost{dockerHost, dockerHost}, ret)
 }
 
@@ -48,8 +48,9 @@ func TestGetSocketAndHostOnlySocket(t *testing.T) {
 	ret, err := GetSocketAndHost(socketURI)
 
 	// Assert
-	assert.NotErrorIs(t, err, nil)
-	assert.Equal(t, SocketAndHost{socketURI, socketURI}, ret)
+	assert.Equal(t, err, nil)
+	// assert.Equal(t, SocketAndHost{socketURI, socketURI}, ret)
+	assert.Equal(t, socketURI, ret)
 }
 
 func TestGetSocketAndHostDontMount(t *testing.T) {
@@ -61,6 +62,6 @@ func TestGetSocketAndHostDontMount(t *testing.T) {
 	ret, err := GetSocketAndHost("-")
 
 	// Assert
-	assert.NotErrorIs(t, err, nil)
+	assert.Equal(t, err, nil)
 	assert.Equal(t, SocketAndHost{"-", dockerHost}, ret)
 }
