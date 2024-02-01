@@ -66,7 +66,7 @@ func GetSocketAndHost(containerSocket string) (SocketAndHost, error) {
 	dockerHost, hasDockerHost := socketLocation()
 	socketHost := SocketAndHost{Socket: containerSocket, Host: dockerHost}
 
-	// ** socketHost.socket cases **
+	// ** socketHost.Socket cases **
 	// Case 1: User does _not_ want to mount a daemon socket (passes a dash)
 	// Case 2: User passes a filepath to the socket; is that even valid?
 	// Case 3: User passes a valid socket; do nothing
@@ -84,8 +84,8 @@ func GetSocketAndHost(containerSocket string) (SocketAndHost, error) {
 		hasDockerHost = true
 	}
 
-	// A - (dash) in socketHost.socket means don't mount, preserve this value
-	// otherwise if socketHost.socket is a filepath don't use it as socket
+	// A - (dash) in socketHost.Socket means don't mount, preserve this value
+	// otherwise if socketHost.Socket is a filepath don't use it as socket
 	// Exit early if we're in an invalid state (e.g. when no DOCKER_HOST and user supplied "-", a dash or omitted)
 	if !hasDockerHost && socketHost.Socket != "" && !isDockerHostURI(socketHost.Socket) {
 		// Cases: 1B, 2B
