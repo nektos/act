@@ -13,37 +13,54 @@ func init() {
 }
 
 func TestGetSocketAndHostWithSocket(t *testing.T) {
-	os.Setenv("DOCKER_HOST", "unix:///my/docker/host.sock")
-	ret, err := GetSocketAndHost("/path/to/my.socket")
+	// Arrange
+	dockerHost := "unix:///my/docker/host.sock"
+	socketURI := "/path/to/my.socket"
+	os.Setenv("DOCKER_HOST", dockerHost)
+
+	// Act
+	ret, err := GetSocketAndHost(socketURI)
+
+	// Assert
 	assert.NotErrorIs(t, err, nil)
-	assert.Equal(t, SocketAndHost{"/path/to/my.socket", "unix:///my/docker/host.sock"}, ret)
+	assert.Equal(t, SocketAndHost{socketURI, dockerHost}, ret)
 }
 
 func TestGetSocketAndHostNoSocket(t *testing.T) {
-	os.Setenv("DOCKER_HOST", "unix:///my/docker/host.sock")
+	// Arrange
+	dockerHost := "unix:///my/docker/host.sock"
+	os.Setenv("DOCKER_HOST", dockerHost)
+
+	// Act
 	ret, err := GetSocketAndHost("")
+
+	// Assert
 	assert.NotErrorIs(t, err, nil)
-	assert.Equal(t, SocketAndHost{"/var/run/docker.sock", "unix:///my/docker/host.sock"}, ret)
+	assert.Equal(t, SocketAndHost{dockerHost, dockerHost}, ret)
 }
 
 func TestGetSocketAndHostOnlySocket(t *testing.T) {
-	os.Setenv("DOCKER_HOST", "unix:///my/docker/host.sock")
+	// Arrange
+	socketURI := "/path/to/my.socket"
 	os.Unsetenv("DOCKER_HOST")
-	ret, err := GetSocketAndHost("/path/to/my.socket")
+
+	// Act
+	ret, err := GetSocketAndHost(socketURI)
+
+	// Assert
 	assert.NotErrorIs(t, err, nil)
-	assert.Equal(t, SocketAndHost{"/path/to/my.socket", "unix:///my/docker/host.sock"}, ret)
+	assert.Equal(t, SocketAndHost{socketURI, socketURI}, ret)
 }
 
 func TestGetSocketAndHostDontMount(t *testing.T) {
-	os.Setenv("DOCKER_HOST", "unix:///my/docker/host.sock")
-	ret, err := GetSocketAndHost("-")
-	assert.NotErrorIs(t, err, nil)
-	assert.Equal(t, SocketAndHost{"-", "unix:///my/docker/host.sock"}, ret)
-}
+	// Arrange
+	dockerHost := "unix:///my/docker/host.sock"
+	os.Setenv("DOCKER_HOST", dockerHost)
 
-func TestGetSocketAndHost(t *testing.T) {
-	os.Setenv("DOCKER_HOST", "unix:///my/docker/host.sock")
+	// Act
 	ret, err := GetSocketAndHost("-")
+
+	// Assert
 	assert.NotErrorIs(t, err, nil)
-	assert.Equal(t, SocketAndHost{"-", "unix:///my/docker/host.sock"}, ret)
+	assert.Equal(t, SocketAndHost{"-", dockerHost}, ret)
 }
