@@ -2,6 +2,7 @@ package container
 
 import (
 	"os"
+	"strings"
 	"testing"
 
 	log "github.com/sirupsen/logrus"
@@ -52,7 +53,9 @@ func TestGetSocketAndHostOnlySocket(t *testing.T) {
 
 	// Assert that ret.Socket and ret.Host are as expected
 	assert.Equal(t, socketURI, ret.Socket, "Expected ret.Socket to match socketURI")
-	// assert.Equal(t, socketURI, ret.Host, "Expected ret.Host to match socketURI")
+
+	defaultSocket, _ := socketLocation()
+	assert.Equal(t, defaultSocket, ret.Host, "Expected ret.Host to match default socket location")
 
 	// Expand environment variables in CommonSocketLocations
 	expandedLocations := make([]string, len(CommonSocketLocations))
@@ -61,7 +64,7 @@ func TestGetSocketAndHostOnlySocket(t *testing.T) {
 	}
 
 	// Assert that ret is in the list of expanded common locations
-	assert.Contains(t, expandedLocations, ret.Socket, "Expected ret.Socket to be in the list of common locations")
+	assert.Contains(t, expandedLocations, strings.TrimPrefix(ret.Host, "unix://"), "Expected your to find a default DOCKER_HOST in the list of common locations")
 }
 
 func TestGetSocketAndHostDontMount(t *testing.T) {
