@@ -111,19 +111,18 @@ func Execute(ctx context.Context, version string) {
 func configLocations() []string {
 	configFileName := ".actrc"
 
+	homePath := filepath.Join(UserHomeDir, configFileName)
+	invocationPath := filepath.Join(".", configFileName)
+
 	// Though named xdg, adrg's lib support macOS and Windows config paths as well
 	// It also takes cares of creating the parent folder so we don't need to bother later
-	configPath, err := xdg.ConfigFile("act/actrc")
+	specPath, err := xdg.ConfigFile("act/actrc")
 	if err != nil {
-		log.Fatal("Could not create config file")
+		specPath = homePath
 	}
 
 	// This order should be enforced since the survey part relies on it
-	return []string{
-		configPath,
-		filepath.Join(UserHomeDir, configFileName),
-		filepath.Join(".", configFileName),
-	}
+	return []string{specPath, homePath, invocationPath}
 }
 
 var commonSocketPaths = []string{
