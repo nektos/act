@@ -104,20 +104,26 @@ func TestGetSocketAndHostNoHostNoSocket(t *testing.T) {
 // Catch
 // > Your code breaks setting DOCKER_HOST if shouldMount is false.
 // > This happens if neither DOCKER_HOST nor --container-daemon-socket has a value, but socketLocation() returns a URI
-func TestGetSocketAndHostNoDefaultNoHost(t *testing.T) {
+func TestGetSocketAndHostNoMountNoHost(t *testing.T) {
 	// Arrange
+	mySocketFile, tmpErr := os.CreateTemp("", "act-*.sock")
+	mySocket := mySocketFile.Name()
+	unixSocket := "unix://" + mySocket
+	defer os.RemoveAll(mySocket)
+	assert.NoError(t, tmpErr)
 	os.Unsetenv("DOCKER_HOST")
-	mySocket := "/my/common.sock"
+
 	CommonSocketLocations = []string{mySocket}
 	defaultSocket, found := socketLocation()
 
 	// Act
-	ret, err := GetSocketAndHost("-")
+	ret, err := GetSocketAndHost("")
 
 	// Assert
-	assert.Equal(t, found, false, "Expected no default socket to be found")
+	assert.Equal(t, defaultSocket, unixSocket, "Expected default socket to match common socket location")
+	assert.Equal(t, found, true, "Expected default socket to be found")
 	assert.Equal(t, err, nil, "Expected no error from GetSocketAndHost")
-	assert.Equal(t, SocketAndHost{"-", defaultSocket}, ret, "Expected to match default socket location")
+	assert.Equal(t, SocketAndHost{unixSocket, unixSocket}, ret, "Expected to match default socket location")
 }
 
 func TestGetSocketAndHostNoHostInvalidSocket(t *testing.T) {
