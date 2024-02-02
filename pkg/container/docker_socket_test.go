@@ -104,7 +104,7 @@ func TestGetSocketAndHostNoHostNoSocket(t *testing.T) {
 // Catch
 // > Your code breaks setting DOCKER_HOST if shouldMount is false.
 // > This happens if neither DOCKER_HOST nor --container-daemon-socket has a value, but socketLocation() returns a URI
-func TestGetSocketAndHostNoMountNoHost(t *testing.T) {
+func TestGetSocketAndHostNoHostNoSocketDefaultLocation(t *testing.T) {
 	// Arrange
 	mySocketFile, tmpErr := os.CreateTemp("", "act-*.sock")
 	mySocket := mySocketFile.Name()
