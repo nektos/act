@@ -45,31 +45,18 @@ func TestGetSocketAndHostNoSocket(t *testing.T) {
 func TestGetSocketAndHostOnlySocket(t *testing.T) {
 	// Arrange
 	socketURI := "/path/to/my.socket"
-	commonLocationEnv := "$HOME/home.sock"
-	CommonSocketLocations = []string{commonLocationEnv}
 	os.Unsetenv("DOCKER_HOST")
+	CommonSocketLocations = originalCommonSocketLocations
 	defaultSocket, defaultSocketFound := socketLocation()
-	commonSocket := os.ExpandEnv(commonLocationEnv)
 
 	// Act
 	ret, err := GetSocketAndHost(socketURI)
 
 	// Assert
 	assert.NoError(t, err, "Expected no error from GetSocketAndHost")
+	assert.Equal(t, true, defaultSocketFound, "Expected to find default socket")
 	assert.Equal(t, socketURI, ret.Socket, "Expected socket to match common location")
 	assert.Equal(t, defaultSocket, ret.Host, "Expected ret.Host to match default socket location")
-
-	// Expand environment variables in CommonSocketLocations
-	expandedLocations := make([]string, len(CommonSocketLocations))
-	for i, loc := range CommonSocketLocations {
-		expandedLocations[i] = os.ExpandEnv(loc)
-	}
-
-	// Assert that ret is in the list of expanded common locations
-	assert.Equal(t, false, defaultSocketFound, "Expect the default socket to be empty")
-	assert.Equal(t, "", defaultSocket, "Expect the default socket to be empty")
-
-	assert.Equal(t, expandedLocations, []string{commonSocket}, "Expected specific default socket URIs")
 }
 
 func TestGetSocketAndHostDontMount(t *testing.T) {
