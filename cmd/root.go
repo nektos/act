@@ -640,9 +640,15 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 		}
 
 		const actionsRuntimeURLKey = "ACTIONS_RUNTIME_URL"
-		if envs[actionsRuntimeURLKey] == "" {
+		if !input.noCacheServer && envs[actionsRuntimeURLKey] == "" && artifactServer != nil {
 			envs[actionsRuntimeURLKey] = fmt.Sprintf("http://%s/", artifactServer.Addr)
 		}
+		const actionsRuntimeTokenKey = "ACTIONS_RUNTIME_TOKEN"
+		actionsRuntimeToken := os.Getenv(actionsRuntimeTokenKey)
+		if !input.noCacheServer && actionsRuntimeToken == "" && artifactServer != nil {
+			actionsRuntimeToken = "token"
+		}
+		envs[actionsRuntimeTokenKey] = actionsRuntimeToken
 
 		ctx = common.WithDryrun(ctx, input.dryrun)
 		if watch, err := cmd.Flags().GetBool("watch"); err != nil {
