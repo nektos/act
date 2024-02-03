@@ -53,7 +53,7 @@ type Config struct {
 	AutoRemove                         bool                         // controls if the container is automatically removed upon workflow completion
 	ArtifactServerPath                 string                       // the path where the artifact server stores uploads
 	ArtifactServerAddr                 string                       // the address the artifact server binds to
-	ArtifactServerPort                 string                       // the port the artifact server binds to
+	ArtifactServerPort                 uint16                       // the port the artifact server binds to
 	NoSkipCheckout                     bool                         // do not skip actions/checkout
 	RemoteName                         string                       // remote name in local git repo config
 	ReplaceGheActionWithGithubCom      []string                     // Use actions from GitHub Enterprise instance to GitHub
