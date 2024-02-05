@@ -25,7 +25,7 @@ func TestGetSocketAndHostWithSocket(t *testing.T) {
 	ret, err := GetSocketAndHost(socketURI)
 
 	// Assert
-	assert.Equal(t, err, nil)
+	assert.Nil(t, err)
 	assert.Equal(t, SocketAndHost{socketURI, dockerHost}, ret)
 }
 
@@ -38,7 +38,7 @@ func TestGetSocketAndHostNoSocket(t *testing.T) {
 	ret, err := GetSocketAndHost("")
 
 	// Assert
-	assert.Equal(t, err, nil)
+	assert.Nil(t, err)
 	assert.Equal(t, SocketAndHost{dockerHost, dockerHost}, ret)
 }
 
@@ -69,7 +69,7 @@ func TestGetSocketAndHostDontMount(t *testing.T) {
 	ret, err := GetSocketAndHost("-")
 
 	// Assert
-	assert.Equal(t, err, nil)
+	assert.Nil(t, err)
 	assert.Equal(t, SocketAndHost{"-", dockerHost}, ret)
 }
 
@@ -83,8 +83,8 @@ func TestGetSocketAndHostNoHostNoSocket(t *testing.T) {
 	ret, err := GetSocketAndHost("")
 
 	// Assert
-	assert.Equal(t, found, true, "Expected a default socket to be found")
-	assert.Equal(t, err, nil, "Expected no error from GetSocketAndHost")
+	assert.Equal(t, true, found, "Expected a default socket to be found")
+	assert.Nil(t, err, "Expected no error from GetSocketAndHost")
 	assert.Equal(t, SocketAndHost{defaultSocket, defaultSocket}, ret, "Expected to match default socket location")
 }
 
@@ -107,9 +107,9 @@ func TestGetSocketAndHostNoHostNoSocketDefaultLocation(t *testing.T) {
 	ret, err := GetSocketAndHost("")
 
 	// Assert
-	assert.Equal(t, defaultSocket, unixSocket, "Expected default socket to match common socket location")
-	assert.Equal(t, found, true, "Expected default socket to be found")
-	assert.Equal(t, err, nil, "Expected no error from GetSocketAndHost")
+	assert.Equal(t, unixSocket, defaultSocket, "Expected default socket to match common socket location")
+	assert.Equal(t, true, found, "Expected default socket to be found")
+	assert.Nil(t, err, "Expected no error from GetSocketAndHost")
 	assert.Equal(t, SocketAndHost{unixSocket, unixSocket}, ret, "Expected to match default socket location")
 }
 
@@ -124,8 +124,8 @@ func TestGetSocketAndHostNoHostInvalidSocket(t *testing.T) {
 	ret, err := GetSocketAndHost(mySocket)
 
 	// Assert
-	assert.Equal(t, found, false, "Expected no default socket to be found")
-	assert.Equal(t, defaultSocket, "", "Expected no default socket to be found")
+	assert.Equal(t, false, found, "Expected no default socket to be found")
+	assert.Equal(t, "", defaultSocket, "Expected no default socket to be found")
 	assert.Equal(t, SocketAndHost{}, ret, "Expected to match default socket location")
 	assert.Error(t, err, "Expected an error in invalid state")
 }
