@@ -32,7 +32,7 @@ import (
 // Execute is the entry point to running the CLI
 func Execute(ctx context.Context, version string) {
 	input := new(Input)
-	var rootCmd = &cobra.Command{
+	rootCmd := &cobra.Command{
 		Use:               "act [event name to run] [flags]\n\nIf no event name passed, will default to \"on: push\"\nIf actions handles only one event it will be used as default instead of \"on: push\"",
 		Short:             "Run GitHub actions locally by specifying the event name (e.g. `push`) or an action name directly.",
 		Args:              cobra.MaximumNArgs(1),
@@ -108,52 +108,22 @@ func Execute(ctx context.Context, version string) {
 	}
 }
 
-// Return locations where Act's config can be found in order : XDG spec, .actrc in HOME directory, .actrc in invocation directory
+// Return locations where Act's config can be found in order: XDG spec, .actrc in HOME directory, .actrc in invocation directory
 func configLocations() []string {
 	configFileName := ".actrc"
 
-	// reference: https://specifications.freedesktop.org/basedir-spec/latest/ar01s03.html
-	var actrcXdg string
-	for _, fileName := range []string{"act/actrc", configFileName} {
-		if foundConfig, err := xdg.SearchConfigFile(fileName); foundConfig != "" && err == nil {
-			actrcXdg = foundConfig
-			break
-		}
+	homePath := filepath.Join(UserHomeDir, configFileName)
+	invocationPath := filepath.Join(".", configFileName)
+
+	// Though named xdg, adrg's lib support macOS and Windows config paths as well
+	// It also takes cares of creating the parent folder so we don't need to bother later
+	specPath, err := xdg.ConfigFile("act/actrc")
+	if err != nil {
+		specPath = homePath
 	}
 
-	return []string{
-		actrcXdg,
-		filepath.Join(UserHomeDir, configFileName),
-		filepath.Join(".", configFileName),
-	}
-}
-
-var commonSocketPaths = []string{
-	"/var/run/docker.sock",
-	"/run/podman/podman.sock",
-	"$HOME/.colima/docker.sock",
-	"$XDG_RUNTIME_DIR/docker.sock",
-	"$XDG_RUNTIME_DIR/podman/podman.sock",
-	`\\.\pipe\docker_engine`,
-	"$HOME/.docker/run/docker.sock",
-}
-
-// returns socket path or false if not found any
-func socketLocation() (string, bool) {
-	if dockerHost, exists := os.LookupEnv("DOCKER_HOST"); exists {
-		return dockerHost, true
-	}
-
-	for _, p := range commonSocketPaths {
-		if _, err := os.Lstat(os.ExpandEnv(p)); err == nil {
-			if strings.HasPrefix(p, `\\.\`) {
-				return "npipe://" + filepath.ToSlash(os.ExpandEnv(p)), true
-			}
-			return "unix://" + filepath.ToSlash(os.ExpandEnv(p)), true
-		}
-	}
-
-	return "", false
+	// This order should be enforced since the survey part relies on it
+	return []string{specPath, homePath, invocationPath}
 }
 
 func args() []string {
@@ -188,7 +158,7 @@ func bugReport(ctx context.Context, version string) error {
 
 	report += sprintf("Docker host:", dockerHost)
 	report += fmt.Sprintln("Sockets found:")
-	for _, p := range commonSocketPaths {
+	for _, p := range container.CommonSocketLocations {
 		if _, err := os.Lstat(os.ExpandEnv(p)); err != nil {
 			continue
 		} else if _, err := os.Stat(os.ExpandEnv(p)); err != nil {
@@ -359,18 +329,6 @@ func parseMatrix(matrix []string) map[string]map[string]bool {
 	return matrixes
 }
 
-func isDockerHostURI(daemonPath string) bool {
-	if protoIndex := strings.Index(daemonPath, "://"); protoIndex != -1 {
-		scheme := daemonPath[:protoIndex]
-		if strings.IndexFunc(scheme, func(r rune) bool {
-			return (r < 'a' || r > 'z') && (r < 'A' || r > 'Z')
-		}) == -1 {
-			return true
-		}
-	}
-	return false
-}
-
 //nolint:gocyclo
 func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, args []string) error {
@@ -381,27 +339,12 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 		if ok, _ := cmd.Flags().GetBool("bug-report"); ok {
 			return bugReport(ctx, cmd.Version)
 		}
-
-		// Prefer DOCKER_HOST, don't override it
-		socketPath, hasDockerHost := os.LookupEnv("DOCKER_HOST")
-		if !hasDockerHost {
-			// a - in containerDaemonSocket means don't mount, preserve this value
-			// otherwise if input.containerDaemonSocket is a filepath don't use it as socketPath
-			skipMount := input.containerDaemonSocket == "-" || !isDockerHostURI(input.containerDaemonSocket)
-			if input.containerDaemonSocket != "" && !skipMount {
-				socketPath = input.containerDaemonSocket
-			} else {
-				socket, found := socketLocation()
-				if !found {
-					log.Errorln("daemon Docker Engine socket not found and containerDaemonSocket option was not set")
-				} else {
-					socketPath = socket
-				}
-				if !skipMount {
-					input.containerDaemonSocket = socketPath
-				}
-			}
-			os.Setenv("DOCKER_HOST", socketPath)
+		if ret, err := container.GetSocketAndHost(input.containerDaemonSocket); err != nil {
+			log.Warnf("Couldn't get a valid docker connection: %+v", err)
+		} else {
+			os.Setenv("DOCKER_HOST", ret.Host)
+			input.containerDaemonSocket = ret.Socket
+			log.Infof("Using docker host '%s', and daemon socket '%s'", ret.Host, ret.Socket)
 		}
 
 		if runtime.GOOS == "darwin" && runtime.GOARCH == "arm64" && input.containerArchitecture == "" {
@@ -555,7 +498,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 				}
 			}
 			if !cfgFound && len(cfgLocations) > 0 {
-				// The first config location refers to the XDG spec one
+				// The first config location refers to the global config folder one
 				if err := defaultImageSurvey(cfgLocations[0]); err != nil {
 					log.Fatal(err)
 				}
@@ -620,8 +563,16 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			ContainerNetworkMode:               docker_container.NetworkMode(input.networkName),
 		}
 		if input.useNewActionCache || len(input.localRepository) > 0 {
-			config.ActionCache = &runner.GoGitActionCache{
-				Path: config.ActionCacheDir,
+			if input.actionOfflineMode {
+				config.ActionCache = &runner.GoGitActionCacheOfflineMode{
+					Parent: runner.GoGitActionCache{
+						Path: config.ActionCacheDir,
+					},
+				}
+			} else {
+				config.ActionCache = &runner.GoGitActionCache{
+					Path: config.ActionCacheDir,
+				}
 			}
 			if len(input.localRepository) > 0 {
 				localRepositories := map[string]string{}
