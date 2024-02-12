@@ -22,7 +22,7 @@ jobs:
         with:
           go-version-file: go.mod
           check-latest: true
-      - uses: golangci/golangci-lint-action@v3.7.0
+      - uses: golangci/golangci-lint-action@v4.0.0
         with:
           version: v1.53
           only-new-issues: true
