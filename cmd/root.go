@@ -562,8 +562,16 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			ContainerNetworkMode:               docker_container.NetworkMode(input.networkName),
 		}
 		if input.useNewActionCache {
-			config.ActionCache = &runner.GoGitActionCache{
-				Path: config.ActionCacheDir,
+			if input.actionOfflineMode {
+				config.ActionCache = &runner.GoGitActionCacheOfflineMode{
+					Parent: runner.GoGitActionCache{
+						Path: config.ActionCacheDir,
+					},
+				}
+			} else {
+				config.ActionCache = &runner.GoGitActionCache{
+					Path: config.ActionCacheDir,
+				}
 			}
 		}
 		r, err := runner.New(config)
