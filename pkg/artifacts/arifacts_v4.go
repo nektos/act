@@ -119,11 +119,11 @@ type ArtifactContext struct {
 	Resp http.ResponseWriter
 }
 
-func (ArtifactContext) Error(...interface{}) {
-
+func (c ArtifactContext) Error(status int, _ ...interface{}) {
+	c.Resp.WriteHeader(status)
 }
 
-func (c ArtifactContext) JSON(status int, u ...interface{}) {
+func (c ArtifactContext) JSON(status int, _ ...interface{}) {
 	c.Resp.WriteHeader(status)
 }
 
