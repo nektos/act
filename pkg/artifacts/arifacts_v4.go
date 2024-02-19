@@ -138,26 +138,6 @@ func validateRunIDV4(ctx *ArtifactContext, rawRunID string) (interface{}, int64,
 }
 
 func RoutesV4(router *httprouter.Router, baseDir string, fsys WriteFS, rfs fs.FS) {
-	// m := web.NewRoute()
-
-	// r := artifactV4Routes{
-	// 	prefix: prefix,
-	// 	fs:     storage.ActionsArtifacts,
-	// }
-
-	// m.Group("", func() {
-	// 	m.Post("CreateArtifact", r.createArtifact)
-	// 	m.Post("FinalizeArtifact", r.finalizeArtifact)
-	// 	m.Post("ListArtifacts", r.listArtifacts)
-	// 	m.Post("GetSignedArtifactURL", r.getSignedArtifactURL)
-	// 	m.Post("DeleteArtifact", r.deleteArtifact)
-	// }, ArtifactContexter())
-	// m.Group("", func() {
-	// 	m.Put("UploadArtifact", r.uploadArtifact)
-	// 	m.Get("DownloadArtifact", r.downloadArtifact)
-	// }, ArtifactV4Contexter())
-
-	// return m
 	route := &artifactV4Routes{
 		fs:      fsys,
 		rfs:     rfs,
@@ -186,6 +166,13 @@ func RoutesV4(router *httprouter.Router, baseDir string, fsys WriteFS, rfs fs.FS
 	router.POST(path.Join(ArtifactV4RouteBase, "GetSignedArtifactURL"), func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		route.AppURL = r.Host
 		route.getSignedArtifactURL(&ArtifactContext{
+			Req:  r,
+			Resp: w,
+		})
+	})
+	router.POST(path.Join(ArtifactV4RouteBase, "DeleteArtifact"), func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+		route.AppURL = r.Host
+		route.deleteArtifact(&ArtifactContext{
 			Req:  r,
 			Resp: w,
 		})
@@ -243,20 +230,16 @@ func (r artifactV4Routes) verifySignature(ctx *ArtifactContext, endp string) (in
 	return taskID, artifactName, true
 }
 
-func (r *artifactV4Routes) getArtifactByName(ctx *ArtifactContext, runID int64, name string) (interface{}, error) {
-	return nil, nil
-}
-
 func (r *artifactV4Routes) parseProtbufBody(ctx *ArtifactContext, req protoreflect.ProtoMessage) bool {
 	body, err := io.ReadAll(ctx.Req.Body)
 	if err != nil {
-		log.Error("Error decode request body: %v", err)
+		log.Errorf("Error decode request body: %v", err)
 		ctx.Error(http.StatusInternalServerError, "Error decode request body")
 		return false
 	}
 	err = protojson.Unmarshal(body, req)
 	if err != nil {
-		log.Error("Error decode request body: %v", err)
+		log.Errorf("Error decode request body: %v", err)
 		ctx.Error(http.StatusInternalServerError, "Error decode request body")
 		return false
 	}
@@ -266,7 +249,7 @@ func (r *artifactV4Routes) parseProtbufBody(ctx *ArtifactContext, req protorefle
 func (r *artifactV4Routes) sendProtbufBody(ctx *ArtifactContext, req protoreflect.ProtoMessage) {
 	resp, err := protojson.Marshal(req)
 	if err != nil {
-		log.Error("Error encode response body: %v", err)
+		log.Errorf("Error encode response body: %v", err)
 		ctx.Error(http.StatusInternalServerError, "Error encode response body")
 		return
 	}
