@@ -4,6 +4,7 @@
 package common
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -19,10 +20,33 @@ type actionsClaims struct {
 	TaskID int64
 	RunID  int64
 	JobID  int64
+	Ac     string `json:"ac"`
 }
+
+type actionsCacheScope struct {
+	Scope      string
+	Permission actionsCachePermission
+}
+
+type actionsCachePermission int
+
+const (
+	actionsCachePermissionRead = 1 << iota
+	actionsCachePermissionWrite
+)
 
 func CreateAuthorizationToken(taskID, runID, jobID int64) (string, error) {
 	now := time.Now()
+
+	ac, err := json.Marshal(&[]actionsCacheScope{
+		{
+			Scope:      "",
+			Permission: actionsCachePermissionWrite,
+		},
+	})
+	if err != nil {
+		return "", err
+	}
 
 	claims := actionsClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
@@ -33,6 +57,7 @@ func CreateAuthorizationToken(taskID, runID, jobID int64) (string, error) {
 		TaskID: taskID,
 		RunID:  runID,
 		JobID:  jobID,
+		Ac:     string(ac),
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 

@@ -1,0 +1,29 @@
+on:
+  push:
+jobs:
+  _5:
+    runs-on: ubuntu-latest
+    steps: 
+    - run: env
+    - run: |
+        github:
+        ${{ tojson(github) }}
+        inputs:
+        ${{ tojson(inputs) }}
+        matrix:
+        ${{ tojson(matrix) }}
+        needs:
+        ${{ tojson(needs) }}
+        strategy:
+        ${{ tojson(strategy) }}            
+      shell: cp {0} context.txt
+    - uses: actions/upload-artifact@v4
+      with:
+        name: test
+        path: context.txt
+
+    - uses: actions/download-artifact@v4
+      with:
+        name: test
+        path: out
+    - run: cat out/context.txt
