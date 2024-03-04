@@ -385,7 +385,7 @@ func (h *Handler) findCache(db *bolthold.Store, keys []string, version string) (
 	}
 	stop := fmt.Errorf("stop")
 
-	for _, prefix := range keys[1:] {
+	for _, prefix := range keys {
 		found := false
 		prefixPattern := fmt.Sprintf("^%s", regexp.QuoteMeta(prefix))
 		re, err := regexp.Compile(prefixPattern)
