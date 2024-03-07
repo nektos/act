@@ -679,7 +679,7 @@ func (cr *containerReference) CopyTarStream(ctx context.Context, destPath string
 	tw := tar.NewWriter(buf)
 	_ = tw.WriteHeader(&tar.Header{
 		Name:     destPath,
-		Mode:     777,
+		Mode:     0o777,
 		Typeflag: tar.TypeDir,
 	})
 	tw.Close()
