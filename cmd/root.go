@@ -100,6 +100,7 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.PersistentFlags().BoolVarP(&input.actionOfflineMode, "action-offline-mode", "", false, "If action contents exists, it will not be fetch and pull again. If turn on this,will turn off force pull")
 	rootCmd.PersistentFlags().StringVarP(&input.networkName, "network", "", "host", "Sets a docker network name. Defaults to host.")
 	rootCmd.PersistentFlags().BoolVarP(&input.useNewActionCache, "use-new-action-cache", "", false, "Enable using the new Action Cache for storing Actions locally")
+	rootCmd.PersistentFlags().StringArrayVarP(&input.localRepository, "local-repository", "", []string{}, "Replaces the specified repository and ref with a local folder (e.g. https://github.com/test/test@v0=/home/act/test or test/test@v0=/home/act/test, the latter matches any hosts or protocols)")
 	rootCmd.SetArgs(args())
 
 	if err := rootCmd.Execute(); err != nil {
@@ -561,7 +562,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			Matrix:                             matrixes,
 			ContainerNetworkMode:               docker_container.NetworkMode(input.networkName),
 		}
-		if input.useNewActionCache {
+		if input.useNewActionCache || len(input.localRepository) > 0 {
 			if input.actionOfflineMode {
 				config.ActionCache = &runner.GoGitActionCacheOfflineMode{
 					Parent: runner.GoGitActionCache{
@@ -571,6 +572,18 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			} else {
 				config.ActionCache = &runner.GoGitActionCache{
 					Path: config.ActionCacheDir,
+				}
+			}
+			if len(input.localRepository) > 0 {
+				localRepositories := map[string]string{}
+				for _, l := range input.localRepository {
+					k, v, _ := strings.Cut(l, "=")
+					localRepositories[k] = v
+				}
+				config.ActionCache = &runner.LocalRepositoryCache{
+					Parent:            config.ActionCache,
+					LocalRepositories: localRepositories,
+					CacheDirCache:     map[string]string{},
 				}
 			}
 		}
