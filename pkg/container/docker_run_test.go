@@ -2,7 +2,9 @@ package container
 
 import (
 	"bufio"
+	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"net"
 	"strings"
@@ -73,6 +75,11 @@ func (m *mockDockerClient) ContainerExecAttach(ctx context.Context, id string, o
 func (m *mockDockerClient) ContainerExecInspect(ctx context.Context, execID string) (types.ContainerExecInspect, error) {
 	args := m.Called(ctx, execID)
 	return args.Get(0).(types.ContainerExecInspect), args.Error(1)
+}
+
+func (m *mockDockerClient) CopyToContainer(ctx context.Context, container string, path string, content io.Reader, options types.CopyToContainerOptions) error {
+	args := m.Called(ctx, path, content)
+	return args.Error(0)
 }
 
 type endlessReader struct {
@@ -160,6 +167,52 @@ func TestDockerExecFailure(t *testing.T) {
 
 	err := cr.exec([]string{""}, map[string]string{}, "user", "workdir")(ctx)
 	assert.Error(t, err, "exit with `FAILURE`: 1")
+
+	conn.AssertExpectations(t)
+	client.AssertExpectations(t)
+}
+
+func TestDockerCopyTarStream(t *testing.T) {
+	ctx := context.Background()
+
+	conn := &mockConn{}
+
+	client := &mockDockerClient{}
+	client.On("CopyToContainer", ctx, "/", mock.Anything).Return(nil)
+	client.On("CopyToContainer", ctx, "/var/run/act", mock.Anything).Return(nil)
+	cr := &containerReference{
+		id:  "123",
+		cli: client,
+		input: &NewContainerInput{
+			Image: "image",
+		},
+	}
+
+	_ = cr.CopyTarStream(ctx, "/var/run/act", &bytes.Buffer{})
+
+	conn.AssertExpectations(t)
+	client.AssertExpectations(t)
+}
+
+func TestDockerCopyTarStreamErrorInMkdir(t *testing.T) {
+	ctx := context.Background()
+
+	conn := &mockConn{}
+
+	merr := fmt.Errorf("Failure")
+
+	client := &mockDockerClient{}
+	client.On("CopyToContainer", ctx, "/", mock.Anything).Return(merr)
+	cr := &containerReference{
+		id:  "123",
+		cli: client,
+		input: &NewContainerInput{
+			Image: "image",
+		},
+	}
+
+	err := cr.CopyTarStream(ctx, "/var/run/act", &bytes.Buffer{})
+	assert.ErrorIs(t, err, merr)
 
 	conn.AssertExpectations(t)
 	client.AssertExpectations(t)
