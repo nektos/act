@@ -30,7 +30,7 @@ require (
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.9.0
-	github.com/timshannon/bolthold v0.0.0-20210913165410-232392fc8a6a
+	github.com/timshannon/bolthold v0.0.0-20231129192944-dca5178aa629
 	go.etcd.io/bbolt v1.3.9
 	golang.org/x/term v0.18.0
 	gopkg.in/yaml.v3 v3.0.1
