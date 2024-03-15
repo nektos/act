@@ -1,0 +1,3 @@
+local-repositories:
+  https://github.com/nektos/test-override@a: testdata/actions/node20
+  nektos/test-override@b: testdata/actions/node16

@@ -106,7 +106,7 @@ func (rc *RunContext) NewExpressionEvaluatorWithEnv(ctx context.Context, env map
 //go:embed hashfiles/index.js
 var hashfiles string
 
-// NewExpressionEvaluator creates a new evaluator
+// NewStepExpressionEvaluator creates a new evaluator
 func (rc *RunContext) NewStepExpressionEvaluator(ctx context.Context, step step) ExpressionEvaluator {
 	// todo: cleanup EvaluationEnvironment creation
 	job := rc.Run.Job()
