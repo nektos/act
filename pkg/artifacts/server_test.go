@@ -240,9 +240,9 @@ type TestJobFileInfo struct {
 }
 
 var (
-	artifactsPath = path.Join(os.TempDir(), "test-artifacts")
-	artifactsAddr = "127.0.0.1"
-	artifactsPort = "12345"
+	artifactsPath        = path.Join(os.TempDir(), "test-artifacts")
+	artifactsAddr        = "127.0.0.1"
+	artifactsPort uint16 = 12345
 )
 
 func TestArtifactFlow(t *testing.T) {
@@ -252,7 +252,7 @@ func TestArtifactFlow(t *testing.T) {
 
 	ctx := context.Background()
 
-	cancel := Serve(ctx, artifactsPath, artifactsAddr, artifactsPort)
+	cancel, _ := Serve(ctx, artifactsPath, artifactsAddr, artifactsPort)
 	defer cancel()
 
 	platforms := map[string]string{

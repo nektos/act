@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -275,12 +276,12 @@ func downloads(router *httprouter.Router, baseDir string, fsys fs.FS) {
 	})
 }
 
-func Serve(ctx context.Context, artifactPath string, addr string, port string) context.CancelFunc {
+func Serve(ctx context.Context, artifactPath string, addr string, port uint16) (context.CancelFunc, *http.Server) {
 	serverContext, cancel := context.WithCancel(ctx)
 	logger := common.Logger(serverContext)
 
 	if artifactPath == "" {
-		return cancel
+		return cancel, nil
 	}
 
 	router := httprouter.New()
@@ -290,16 +291,17 @@ func Serve(ctx context.Context, artifactPath string, addr string, port string) c
 	uploads(router, artifactPath, fsys)
 	downloads(router, artifactPath, fsys)
 
+	listener, _ := net.Listen("tcp", fmt.Sprintf("%s:%d", addr, port))
 	server := &http.Server{
-		Addr:              fmt.Sprintf("%s:%s", addr, port),
+		Addr:              listener.Addr().String(),
 		ReadHeaderTimeout: 2 * time.Second,
 		Handler:           router,
 	}
 
 	// run server
 	go func() {
-		logger.Infof("Start server on http://%s:%s", addr, port)
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		logger.Debugf("Start Artifact Server on http://%s", listener.Addr())
+		if err := server.Serve(listener); err != nil && err != http.ErrServerClosed {
 			logger.Fatal(err)
 		}
 	}()
@@ -314,5 +316,5 @@ func Serve(ctx context.Context, artifactPath string, addr string, port string) c
 		}
 	}()
 
-	return cancel
+	return cancel, server
 }
