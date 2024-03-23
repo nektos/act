@@ -27,7 +27,7 @@ func evaluateCompositeInputAndEnv(ctx context.Context, parent *RunContext, step 
 		envKey := regexp.MustCompile("[^A-Z0-9-]").ReplaceAllString(strings.ToUpper(inputID), "_")
 		envKey = fmt.Sprintf("INPUT_%s", strings.ToUpper(envKey))
 
-		// lookup if key is defined in the step but the the already
+		// lookup if key is defined in the step but the already
 		// evaluated value from the environment
 		_, defined := step.getStepModel().With[inputID]
 		if value, ok := stepEnv[envKey]; defined && ok {
