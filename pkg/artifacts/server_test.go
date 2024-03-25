@@ -262,6 +262,7 @@ func TestArtifactFlow(t *testing.T) {
 	tables := []TestJobFileInfo{
 		{"testdata", "upload-and-download", "push", "", platforms, ""},
 		{"testdata", "GHSL-2023-004", "push", "", platforms, ""},
+		{"testdata", "v4", "push", "", platforms, ""},
 	}
 	log.SetLevel(log.DebugLevel)
 

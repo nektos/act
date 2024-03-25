@@ -289,6 +289,7 @@ func Serve(ctx context.Context, artifactPath string, addr string, port string) c
 	fsys := readWriteFSImpl{}
 	uploads(router, artifactPath, fsys)
 	downloads(router, artifactPath, fsys)
+	RoutesV4(router, artifactPath, fsys, fsys)
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf("%s:%s", addr, port),
