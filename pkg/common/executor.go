@@ -97,7 +97,7 @@ func NewParallelExecutor(parallel int, executors ...Executor) Executor {
 		errs := make(chan error, len(executors))
 
 		if 1 > parallel {
-			log.Infof("Parallel tasks (%d) below minimum, setting to 1", parallel)
+			log.Debugf("Parallel tasks (%d) below minimum, setting to 1", parallel)
 			parallel = 1
 		}
 
