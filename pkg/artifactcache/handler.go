@@ -395,7 +395,7 @@ func (h *Handler) gcCache() {
 	if h.gcing.Load() {
 		return
 	}
-	if h.gcing.CompareAndSwap(false, true) {
+	if !h.gcing.CompareAndSwap(false, true) {
 		return
 	}
 	defer h.gcing.Store(false)
