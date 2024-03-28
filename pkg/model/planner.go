@@ -58,7 +58,13 @@ type WorkflowFiles struct {
 // NewWorkflowPlanner will load a specific workflow, all workflows from a directory or all workflows from a directory and its subdirectories
 //
 //nolint:gocyclo
-func NewWorkflowPlanner(path string, noWorkflowRecurse bool) (WorkflowPlanner, error) {
+func NewWorkflowPlanner(directory string, workflow string, noWorkflowRecurse bool) (WorkflowPlanner, error) {
+	path := ""
+	if directory == "" || workflow == "" {
+		path = directory + workflow
+	} else {
+		path = filepath.Join(directory, workflow)
+	}
 	path, err := filepath.Abs(path)
 	if err != nil {
 		return nil, err
@@ -142,7 +148,7 @@ func NewWorkflowPlanner(path string, noWorkflowRecurse bool) (WorkflowPlanner, e
 				_ = f.Close()
 				return nil, fmt.Errorf("error occurring when resetting io pointer in '%s': %w", wf.workflowDirEntry.Name(), err)
 			}
-
+			workflow.RepoPath = directory
 			workflow.File = wf.workflowDirEntry.Name()
 			if workflow.Name == "" {
 				workflow.Name = wf.workflowDirEntry.Name()
