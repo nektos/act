@@ -367,9 +367,10 @@ func (h *Handler) findCache(db *bolthold.Store, keys []string, version string) (
 				And("Version").Eq(version).
 				And("Complete").Eq(true).
 				SortBy("CreatedAt").Reverse()); err != nil {
-			if !errors.Is(err, bolthold.ErrNotFound) {
+			if errors.Is(err, bolthold.ErrNotFound) {
 				continue
 			}
+			return nil, fmt.Errorf("find cache: %w", err)
 		}
 		return cache, nil
 	}

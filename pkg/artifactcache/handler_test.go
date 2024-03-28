@@ -379,7 +379,7 @@ func TestHandler(t *testing.T) {
 			}{}
 			require.NoError(t, json.NewDecoder(resp.Body).Decode(&got))
 			assert.Equal(t, "hit", got.Result)
-			assert.Equal(t, keys[1], got.CacheKey)
+			assert.Equal(t, keys[2], got.CacheKey) // expect key + "_a_b_c"
 			archiveLocation = got.ArchiveLocation
 		}
 		{
@@ -388,7 +388,7 @@ func TestHandler(t *testing.T) {
 			require.Equal(t, 200, resp.StatusCode)
 			got, err := io.ReadAll(resp.Body)
 			require.NoError(t, err)
-			assert.Equal(t, contents[1], got)
+			assert.Equal(t, contents[2], got) // expect key + "_a_b_c"
 		}
 	})
 
