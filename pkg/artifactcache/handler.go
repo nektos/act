@@ -170,7 +170,7 @@ func (h *Handler) find(w http.ResponseWriter, r *http.Request, _ httprouter.Para
 	}
 	defer db.Close()
 
-	cache, err := h.findCache(db, keys, version)
+	cache, err := findCache(db, keys, version)
 	if err != nil {
 		h.responseJSON(w, r, 500, err)
 		return
@@ -216,7 +216,7 @@ func (h *Handler) reserve(w http.ResponseWriter, r *http.Request, _ httprouter.P
 	now := time.Now().Unix()
 	cache.CreatedAt = now
 	cache.UsedAt = now
-	if err := h.insertCache(db, cache); err != nil {
+	if err := insertCache(db, cache); err != nil {
 		h.responseJSON(w, r, 500, err)
 		return
 	}
@@ -349,7 +349,7 @@ func (h *Handler) middleware(handler httprouter.Handle) httprouter.Handle {
 }
 
 // if not found, return (nil, nil) instead of an error.
-func (_ *Handler) findCache(db *bolthold.Store, keys []string, version string) (*Cache, error) {
+func findCache(db *bolthold.Store, keys []string, version string) (*Cache, error) {
 	cache := &Cache{}
 	for _, prefix := range keys {
 		prefixPattern := fmt.Sprintf("^%s", regexp.QuoteMeta(prefix))
@@ -372,7 +372,7 @@ func (_ *Handler) findCache(db *bolthold.Store, keys []string, version string) (
 	return nil, nil
 }
 
-func (_ *Handler) insertCache(db *bolthold.Store, cache *Cache) error {
+func insertCache(db *bolthold.Store, cache *Cache) error {
 	if err := db.Insert(bolthold.NextSequence(), cache); err != nil {
 		return fmt.Errorf("insert cache: %w", err)
 	}

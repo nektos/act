@@ -569,7 +569,7 @@ func TestHandler_gcCache(t *testing.T) {
 	db, err := handler.openDB()
 	require.NoError(t, err)
 	for _, c := range cases {
-		require.NoError(t, handler.insertCache(db, c.Cache))
+		require.NoError(t, insertCache(db, c.Cache))
 	}
 	require.NoError(t, db.Close())
 
