@@ -26,7 +26,7 @@
 
 ## Images based on [`actions/virtual-environments`][gh/actions/virtual-environments]
 
-**Note: `nektos/act-environments-ubuntu` have been last updated in February, 2020. It's recommended to update the image manually after `docker pull` if you decide to to use it.**
+**Note: `nektos/act-environments-ubuntu` have been last updated in February, 2020. It's recommended to update the image manually after `docker pull` if you decide to use it.**
 
 | Image                                                                             | Size                                                                       | GitHub Repository                                       |
 | --------------------------------------------------------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------- |
