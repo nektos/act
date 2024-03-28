@@ -14,6 +14,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/timshannon/bolthold"
 	"go.etcd.io/bbolt"
 )
 
@@ -480,4 +481,114 @@ func uploadCacheNormally(t *testing.T, base, key, version string, content []byte
 		require.NoError(t, err)
 		assert.Equal(t, content, got)
 	}
+}
+
+func TestHandler_gcCache(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "artifactcache")
+	handler, err := StartHandler(dir, "", 0, nil)
+	require.NoError(t, err)
+
+	defer func() {
+		require.NoError(t, handler.Close())
+	}()
+
+	now := time.Now()
+
+	cases := []struct {
+		Cache *Cache
+		Kept  bool
+	}{
+		{
+			// should be kept, since it's used recently and not too old.
+			Cache: &Cache{
+				Key:       "test_key_1",
+				Version:   "test_version",
+				Complete:  true,
+				UsedAt:    now.Unix(),
+				CreatedAt: now.Add(-time.Hour).Unix(),
+			},
+			Kept: true,
+		},
+		{
+			// should be removed, since it's not complete and not used for a while.
+			Cache: &Cache{
+				Key:       "test_key_2",
+				Version:   "test_version",
+				Complete:  false,
+				UsedAt:    now.Add(-(keepTemp + time.Second)).Unix(),
+				CreatedAt: now.Add(-(keepTemp + time.Hour)).Unix(),
+			},
+			Kept: false,
+		},
+		{
+			// should be removed, since it's not used for a while.
+			Cache: &Cache{
+				Key:       "test_key_3",
+				Version:   "test_version",
+				Complete:  true,
+				UsedAt:    now.Add(-(keepUnused + time.Second)).Unix(),
+				CreatedAt: now.Add(-(keepUnused + time.Hour)).Unix(),
+			},
+			Kept: false,
+		},
+		{
+			// should be removed, since it's used but too old.
+			Cache: &Cache{
+				Key:       "test_key_3",
+				Version:   "test_version",
+				Complete:  true,
+				UsedAt:    now.Unix(),
+				CreatedAt: now.Add(-(keepUsed + time.Second)).Unix(),
+			},
+			Kept: false,
+		},
+		{
+			// should be kept, since it has a newer edition but be used recently.
+			Cache: &Cache{
+				Key:       "test_key_1",
+				Version:   "test_version",
+				Complete:  true,
+				UsedAt:    now.Add(-(keepOld - time.Minute)).Unix(),
+				CreatedAt: now.Add(-(time.Hour + time.Second)).Unix(),
+			},
+			Kept: true,
+		},
+		{
+			// should be removed, since it has a newer edition and not be used recently.
+			Cache: &Cache{
+				Key:       "test_key_1",
+				Version:   "test_version",
+				Complete:  true,
+				UsedAt:    now.Add(-(keepOld + time.Second)).Unix(),
+				CreatedAt: now.Add(-(time.Hour + time.Second)).Unix(),
+			},
+			Kept: false,
+		},
+	}
+
+	db, err := handler.openDB()
+	require.NoError(t, err)
+	for _, c := range cases {
+		require.NoError(t, handler.insertCache(db, c.Cache))
+	}
+	require.NoError(t, db.Close())
+
+	handler.gcAt = time.Time{} // ensure gcCache will not skip
+	handler.gcCache()
+
+	db, err = handler.openDB()
+	require.NoError(t, err)
+	for i, v := range cases {
+		t.Run(fmt.Sprintf("%d_%s", i, v.Cache.Key), func(t *testing.T) {
+			cache := &Cache{}
+			err = db.Get(v.Cache.ID, cache)
+			if v.Kept {
+				assert.NoError(t, err)
+			} else {
+				assert.ErrorIs(t, err, bolthold.ErrNotFound)
+			}
+		})
+	}
+	require.NoError(t, db.Close())
+
 }

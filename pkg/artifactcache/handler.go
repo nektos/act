@@ -216,12 +216,7 @@ func (h *Handler) reserve(w http.ResponseWriter, r *http.Request, _ httprouter.P
 	now := time.Now().Unix()
 	cache.CreatedAt = now
 	cache.UsedAt = now
-	if err := db.Insert(bolthold.NextSequence(), cache); err != nil {
-		h.responseJSON(w, r, 500, err)
-		return
-	}
-	// write back id to db
-	if err := db.Update(cache.ID, cache); err != nil {
+	if err := h.insertCache(db, cache); err != nil {
 		h.responseJSON(w, r, 500, err)
 		return
 	}
@@ -354,7 +349,7 @@ func (h *Handler) middleware(handler httprouter.Handle) httprouter.Handle {
 }
 
 // if not found, return (nil, nil) instead of an error.
-func (h *Handler) findCache(db *bolthold.Store, keys []string, version string) (*Cache, error) {
+func (_ *Handler) findCache(db *bolthold.Store, keys []string, version string) (*Cache, error) {
 	cache := &Cache{}
 	for _, prefix := range keys {
 		prefixPattern := fmt.Sprintf("^%s", regexp.QuoteMeta(prefix))
@@ -377,6 +372,17 @@ func (h *Handler) findCache(db *bolthold.Store, keys []string, version string) (
 	return nil, nil
 }
 
+func (_ *Handler) insertCache(db *bolthold.Store, cache *Cache) error {
+	if err := db.Insert(bolthold.NextSequence(), cache); err != nil {
+		return fmt.Errorf("insert cache: %w", err)
+	}
+	// write back id to db
+	if err := db.Update(cache.ID, cache); err != nil {
+		return fmt.Errorf("write back id to db: %w", err)
+	}
+	return nil
+}
+
 func (h *Handler) useCache(id int64) {
 	db, err := h.openDB()
 	if err != nil {
@@ -390,6 +396,13 @@ func (h *Handler) useCache(id int64) {
 	cache.UsedAt = time.Now().Unix()
 	_ = db.Update(cache.ID, cache)
 }
+
+const (
+	keepUsed   = 30 * 24 * time.Hour
+	keepUnused = 7 * 24 * time.Hour
+	keepTemp   = 5 * time.Minute
+	keepOld    = 5 * time.Minute
+)
 
 func (h *Handler) gcCache() {
 	if h.gcing.Load() {
@@ -407,38 +420,18 @@ func (h *Handler) gcCache() {
 	h.gcAt = time.Now()
 	h.logger.Debugf("gc: %v", h.gcAt.String())
 
-	const (
-		keepUsed   = 30 * 24 * time.Hour
-		keepUnused = 7 * 24 * time.Hour
-		keepTemp   = 5 * time.Minute
-		keepOld    = 5 * time.Minute
-	)
-
 	db, err := h.openDB()
 	if err != nil {
 		return
 	}
 	defer db.Close()
 
+	// Remove the caches which are not completed for a while, they are most likely to be broken.
 	var caches []*Cache
-	if err := db.Find(&caches, bolthold.Where("UsedAt").Lt(time.Now().Add(-keepTemp).Unix())); err != nil {
-		h.logger.Warnf("find caches: %v", err)
-	} else {
-		for _, cache := range caches {
-			if cache.Complete {
-				continue
-			}
-			h.storage.Remove(cache.ID)
-			if err := db.Delete(cache.ID, cache); err != nil {
-				h.logger.Warnf("delete cache: %v", err)
-				continue
-			}
-			h.logger.Infof("deleted cache: %+v", cache)
-		}
-	}
-
-	caches = caches[:0]
-	if err := db.Find(&caches, bolthold.Where("UsedAt").Lt(time.Now().Add(-keepUnused).Unix())); err != nil {
+	if err := db.Find(&caches, bolthold.
+		Where("UsedAt").Lt(time.Now().Add(-keepTemp).Unix()).
+		And("Complete").Eq(false),
+	); err != nil {
 		h.logger.Warnf("find caches: %v", err)
 	} else {
 		for _, cache := range caches {
@@ -451,8 +444,28 @@ func (h *Handler) gcCache() {
 		}
 	}
 
+	// Remove the old caches which have not been used recently.
 	caches = caches[:0]
-	if err := db.Find(&caches, bolthold.Where("CreatedAt").Lt(time.Now().Add(-keepUsed).Unix())); err != nil {
+	if err := db.Find(&caches, bolthold.
+		Where("UsedAt").Lt(time.Now().Add(-keepUnused).Unix()),
+	); err != nil {
+		h.logger.Warnf("find caches: %v", err)
+	} else {
+		for _, cache := range caches {
+			h.storage.Remove(cache.ID)
+			if err := db.Delete(cache.ID, cache); err != nil {
+				h.logger.Warnf("delete cache: %v", err)
+				continue
+			}
+			h.logger.Infof("deleted cache: %+v", cache)
+		}
+	}
+
+	// Remove the old caches which are too old.
+	caches = caches[:0]
+	if err := db.Find(&caches, bolthold.
+		Where("CreatedAt").Lt(time.Now().Add(-keepUsed).Unix()),
+	); err != nil {
 		h.logger.Warnf("find caches: %v", err)
 	} else {
 		for _, cache := range caches {
