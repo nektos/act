@@ -422,6 +422,112 @@ func TestHandler(t *testing.T) {
 			assert.Equal(t, key+"_abc", got.CacheKey)
 		}
 	})
+
+	t.Run("exact keys are prefered (key 0)", func(t *testing.T) {
+		version := "c19da02a2bd7e77277f1ac29ab45c09b7d46a4ee758284e26bb3045ad11d9d20"
+		key := strings.ToLower(t.Name())
+		keys := [3]string{
+			key + "_a",
+			key + "_a_b_c",
+			key + "_a_b",
+		}
+		contents := [3][]byte{
+			make([]byte, 100),
+			make([]byte, 200),
+			make([]byte, 300),
+		}
+		for i := range contents {
+			_, err := rand.Read(contents[i])
+			require.NoError(t, err)
+			uploadCacheNormally(t, base, keys[i], version, contents[i])
+			time.Sleep(time.Second) // ensure CreatedAt of caches are different
+		}
+
+		reqKeys := strings.Join([]string{
+			key + "_a",
+			key + "_a_b",
+		}, ",")
+
+		resp, err := http.Get(fmt.Sprintf("%s/cache?keys=%s&version=%s", base, reqKeys, version))
+		require.NoError(t, err)
+		require.Equal(t, 200, resp.StatusCode)
+
+		/*
+			Expect `key_a` because:
+			- `key_a` matches `key_a`, `key_a_b` and `key_a_b_c`, but `key_a` is an exact match.
+			- `key_a_b` matches `key_a_b` and `key_a_b_c`, but previous key had a match
+		*/
+		expect := 0
+
+		got := struct {
+			ArchiveLocation string `json:"archiveLocation"`
+			CacheKey        string `json:"cacheKey"`
+		}{}
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(&got))
+		assert.Equal(t, "hit", got.Result)
+		assert.Equal(t, keys[expect], got.CacheKey)
+
+		contentResp, err := http.Get(got.ArchiveLocation)
+		require.NoError(t, err)
+		require.Equal(t, 200, contentResp.StatusCode)
+		content, err := io.ReadAll(contentResp.Body)
+		require.NoError(t, err)
+		assert.Equal(t, contents[expect], content)
+	})
+
+	t.Run("exact keys are prefered (key 1)", func(t *testing.T) {
+		version := "c19da02a2bd7e77277f1ac29ab45c09b7d46a4ee758284e26bb3045ad11d9d20"
+		key := strings.ToLower(t.Name())
+		keys := [3]string{
+			key + "_a",
+			key + "_a_b_c",
+			key + "_a_b",
+		}
+		contents := [3][]byte{
+			make([]byte, 100),
+			make([]byte, 200),
+			make([]byte, 300),
+		}
+		for i := range contents {
+			_, err := rand.Read(contents[i])
+			require.NoError(t, err)
+			uploadCacheNormally(t, base, keys[i], version, contents[i])
+			time.Sleep(time.Second) // ensure CreatedAt of caches are different
+		}
+
+		reqKeys := strings.Join([]string{
+			"------------------------------------------------------",
+			key + "_a",
+			key + "_a_b",
+		}, ",")
+
+		resp, err := http.Get(fmt.Sprintf("%s/cache?keys=%s&version=%s", base, reqKeys, version))
+		require.NoError(t, err)
+		require.Equal(t, 200, resp.StatusCode)
+
+		/*
+			Expect `key_a` because:
+			- `------------------------------------------------------` doesn't match any caches.
+			- `key_a` matches `key_a`, `key_a_b` and `key_a_b_c`, but `key_a` is an exact match.
+			- `key_a_b` matches `key_a_b` and `key_a_b_c`, but previous key had a match
+		*/
+		expect := 0
+
+		got := struct {
+			ArchiveLocation string `json:"archiveLocation"`
+			CacheKey        string `json:"cacheKey"`
+		}{}
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(&got))
+		assert.Equal(t, "hit", got.Result)
+		assert.Equal(t, keys[expect], got.CacheKey)
+
+		contentResp, err := http.Get(got.ArchiveLocation)
+		require.NoError(t, err)
+		require.Equal(t, 200, contentResp.StatusCode)
+		content, err := io.ReadAll(contentResp.Body)
+		require.NoError(t, err)
+		assert.Equal(t, contents[expect], content)
+	})
 }
 
 func uploadCacheNormally(t *testing.T, base, key, version string, content []byte) {
