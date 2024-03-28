@@ -206,22 +206,12 @@ func (h *Handler) reserve(w http.ResponseWriter, r *http.Request, _ httprouter.P
 	api.Key = strings.ToLower(api.Key)
 
 	cache := api.ToCache()
-	cache.FillKeyVersionHash()
 	db, err := h.openDB()
 	if err != nil {
 		h.responseJSON(w, r, 500, err)
 		return
 	}
 	defer db.Close()
-	if err := db.FindOne(cache, bolthold.Where("KeyVersionHash").Eq(cache.KeyVersionHash)); err != nil {
-		if !errors.Is(err, bolthold.ErrNotFound) {
-			h.responseJSON(w, r, 500, err)
-			return
-		}
-	} else {
-		h.responseJSON(w, r, 400, fmt.Errorf("already exist"))
-		return
-	}
 
 	now := time.Now().Unix()
 	cache.CreatedAt = now
@@ -365,51 +355,23 @@ func (h *Handler) middleware(handler httprouter.Handle) httprouter.Handle {
 
 // if not found, return (nil, nil) instead of an error.
 func (h *Handler) findCache(db *bolthold.Store, keys []string, version string) (*Cache, error) {
-	if len(keys) == 0 {
-		return nil, nil
-	}
-	key := keys[0] // the first key is for exact match.
-
-	cache := &Cache{
-		Key:     key,
-		Version: version,
-	}
-	cache.FillKeyVersionHash()
-
-	if err := db.FindOne(cache, bolthold.Where("KeyVersionHash").Eq(cache.KeyVersionHash)); err != nil {
-		if !errors.Is(err, bolthold.ErrNotFound) {
-			return nil, err
-		}
-	} else if cache.Complete {
-		return cache, nil
-	}
-	stop := fmt.Errorf("stop")
-
+	cache := &Cache{}
 	for _, prefix := range keys {
-		found := false
 		prefixPattern := fmt.Sprintf("^%s", regexp.QuoteMeta(prefix))
 		re, err := regexp.Compile(prefixPattern)
 		if err != nil {
 			continue
 		}
-		if err := db.ForEach(bolthold.Where("Key").RegExp(re).And("Version").Eq(version).SortBy("CreatedAt").Reverse(), func(v *Cache) error {
-			if !strings.HasPrefix(v.Key, prefix) {
-				return stop
-			}
-			if v.Complete {
-				cache = v
-				found = true
-				return stop
-			}
-			return nil
-		}); err != nil {
-			if !errors.Is(err, stop) {
-				return nil, err
+		if err := db.FindOne(cache,
+			bolthold.Where("Key").RegExp(re).
+				And("Version").Eq(version).
+				And("Complete").Eq(true).
+				SortBy("CreatedAt").Reverse()); err != nil {
+			if !errors.Is(err, bolthold.ErrNotFound) {
+				continue
 			}
 		}
-		if found {
-			return cache, nil
-		}
+		return cache, nil
 	}
 	return nil, nil
 }
@@ -448,6 +410,7 @@ func (h *Handler) gcCache() {
 		keepUsed   = 30 * 24 * time.Hour
 		keepUnused = 7 * 24 * time.Hour
 		keepTemp   = 5 * time.Minute
+		keepOld    = 5 * time.Minute
 	)
 
 	db, err := h.openDB()
@@ -498,6 +461,38 @@ func (h *Handler) gcCache() {
 				continue
 			}
 			h.logger.Infof("deleted cache: %+v", cache)
+		}
+	}
+
+	// Remove the old caches with the same key and version, keep the latest one.
+	// Also keep the olds which have been used recently for a while in case of the cache is still in use.
+	if results, err := db.FindAggregate(
+		&Cache{},
+		bolthold.Where("Complete").Eq(true),
+		"Key", "Version",
+	); err != nil {
+		h.logger.Warnf("find aggregate caches: %v", err)
+	} else {
+		for _, result := range results {
+			if result.Count() <= 1 {
+				continue
+			}
+			result.Sort("CreatedAt")
+			caches = caches[:0]
+			result.Reduction(&caches)
+			for _, cache := range caches[:len(caches)-1] {
+				if time.Since(time.Unix(cache.UsedAt, 0)) < keepOld {
+					// Keep it since it has been used recently, even if it's old.
+					// Or it could break downloading in process.
+					continue
+				}
+				h.storage.Remove(cache.ID)
+				if err := db.Delete(cache.ID, cache); err != nil {
+					h.logger.Warnf("delete cache: %v", err)
+					continue
+				}
+				h.logger.Infof("deleted cache: %+v", cache)
+			}
 		}
 	}
 }
