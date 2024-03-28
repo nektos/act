@@ -423,7 +423,7 @@ func TestHandler(t *testing.T) {
 		}
 	})
 
-	t.Run("exact keys are prefered (key 0)", func(t *testing.T) {
+	t.Run("exact keys are preferred (key 0)", func(t *testing.T) {
 		version := "c19da02a2bd7e77277f1ac29ab45c09b7d46a4ee758284e26bb3045ad11d9d20"
 		key := strings.ToLower(t.Name())
 		keys := [3]string{
@@ -474,7 +474,7 @@ func TestHandler(t *testing.T) {
 		assert.Equal(t, contents[expect], content)
 	})
 
-	t.Run("exact keys are prefered (key 1)", func(t *testing.T) {
+	t.Run("exact keys are preferred (key 1)", func(t *testing.T) {
 		version := "c19da02a2bd7e77277f1ac29ab45c09b7d46a4ee758284e26bb3045ad11d9d20"
 		key := strings.ToLower(t.Name())
 		keys := [3]string{
