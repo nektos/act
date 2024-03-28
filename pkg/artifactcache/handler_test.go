@@ -590,5 +590,4 @@ func TestHandler_gcCache(t *testing.T) {
 		})
 	}
 	require.NoError(t, db.Close())
-
 }
