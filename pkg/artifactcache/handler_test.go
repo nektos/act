@@ -78,6 +78,9 @@ func TestHandler(t *testing.T) {
 	t.Run("duplicate reserve", func(t *testing.T) {
 		key := strings.ToLower(t.Name())
 		version := "c19da02a2bd7e77277f1ac29ab45c09b7d46a4ee758284e26bb3045ad11d9d20"
+		var first, second struct {
+			CacheID uint64 `json:"cacheId"`
+		}
 		{
 			body, err := json.Marshal(&Request{
 				Key:     key,
@@ -89,10 +92,8 @@ func TestHandler(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, 200, resp.StatusCode)
 
-			got := struct {
-				CacheID uint64 `json:"cacheId"`
-			}{}
-			require.NoError(t, json.NewDecoder(resp.Body).Decode(&got))
+			require.NoError(t, json.NewDecoder(resp.Body).Decode(&first))
+			assert.NotZero(t, first.CacheID)
 		}
 		{
 			body, err := json.Marshal(&Request{
@@ -103,8 +104,13 @@ func TestHandler(t *testing.T) {
 			require.NoError(t, err)
 			resp, err := http.Post(fmt.Sprintf("%s/caches", base), "application/json", bytes.NewReader(body))
 			require.NoError(t, err)
-			assert.Equal(t, 400, resp.StatusCode)
+			assert.Equal(t, 200, resp.StatusCode)
+
+			require.NoError(t, json.NewDecoder(resp.Body).Decode(&second))
+			assert.NotZero(t, second.CacheID)
 		}
+
+		assert.NotEqual(t, first.CacheID, second.CacheID)
 	})
 
 	t.Run("upload with bad id", func(t *testing.T) {
