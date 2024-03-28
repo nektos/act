@@ -16,7 +16,7 @@ jobs:
         with:
           go-version-file: go.mod
           check-latest: true
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         if: ${{ !env.ACT }}
         with:
           path: ~/go/pkg/mod
