@@ -35,7 +35,7 @@ type Handler struct {
 	server   *http.Server
 	logger   logrus.FieldLogger
 
-	gcing int32 // TODO: use atomic.Bool when we can use Go 1.19
+	gcing atomic.Bool
 	gcAt  time.Time
 
 	outboundIP string
@@ -392,13 +392,13 @@ func (h *Handler) useCache(id int64) {
 }
 
 func (h *Handler) gcCache() {
-	if atomic.LoadInt32(&h.gcing) != 0 {
+	if h.gcing.Load() {
 		return
 	}
-	if !atomic.CompareAndSwapInt32(&h.gcing, 0, 1) {
+	if h.gcing.CompareAndSwap(false, true) {
 		return
 	}
-	defer atomic.StoreInt32(&h.gcing, 0)
+	defer h.gcing.Store(false)
 
 	if time.Since(h.gcAt) < time.Hour {
 		h.logger.Debugf("skip gc: %v", h.gcAt.String())
