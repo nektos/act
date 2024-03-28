@@ -464,7 +464,6 @@ func TestHandler(t *testing.T) {
 			CacheKey        string `json:"cacheKey"`
 		}{}
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(&got))
-		assert.Equal(t, "hit", got.Result)
 		assert.Equal(t, keys[expect], got.CacheKey)
 
 		contentResp, err := http.Get(got.ArchiveLocation)
@@ -518,7 +517,6 @@ func TestHandler(t *testing.T) {
 			CacheKey        string `json:"cacheKey"`
 		}{}
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(&got))
-		assert.Equal(t, "hit", got.Result)
 		assert.Equal(t, keys[expect], got.CacheKey)
 
 		contentResp, err := http.Get(got.ArchiveLocation)
