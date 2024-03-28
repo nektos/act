@@ -10,9 +10,11 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/timshannon/bolthold"
 	"go.etcd.io/bbolt"
 )
 
@@ -78,6 +80,9 @@ func TestHandler(t *testing.T) {
 	t.Run("duplicate reserve", func(t *testing.T) {
 		key := strings.ToLower(t.Name())
 		version := "c19da02a2bd7e77277f1ac29ab45c09b7d46a4ee758284e26bb3045ad11d9d20"
+		var first, second struct {
+			CacheID uint64 `json:"cacheId"`
+		}
 		{
 			body, err := json.Marshal(&Request{
 				Key:     key,
@@ -89,10 +94,8 @@ func TestHandler(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, 200, resp.StatusCode)
 
-			got := struct {
-				CacheID uint64 `json:"cacheId"`
-			}{}
-			require.NoError(t, json.NewDecoder(resp.Body).Decode(&got))
+			require.NoError(t, json.NewDecoder(resp.Body).Decode(&first))
+			assert.NotZero(t, first.CacheID)
 		}
 		{
 			body, err := json.Marshal(&Request{
@@ -103,8 +106,13 @@ func TestHandler(t *testing.T) {
 			require.NoError(t, err)
 			resp, err := http.Post(fmt.Sprintf("%s/caches", base), "application/json", bytes.NewReader(body))
 			require.NoError(t, err)
-			assert.Equal(t, 400, resp.StatusCode)
+			assert.Equal(t, 200, resp.StatusCode)
+
+			require.NoError(t, json.NewDecoder(resp.Body).Decode(&second))
+			assert.NotZero(t, second.CacheID)
 		}
+
+		assert.NotEqual(t, first.CacheID, second.CacheID)
 	})
 
 	t.Run("upload with bad id", func(t *testing.T) {
@@ -341,9 +349,9 @@ func TestHandler(t *testing.T) {
 		version := "c19da02a2bd7e77277f1ac29ab45c09b7d46a4ee758284e26bb3045ad11d9d20"
 		key := strings.ToLower(t.Name())
 		keys := [3]string{
-			key + "_a",
-			key + "_a_b",
 			key + "_a_b_c",
+			key + "_a_b",
+			key + "_a",
 		}
 		contents := [3][]byte{
 			make([]byte, 100),
@@ -354,6 +362,7 @@ func TestHandler(t *testing.T) {
 			_, err := rand.Read(contents[i])
 			require.NoError(t, err)
 			uploadCacheNormally(t, base, keys[i], version, contents[i])
+			time.Sleep(time.Second) // ensure CreatedAt of caches are different
 		}
 
 		reqKeys := strings.Join([]string{
@@ -361,29 +370,33 @@ func TestHandler(t *testing.T) {
 			key + "_a_b",
 			key + "_a",
 		}, ",")
-		var archiveLocation string
-		{
-			resp, err := http.Get(fmt.Sprintf("%s/cache?keys=%s&version=%s", base, reqKeys, version))
-			require.NoError(t, err)
-			require.Equal(t, 200, resp.StatusCode)
-			got := struct {
-				Result          string `json:"result"`
-				ArchiveLocation string `json:"archiveLocation"`
-				CacheKey        string `json:"cacheKey"`
-			}{}
-			require.NoError(t, json.NewDecoder(resp.Body).Decode(&got))
-			assert.Equal(t, "hit", got.Result)
-			assert.Equal(t, keys[1], got.CacheKey)
-			archiveLocation = got.ArchiveLocation
-		}
-		{
-			resp, err := http.Get(archiveLocation) //nolint:gosec
-			require.NoError(t, err)
-			require.Equal(t, 200, resp.StatusCode)
-			got, err := io.ReadAll(resp.Body)
-			require.NoError(t, err)
-			assert.Equal(t, contents[1], got)
-		}
+
+		resp, err := http.Get(fmt.Sprintf("%s/cache?keys=%s&version=%s", base, reqKeys, version))
+		require.NoError(t, err)
+		require.Equal(t, 200, resp.StatusCode)
+
+		/*
+			Expect `key_a_b` because:
+			- `key_a_b_x" doesn't match any caches.
+			- `key_a_b" matches `key_a_b` and `key_a_b_c`, but `key_a_b` is newer.
+		*/
+		except := 1
+
+		got := struct {
+			Result          string `json:"result"`
+			ArchiveLocation string `json:"archiveLocation"`
+			CacheKey        string `json:"cacheKey"`
+		}{}
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(&got))
+		assert.Equal(t, "hit", got.Result)
+		assert.Equal(t, keys[except], got.CacheKey)
+
+		contentResp, err := http.Get(got.ArchiveLocation)
+		require.NoError(t, err)
+		require.Equal(t, 200, contentResp.StatusCode)
+		content, err := io.ReadAll(contentResp.Body)
+		require.NoError(t, err)
+		assert.Equal(t, contents[except], content)
 	})
 
 	t.Run("case insensitive", func(t *testing.T) {
@@ -468,4 +481,113 @@ func uploadCacheNormally(t *testing.T, base, key, version string, content []byte
 		require.NoError(t, err)
 		assert.Equal(t, content, got)
 	}
+}
+
+func TestHandler_gcCache(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "artifactcache")
+	handler, err := StartHandler(dir, "", 0, nil)
+	require.NoError(t, err)
+
+	defer func() {
+		require.NoError(t, handler.Close())
+	}()
+
+	now := time.Now()
+
+	cases := []struct {
+		Cache *Cache
+		Kept  bool
+	}{
+		{
+			// should be kept, since it's used recently and not too old.
+			Cache: &Cache{
+				Key:       "test_key_1",
+				Version:   "test_version",
+				Complete:  true,
+				UsedAt:    now.Unix(),
+				CreatedAt: now.Add(-time.Hour).Unix(),
+			},
+			Kept: true,
+		},
+		{
+			// should be removed, since it's not complete and not used for a while.
+			Cache: &Cache{
+				Key:       "test_key_2",
+				Version:   "test_version",
+				Complete:  false,
+				UsedAt:    now.Add(-(keepTemp + time.Second)).Unix(),
+				CreatedAt: now.Add(-(keepTemp + time.Hour)).Unix(),
+			},
+			Kept: false,
+		},
+		{
+			// should be removed, since it's not used for a while.
+			Cache: &Cache{
+				Key:       "test_key_3",
+				Version:   "test_version",
+				Complete:  true,
+				UsedAt:    now.Add(-(keepUnused + time.Second)).Unix(),
+				CreatedAt: now.Add(-(keepUnused + time.Hour)).Unix(),
+			},
+			Kept: false,
+		},
+		{
+			// should be removed, since it's used but too old.
+			Cache: &Cache{
+				Key:       "test_key_3",
+				Version:   "test_version",
+				Complete:  true,
+				UsedAt:    now.Unix(),
+				CreatedAt: now.Add(-(keepUsed + time.Second)).Unix(),
+			},
+			Kept: false,
+		},
+		{
+			// should be kept, since it has a newer edition but be used recently.
+			Cache: &Cache{
+				Key:       "test_key_1",
+				Version:   "test_version",
+				Complete:  true,
+				UsedAt:    now.Add(-(keepOld - time.Minute)).Unix(),
+				CreatedAt: now.Add(-(time.Hour + time.Second)).Unix(),
+			},
+			Kept: true,
+		},
+		{
+			// should be removed, since it has a newer edition and not be used recently.
+			Cache: &Cache{
+				Key:       "test_key_1",
+				Version:   "test_version",
+				Complete:  true,
+				UsedAt:    now.Add(-(keepOld + time.Second)).Unix(),
+				CreatedAt: now.Add(-(time.Hour + time.Second)).Unix(),
+			},
+			Kept: false,
+		},
+	}
+
+	db, err := handler.openDB()
+	require.NoError(t, err)
+	for _, c := range cases {
+		require.NoError(t, insertCache(db, c.Cache))
+	}
+	require.NoError(t, db.Close())
+
+	handler.gcAt = time.Time{} // ensure gcCache will not skip
+	handler.gcCache()
+
+	db, err = handler.openDB()
+	require.NoError(t, err)
+	for i, v := range cases {
+		t.Run(fmt.Sprintf("%d_%s", i, v.Cache.Key), func(t *testing.T) {
+			cache := &Cache{}
+			err = db.Get(v.Cache.ID, cache)
+			if v.Kept {
+				assert.NoError(t, err)
+			} else {
+				assert.ErrorIs(t, err, bolthold.ErrNotFound)
+			}
+		})
+	}
+	require.NoError(t, db.Close())
 }
