@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -347,9 +348,9 @@ func TestHandler(t *testing.T) {
 		version := "c19da02a2bd7e77277f1ac29ab45c09b7d46a4ee758284e26bb3045ad11d9d20"
 		key := strings.ToLower(t.Name())
 		keys := [3]string{
-			key + "_a",
-			key + "_a_b",
 			key + "_a_b_c",
+			key + "_a_b",
+			key + "_a",
 		}
 		contents := [3][]byte{
 			make([]byte, 100),
@@ -360,6 +361,7 @@ func TestHandler(t *testing.T) {
 			_, err := rand.Read(contents[i])
 			require.NoError(t, err)
 			uploadCacheNormally(t, base, keys[i], version, contents[i])
+			time.Sleep(time.Second) // ensure CreatedAt of caches are different
 		}
 
 		reqKeys := strings.Join([]string{
@@ -367,29 +369,33 @@ func TestHandler(t *testing.T) {
 			key + "_a_b",
 			key + "_a",
 		}, ",")
-		var archiveLocation string
-		{
-			resp, err := http.Get(fmt.Sprintf("%s/cache?keys=%s&version=%s", base, reqKeys, version))
-			require.NoError(t, err)
-			require.Equal(t, 200, resp.StatusCode)
-			got := struct {
-				Result          string `json:"result"`
-				ArchiveLocation string `json:"archiveLocation"`
-				CacheKey        string `json:"cacheKey"`
-			}{}
-			require.NoError(t, json.NewDecoder(resp.Body).Decode(&got))
-			assert.Equal(t, "hit", got.Result)
-			assert.Equal(t, keys[2], got.CacheKey) // expect key + "_a_b_c"
-			archiveLocation = got.ArchiveLocation
-		}
-		{
-			resp, err := http.Get(archiveLocation) //nolint:gosec
-			require.NoError(t, err)
-			require.Equal(t, 200, resp.StatusCode)
-			got, err := io.ReadAll(resp.Body)
-			require.NoError(t, err)
-			assert.Equal(t, contents[2], got) // expect key + "_a_b_c"
-		}
+
+		resp, err := http.Get(fmt.Sprintf("%s/cache?keys=%s&version=%s", base, reqKeys, version))
+		require.NoError(t, err)
+		require.Equal(t, 200, resp.StatusCode)
+
+		/*
+			Expect `key_a_b` because:
+			- `key_a_b_x" doesn't match any caches.
+			- `key_a_b" matches `key_a_b` and `key_a_b_c`, but `key_a_b` is newer.
+		*/
+		except := 1
+
+		got := struct {
+			Result          string `json:"result"`
+			ArchiveLocation string `json:"archiveLocation"`
+			CacheKey        string `json:"cacheKey"`
+		}{}
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(&got))
+		assert.Equal(t, "hit", got.Result)
+		assert.Equal(t, keys[except], got.CacheKey)
+
+		contentResp, err := http.Get(got.ArchiveLocation)
+		require.NoError(t, err)
+		require.Equal(t, 200, contentResp.StatusCode)
+		content, err := io.ReadAll(contentResp.Body)
+		require.NoError(t, err)
+		assert.Equal(t, contents[except], content)
 	})
 
 	t.Run("case insensitive", func(t *testing.T) {
