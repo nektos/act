@@ -115,7 +115,7 @@ func (rc *RunContext) setOutput(ctx context.Context, kvPairs map[string]string, 
 		return
 	}
 
-	logger.Infof("  \U00002699  ::set-output:: %s=%s", outputName, arg)
+	logger.Debugf("  \U00002699  ::set-output:: %s=%s", outputName, arg)
 	result.Outputs[outputName] = arg
 }
 func (rc *RunContext) addPath(ctx context.Context, arg string) {
