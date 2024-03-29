@@ -352,6 +352,17 @@ func (h *Handler) middleware(handler httprouter.Handle) httprouter.Handle {
 func findCache(db *bolthold.Store, keys []string, version string) (*Cache, error) {
 	cache := &Cache{}
 	for _, prefix := range keys {
+		// if a key in the list matches exactly, don't return partial matches
+		if err := db.FindOne(cache,
+			bolthold.Where("Key").Eq(prefix).
+				And("Version").Eq(version).
+				And("Complete").Eq(true).
+				SortBy("CreatedAt").Reverse()); err == nil || !errors.Is(err, bolthold.ErrNotFound) {
+			if err != nil {
+				return nil, fmt.Errorf("find cache: %w", err)
+			}
+			return cache, nil
+		}
 		prefixPattern := fmt.Sprintf("^%s", regexp.QuoteMeta(prefix))
 		re, err := regexp.Compile(prefixPattern)
 		if err != nil {
