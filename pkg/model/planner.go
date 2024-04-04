@@ -362,6 +362,8 @@ func createStages(w *Workflow, jobIDs ...string) ([]*Stage, error) {
 		jobIDs = newJobIDs
 	}
 
+	var err error
+
 	// next, build an execution graph
 	stages := make([]*Stage, 0)
 	for len(jobDependencies) > 0 {
@@ -382,8 +384,8 @@ func createStages(w *Workflow, jobIDs ...string) ([]*Stage, error) {
 		stages = append(stages, stage)
 	}
 
-	if len(stages) == 0 {
-		return nil, fmt.Errorf("Could not find any stages to run. View the valid jobs with `act --list`. Use `act --help` to find how to filter by Job ID/Workflow/Event Name")
+	if len(stages) == 0 && err != nil {
+		return nil, err
 	}
 
 	return stages, nil
