@@ -310,11 +310,17 @@ func (rc *RunContext) startJobContainer() common.Executor {
 				return fmt.Errorf("failed to parse service %s ports: %w", serviceID, err)
 			}
 
+			imageName := rc.ExprEval.Interpolate(ctx, spec.Image)
+			if imageName == "" {
+				logger.Infof("The service '%s' will not be started because the container definition has an empty image.", serviceID)
+				continue
+			}
+
 			serviceContainerName := createContainerName(rc.jobContainerName(), serviceID)
 			c := container.NewContainer(&container.NewContainerInput{
 				Name:           serviceContainerName,
 				WorkingDir:     ext.ToContainerPath(rc.Config.Workdir),
-				Image:          rc.ExprEval.Interpolate(ctx, spec.Image),
+				Image:          imageName,
 				Username:       username,
 				Password:       password,
 				Env:            envs,
