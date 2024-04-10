@@ -7,8 +7,8 @@ jobs:
       - name: Install tools
         run: |
           apt update
-          apt install -y bind9-host
+          apt install -y iputils-ping
       - name: Run hostname test
         run: |
           hostname -f
-          host $(hostname -f)
+          ping -c 4 $(hostname -f)
