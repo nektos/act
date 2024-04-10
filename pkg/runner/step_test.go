@@ -313,7 +313,7 @@ func TestIsContinueOnError(t *testing.T) {
 	assertObject.False(continueOnError)
 	assertObject.Nil(err)
 
-	// explcit true
+	// explicit true
 	step = createTestStep(t, "continue-on-error: true")
 	continueOnError, err = isContinueOnError(context.Background(), step.getStepModel().RawContinueOnError, step, stepStageMain)
 	assertObject.True(continueOnError)
