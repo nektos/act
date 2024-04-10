@@ -68,14 +68,16 @@ func (sar *stepActionRemote) prepareActionExecutor() common.Executor {
 
 			var err error
 			sar.cacheDir = fmt.Sprintf("%s/%s", sar.remoteAction.Org, sar.remoteAction.Repo)
-			sar.resolvedSha, err = cache.Fetch(ctx, sar.cacheDir, sar.remoteAction.URL+"/"+sar.cacheDir, sar.remoteAction.Ref, github.Token)
+			repoURL := sar.remoteAction.URL + "/" + sar.cacheDir
+			repoRef := sar.remoteAction.Ref
+			sar.resolvedSha, err = cache.Fetch(ctx, sar.cacheDir, repoURL, repoRef, github.Token)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to fetch \"%s\" version \"%s\": %w", repoURL, repoRef, err)
 			}
 
 			remoteReader := func(ctx context.Context) actionYamlReader {
 				return func(filename string) (io.Reader, io.Closer, error) {
-					spath := filename
+					spath := path.Join(sar.remoteAction.Path, filename)
 					for i := 0; i < maxSymlinkDepth; i++ {
 						tars, err := cache.GetTarArchive(ctx, sar.cacheDir, sar.resolvedSha, spath)
 						if err != nil {

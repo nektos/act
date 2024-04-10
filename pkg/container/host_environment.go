@@ -21,6 +21,7 @@ import (
 	"golang.org/x/term"
 
 	"github.com/nektos/act/pkg/common"
+	"github.com/nektos/act/pkg/filecollector"
 	"github.com/nektos/act/pkg/lookpath"
 )
 
@@ -65,7 +66,7 @@ func (e *HostEnvironment) CopyTarStream(ctx context.Context, destPath string, ta
 		return err
 	}
 	tr := tar.NewReader(tarStream)
-	cp := &copyCollector{
+	cp := &filecollector.CopyCollector{
 		DstDir: destPath,
 	}
 	for {
@@ -104,16 +105,16 @@ func (e *HostEnvironment) CopyDir(destPath string, srcPath string, useGitIgnore 
 
 			ignorer = gitignore.NewMatcher(ps)
 		}
-		fc := &fileCollector{
-			Fs:        &defaultFs{},
+		fc := &filecollector.FileCollector{
+			Fs:        &filecollector.DefaultFs{},
 			Ignorer:   ignorer,
 			SrcPath:   srcPath,
 			SrcPrefix: srcPrefix,
-			Handler: &copyCollector{
+			Handler: &filecollector.CopyCollector{
 				DstDir: destPath,
 			},
 		}
-		return filepath.Walk(srcPath, fc.collectFiles(ctx, []string{}))
+		return filepath.Walk(srcPath, fc.CollectFiles(ctx, []string{}))
 	}
 }
 
@@ -126,21 +127,21 @@ func (e *HostEnvironment) GetContainerArchive(ctx context.Context, srcPath strin
 	if err != nil {
 		return nil, err
 	}
-	tc := &tarCollector{
+	tc := &filecollector.TarCollector{
 		TarWriter: tw,
 	}
 	if fi.IsDir() {
-		srcPrefix := filepath.Dir(srcPath)
+		srcPrefix := srcPath
 		if !strings.HasSuffix(srcPrefix, string(filepath.Separator)) {
 			srcPrefix += string(filepath.Separator)
 		}
-		fc := &fileCollector{
-			Fs:        &defaultFs{},
+		fc := &filecollector.FileCollector{
+			Fs:        &filecollector.DefaultFs{},
 			SrcPath:   srcPath,
 			SrcPrefix: srcPrefix,
 			Handler:   tc,
 		}
-		err = filepath.Walk(srcPath, fc.collectFiles(ctx, []string{}))
+		err = filepath.Walk(srcPath, fc.CollectFiles(ctx, []string{}))
 		if err != nil {
 			return nil, err
 		}

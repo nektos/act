@@ -35,6 +35,7 @@ import (
 	"golang.org/x/term"
 
 	"github.com/nektos/act/pkg/common"
+	"github.com/nektos/act/pkg/filecollector"
 )
 
 // NewContainer creates a reference to a container
@@ -238,8 +239,10 @@ func RunnerArch(ctx context.Context) string {
 
 	archMapper := map[string]string{
 		"x86_64":  "X64",
+		"amd64":   "X64",
 		"386":     "X86",
 		"aarch64": "ARM64",
+		"arm64":   "ARM64",
 	}
 	if arch, ok := archMapper[info.Architecture]; ok {
 		return arch
@@ -676,7 +679,7 @@ func (cr *containerReference) CopyTarStream(ctx context.Context, destPath string
 	tw := tar.NewWriter(buf)
 	_ = tw.WriteHeader(&tar.Header{
 		Name:     destPath,
-		Mode:     777,
+		Mode:     0o777,
 		Typeflag: tar.TypeDir,
 	})
 	tw.Close()
@@ -733,12 +736,12 @@ func (cr *containerReference) copyDir(dstPath string, srcPath string, useGitIgno
 			ignorer = gitignore.NewMatcher(ps)
 		}
 
-		fc := &fileCollector{
-			Fs:        &defaultFs{},
+		fc := &filecollector.FileCollector{
+			Fs:        &filecollector.DefaultFs{},
 			Ignorer:   ignorer,
 			SrcPath:   srcPath,
 			SrcPrefix: srcPrefix,
-			Handler: &tarCollector{
+			Handler: &filecollector.TarCollector{
 				TarWriter: tw,
 				UID:       cr.UID,
 				GID:       cr.GID,
@@ -746,7 +749,7 @@ func (cr *containerReference) copyDir(dstPath string, srcPath string, useGitIgno
 			},
 		}
 
-		err = filepath.Walk(srcPath, fc.collectFiles(ctx, []string{}))
+		err = filepath.Walk(srcPath, fc.CollectFiles(ctx, []string{}))
 		if err != nil {
 			return err
 		}
