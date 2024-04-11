@@ -377,8 +377,8 @@ func TestParseWithExpose(t *testing.T) {
 	invalids := map[string]string{
 		":":                   "invalid port format for --expose: :",
 		"8080:9090":           "invalid port format for --expose: 8080:9090",
-		"/tcp":                "invalid range format for --expose: /tcp, error: empty string specified for ports.",
-		"/udp":                "invalid range format for --expose: /udp, error: empty string specified for ports.",
+		"/tcp":                "invalid range format for --expose: /tcp, error: empty string specified for ports",
+		"/udp":                "invalid range format for --expose: /udp, error: empty string specified for ports",
 		"NaN/tcp":             `invalid range format for --expose: NaN/tcp, error: strconv.ParseUint: parsing "NaN": invalid syntax`,
 		"NaN-NaN/tcp":         `invalid range format for --expose: NaN-NaN/tcp, error: strconv.ParseUint: parsing "NaN": invalid syntax`,
 		"8080-NaN/tcp":        `invalid range format for --expose: 8080-NaN/tcp, error: strconv.ParseUint: parsing "NaN": invalid syntax`,
