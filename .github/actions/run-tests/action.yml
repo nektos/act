@@ -54,7 +54,7 @@ runs:
               }
             }
           };
-          var args = ['test', '-v', '-cover', '-coverprofile=coverage.txt', '-covermode=atomic', '-timeout', '20m'];
+          var args = ['test', '-v', '-cover', '-coverpkg=./...', '-coverprofile=coverage.txt', '-covermode=atomic', '-timeout', '20m'];
           var filter = process.env.FILTER;
           if(filter) {
             args.push('-run');
