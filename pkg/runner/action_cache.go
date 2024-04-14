@@ -6,7 +6,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"io"
 	"io/fs"
 	"path"
@@ -43,17 +42,7 @@ func (c GoGitActionCache) Fetch(ctx context.Context, cacheDir, url, ref, token s
 		return "", err
 	}
 	branchName := hex.EncodeToString(tmpBranch)
-	var refSpec config.RefSpec
-	spec := config.RefSpec(ref + ":" + branchName)
-	tagOrSha := false
-	if spec.IsExactSHA1() {
-		refSpec = spec
-	} else if strings.HasPrefix(ref, "refs/") {
-		refSpec = config.RefSpec(ref + ":refs/heads/" + branchName)
-	} else {
-		tagOrSha = true
-		refSpec = config.RefSpec("refs/*/" + ref + ":refs/heads/*/" + branchName)
-	}
+
 	var auth transport.AuthMethod
 	if token != "" {
 		auth = &http.BasicAuth{
@@ -71,34 +60,16 @@ func (c GoGitActionCache) Fetch(ctx context.Context, cacheDir, url, ref, token s
 		return "", err
 	}
 	defer func() {
-		if refs, err := gogitrepo.References(); err == nil {
-			_ = refs.ForEach(func(r *plumbing.Reference) error {
-				if strings.Contains(r.Name().String(), branchName) {
-					return gogitrepo.DeleteBranch(r.Name().String())
-				}
-				return nil
-			})
-		}
+		_ = gogitrepo.DeleteBranch(branchName)
 	}()
 	if err := remote.FetchContext(ctx, &git.FetchOptions{
 		RefSpecs: []config.RefSpec{
-			refSpec,
+			config.RefSpec(ref + ":" + branchName),
 		},
 		Auth:  auth,
 		Force: true,
 	}); err != nil {
-		if tagOrSha && errors.Is(err, git.NoErrAlreadyUpToDate) {
-			return "", fmt.Errorf("couldn't find remote ref \"%s\"", ref)
-		}
 		return "", err
-	}
-	if tagOrSha {
-		for _, prefix := range []string{"refs/heads/tags/", "refs/heads/heads/"} {
-			hash, err := gogitrepo.ResolveRevision(plumbing.Revision(prefix + branchName))
-			if err == nil {
-				return hash.String(), nil
-			}
-		}
 	}
 	hash, err := gogitrepo.ResolveRevision(plumbing.Revision(branchName))
 	if err != nil {

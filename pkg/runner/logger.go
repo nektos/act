@@ -52,7 +52,7 @@ func Masks(ctx context.Context) *[]string {
 	return &[]string{}
 }
 
-// WithLogger adds a value to the context for the logger
+// WithMasks adds a value to the context for the logger
 func WithMasks(ctx context.Context, masks *[]string) context.Context {
 	return context.WithValue(ctx, masksContextKeyVal, masks)
 }

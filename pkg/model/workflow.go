@@ -343,7 +343,7 @@ func environment(yml yaml.Node) map[string]string {
 	return env
 }
 
-// Environments returns string-based key=value map for a job
+// Environment returns string-based key=value map for a job
 func (j *Job) Environment() map[string]string {
 	return environment(j.Env)
 }
@@ -578,7 +578,7 @@ func (s *Step) String() string {
 	return s.ID
 }
 
-// Environments returns string-based key=value map for a step
+// Environment returns string-based key=value map for a step
 func (s *Step) Environment() map[string]string {
 	return environment(s.Env)
 }
