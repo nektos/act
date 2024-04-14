@@ -230,6 +230,15 @@ type NewGitCloneExecutorInput struct {
 
 // CloneIfRequired ...
 func CloneIfRequired(ctx context.Context, refName plumbing.ReferenceName, input NewGitCloneExecutorInput, logger log.FieldLogger) (*git.Repository, error) {
+	// If the remote URL has changed, remove the directory and clone again.
+	if r, err := git.PlainOpen(input.Dir); err == nil {
+		if remote, err := r.Remote("origin"); err == nil {
+			if len(remote.Config().URLs) > 0 && remote.Config().URLs[0] != input.URL {
+				_ = os.RemoveAll(input.Dir)
+			}
+		}
+	}
+
 	r, err := git.PlainOpen(input.Dir)
 	if err != nil {
 		var progressWriter io.Writer

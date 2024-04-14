@@ -1,4 +1,4 @@
-![act-logo](https://github.com/nektos/act/wiki/img/logo-150.png)
+![act-logo](https://raw.githubusercontent.com/wiki/nektos/act/img/logo-150.png)
 
 # Overview [![push](https://github.com/nektos/act/workflows/push/badge.svg?branch=master&event=push)](https://github.com/nektos/act/actions) [![Join the chat at https://gitter.im/nektos/act](https://badges.gitter.im/nektos/act.svg)](https://gitter.im/nektos/act?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) [![Go Report Card](https://goreportcard.com/badge/github.com/nektos/act)](https://goreportcard.com/report/github.com/nektos/act) [![awesome-runners](https://img.shields.io/badge/listed%20on-awesome--runners-blue.svg)](https://github.com/jonico/awesome-runners)
 
@@ -15,7 +15,7 @@ When you run `act` it reads in your GitHub Actions from `.github/workflows/` and
 
 Let's see it in action with a [sample repo](https://github.com/cplee/github-actions-demo)!
 
-![Demo](https://github.com/nektos/act/wiki/quickstart/act-quickstart-2.gif)
+![Demo](https://raw.githubusercontent.com/wiki/nektos/act/quickstart/act-quickstart-2.gif)
 
 # Act User Guide
 
