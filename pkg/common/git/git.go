@@ -86,18 +86,9 @@ func FindGitRevision(ctx context.Context, file string) (shortSha string, sha str
 // FindGitRef get the current git ref
 func FindGitRef(ctx context.Context, file string) (string, error) {
 	logger := common.Logger(ctx)
-
 	logger.Debugf("Loading revision from git directory")
-	_, ref, err := FindGitRevision(ctx, file)
-	if err != nil {
-		return "", err
-	}
-
-	logger.Debugf("HEAD points to '%s'", ref)
-
 	// Prefer the git library to iterate over the references and find a matching tag or branch.
-	var refTag = ""
-	var refBranch = ""
+	refName := ""
 	repo, err := git.PlainOpenWithOptions(
 		file,
 		&git.PlainOpenOptions{
@@ -105,59 +96,42 @@ func FindGitRef(ctx context.Context, file string) (string, error) {
 			EnableDotGitCommonDir: true,
 		},
 	)
-
 	if err != nil {
 		return "", err
 	}
 
-	iter, err := repo.References()
+	headRef, err := repo.Head()
 	if err != nil {
 		return "", err
 	}
+	logger.Debugf("HEAD points to revision '%s'", headRef.Hash().String())
 
-	// find the reference that matches the revision's has
-	err = iter.ForEach(func(r *plumbing.Reference) error {
-		/* tags and branches will have the same hash
-		 * when a user checks out a tag, it is not mentioned explicitly
-		 * in the go-git package, we must identify the revision
-		 * then check if any tag matches that revision,
-		 * if so then we checked out a tag
-		 * else we look for branches and if matches,
-		 * it means we checked out a branch
-		 *
-		 * If a branches matches first we must continue and check all tags (all references)
-		 * in case we match with a tag later in the interation
-		 */
-		if r.Hash().String() == ref {
-			if r.Name().IsTag() {
-				refTag = r.Name().String()
-			}
-			if r.Name().IsBranch() {
-				refBranch = r.Name().String()
-			}
-		}
+	// The assumption is made that if the revision has a tag associated with it the ref and ref_name should reference it.
+	// This is relevant for the release workflow trigger.
+	// The Tags iterator is the most reliable method to lookup if a revision is tagged (the go-git repository.TagObject method only returns annotated tags).
+	tags, _ := repo.Tags()
 
-		// we found what we where looking for
-		if refTag != "" && refBranch != "" {
+	t := tags.ForEach(func(r *plumbing.Reference) error {
+		if r.Hash().String() == headRef.Hash().String() {
+			refName = r.Name().String()
 			return storer.ErrStop
 		}
-
-		return nil
+		return err
 	})
 
-	if err != nil {
-		return "", err
+	if t != nil {
+		logger.WithError(t).Error("Tag lookup failed.")
 	}
 
-	// order matters here see above comment.
-	if refTag != "" {
-		return refTag, nil
-	}
-	if refBranch != "" {
-		return refBranch, nil
+	if refName == "" {
+		refName = headRef.Name().String()
 	}
 
-	return "", fmt.Errorf("failed to identify reference (tag/branch) for the checked-out revision '%s'", ref)
+	if refName != "" {
+		return refName, err
+	}
+
+	return "", fmt.Errorf("Failed to identify preference (tag/branch) for the checked-out revision '%s'", headRef.Hash().String())
 }
 
 // FindGithubRepo get the repo
