@@ -362,8 +362,6 @@ func createStages(w *Workflow, jobIDs ...string) ([]*Stage, error) {
 		jobIDs = newJobIDs
 	}
 
-	var err error
-
 	// next, build an execution graph
 	stages := make([]*Stage, 0)
 	for len(jobDependencies) > 0 {
@@ -382,10 +380,6 @@ func createStages(w *Workflow, jobIDs ...string) ([]*Stage, error) {
 			return nil, fmt.Errorf("unable to build dependency graph for %s (%s)", w.Name, w.File)
 		}
 		stages = append(stages, stage)
-	}
-
-	if len(stages) == 0 && err != nil {
-		return nil, err
 	}
 
 	return stages, nil
