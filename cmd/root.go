@@ -305,7 +305,9 @@ func readEnvs(path string, envs map[string]string) bool {
 			log.Fatalf("Error loading from %s: %v", path, err)
 		}
 		for k, v := range env {
-			envs[k] = v
+			if _, ok := envs[k]; !ok {
+				envs[k] = v
+			}
 		}
 		return true
 	}
