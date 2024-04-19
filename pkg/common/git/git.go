@@ -126,7 +126,7 @@ func FindGitRef(ctx context.Context, file string) (string, error) {
 		 * it means we checked out a branch
 		 *
 		 * If a branches matches first we must continue and check all tags (all references)
-		 * in case we match with a tag later in the interation
+		 * in case we match with a tag later in the iteration
 		 */
 		if r.Hash().String() == ref {
 			if r.Name().IsTag() {
