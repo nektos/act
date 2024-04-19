@@ -50,7 +50,7 @@ func NewDockerNetworkRemoveExecutor(name string) common.Executor {
 		}
 		defer cli.Close()
 
-		// Make shure that all network of the specified name are removed
+		// Make sure that all network of the specified name are removed
 		// cli.NetworkRemove refuses to remove a network if there are duplicates
 		networks, err := cli.NetworkList(ctx, types.NetworkListOptions{})
 		if err != nil {
