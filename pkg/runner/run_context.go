@@ -981,22 +981,22 @@ func (rc *RunContext) handleCredentials(ctx context.Context) (string, string, er
 	}
 
 	if container.Credentials != nil && len(container.Credentials) != 2 {
-		err := fmt.Errorf("invalid property count for key 'credentials:'")
+		err := errors.New("invalid property count for key 'credentials:'")
 		return "", "", err
 	}
 
 	ee := rc.NewExpressionEvaluator(ctx)
 	if username = ee.Interpolate(ctx, container.Credentials["username"]); username == "" {
-		err := fmt.Errorf("failed to interpolate container.credentials.username")
+		err := errors.New("failed to interpolate container.credentials.username")
 		return "", "", err
 	}
 	if password = ee.Interpolate(ctx, container.Credentials["password"]); password == "" {
-		err := fmt.Errorf("failed to interpolate container.credentials.password")
+		err := errors.New("failed to interpolate container.credentials.password")
 		return "", "", err
 	}
 
 	if container.Credentials["username"] == "" || container.Credentials["password"] == "" {
-		err := fmt.Errorf("container.credentials cannot be empty")
+		err := errors.New("container.credentials cannot be empty")
 		return "", "", err
 	}
 
@@ -1008,18 +1008,18 @@ func (rc *RunContext) handleServiceCredentials(ctx context.Context, creds map[st
 		return
 	}
 	if len(creds) != 2 {
-		err = fmt.Errorf("invalid property count for key 'credentials:'")
+		err = errors.New("invalid property count for key 'credentials:'")
 		return
 	}
 
 	ee := rc.NewExpressionEvaluator(ctx)
 	if username = ee.Interpolate(ctx, creds["username"]); username == "" {
-		err = fmt.Errorf("failed to interpolate credentials.username")
+		err = errors.New("failed to interpolate credentials.username")
 		return
 	}
 
 	if password = ee.Interpolate(ctx, creds["password"]); password == "" {
-		err = fmt.Errorf("failed to interpolate credentials.password")
+		err = errors.New("failed to interpolate credentials.password")
 		return
 	}
 

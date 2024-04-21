@@ -2,6 +2,7 @@ package exprparser
 
 import (
 	"encoding"
+	"errors"
 	"fmt"
 	"math"
 	"reflect"
@@ -161,7 +162,7 @@ func (impl *interperterImpl) evaluateVariable(variableNode *actionlint.VariableN
 		return impl.env.Job, nil
 	case "jobs":
 		if impl.env.Jobs == nil {
-			return nil, fmt.Errorf("Unavailable context: jobs")
+			return nil, errors.New("Unavailable context: jobs")
 		}
 		return impl.env.Jobs, nil
 	case "steps":

@@ -3,6 +3,7 @@ package filecollector
 import (
 	"archive/tar"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -134,7 +135,7 @@ func (fc *FileCollector) CollectFiles(ctx context.Context, submodulePath []strin
 		if ctx != nil {
 			select {
 			case <-ctx.Done():
-				return fmt.Errorf("copy cancelled")
+				return errors.New("copy cancelled")
 			default:
 			}
 		}

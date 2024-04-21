@@ -74,7 +74,7 @@ func FindGitRevision(ctx context.Context, file string) (shortSha string, sha str
 	}
 
 	if head.Hash().IsZero() {
-		return "", "", fmt.Errorf("HEAD sha1 could not be resolved")
+		return "", "", errors.New("HEAD sha1 could not be resolved")
 	}
 
 	hash := head.Hash().String()

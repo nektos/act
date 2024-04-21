@@ -2,6 +2,7 @@ package runner
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -90,7 +91,7 @@ func execAsComposite(step actionStep) common.Executor {
 		steps := step.getCompositeSteps()
 
 		if steps == nil || steps.main == nil {
-			return fmt.Errorf("missing steps in composite action")
+			return errors.New("missing steps in composite action")
 		}
 
 		ctx = WithCompositeLogger(ctx, &compositeRC.Masks)

@@ -548,7 +548,7 @@ func runPreStep(step actionStep) common.Executor {
 			if steps := step.getCompositeSteps(); steps != nil && steps.pre != nil {
 				return steps.pre(ctx)
 			}
-			return fmt.Errorf("missing steps in composite action")
+			return errors.New("missing steps in composite action")
 
 		default:
 			return nil
@@ -641,7 +641,7 @@ func runPostStep(step actionStep) common.Executor {
 			if steps := step.getCompositeSteps(); steps != nil && steps.post != nil {
 				return steps.post(ctx)
 			}
-			return fmt.Errorf("missing steps in composite action")
+			return errors.New("missing steps in composite action")
 
 		default:
 			return nil

@@ -80,7 +80,7 @@ func (e *HostEnvironment) CopyTarStream(ctx context.Context, destPath string, ta
 			continue
 		}
 		if ctx.Err() != nil {
-			return fmt.Errorf("CopyTarStream has been cancelled")
+			return errors.New("CopyTarStream has been cancelled")
 		}
 		if err := cp.WriteFile(ti.Name, ti.FileInfo(), ti.Linkname, tr); err != nil {
 			return err
