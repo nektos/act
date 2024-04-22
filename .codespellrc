@@ -1,0 +1,6 @@
+[codespell]
+# Ref: https://github.com/codespell-project/codespell#using-a-config-file
+skip = .git*,go.sum,package-lock.json,*.min.*,.codespellrc,testdata,./pkg/runner/hashfiles/index.js
+check-hidden = true
+ignore-regex = .*Te\{0\}st.*
+# ignore-words-list =

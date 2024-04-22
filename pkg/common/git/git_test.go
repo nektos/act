@@ -12,6 +12,8 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/nektos/act/pkg/common"
 )
 
 func TestFindGitSlug(t *testing.T) {
@@ -246,4 +248,32 @@ func gitCmd(args ...string) error {
 		return exitError
 	}
 	return nil
+}
+
+func TestCloneIfRequired(t *testing.T) {
+	tempDir := t.TempDir()
+	ctx := context.Background()
+
+	t.Run("clone", func(t *testing.T) {
+		repo, err := CloneIfRequired(ctx, "refs/heads/main", NewGitCloneExecutorInput{
+			URL: "https://github.com/actions/checkout",
+			Dir: tempDir,
+		}, common.Logger(ctx))
+		assert.NoError(t, err)
+		assert.NotNil(t, repo)
+	})
+
+	t.Run("clone different remote", func(t *testing.T) {
+		repo, err := CloneIfRequired(ctx, "refs/heads/main", NewGitCloneExecutorInput{
+			URL: "https://github.com/actions/setup-go",
+			Dir: tempDir,
+		}, common.Logger(ctx))
+		require.NoError(t, err)
+		require.NotNil(t, repo)
+
+		remote, err := repo.Remote("origin")
+		require.NoError(t, err)
+		require.Len(t, remote.Config().URLs, 1)
+		assert.Equal(t, "https://github.com/actions/setup-go", remote.Config().URLs[0])
+	})
 }
