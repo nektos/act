@@ -119,7 +119,7 @@ func getDockerDaemonSocketMountPath(daemonPath string) string {
 	return daemonPath
 }
 
-// Returns the binds and mounts for the container, resolving paths as appopriate
+// Returns the binds and mounts for the container, resolving paths as appropriate
 func (rc *RunContext) GetBindsAndMounts() ([]string, map[string]string) {
 	name := rc.jobContainerName()
 
@@ -1032,7 +1032,7 @@ func (rc *RunContext) handleServiceCredentials(ctx context.Context, creds map[st
 	return
 }
 
-// GetServiceBindsAndMounts returns the binds and mounts for the service container, resolving paths as appopriate
+// GetServiceBindsAndMounts returns the binds and mounts for the service container, resolving paths as appropriate
 func (rc *RunContext) GetServiceBindsAndMounts(svcVolumes []string) ([]string, map[string]string) {
 	if rc.Config.ContainerDaemonSocket == "" {
 		rc.Config.ContainerDaemonSocket = "/var/run/docker.sock"

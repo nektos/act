@@ -78,7 +78,7 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.PersistentFlags().BoolVar(&input.jsonLogger, "json", false, "Output logs in json format")
 	rootCmd.PersistentFlags().BoolVar(&input.logPrefixJobID, "log-prefix-job-id", false, "Output the job id within non-json logs instead of the entire name")
 	rootCmd.PersistentFlags().BoolVarP(&input.noOutput, "quiet", "q", false, "disable logging of output from steps")
-	rootCmd.PersistentFlags().BoolVarP(&input.dryrun, "dryrun", "n", false, "dryrun mode")
+	rootCmd.PersistentFlags().BoolVarP(&input.dryrun, "dryrun", "n", false, "disable container creation, validates only workflow correctness")
 	rootCmd.PersistentFlags().StringVarP(&input.secretfile, "secret-file", "", ".secrets", "file with list of secrets to read from (e.g. --secret-file .secrets)")
 	rootCmd.PersistentFlags().StringVarP(&input.varfile, "var-file", "", ".vars", "file with list of vars to read from (e.g. --var-file .vars)")
 	rootCmd.PersistentFlags().BoolVarP(&input.insecureSecrets, "insecure-secrets", "", false, "NOT RECOMMENDED! Doesn't hide secrets while printing logs.")
@@ -478,6 +478,11 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 		} else {
 			log.Debugf("Planning jobs for event: %s", eventName)
 			plan, plannerErr = planner.PlanEvent(eventName)
+		}
+		if plan != nil {
+			if len(plan.Stages) == 0 {
+				plannerErr = fmt.Errorf("Could not find any stages to run. View the valid jobs with `act --list`. Use `act --help` to find how to filter by Job ID/Workflow/Event Name")
+			}
 		}
 		if plan == nil && plannerErr != nil {
 			return plannerErr
