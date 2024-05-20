@@ -937,10 +937,6 @@ func (rc *RunContext) withGithubEnv(ctx context.Context, github *model.GithubCon
 	env["GITHUB_API_URL"] = github.APIURL
 	env["GITHUB_GRAPHQL_URL"] = github.GraphQLURL
 
-	if rc.Config.ArtifactServerPath != "" {
-		setActionRuntimeVars(rc, env)
-	}
-
 	for _, platformName := range rc.runsOnPlatformNames(ctx) {
 		if platformName != "" {
 			if platformName == "ubuntu-latest" {
@@ -954,20 +950,6 @@ func (rc *RunContext) withGithubEnv(ctx context.Context, github *model.GithubCon
 	}
 
 	return env
-}
-
-func setActionRuntimeVars(rc *RunContext, env map[string]string) {
-	actionsRuntimeURL := os.Getenv("ACTIONS_RUNTIME_URL")
-	if actionsRuntimeURL == "" {
-		actionsRuntimeURL = fmt.Sprintf("http://%s:%s/", rc.Config.ArtifactServerAddr, rc.Config.ArtifactServerPort)
-	}
-	env["ACTIONS_RUNTIME_URL"] = actionsRuntimeURL
-
-	actionsRuntimeToken := os.Getenv("ACTIONS_RUNTIME_TOKEN")
-	if actionsRuntimeToken == "" {
-		actionsRuntimeToken = "token"
-	}
-	env["ACTIONS_RUNTIME_TOKEN"] = actionsRuntimeToken
 }
 
 func (rc *RunContext) handleCredentials(ctx context.Context) (string, string, error) {

@@ -43,7 +43,7 @@ type Input struct {
 	autoRemove                         bool
 	artifactServerPath                 string
 	artifactServerAddr                 string
-	artifactServerPort                 string
+	artifactServerPort                 uint16
 	noCacheServer                      bool
 	cacheServerPath                    string
 	cacheServerAddr                    string
