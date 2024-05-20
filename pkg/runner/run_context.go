@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
 
 	"github.com/docker/go-connections/nat"
@@ -962,10 +963,15 @@ func setActionRuntimeVars(rc *RunContext, env map[string]string) {
 		actionsRuntimeURL = fmt.Sprintf("http://%s:%s/", rc.Config.ArtifactServerAddr, rc.Config.ArtifactServerPort)
 	}
 	env["ACTIONS_RUNTIME_URL"] = actionsRuntimeURL
+	env["ACTIONS_RESULTS_URL"] = actionsRuntimeURL
 
 	actionsRuntimeToken := os.Getenv("ACTIONS_RUNTIME_TOKEN")
 	if actionsRuntimeToken == "" {
-		actionsRuntimeToken = "token"
+		runID := int64(1)
+		if rid, ok := rc.Config.Env["GITHUB_RUN_ID"]; ok {
+			runID, _ = strconv.ParseInt(rid, 10, 64)
+		}
+		actionsRuntimeToken, _ = common.CreateAuthorizationToken(runID, runID, runID)
 	}
 	env["ACTIONS_RUNTIME_TOKEN"] = actionsRuntimeToken
 }
