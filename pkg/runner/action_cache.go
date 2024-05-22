@@ -127,6 +127,10 @@ func (c GoGitActionCache) GetTarArchive(ctx context.Context, cacheDir, sha, incl
 	if err != nil {
 		return nil, err
 	}
+	t, err := commit.Tree()
+	if err != nil {
+		return nil, err
+	}
 	files, err := commit.Files()
 	if err != nil {
 		return nil, err
@@ -146,11 +150,12 @@ func (c GoGitActionCache) GetTarArchive(ctx context.Context, cacheDir, sha, incl
 		defer close(ch)
 		tw := tar.NewWriter(wpipe)
 		cleanIncludePrefix := path.Clean(includePrefix)
-		wpipe.CloseWithError(files.ForEach(func(f *object.File) error {
+		var perFile func(origin string, f *object.File) error
+		perFile = func(origin string, f *object.File) error {
 			if err := ctx.Err(); err != nil {
 				return err
 			}
-			name := f.Name
+			name := origin
 			if strings.HasPrefix(name, cleanIncludePrefix+"/") {
 				name = name[len(cleanIncludePrefix)+1:]
 			} else if cleanIncludePrefix != "." && name != cleanIncludePrefix {
@@ -166,14 +171,20 @@ func (c GoGitActionCache) GetTarArchive(ctx context.Context, cacheDir, sha, incl
 					return err
 				}
 
-				header, err := tar.FileInfoHeader(&GitFileInfo{
-					name: name,
-					mode: fmode,
-				}, content)
+				destPath := path.Join(path.Dir(f.Name), content)
+				// try copy dir
+				te, err := t.Tree(destPath)
+				if err == nil {
+					return te.Files().ForEach(func(ft *object.File) error {
+						return perFile(origin+strings.TrimPrefix(ft.Name, f.Name), f)
+					})
+				}
+				// copy the file or error out
+				f, err := t.File(destPath)
 				if err != nil {
 					return err
 				}
-				return tw.WriteHeader(header)
+				return perFile(origin, f)
 			}
 			header, err := tar.FileInfoHeader(&GitFileInfo{
 				name: name,
@@ -193,6 +204,9 @@ func (c GoGitActionCache) GetTarArchive(ctx context.Context, cacheDir, sha, incl
 			}
 			_, err = io.Copy(tw, reader)
 			return err
+		}
+		wpipe.CloseWithError(files.ForEach(func(f *object.File) error {
+			return perFile(f.Name, f)
 		}))
 	}()
 	return rpipe, err
