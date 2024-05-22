@@ -179,9 +179,9 @@ func actionCacheCopyFileOrDir(ctx context.Context, cleanIncludePrefix string, t 
 
 		destPath := path.Join(path.Dir(f.Name), content)
 
-		te, err := t.Tree(destPath)
+		subtree, err := t.Tree(destPath)
 		if err == nil {
-			return te.Files().ForEach(func(ft *object.File) error {
+			return subtree.Files().ForEach(func(ft *object.File) error {
 				return actionCacheCopyFileOrDir(ctx, cleanIncludePrefix, t, tw, origin+strings.TrimPrefix(ft.Name, f.Name), f)
 			})
 		}
