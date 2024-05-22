@@ -150,64 +150,64 @@ func (c GoGitActionCache) GetTarArchive(ctx context.Context, cacheDir, sha, incl
 		defer close(ch)
 		tw := tar.NewWriter(wpipe)
 		cleanIncludePrefix := path.Clean(includePrefix)
-		var perFile func(origin string, f *object.File) error
-		perFile = func(origin string, f *object.File) error {
-			if err := ctx.Err(); err != nil {
-				return err
-			}
-			name := origin
-			if strings.HasPrefix(name, cleanIncludePrefix+"/") {
-				name = name[len(cleanIncludePrefix)+1:]
-			} else if cleanIncludePrefix != "." && name != cleanIncludePrefix {
-				return nil
-			}
-			fmode, err := f.Mode.ToOSFileMode()
-			if err != nil {
-				return err
-			}
-			if fmode&fs.ModeSymlink == fs.ModeSymlink {
-				content, err := f.Contents()
-				if err != nil {
-					return err
-				}
-
-				destPath := path.Join(path.Dir(f.Name), content)
-				// try copy dir
-				te, err := t.Tree(destPath)
-				if err == nil {
-					return te.Files().ForEach(func(ft *object.File) error {
-						return perFile(origin+strings.TrimPrefix(ft.Name, f.Name), f)
-					})
-				}
-				// copy the file or error out
-				f, err := t.File(destPath)
-				if err != nil {
-					return err
-				}
-				return perFile(origin, f)
-			}
-			header, err := tar.FileInfoHeader(&GitFileInfo{
-				name: name,
-				mode: fmode,
-				size: f.Size,
-			}, "")
-			if err != nil {
-				return err
-			}
-			err = tw.WriteHeader(header)
-			if err != nil {
-				return err
-			}
-			reader, err := f.Reader()
-			if err != nil {
-				return err
-			}
-			_, err = io.Copy(tw, reader)
-			return err
-		}
 		wpipe.CloseWithError(files.ForEach(func(f *object.File) error {
-			return perFile(f.Name, f)
+			return actionCacheCopyFileOrDir(ctx, cleanIncludePrefix, t, tw, f.Name, f)
 		}))
 	}()
 	return rpipe, err
+}
+
+func actionCacheCopyFileOrDir(ctx context.Context, cleanIncludePrefix string, t *object.Tree, tw *tar.Writer, origin string, f *object.File) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	name := origin
+	if strings.HasPrefix(name, cleanIncludePrefix+"/") {
+		name = name[len(cleanIncludePrefix)+1:]
+	} else if cleanIncludePrefix != "." && name != cleanIncludePrefix {
+		return nil
+	}
+	fmode, err := f.Mode.ToOSFileMode()
+	if err != nil {
+		return err
+	}
+	if fmode&fs.ModeSymlink == fs.ModeSymlink {
+		content, err := f.Contents()
+		if err != nil {
+			return err
+		}
+
+		destPath := path.Join(path.Dir(f.Name), content)
+
+		te, err := t.Tree(destPath)
+		if err == nil {
+			return te.Files().ForEach(func(ft *object.File) error {
+				return actionCacheCopyFileOrDir(ctx, cleanIncludePrefix, t, tw, origin+strings.TrimPrefix(ft.Name, f.Name), f)
+			})
+		}
+
+		f, err := t.File(destPath)
+		if err != nil {
+			return err
+		}
+		return actionCacheCopyFileOrDir(ctx, cleanIncludePrefix, t, tw, origin, f)
+	}
+	header, err := tar.FileInfoHeader(&GitFileInfo{
+		name: name,
+		mode: fmode,
+		size: f.Size,
+	}, "")
+	if err != nil {
+		return err
+	}
+	err = tw.WriteHeader(header)
+	if err != nil {
+		return err
+	}
+	reader, err := f.Reader()
+	if err != nil {
+		return err
+	}
+	_, err = io.Copy(tw, reader)
+	return err
 }
