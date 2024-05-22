@@ -10,6 +10,7 @@ import (
 	"io/fs"
 	"path"
 	"strings"
+	"time"
 
 	git "github.com/go-git/go-git/v5"
 	config "github.com/go-git/go-git/v5/config"
@@ -78,6 +79,44 @@ func (c GoGitActionCache) Fetch(ctx context.Context, cacheDir, url, ref, token s
 	return hash.String(), nil
 }
 
+type GitFileInfo struct {
+	name    string
+	size    int64
+	modTime time.Time
+	isDir   bool
+	mode    fs.FileMode
+}
+
+// IsDir implements fs.FileInfo.
+func (g *GitFileInfo) IsDir() bool {
+	return g.isDir
+}
+
+// ModTime implements fs.FileInfo.
+func (g *GitFileInfo) ModTime() time.Time {
+	return g.modTime
+}
+
+// Mode implements fs.FileInfo.
+func (g *GitFileInfo) Mode() fs.FileMode {
+	return g.mode
+}
+
+// Name implements fs.FileInfo.
+func (g *GitFileInfo) Name() string {
+	return g.name
+}
+
+// Size implements fs.FileInfo.
+func (g *GitFileInfo) Size() int64 {
+	return g.size
+}
+
+// Sys implements fs.FileInfo.
+func (g *GitFileInfo) Sys() any {
+	return nil
+}
+
 func (c GoGitActionCache) GetTarArchive(ctx context.Context, cacheDir, sha, includePrefix string) (io.ReadCloser, error) {
 	gitPath := path.Join(c.Path, safeFilename(cacheDir)+".git")
 	gogitrepo, err := git.PlainOpen(gitPath)
@@ -126,17 +165,25 @@ func (c GoGitActionCache) GetTarArchive(ctx context.Context, cacheDir, sha, incl
 				if err != nil {
 					return err
 				}
-				return tw.WriteHeader(&tar.Header{
-					Name:     name,
-					Mode:     int64(fmode),
-					Linkname: content,
-				})
+
+				header, err := tar.FileInfoHeader(&GitFileInfo{
+					name: name,
+					mode: fmode,
+				}, content)
+				if err != nil {
+					return err
+				}
+				return tw.WriteHeader(header)
 			}
-			err = tw.WriteHeader(&tar.Header{
-				Name: name,
-				Mode: int64(fmode),
-				Size: f.Size,
-			})
+			header, err := tar.FileInfoHeader(&GitFileInfo{
+				name: name,
+				mode: fmode,
+				size: f.Size,
+			}, "")
+			if err != nil {
+				return err
+			}
+			err = tw.WriteHeader(header)
 			if err != nil {
 				return err
 			}
