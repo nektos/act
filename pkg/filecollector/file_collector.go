@@ -79,7 +79,7 @@ func (cc *CopyCollector) WriteFile(fpath string, fi fs.FileInfo, linkName string
 	if _, err := io.Copy(df, f); err != nil {
 		return err
 	}
-	return nil
+	return os.Chtimes(fdestpath, fi.ModTime(), fi.ModTime())
 }
 
 type FileCollector struct {

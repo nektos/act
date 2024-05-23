@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"path"
@@ -151,13 +152,13 @@ func (c GoGitActionCache) GetTarArchive(ctx context.Context, cacheDir, sha, incl
 		tw := tar.NewWriter(wpipe)
 		cleanIncludePrefix := path.Clean(includePrefix)
 		wpipe.CloseWithError(files.ForEach(func(f *object.File) error {
-			return actionCacheCopyFileOrDir(ctx, cleanIncludePrefix, t, tw, f.Name, f)
+			return actionCacheCopyFileOrDir(ctx, cleanIncludePrefix, gogitrepo, commit, t, tw, f.Name, f)
 		}))
 	}()
 	return rpipe, err
 }
 
-func actionCacheCopyFileOrDir(ctx context.Context, cleanIncludePrefix string, t *object.Tree, tw *tar.Writer, origin string, f *object.File) error {
+func actionCacheCopyFileOrDir(ctx context.Context, cleanIncludePrefix string, gogitrepo *git.Repository, commit *object.Commit, t *object.Tree, tw *tar.Writer, origin string, f *object.File) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -182,7 +183,7 @@ func actionCacheCopyFileOrDir(ctx context.Context, cleanIncludePrefix string, t 
 		subtree, err := t.Tree(destPath)
 		if err == nil {
 			return subtree.Files().ForEach(func(ft *object.File) error {
-				return actionCacheCopyFileOrDir(ctx, cleanIncludePrefix, t, tw, origin+strings.TrimPrefix(ft.Name, f.Name), f)
+				return actionCacheCopyFileOrDir(ctx, cleanIncludePrefix, gogitrepo, commit, t, tw, origin+strings.TrimPrefix(ft.Name, f.Name), f)
 			})
 		}
 
@@ -190,12 +191,21 @@ func actionCacheCopyFileOrDir(ctx context.Context, cleanIncludePrefix string, t 
 		if err != nil {
 			return fmt.Errorf("%s (%s): %w", destPath, origin, err)
 		}
-		return actionCacheCopyFileOrDir(ctx, cleanIncludePrefix, t, tw, origin, f)
+		return actionCacheCopyFileOrDir(ctx, cleanIncludePrefix, gogitrepo, commit, t, tw, origin, f)
 	}
+	d, _ := gogitrepo.Log(&git.LogOptions{
+		From:  commit.Hash,
+		Order: git.LogOrderCommitterTime,
+		PathFilter: func(s string) bool {
+			return s == f.Name
+		},
+	})
+	c, _ := d.Next()
 	header, err := tar.FileInfoHeader(&GitFileInfo{
-		name: name,
-		mode: fmode,
-		size: f.Size,
+		name:    name,
+		mode:    fmode,
+		size:    f.Size,
+		modTime: c.Committer.When,
 	}, "")
 	if err != nil {
 		return err
