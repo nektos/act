@@ -188,7 +188,7 @@ func actionCacheCopyFileOrDir(ctx context.Context, cleanIncludePrefix string, t 
 
 		f, err := t.File(destPath)
 		if err != nil {
-			return err
+			return fmt.Errorf("%s (%s): %w", destPath, origin, err)
 		}
 		return actionCacheCopyFileOrDir(ctx, cleanIncludePrefix, t, tw, origin, f)
 	}
