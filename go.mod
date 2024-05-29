@@ -38,8 +38,8 @@ require (
 )
 
 require (
-	github.com/golang-jwt/jwt/v5 v5.2.0
-	google.golang.org/protobuf v1.33.0
+	github.com/golang-jwt/jwt/v5 v5.2.1
+	google.golang.org/protobuf v1.34.1
 )
 
 require (
