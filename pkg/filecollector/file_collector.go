@@ -68,7 +68,7 @@ func (cc *CopyCollector) WriteFile(fpath string, fi fs.FileInfo, linkName string
 	if err := os.MkdirAll(filepath.Dir(fdestpath), 0o777); err != nil {
 		return err
 	}
-	if f == nil {
+	if linkName != "" {
 		return os.Symlink(linkName, fdestpath)
 	}
 	df, err := os.OpenFile(fdestpath, os.O_CREATE|os.O_WRONLY, fi.Mode())
