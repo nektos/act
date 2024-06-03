@@ -139,6 +139,7 @@ func TestSetupEnv(t *testing.T) {
 		JobContainer: cm,
 	}
 	step := &model.Step{
+		Uses: "./",
 		With: map[string]string{
 			"STEP_WITH": "with-value",
 		},
