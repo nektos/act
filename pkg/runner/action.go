@@ -625,6 +625,7 @@ func runPostStep(step actionStep) common.Executor {
 		case model.ActionRunsUsingNode12, model.ActionRunsUsingNode16, model.ActionRunsUsingNode20:
 
 			populateEnvsFromSavedState(step.getEnv(), step, rc)
+			populateEnvsFromInput(ctx, step.getEnv(), step.getActionModel(), rc)
 
 			containerArgs := []string{"node", path.Join(containerActionDir, action.Runs.Post)}
 			logger.Debugf("executing remote job container: %s", containerArgs)
