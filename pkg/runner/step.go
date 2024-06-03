@@ -216,16 +216,18 @@ func setupEnv(ctx context.Context, step step) error {
 	// after we have an evaluated step context, update the expressions evaluator with a new env context
 	// you can use step level env in the with property of a uses construct
 	exprEval = rc.NewExpressionEvaluatorWithEnv(ctx, *step.getEnv())
-	// prevent uses action input pollution of unset parameters
-	// due to design flaw
-	for key := range *step.getEnv() {
-		if strings.Contains(key, "INPUT_") {
-			delete(*step.getEnv(), key)
+	if step.getStepModel().Uses != "" {
+		// prevent uses action input pollution of unset parameters, skip this for run steps
+		// due to design flaw
+		for key := range *step.getEnv() {
+			if strings.Contains(key, "INPUT_") {
+				delete(*step.getEnv(), key)
+			}
 		}
-	}
-	for k, v := range step.getStepModel().GetEnv() {
-		if strings.HasPrefix(k, "INPUT_") {
-			(*step.getEnv())[k] = exprEval.Interpolate(ctx, v)
+		for k, v := range step.getStepModel().GetEnv() {
+			if strings.HasPrefix(k, "INPUT_") {
+				(*step.getEnv())[k] = exprEval.Interpolate(ctx, v)
+			}
 		}
 	}
 
