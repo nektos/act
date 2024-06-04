@@ -6,7 +6,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: ""
+        image: ${{ false || '' }}
         env:
           POSTGRES_USER: runner
           POSTGRES_PASSWORD: mysecretdbpass
