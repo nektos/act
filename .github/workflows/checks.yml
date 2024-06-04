@@ -140,6 +140,12 @@ jobs:
         with:
           name: act-linux-armv7
           path: dist/act_linux_arm_7/act
+      - name: Capture riscv64 (64-bit) Linux binary
+        if: ${{ !env.ACT }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: act-linux-riscv64
+          path: dist/act_linux_riscv64/act
       - name: Capture x86_64 (64-bit) Windows binary
         if: ${{ !env.ACT }}
         uses: actions/upload-artifact@v4
