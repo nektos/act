@@ -263,7 +263,6 @@ func TestRunEvent(t *testing.T) {
 		{workdir, "runs-on", "push", "", platforms, secrets},
 		{workdir, "checkout", "push", "", platforms, secrets},
 		{workdir, "job-container", "push", "", platforms, secrets},
-		{workdir, "job-container-empty-image", "push", "", platforms, secrets},
 		{workdir, "job-container-non-root", "push", "", platforms, secrets},
 		{workdir, "job-container-invalid-credentials", "push", "failed to handle credentials: failed to interpolate container.credentials.password", platforms, secrets},
 		{workdir, "container-hostname", "push", "", platforms, secrets},
@@ -313,6 +312,7 @@ func TestRunEvent(t *testing.T) {
 
 		// services
 		{workdir, "services", "push", "", platforms, secrets},
+		{workdir, "services-empty-image", "push", "", platforms, secrets},
 		{workdir, "services-host-network", "push", "", platforms, secrets},
 		{workdir, "services-with-container", "push", "", platforms, secrets},
 
