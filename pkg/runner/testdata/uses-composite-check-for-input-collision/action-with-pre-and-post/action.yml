@@ -1,0 +1,16 @@
+name: "Action with pre and post"
+description: "Action with pre and post"
+
+inputs:
+  step:
+    description: "step"
+    required: true
+  cache:
+    required: false
+    default: false
+
+runs:
+  using: "node16"
+  pre: pre.js
+  main: main.js
+  post: post.js

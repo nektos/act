@@ -203,31 +203,21 @@ func setupEnv(ctx context.Context, step step) error {
 	rc := step.getRunContext()
 
 	mergeEnv(ctx, step)
-	exprEval := rc.NewExpressionEvaluator(ctx)
+	// merge step env last, since it should not be overwritten
+	mergeIntoMap(step, step.getEnv(), step.getStepModel().GetEnv())
 
+	exprEval := rc.NewExpressionEvaluator(ctx)
 	for k, v := range *step.getEnv() {
 		if !strings.HasPrefix(k, "INPUT_") {
 			(*step.getEnv())[k] = exprEval.Interpolate(ctx, v)
 		}
 	}
-	for k, v := range step.getStepModel().Environment() {
-		(*step.getEnv())[k] = exprEval.Interpolate(ctx, v)
-	}
 	// after we have an evaluated step context, update the expressions evaluator with a new env context
 	// you can use step level env in the with property of a uses construct
 	exprEval = rc.NewExpressionEvaluatorWithEnv(ctx, *step.getEnv())
-	if step.getStepModel().Uses != "" {
-		// prevent uses action input pollution of unset parameters, skip this for run steps
-		// due to design flaw
-		for key := range *step.getEnv() {
-			if strings.Contains(key, "INPUT_") {
-				delete(*step.getEnv(), key)
-			}
-		}
-		for k, v := range step.getStepModel().GetEnv() {
-			if strings.HasPrefix(k, "INPUT_") {
-				(*step.getEnv())[k] = exprEval.Interpolate(ctx, v)
-			}
+	for k, v := range *step.getEnv() {
+		if strings.HasPrefix(k, "INPUT_") {
+			(*step.getEnv())[k] = exprEval.Interpolate(ctx, v)
 		}
 	}
 
@@ -249,6 +239,16 @@ func mergeEnv(ctx context.Context, step step) {
 	}
 
 	rc.withGithubEnv(ctx, step.getGithubContext(ctx), *env)
+
+	if step.getStepModel().Uses != "" {
+		// prevent uses action input pollution of unset parameters, skip this for run steps
+		// due to design flaw
+		for key := range *env {
+			if strings.Contains(key, "INPUT_") {
+				delete(*env, key)
+			}
+		}
+	}
 }
 
 func isStepEnabled(ctx context.Context, expr string, step step, stage stepStage) (bool, error) {
