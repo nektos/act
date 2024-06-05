@@ -1,0 +1,16 @@
+name: "Test Composite Action"
+description: "Test action uses composite"
+
+inputs:
+  cache:
+    default: none
+
+runs:
+  using: "composite"
+  steps:
+  - uses: ./uses-composite-check-for-input-collision/action-with-pre-and-post
+    with:
+      step: step1
+  - uses: ./uses-composite-check-for-input-collision/action-with-pre-and-post
+    with:
+      step: step2
