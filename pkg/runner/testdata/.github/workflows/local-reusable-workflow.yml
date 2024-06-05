@@ -45,23 +45,23 @@ jobs:
 
     - name: test required bool
       run: |
-        echo inputs.bool_required=${{ inputs.bool_required }}
-        [[ "${{ inputs.bool_required }}" = "true" ]] || exit 1
+        echo inputs.bool_required=${{ tojson(inputs.bool_required) }}
+        [[ "${{ tojson(inputs.bool_required) }}" = "true" ]] || exit 1
 
     - name: test optional bool
       run: |
-        echo inputs.bool_optional=${{ inputs.bool_optional }}
-        [[ "${{ inputs.bool_optional }}" = "true" ]] || exit 1
+        echo inputs.bool_optional=${{ tojson(inputs.bool_optional) }}
+        [[ "${{ tojson(inputs.bool_optional) }}" = "true" ]] || exit 1
 
     - name: test required number
       run: |
-        echo inputs.number_required=${{ inputs.number_required }}
-        [[ "${{ inputs.number_required == 1 }}" = "true" ]] || exit 1
+        echo inputs.number_required=${{ tojson(inputs.number_required) }}
+        [[ "${{ tojson(inputs.number_required) == '1' }}" = "true" ]] || exit 1
 
     - name: test optional number
       run: |
-        echo inputs.number_optional=${{ inputs.number_optional }}
-        [[ "${{ inputs.number_optional == 1 }}" = "true" ]] || exit 1
+        echo inputs.number_optional=${{ tojson(inputs.number_optional) }}
+        [[ "${{ tojson(inputs.number_optional) == '1' }}" = "true" ]] || exit 1
 
     - name: test secret
       run: |
