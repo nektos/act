@@ -239,6 +239,16 @@ func mergeEnv(ctx context.Context, step step) {
 	}
 
 	rc.withGithubEnv(ctx, step.getGithubContext(ctx), *env)
+
+	if step.getStepModel().Uses != "" {
+		// prevent uses action input pollution of unset parameters, skip this for run steps
+		// due to design flaw
+		for key := range *env {
+			if strings.Contains(key, "INPUT_") {
+				delete(*env, key)
+			}
+		}
+	}
 }
 
 func isStepEnabled(ctx context.Context, expr string, step step, stage stepStage) (bool, error) {

@@ -242,6 +242,8 @@ func TestRunEvent(t *testing.T) {
 		// Uses
 		{workdir, "uses-composite", "push", "", platforms, secrets},
 		{workdir, "uses-composite-with-error", "push", "Job 'failing-composite-action' failed", platforms, secrets},
+		{workdir, "uses-composite-check-for-input-collision", "push", "", platforms, secrets},
+		{workdir, "uses-composite-check-for-input-shadowing", "push", "", platforms, secrets},
 		{workdir, "uses-nested-composite", "push", "", platforms, secrets},
 		{workdir, "remote-action-composite-js-pre-with-defaults", "push", "", platforms, secrets},
 		{workdir, "remote-action-composite-action-ref", "push", "", platforms, secrets},
