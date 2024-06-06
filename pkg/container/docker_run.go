@@ -169,6 +169,30 @@ func (cr *containerReference) Remove() common.Executor {
 	).IfNot(common.Dryrun)
 }
 
+func (cr *containerReference) GetHealth(ctx context.Context) ContainerHealth {
+	resp, err := cr.cli.ContainerInspect(ctx, cr.id)
+	logger := common.Logger(ctx)
+	if err != nil {
+		logger.Errorf("failed to query container health %s", err)
+		return ContainerHealthUnHealthy
+	}
+	if len(resp.Config.Healthcheck.Test) == 1 && strings.EqualFold(resp.Config.Healthcheck.Test[0], "NONE") {
+		logger.Debugf("no container health check defined")
+		return ContainerHealthHealthy
+	}
+
+	logger.Infof("container health of %s (%s) is %s", cr.id, resp.Config.Image, resp.State.Health.Status)
+	switch resp.State.Health.Status {
+	case "starting":
+		return ContainerHealthStarting
+	case "healthy":
+		return ContainerHealthHealthy
+	case "unhealthy":
+		return ContainerHealthUnHealthy
+	}
+	return ContainerHealthUnHealthy
+}
+
 func (cr *containerReference) ReplaceLogWriter(stdout io.Writer, stderr io.Writer) (io.Writer, io.Writer) {
 	out := cr.input.Stdout
 	err := cr.input.Stderr
