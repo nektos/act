@@ -532,7 +532,10 @@ func (rc *RunContext) waitForServiceContainer(c container.ExecutionsEnvironment)
 				break
 			}
 			time.Sleep(delay)
-			delay = min(delay*2, 10*time.Second)
+			delay *= 2
+			if delay > 10*time.Second {
+				delay = 10 * time.Second
+			}
 		}
 		if health == container.ContainerHealthHealthy {
 			return nil

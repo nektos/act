@@ -176,7 +176,7 @@ func (cr *containerReference) GetHealth(ctx context.Context) ContainerHealth {
 		logger.Errorf("failed to query container health %s", err)
 		return ContainerHealthUnHealthy
 	}
-	if len(resp.Config.Healthcheck.Test) == 1 && strings.EqualFold(resp.Config.Healthcheck.Test[0], "NONE") {
+	if resp.Config == nil || resp.Config.Healthcheck == nil || resp.State == nil || resp.State.Health == nil || len(resp.Config.Healthcheck.Test) == 1 && strings.EqualFold(resp.Config.Healthcheck.Test[0], "NONE") {
 		logger.Debugf("no container health check defined")
 		return ContainerHealthHealthy
 	}
