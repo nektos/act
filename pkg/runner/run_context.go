@@ -3,6 +3,7 @@ package runner
 import (
 	"archive/tar"
 	"bufio"
+	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
@@ -17,6 +18,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/docker/go-connections/nat"
 	"github.com/nektos/act/pkg/common"
@@ -49,6 +51,7 @@ type RunContext struct {
 	Masks               []string
 	cleanUpJobContainer common.Executor
 	caller              *caller // job calling this RunContext (reusable workflows)
+	nodeToolFullPath    string
 }
 
 func (rc *RunContext) AddMask(mask string) {
@@ -428,6 +431,29 @@ func (rc *RunContext) execJobContainer(cmd []string, env map[string]string, user
 	return func(ctx context.Context) error {
 		return rc.JobContainer.Exec(cmd, env, user, workdir)(ctx)
 	}
+}
+
+func (rc *RunContext) GetNodeToolFullPath(ctx context.Context) string {
+	if rc.nodeToolFullPath == "" {
+		timeed, cancel := context.WithTimeout(ctx, time.Minute)
+		defer cancel()
+		hout := &bytes.Buffer{}
+		herr := &bytes.Buffer{}
+		stdout, stderr := rc.JobContainer.ReplaceLogWriter(hout, herr)
+		err := rc.execJobContainer([]string{"node", "--no-warnings", "-e", "console.log(process.execPath)"},
+			rc.Env, "", "").
+			Finally(func(context.Context) error {
+				rc.JobContainer.ReplaceLogWriter(stdout, stderr)
+				return nil
+			})(timeed)
+		rawStr := hout.String()
+		if err == nil && !strings.ContainsAny(rawStr, "\r\n") {
+			rc.nodeToolFullPath = rawStr
+		} else {
+			rc.nodeToolFullPath = "node"
+		}
+	}
+	return rc.nodeToolFullPath
 }
 
 func (rc *RunContext) ApplyExtraPath(ctx context.Context, env *map[string]string) {
