@@ -433,6 +433,13 @@ func (rc *RunContext) execJobContainer(cmd []string, env map[string]string, user
 	}
 }
 
+func (rc *RunContext) InitializeNodeTool() common.Executor {
+	return func(ctx context.Context) error {
+		rc.GetNodeToolFullPath(ctx)
+		return nil
+	}
+}
+
 func (rc *RunContext) GetNodeToolFullPath(ctx context.Context) string {
 	if rc.nodeToolFullPath == "" {
 		timeed, cancel := context.WithTimeout(ctx, time.Minute)
@@ -446,7 +453,7 @@ func (rc *RunContext) GetNodeToolFullPath(ctx context.Context) string {
 				rc.JobContainer.ReplaceLogWriter(stdout, stderr)
 				return nil
 			})(timeed)
-		rawStr := hout.String()
+		rawStr := strings.Trim(hout.String(), "\r\n")
 		if err == nil && !strings.ContainsAny(rawStr, "\r\n") {
 			rc.nodeToolFullPath = rawStr
 		} else {
