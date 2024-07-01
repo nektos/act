@@ -319,6 +319,29 @@ func execAsDocker(ctx context.Context, step actionStep, actionName string, based
 		cmd = action.Runs.Args
 		evalDockerArgs(ctx, step, action, &cmd)
 	}
+
+	preEntrypoint := strings.Fields(eval.Interpolate(ctx, step.getStepModel().With["pre-entrypoint"]))
+	if len(preEntrypoint) == 0 {
+		if action.Runs.PreEntrypoint != "" {
+			preEntrypoint, err = shellquote.Split(action.Runs.PreEntrypoint)
+			if err != nil {
+				return err
+			}
+		} else {
+			preEntrypoint = nil
+		}
+	}
+	stepPreContainer := newStepContainer(ctx, step, image, cmd, preEntrypoint)
+	prePipelineExecutor := common.NewPipelineExecutor(
+		prepImage,
+		stepPreContainer.Pull(forcePull),
+		stepPreContainer.Remove().IfBool(!rc.Config.ReuseContainers),
+		stepPreContainer.Create(rc.Config.ContainerCapAdd, rc.Config.ContainerCapDrop),
+		stepPreContainer.Start(true),
+	).Finally(
+		stepPreContainer.Remove().IfBool(!rc.Config.ReuseContainers),
+	).Finally(stepPreContainer.Close())
+
 	entrypoint := strings.Fields(eval.Interpolate(ctx, step.getStepModel().With["entrypoint"]))
 	if len(entrypoint) == 0 {
 		if action.Runs.Entrypoint != "" {
@@ -331,7 +354,7 @@ func execAsDocker(ctx context.Context, step actionStep, actionName string, based
 		}
 	}
 	stepContainer := newStepContainer(ctx, step, image, cmd, entrypoint)
-	return common.NewPipelineExecutor(
+	pipelineExecutor := common.NewPipelineExecutor(
 		prepImage,
 		stepContainer.Pull(forcePull),
 		stepContainer.Remove().IfBool(!rc.Config.ReuseContainers),
@@ -339,7 +362,35 @@ func execAsDocker(ctx context.Context, step actionStep, actionName string, based
 		stepContainer.Start(true),
 	).Finally(
 		stepContainer.Remove().IfBool(!rc.Config.ReuseContainers),
-	).Finally(stepContainer.Close())(ctx)
+	).Finally(stepContainer.Close())
+
+	postEntrypoint := strings.Fields(eval.Interpolate(ctx, step.getStepModel().With["post-entrypoint"]))
+	if len(postEntrypoint) == 0 {
+		if action.Runs.PostEntrypoint != "" {
+			postEntrypoint, err = shellquote.Split(action.Runs.PostEntrypoint)
+			if err != nil {
+				return err
+			}
+		} else {
+			postEntrypoint = nil
+		}
+	}
+	stepPostContainer := newStepContainer(ctx, step, image, cmd, postEntrypoint)
+	postPipelineExecutor := common.NewPipelineExecutor(
+		prepImage,
+		stepPostContainer.Pull(forcePull),
+		stepPostContainer.Remove().IfBool(!rc.Config.ReuseContainers),
+		stepPostContainer.Create(rc.Config.ContainerCapAdd, rc.Config.ContainerCapDrop),
+		stepPostContainer.Start(true),
+	).Finally(
+		stepPostContainer.Remove().IfBool(!rc.Config.ReuseContainers),
+	).Finally(stepPostContainer.Close())
+
+	return common.NewPipelineExecutor(
+		prePipelineExecutor,
+		pipelineExecutor,
+		postPipelineExecutor,
+	)(ctx)
 }
 
 func evalDockerArgs(ctx context.Context, step step, action *model.Action, cmd *[]string) {
