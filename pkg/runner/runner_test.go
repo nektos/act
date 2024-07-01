@@ -52,7 +52,7 @@ func init() {
 }
 
 func TestNoWorkflowsFoundByPlanner(t *testing.T) {
-	planner, err := model.NewWorkflowPlanner("res", true)
+	planner, err := model.NewWorkflowPlanner("res", "", true)
 	assert.NoError(t, err)
 
 	out := log.StandardLogger().Out
@@ -72,7 +72,7 @@ func TestNoWorkflowsFoundByPlanner(t *testing.T) {
 }
 
 func TestGraphMissingEvent(t *testing.T) {
-	planner, err := model.NewWorkflowPlanner("testdata/issue-1595/no-event.yml", true)
+	planner, err := model.NewWorkflowPlanner("testdata/issue-1595", "no-event.yml", true)
 	assert.NoError(t, err)
 
 	out := log.StandardLogger().Out
@@ -90,7 +90,7 @@ func TestGraphMissingEvent(t *testing.T) {
 }
 
 func TestGraphMissingFirst(t *testing.T) {
-	planner, err := model.NewWorkflowPlanner("testdata/issue-1595/no-first.yml", true)
+	planner, err := model.NewWorkflowPlanner("testdata/issue-1595", "no-first.yml", true)
 	assert.NoError(t, err)
 
 	plan, err := planner.PlanEvent("push")
@@ -100,7 +100,7 @@ func TestGraphMissingFirst(t *testing.T) {
 }
 
 func TestGraphWithMissing(t *testing.T) {
-	planner, err := model.NewWorkflowPlanner("testdata/issue-1595/missing.yml", true)
+	planner, err := model.NewWorkflowPlanner("testdata/issue-1595", "missing.yml", true)
 	assert.NoError(t, err)
 
 	out := log.StandardLogger().Out
@@ -119,7 +119,7 @@ func TestGraphWithMissing(t *testing.T) {
 func TestGraphWithSomeMissing(t *testing.T) {
 	log.SetLevel(log.DebugLevel)
 
-	planner, err := model.NewWorkflowPlanner("testdata/issue-1595/", true)
+	planner, err := model.NewWorkflowPlanner("testdata/issue-1595", "", true)
 	assert.NoError(t, err)
 
 	out := log.StandardLogger().Out
@@ -137,7 +137,7 @@ func TestGraphWithSomeMissing(t *testing.T) {
 }
 
 func TestGraphEvent(t *testing.T) {
-	planner, err := model.NewWorkflowPlanner("testdata/basic", true)
+	planner, err := model.NewWorkflowPlanner("testdata/basic", "", true)
 	assert.NoError(t, err)
 
 	plan, err := planner.PlanEvent("push")
@@ -195,7 +195,7 @@ func (j *TestJobFileInfo) runTest(ctx context.Context, t *testing.T, cfg *Config
 	runner, err := New(runnerConfig)
 	assert.Nil(t, err, j.workflowPath)
 
-	planner, err := model.NewWorkflowPlanner(fullWorkflowPath, true)
+	planner, err := model.NewWorkflowPlanner(workdir, j.workflowPath, true)
 	assert.Nil(t, err, fullWorkflowPath)
 
 	plan, err := planner.PlanEvent(j.eventName)
@@ -251,6 +251,7 @@ func TestRunEvent(t *testing.T) {
 		{workdir, "uses-workflow", "pull_request", "", platforms, map[string]string{"secret": "keep_it_private"}},
 		{workdir, "uses-docker-url", "push", "", platforms, secrets},
 		{workdir, "act-composite-env-test", "push", "", platforms, secrets},
+		{workdir, "issue-1875-uses-workflow-with-sub-workflow", "dispatch", "", platforms, secrets},
 
 		// Eval
 		{workdir, "evalmatrix", "push", "", platforms, secrets},
