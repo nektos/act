@@ -452,6 +452,10 @@ func (e *HostEnvironment) GetRunnerContext(_ context.Context) map[string]interfa
 	}
 }
 
+func (e *HostEnvironment) GetHealth(ctx context.Context) ContainerHealth {
+	return ContainerHealthHealthy
+}
+
 func (e *HostEnvironment) ReplaceLogWriter(stdout io.Writer, _ io.Writer) (io.Writer, io.Writer) {
 	org := e.StdOut
 	e.StdOut = stdout
