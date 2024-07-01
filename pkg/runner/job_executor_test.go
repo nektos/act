@@ -257,7 +257,8 @@ func TestNewJobExecutor(t *testing.T) {
 						},
 					},
 				},
-				Config: &Config{},
+				Config:           &Config{},
+				nodeToolFullPath: "node",
 			}
 			rc.ExprEval = rc.NewExpressionEvaluator(ctx)
 			executorOrder := make([]string, 0)
