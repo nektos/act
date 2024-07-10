@@ -3,6 +3,7 @@ package runner
 import (
 	"archive/tar"
 	"bufio"
+	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
@@ -50,6 +51,7 @@ type RunContext struct {
 	Masks               []string
 	cleanUpJobContainer common.Executor
 	caller              *caller // job calling this RunContext (reusable workflows)
+	nodeToolFullPath    string
 }
 
 func (rc *RunContext) AddMask(mask string) {
@@ -430,6 +432,48 @@ func (rc *RunContext) execJobContainer(cmd []string, env map[string]string, user
 	return func(ctx context.Context) error {
 		return rc.JobContainer.Exec(cmd, env, user, workdir)(ctx)
 	}
+}
+
+func (rc *RunContext) InitializeNodeTool() common.Executor {
+	return func(ctx context.Context) error {
+		rc.GetNodeToolFullPath(ctx)
+		return nil
+	}
+}
+
+func (rc *RunContext) GetNodeToolFullPath(ctx context.Context) string {
+	if rc.nodeToolFullPath == "" {
+		timeed, cancel := context.WithTimeout(ctx, time.Minute)
+		defer cancel()
+		path := rc.JobContainer.GetPathVariableName()
+		cenv := map[string]string{}
+		var cpath string
+		if err := rc.JobContainer.UpdateFromImageEnv(&cenv)(ctx); err == nil {
+			if p, ok := cenv[path]; ok {
+				cpath = p
+			}
+		}
+		if len(cpath) == 0 {
+			cpath = rc.JobContainer.DefaultPathVariable()
+		}
+		cenv[path] = cpath
+		hout := &bytes.Buffer{}
+		herr := &bytes.Buffer{}
+		stdout, stderr := rc.JobContainer.ReplaceLogWriter(hout, herr)
+		err := rc.execJobContainer([]string{"node", "--no-warnings", "-e", "console.log(process.execPath)"},
+			cenv, "", "").
+			Finally(func(context.Context) error {
+				rc.JobContainer.ReplaceLogWriter(stdout, stderr)
+				return nil
+			})(timeed)
+		rawStr := strings.Trim(hout.String(), "\r\n")
+		if err == nil && !strings.ContainsAny(rawStr, "\r\n") {
+			rc.nodeToolFullPath = rawStr
+		} else {
+			rc.nodeToolFullPath = "node"
+		}
+	}
+	return rc.nodeToolFullPath
 }
 
 func (rc *RunContext) ApplyExtraPath(ctx context.Context, env *map[string]string) {
