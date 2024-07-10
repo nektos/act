@@ -423,6 +423,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 				Mode: 0o666,
 				Body: "",
 			}),
+			rc.waitForServiceContainers(),
 		)(ctx)
 	}
 }
@@ -558,6 +559,40 @@ func (rc *RunContext) startServiceContainers(_ string) common.Executor {
 				c.Create(rc.Config.ContainerCapAdd, rc.Config.ContainerCapDrop),
 				c.Start(false),
 			))
+		}
+		return common.NewParallelExecutor(len(execs), execs...)(ctx)
+	}
+}
+
+func (rc *RunContext) waitForServiceContainer(c container.ExecutionsEnvironment) common.Executor {
+	return func(ctx context.Context) error {
+		sctx, cancel := context.WithTimeout(ctx, time.Minute*5)
+		defer cancel()
+		health := container.ContainerHealthStarting
+		delay := time.Second
+		for i := 0; ; i++ {
+			health = c.GetHealth(sctx)
+			if health != container.ContainerHealthStarting || i > 30 {
+				break
+			}
+			time.Sleep(delay)
+			delay *= 2
+			if delay > 10*time.Second {
+				delay = 10 * time.Second
+			}
+		}
+		if health == container.ContainerHealthHealthy {
+			return nil
+		}
+		return fmt.Errorf("service container failed to start")
+	}
+}
+
+func (rc *RunContext) waitForServiceContainers() common.Executor {
+	return func(ctx context.Context) error {
+		execs := []common.Executor{}
+		for _, c := range rc.ServiceContainers {
+			execs = append(execs, rc.waitForServiceContainer(c))
 		}
 		return common.NewParallelExecutor(len(execs), execs...)(ctx)
 	}
