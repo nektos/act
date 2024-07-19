@@ -611,7 +611,7 @@ func hasPostStep(step actionStep) common.Conditional {
 			((action.Runs.Using == model.ActionRunsUsingNode12 ||
 				action.Runs.Using == model.ActionRunsUsingNode16 ||
 				action.Runs.Using == model.ActionRunsUsingNode20) &&
-				action.Runs.Pre != "") ||
+				action.Runs.Post != "") ||
 			(action.Runs.Using == model.ActionRunsUsingDocker &&
 				action.Runs.PostEntrypoint != "")
 	}
