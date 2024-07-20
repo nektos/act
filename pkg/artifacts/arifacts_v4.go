@@ -271,6 +271,16 @@ func (r *artifactV4Routes) createArtifact(ctx *ArtifactContext) {
 
 	artifactName := req.Name
 
+	safeRunPath := safeResolve(r.baseDir, fmt.Sprint(runID))
+	safePath := safeResolve(safeRunPath, artifactName)
+	safePath = safeResolve(safePath, artifactName+".zip")
+	file, err := r.fs.OpenWritable(safePath)
+
+	if err != nil {
+		panic(err)
+	}
+	file.Close()
+
 	respData := CreateArtifactResponse{
 		Ok:              true,
 		SignedUploadUrl: r.buildArtifactURL("UploadArtifact", artifactName, runID),
@@ -292,12 +302,7 @@ func (r *artifactV4Routes) uploadArtifact(ctx *ArtifactContext) {
 		safePath := safeResolve(safeRunPath, artifactName)
 		safePath = safeResolve(safePath, artifactName+".zip")
 
-		file, err := func() (WritableFile, error) {
-			if comp == "appendBlock" {
-				return r.fs.OpenAppendable(safePath)
-			}
-			return r.fs.OpenWritable(safePath)
-		}()
+		file, err := r.fs.OpenAppendable(safePath)
 
 		if err != nil {
 			panic(err)
@@ -317,6 +322,7 @@ func (r *artifactV4Routes) uploadArtifact(ctx *ArtifactContext) {
 		if err != nil {
 			panic(err)
 		}
+		file.Close()
 		ctx.JSON(http.StatusCreated, "appended")
 	case "blocklist":
 		ctx.JSON(http.StatusCreated, "created")
