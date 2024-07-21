@@ -78,7 +78,7 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.PersistentFlags().BoolVar(&input.jsonLogger, "json", false, "Output logs in json format")
 	rootCmd.PersistentFlags().BoolVar(&input.logPrefixJobID, "log-prefix-job-id", false, "Output the job id within non-json logs instead of the entire name")
 	rootCmd.PersistentFlags().BoolVarP(&input.noOutput, "quiet", "q", false, "disable logging of output from steps")
-	rootCmd.PersistentFlags().BoolVarP(&input.dryrun, "dryrun", "n", false, "dryrun mode")
+	rootCmd.PersistentFlags().BoolVarP(&input.dryrun, "dryrun", "n", false, "disable container creation, validates only workflow correctness")
 	rootCmd.PersistentFlags().StringVarP(&input.secretfile, "secret-file", "", ".secrets", "file with list of secrets to read from (e.g. --secret-file .secrets)")
 	rootCmd.PersistentFlags().StringVarP(&input.varfile, "var-file", "", ".vars", "file with list of vars to read from (e.g. --var-file .vars)")
 	rootCmd.PersistentFlags().BoolVarP(&input.insecureSecrets, "insecure-secrets", "", false, "NOT RECOMMENDED! Doesn't hide secrets while printing logs.")
@@ -479,6 +479,11 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			log.Debugf("Planning jobs for event: %s", eventName)
 			plan, plannerErr = planner.PlanEvent(eventName)
 		}
+		if plan != nil {
+			if len(plan.Stages) == 0 {
+				plannerErr = fmt.Errorf("Could not find any stages to run. View the valid jobs with `act --list`. Use `act --help` to find how to filter by Job ID/Workflow/Event Name")
+			}
+		}
 		if plan == nil && plannerErr != nil {
 			return plannerErr
 		}
@@ -634,7 +639,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 func defaultImageSurvey(actrc string) error {
 	var answer string
 	confirmation := &survey.Select{
-		Message: "Please choose the default image you want to use with act:\n  - Large size image: ca. 17GB download + 53.1GB storage, you will need 75GB of free disk space, snapshots of GitHub Hosted Runners without snap and pulled docker images\n  - Medium size image: ~500MB, includes only necessary tools to bootstrap actions and aims to be compatible with most actions\n  - Micro size image: <200MB, contains only NodeJS required to bootstrap actions, doesn't work with all actions\n\nDefault image and other options can be changed manually in ~/.actrc (please refer to https://github.com/nektos/act#configuration for additional information about file structure)",
+		Message: "Please choose the default image you want to use with act:\n  - Large size image: ca. 17GB download + 53.1GB storage, you will need 75GB of free disk space, snapshots of GitHub Hosted Runners without snap and pulled docker images\n  - Medium size image: ~500MB, includes only necessary tools to bootstrap actions and aims to be compatible with most actions\n  - Micro size image: <200MB, contains only NodeJS required to bootstrap actions, doesn't work with all actions\n\nDefault image and other options can be changed manually in " +  configLocations()[0] + " (please refer to https://github.com/nektos/act#configuration for additional information about file structure)",
 		Help:    "If you want to know why act asks you that, please go to https://github.com/nektos/act/issues/107",
 		Default: "Medium",
 		Options: []string{"Large", "Medium", "Micro"},

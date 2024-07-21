@@ -1,0 +1,12 @@
+name: uses-composite-with-pre-and-post-steps
+on: push
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: echo -n "STEP_OUTPUT_TEST=empty" >> $GITHUB_ENV
+      - uses: ./uses-composite-check-for-input-shadowing/composite_action
+        # with:
+          # cache: other

@@ -573,6 +573,7 @@ func TestStepActionRemotePost(t *testing.T) {
 					},
 					StepResults:      tt.initialStepResults,
 					IntraActionState: tt.IntraActionState,
+					nodeToolFullPath: "node",
 				},
 				Step:   tt.stepModel,
 				action: tt.actionModel,

@@ -13,6 +13,7 @@ builds:
       - '386'
       - arm64
       - arm
+      - riscv64
     goarm:
       - '6'
       - '7'

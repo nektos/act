@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/nektos/act/pkg/exprparser"
 	"github.com/nektos/act/pkg/model"
 
@@ -681,4 +682,53 @@ func TestRunContextGetEnv(t *testing.T) {
 			assert.EqualValues(t, test.want, envMap[test.targetEnv])
 		})
 	}
+}
+
+func TestSetRuntimeVariables(t *testing.T) {
+	rc := &RunContext{
+		Config: &Config{
+			ArtifactServerAddr: "myhost",
+			ArtifactServerPort: "8000",
+		},
+	}
+	v := "http://myhost:8000/"
+	env := map[string]string{}
+	setActionRuntimeVars(rc, env)
+
+	assert.Equal(t, v, env["ACTIONS_RESULTS_URL"])
+	assert.Equal(t, v, env["ACTIONS_RUNTIME_URL"])
+	runtimeToken := env["ACTIONS_RUNTIME_TOKEN"]
+	assert.NotEmpty(t, v, runtimeToken)
+
+	tkn, _, err := jwt.NewParser().ParseUnverified(runtimeToken, jwt.MapClaims{})
+	assert.NotNil(t, tkn)
+	assert.Nil(t, err)
+}
+
+func TestSetRuntimeVariablesWithRunID(t *testing.T) {
+	rc := &RunContext{
+		Config: &Config{
+			ArtifactServerAddr: "myhost",
+			ArtifactServerPort: "8000",
+			Env: map[string]string{
+				"GITHUB_RUN_ID": "45",
+			},
+		},
+	}
+	v := "http://myhost:8000/"
+	env := map[string]string{}
+	setActionRuntimeVars(rc, env)
+
+	assert.Equal(t, v, env["ACTIONS_RESULTS_URL"])
+	assert.Equal(t, v, env["ACTIONS_RUNTIME_URL"])
+	runtimeToken := env["ACTIONS_RUNTIME_TOKEN"]
+	assert.NotEmpty(t, v, runtimeToken)
+
+	claims := jwt.MapClaims{}
+	tkn, _, err := jwt.NewParser().ParseUnverified(runtimeToken, &claims)
+	assert.NotNil(t, tkn)
+	assert.Nil(t, err)
+	scp, ok := claims["scp"]
+	assert.True(t, ok, "scp claim exists")
+	assert.Equal(t, "Actions.Results:45:45", scp, "contains expected scp claim")
 }

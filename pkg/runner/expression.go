@@ -196,7 +196,7 @@ func getHashFilesFunction(ctx context.Context, rc *RunContext) func(v []reflect.
 				Mode: 0o644,
 				Body: hashfiles,
 			}).
-				Then(rc.execJobContainer([]string{"node", path.Join(rc.JobContainer.GetActPath(), name)},
+				Then(rc.execJobContainer([]string{rc.GetNodeToolFullPath(ctx), path.Join(rc.JobContainer.GetActPath(), name)},
 					env, "", "")).
 				Finally(func(context.Context) error {
 					rc.JobContainer.ReplaceLogWriter(stdout, stderr)
@@ -512,7 +512,7 @@ func getEvaluatorInputs(ctx context.Context, rc *RunContext, step step, ghc *mod
 			for k, v := range config.Inputs {
 				value := nestedMapLookup(ghc.Event, "inputs", k)
 				if value == nil {
-					value = v.Default
+					v.Default.Decode(&value)
 				}
 				if v.Type == "boolean" {
 					inputs[k] = value == "true"
@@ -531,21 +531,24 @@ func setupWorkflowInputs(ctx context.Context, inputs *map[string]interface{}, rc
 
 		for name, input := range config.Inputs {
 			value := rc.caller.runContext.Run.Job().With[name]
+
 			if value != nil {
-				if str, ok := value.(string); ok {
+				node := yaml.Node{}
+				_ = node.Encode(value)
+				if rc.caller.runContext.ExprEval != nil {
 					// evaluate using the calling RunContext (outside)
-					value = rc.caller.runContext.ExprEval.Interpolate(ctx, str)
+					_ = rc.caller.runContext.ExprEval.EvaluateYamlNode(ctx, &node)
 				}
+				_ = node.Decode(&value)
 			}
 
 			if value == nil && config != nil && config.Inputs != nil {
-				value = input.Default
+				def := input.Default
 				if rc.ExprEval != nil {
-					if str, ok := value.(string); ok {
-						// evaluate using the called RunContext (inside)
-						value = rc.ExprEval.Interpolate(ctx, str)
-					}
+					// evaluate using the called RunContext (inside)
+					_ = rc.ExprEval.EvaluateYamlNode(ctx, &def)
 				}
+				_ = def.Decode(&value)
 			}
 
 			(*inputs)[name] = value

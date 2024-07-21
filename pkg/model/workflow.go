@@ -116,10 +116,10 @@ func (w *Workflow) WorkflowDispatchConfig() *WorkflowDispatch {
 }
 
 type WorkflowCallInput struct {
-	Description string `yaml:"description"`
-	Required    bool   `yaml:"required"`
-	Default     string `yaml:"default"`
-	Type        string `yaml:"type"`
+	Description string    `yaml:"description"`
+	Required    bool      `yaml:"required"`
+	Default     yaml.Node `yaml:"default"`
+	Type        string    `yaml:"type"`
 }
 
 type WorkflowCallOutput struct {
