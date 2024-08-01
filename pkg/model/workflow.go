@@ -15,12 +15,13 @@ import (
 
 // Workflow is the structure of the files in .github/workflows
 type Workflow struct {
-	File     string
-	Name     string            `yaml:"name"`
-	RawOn    yaml.Node         `yaml:"on"`
-	Env      map[string]string `yaml:"env"`
-	Jobs     map[string]*Job   `yaml:"jobs"`
-	Defaults Defaults          `yaml:"defaults"`
+	File        string
+	Name        string            `yaml:"name"`
+	RawOn       yaml.Node         `yaml:"on"`
+	Env         map[string]string `yaml:"env"`
+	Jobs        map[string]*Job   `yaml:"jobs"`
+	Defaults    Defaults          `yaml:"defaults"`
+	Permissions map[string]string `yaml:"permissions"`
 }
 
 // On events for the workflow
@@ -172,6 +173,7 @@ type Job struct {
 	Outputs        map[string]string         `yaml:"outputs"`
 	Uses           string                    `yaml:"uses"`
 	With           map[string]interface{}    `yaml:"with"`
+	Permissions    map[string]string         `yaml:"permissions"`
 	RawSecrets     yaml.Node                 `yaml:"secrets"`
 	Result         string
 }
