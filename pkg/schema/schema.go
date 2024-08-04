@@ -169,8 +169,14 @@ func (s *Node) GetFunctions() *[]FunctionInfo {
 	AddFunction(funcs, "toJson", 1, 1)
 	AddFunction(funcs, "fromJson", 1, 1)
 	for _, v := range s.Context {
-		fun := FunctionInfo{}
-		if n, err := fmt.Sscanf(v, "%s(%d,%d)", &fun.name, &fun.min, &fun.max); n == len(v) && err == nil {
+		i := strings.Index(v, "(")
+		if i == -1 {
+			continue
+		}
+		fun := FunctionInfo{
+			name: v[:i],
+		}
+		if n, err := fmt.Sscanf(v[i:], "(%d,%d)", &fun.min, &fun.max); n == 2 && err == nil {
 			*funcs = append(*funcs, fun)
 		}
 	}
