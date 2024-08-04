@@ -5,7 +5,7 @@ runs:
   using: composite
   steps:
   # Test if GITHUB_ACTION_PATH is set correctly before all steps
-  - run: stat $GITHUB_ACTION_PATH/push.yml
+  - run: stat $GITHUB_ACTION_PATH/../push.yml
     shell: bash
   - run: stat $GITHUB_ACTION_PATH/action.yml
     shell: bash
@@ -36,7 +36,7 @@ runs:
     with:
       who-to-greet: 'Mona the Octocat'
   # Test if GITHUB_ACTION_PATH is set correctly after all steps
-  - run: stat $GITHUB_ACTION_PATH/push.yml
+  - run: stat $GITHUB_ACTION_PATH/../push.yml
     shell: bash
   - run: stat $GITHUB_ACTION_PATH/action.yml
     shell: bash
