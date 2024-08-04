@@ -76,13 +76,6 @@ func (s *MappingProperty) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func (s *MappingProperty) UnmarshalYAML(node *yaml.Node) error {
-	if node.Decode(&s.Type) != nil {
-		return node.Decode(s)
-	}
-	return nil
-}
-
 type SequenceDefinition struct {
 	ItemType string `json:"item-type"`
 }
