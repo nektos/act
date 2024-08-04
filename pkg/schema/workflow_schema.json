@@ -1,0 +1,2110 @@
+{
+  "version": "workflow-v1.0",
+  "definitions": {
+    "workflow-root": {
+      "description": "A workflow file.",
+      "mapping": {
+        "properties": {
+          "on": "on",
+          "name": "workflow-name",
+          "run-name": "run-name",
+          "defaults": "workflow-defaults",
+          "env": "workflow-env",
+          "permissions": "permissions",
+          "concurrency": "workflow-concurrency",
+          "jobs": {
+            "type": "jobs",
+            "required": true
+          }
+        }
+      }
+    },
+    "workflow-root-strict": {
+      "description": "Workflow file with strict validation",
+      "mapping": {
+        "properties": {
+          "on": {
+            "type": "on-strict",
+            "required": true
+          },
+          "name": "workflow-name",
+          "run-name": "run-name",
+          "defaults": "workflow-defaults",
+          "env": "workflow-env",
+          "permissions": "permissions",
+          "concurrency": "workflow-concurrency",
+          "jobs": {
+            "type": "jobs",
+            "required": true
+          }
+        }
+      }
+    },
+    "workflow-name": {
+      "description": "The name of the workflow that GitHub displays on your repository's 'Actions' tab.\n\n[Documentation](https://docs.github.com/actions/using-workflows/workflow-syntax-for-github-actions#name)",
+      "string": {}
+    },
+    "run-name": {
+      "context": ["github", "inputs", "vars"],
+      "string": {},
+      "description": "The name for workflow runs generated from the workflow. GitHub displays the workflow run name in the list of workflow runs on your repository's 'Actions' tab.\n\n[Documentation](https://docs.github.com/actions/using-workflows/workflow-syntax-for-github-actions#run-name)"
+    },
+    "on": {
+      "description": "The GitHub event that triggers the workflow. Events can be a single string, array of events, array of event types, or an event configuration map that schedules a workflow or restricts the execution of a workflow to specific files, tags, or branch changes. View a full list of [events that trigger workflows](https://docs.github.com/actions/using-workflows/events-that-trigger-workflows).\n\n[Documentation](https://docs.github.com/actions/using-workflows/workflow-syntax-for-github-actions#on)",
+      "one-of": ["string", "sequence", "on-mapping"]
+    },
+    "on-mapping": {
+      "mapping": {
+        "properties": {
+          "workflow_call": "workflow-call"
+        },
+        "loose-key-type": "non-empty-string",
+        "loose-value-type": "any"
+      }
+    },
+    "on-strict": {
+      "description": "The GitHub event that triggers the workflow.  Events can be a single string, array of events, array of event types, or an event configuration map that schedules a workflow or restricts the execution of a workflow to specific files, tags, or branch changes. View a full list of [events that trigger workflows](https://docs.github.com/actions/using-workflows/events-that-trigger-workflows).\n\n[Documentation](https://docs.github.com/actions/using-workflows/workflow-syntax-for-github-actions#on)",
+      "one-of": ["on-string-strict", "on-sequence-strict", "on-mapping-strict"]
+    },
+    "on-mapping-strict": {
+      "description": "The GitHub event that triggers the workflow.  Events can be a single string, array of events, array of event types, or an event configuration map that schedules a workflow or restricts the execution of a workflow to specific files, tags, or branch changes. View a full list of [events that trigger workflows](https://docs.github.com/actions/using-workflows/events-that-trigger-workflows).\n\n[Documentation](https://docs.github.com/actions/using-workflows/workflow-syntax-for-github-actions#on)",
+      "mapping": {
+        "properties": {
+          "branch_protection_rule": "branch-protection-rule",
+          "check_run": "check-run",
+          "check_suite": "check-suite",
+          "create": "create",
+          "delete": "delete",
+          "deployment": "deployment",
+          "deployment_status": "deployment-status",
+          "discussion": "discussion",
+          "discussion_comment": "discussion-comment",
+          "fork": "fork",
+          "gollum": "gollum",
+          "issue_comment": "issue-comment",
+          "issues": "issues",
+          "label": "label",
+          "merge_group": "merge-group",
+          "milestone": "milestone",
+          "page_build": "page-build",
+          "project": "project",
+          "project_card": "project-card",
+          "project_column": "project-column",
+          "public": "public",
+          "pull_request": "pull-request",
+          "pull_request_comment": "pull-request-comment",
+          "pull_request_review": "pull-request-review",
+          "pull_request_review_comment": "pull-request-review-comment",
+          "pull_request_target": "pull-request-target",
+          "push": "push",
+          "registry_package": "registry-package",
+          "release": "release",
+          "repository_dispatch": "repository-dispatch",
+          "schedule": "schedule",
+          "status": "status",
+          "watch": "watch",
+          "workflow_call": "workflow-call",
+          "workflow_dispatch": "workflow-dispatch",
+          "workflow_run": "workflow-run"
+        }
+      }
+    },
+    "on-string-strict": {
+      "one-of": [
+        "branch-protection-rule-string",
+        "check-run-string",
+        "check-suite-string",
+        "create-string",
+        "delete-string",
+        "deployment-string",
+        "deployment-status-string",
+        "discussion-string",
+        "discussion-comment-string",
+        "fork-string",
+        "gollum-string",
+        "issue-comment-string",
+        "issues-string",
+        "label-string",
+        "merge-group-string",
+        "milestone-string",
+        "page-build-string",
+        "project-string",
+        "project-card-string",
+        "project-column-string",
+        "public-string",
+        "pull-request-string",
+        "pull-request-comment-string",
+        "pull-request-review-string",
+        "pull-request-review-comment-string",
+        "pull-request-target-string",
+        "push-string",
+        "registry-package-string",
+        "release-string",
+        "repository-dispatch-string",
+        "schedule-string",
+        "status-string",
+        "watch-string",
+        "workflow-call-string",
+        "workflow-dispatch-string",
+        "workflow-run-string"
+      ]
+    },
+    "on-sequence-strict": {
+      "sequence": {
+        "item-type": "on-string-strict"
+      }
+    },
+    "branch-protection-rule-string": {
+      "description": "Runs your workflow when branch protection rules in the workflow repository are changed.",
+      "string": {
+        "constant": "branch_protection_rule"
+      }
+    },
+    "branch-protection-rule": {
+      "description": "Runs your workflow when branch protection rules in the workflow repository are changed.",
+      "one-of": ["null", "branch-protection-rule-mapping"]
+    },
+    "branch-protection-rule-mapping": {
+      "mapping": {
+        "properties": {
+          "types": "branch-protection-rule-activity"
+        }
+      }
+    },
+    "branch-protection-rule-activity": {
+      "description": "The types of branch protection rule activity that trigger the workflow. Supported activity types: `created`, `edited`, `deleted`.",
+      "one-of": [
+        "branch-protection-rule-activity-type",
+        "branch-protection-rule-activity-types"
+      ]
+    },
+    "branch-protection-rule-activity-types": {
+      "sequence": {
+        "item-type": "branch-protection-rule-activity-type"
+      }
+    },
+    "branch-protection-rule-activity-type": {
+      "allowed-values": ["created", "edited", "deleted"]
+    },
+    "check-run-string": {
+      "description": "Runs your workflow when activity related to a check run occurs. A check run is an individual test that is part of a check suite.",
+      "string": {
+        "constant": "check_run"
+      }
+    },
+    "check-run": {
+      "description": "Runs your workflow when activity related to a check run occurs. A check run is an individual test that is part of a check suite.",
+      "one-of": ["null", "check-run-mapping"]
+    },
+    "check-run-mapping": {
+      "mapping": {
+        "properties": {
+          "types": "check-run-activity"
+        }
+      }
+    },
+    "check-run-activity": {
+      "description": "The types of check run activity that trigger the workflow. Supported activity types: `created`, `rerequested`, `completed`, `requested_action`.",
+      "one-of": ["check-run-activity-type", "check-run-activity-types"]
+    },
+    "check-run-activity-types": {
+      "sequence": {
+        "item-type": "check-run-activity-type"
+      }
+    },
+    "check-run-activity-type": {
+      "allowed-values": [
+        "completed",
+        "created",
+        "rerequested",
+        "requested_action"
+      ]
+    },
+    "check-suite-string": {
+      "description": "Runs your workflow when check suite activity occurs. A check suite is a collection of the check runs created for a specific commit. Check suites summarize the status and conclusion of the check runs that are in the suite.",
+      "string": {
+        "constant": "check_suite"
+      }
+    },
+    "check-suite": {
+      "description": "Runs your workflow when check suite activity occurs. A check suite is a collection of the check runs created for a specific commit. Check suites summarize the status and conclusion of the check runs that are in the suite.",
+      "one-of": ["null", "check-suite-mapping"]
+    },
+    "check-suite-mapping": {
+      "mapping": {
+        "properties": {
+          "types": "check-suite-activity"
+        }
+      }
+    },
+    "check-suite-activity": {
+      "description": "The types of check suite activity that trigger the workflow. Supported activity types: `completed`.",
+      "one-of": ["check-suite-activity-type", "check-suite-activity-types"]
+    },
+    "check-suite-activity-types": {
+      "sequence": {
+        "item-type": "check-suite-activity-type"
+      }
+    },
+    "check-suite-activity-type": {
+      "allowed-values": ["completed"]
+    },
+    "create-string": {
+      "description": "Runs your workflow when someone creates a Git reference (Git branch or tag) in the workflow's repository.",
+      "string": {
+        "constant": "create"
+      }
+    },
+    "create": {
+      "description": "Runs your workflow when someone creates a Git reference (Git branch or tag) in the workflow's repository.",
+      "null": {}
+    },
+    "delete-string": {
+      "description": "Runs your workflow when someone deletes a Git reference (Git branch or tag) in the workflow's repository.",
+      "string": {
+        "constant": "delete"
+      }
+    },
+    "delete": {
+      "description": "Runs your workflow when someone deletes a Git reference (Git branch or tag) in the workflow's repository.",
+      "null": {}
+    },
+    "deployment-string": {
+      "description": "Runs your workflow when someone creates a deployment in the workflow's repository. Deployments created with a commit SHA may not have a Git ref.",
+      "string": {
+        "constant": "deployment"
+      }
+    },
+    "deployment": {
+      "description": "Runs your workflow when someone creates a deployment in the workflow's repository. Deployments created with a commit SHA may not have a Git ref.",
+      "null": {}
+    },
+    "deployment-status-string": {
+      "description": "Runs your workflow when a third party provides a deployment status. Deployments created with a commit SHA may not have a Git ref.",
+      "string": {
+        "constant": "deployment_status"
+      }
+    },
+    "deployment-status": {
+      "description": "Runs your workflow when a third party provides a deployment status. Deployments created with a commit SHA may not have a Git ref.",
+      "null": {}
+    },
+    "discussion-string": {
+      "description": "Runs your workflow when a discussion in the workflow's repository is created or modified. For activity related to comments on a discussion, use the `discussion_comment` event.",
+      "string": {
+        "constant": "discussion"
+      }
+    },
+    "discussion": {
+      "description": "Runs your workflow when a discussion in the workflow's repository is created or modified. For activity related to comments on a discussion, use the `discussion_comment` event.",
+      "one-of": ["null", "discussion-mapping"]
+    },
+    "discussion-mapping": {
+      "mapping": {
+        "properties": {
+          "types": "discussion-activity"
+        }
+      }
+    },
+    "discussion-activity": {
+      "description": "The types of discussion activity that trigger the workflow. Supported activity types: `created`, `edited`, `deleted`, `transferred`, `pinned`, `unpinned`, `labeled`, `unlabeled`, `locked`, `unlocked`, `category_changed`, `answered`, `unanswered`.",
+      "one-of": ["discussion-activity-type", "discussion-activity-types"]
+    },
+    "discussion-activity-types": {
+      "sequence": {
+        "item-type": "discussion-activity-type"
+      }
+    },
+    "discussion-activity-type": {
+      "allowed-values": [
+        "created",
+        "edited",
+        "deleted",
+        "transferred",
+        "pinned",
+        "unpinned",
+        "labeled",
+        "unlabeled",
+        "locked",
+        "unlocked",
+        "category_changed",
+        "answered",
+        "unanswered"
+      ]
+    },
+    "discussion-comment-string": {
+      "description": "Runs your workflow when a comment on a discussion in the workflow's repository is created or modified. For activity related to a discussion as opposed to comments on the discussion, use the `discussion` event.",
+      "string": {
+        "constant": "discussion_comment"
+      }
+    },
+    "discussion-comment": {
+      "description": "Runs your workflow when a comment on a discussion in the workflow's repository is created or modified. For activity related to a discussion as opposed to comments on the discussion, use the `discussion` event.",
+      "one-of": ["null", "discussion-comment-mapping"]
+    },
+    "discussion-comment-mapping": {
+      "mapping": {
+        "properties": {
+          "types": "discussion-comment-activity"
+        }
+      }
+    },
+    "discussion-comment-activity": {
+      "description": "The types of discussion comment activity that trigger the workflow. Supported activity types: `created`, `edited`, `deleted`.",
+      "one-of": [
+        "discussion-comment-activity-type",
+        "discussion-comment-activity-types"
+      ]
+    },
+    "discussion-comment-activity-types": {
+      "sequence": {
+        "item-type": "discussion-comment-activity-type"
+      }
+    },
+    "discussion-comment-activity-type": {
+      "allowed-values": ["created", "edited", "deleted"]
+    },
+    "fork-string": {
+      "description": "Runs your workflow when someone forks a repository.",
+      "string": {
+        "constant": "fork"
+      }
+    },
+    "fork": {
+      "description": "Runs your workflow when someone forks a repository.",
+      "null": {}
+    },
+    "gollum-string": {
+      "description": "Runs your workflow when someone creates or updates a Wiki page.",
+      "string": {
+        "constant": "gollum"
+      }
+    },
+    "gollum": {
+      "description": "Runs your workflow when someone creates or updates a Wiki page.",
+      "null": {}
+    },
+    "issue-comment-string": {
+      "description": "Runs your workflow when an issue or pull request comment is created, edited, or deleted.",
+      "string": {
+        "constant": "issue_comment"
+      }
+    },
+    "issue-comment": {
+      "description": "Runs your workflow when an issue or pull request comment is created, edited, or deleted.",
+      "one-of": ["null", "issue-comment-mapping"]
+    },
+    "issue-comment-mapping": {
+      "mapping": {
+        "properties": {
+          "types": "issue-comment-activity"
+        }
+      }
+    },
+    "issue-comment-activity": {
+      "description": "The types of issue comment activity that trigger the workflow. Supported activity types: `created`, `edited`, `deleted`.",
+      "one-of": ["issue-comment-activity-type", "issue-comment-activity-types"]
+    },
+    "issue-comment-activity-types": {
+      "sequence": {
+        "item-type": "issue-comment-activity-type"
+      }
+    },
+    "issue-comment-activity-type": {
+      "allowed-values": ["created", "edited", "deleted"]
+    },
+    "issues-string": {
+      "description": "Runs your workflow when an issue in the workflow's repository is created or modified. For activity related to comments in an issue, use the `issue_comment` event.",
+      "string": {
+        "constant": "issues"
+      }
+    },
+    "issues": {
+      "description": "Runs your workflow when an issue in the workflow's repository is created or modified. For activity related to comments in an issue, use the `issue_comment` event.",
+      "one-of": ["null", "issues-mapping"]
+    },
+    "issues-mapping": {
+      "mapping": {
+        "properties": {
+          "types": "issues-activity"
+        }
+      }
+    },
+    "issues-activity": {
+      "description": "The types of issue activity that trigger the workflow. Supported activity types: `opened`, `edited`, `deleted`, `transferred`, `pinned`, `unpinned`, `closed`, `reopened`, `assigned`, `unassigned`, `labeled`, `unlabeled`, `locked`, `unlocked`, `milestoned`, `demilestoned`.",
+      "one-of": ["issues-activity-type", "issues-activity-types"]
+    },
+    "issues-activity-types": {
+      "sequence": {
+        "item-type": "issues-activity-type"
+      }
+    },
+    "issues-activity-type": {
+      "allowed-values": [
+        "opened",
+        "edited",
+        "deleted",
+        "transferred",
+        "pinned",
+        "unpinned",
+        "closed",
+        "reopened",
+        "assigned",
+        "unassigned",
+        "labeled",
+        "unlabeled",
+        "locked",
+        "unlocked",
+        "milestoned",
+        "demilestoned"
+      ]
+    },
+    "label-string": {
+      "description": "Runs your workflow when a label in your workflow's repository is created or modified.",
+      "string": {
+        "constant": "label"
+      }
+    },
+    "label": {
+      "description": "Runs your workflow when a label in your workflow's repository is created or modified.",
+      "one-of": ["null", "label-mapping"]
+    },
+    "label-mapping": {
+      "mapping": {
+        "properties": {
+          "types": "label-activity"
+        }
+      }
+    },
+    "label-activity": {
+      "description": "The types of label activity that trigger the workflow. Supported activity types: `created`, `edited`, `deleted`.",
+      "one-of": ["label-activity-type", "label-activity-types"]
+    },
+    "label-activity-types": {
+      "sequence": {
+        "item-type": "label-activity-type"
+      }
+    },
+    "label-activity-type": {
+      "allowed-values": ["created", "edited", "deleted"]
+    },
+    "merge-group-string": {
+      "description": "Runs your workflow when a pull request is added to a merge queue, which adds the pull request to a merge group.",
+      "string": {
+        "constant": "merge_group"
+      }
+    },
+    "merge-group": {
+      "description": "Runs your workflow when a pull request is added to a merge queue, which adds the pull request to a merge group.",
+      "one-of": ["null", "merge-group-mapping"]
+    },
+    "merge-group-mapping": {
+      "mapping": {
+        "properties": {
+          "types": "merge-group-activity",
+          "branches": "event-branches",
+          "branches-ignore": "event-branches-ignore"
+        }
+      }
+    },
+    "merge-group-activity": {
+      "description": "The types of merge group activity that trigger the workflow. Supported activity types: `checks_requested`.",
+      "one-of": ["merge-group-activity-type", "merge-group-activity-types"]
+    },
+    "merge-group-activity-types": {
+      "sequence": {
+        "item-type": "merge-group-activity-type"
+      }
+    },
+    "merge-group-activity-type": {
+      "allowed-values": ["checks_requested"]
+    },
+    "milestone-string": {
+      "description": "Runs your workflow when a milestone in the workflow's repository is created or modified.",
+      "string": {
+        "constant": "milestone"
+      }
+    },
+    "milestone": {
+      "description": "Runs your workflow when a milestone in the workflow's repository is created or modified.",
+      "one-of": ["null", "milestone-mapping"]
+    },
+    "milestone-mapping": {
+      "mapping": {
+        "properties": {
+          "types": "milestone-activity"
+        }
+      }
+    },
+    "milestone-activity": {
+      "description": "The types of milestone activity that trigger the workflow. Supported activity types: `created`, `closed`, `opened`, `edited`, `deleted`.",
+      "one-of": ["milestone-activity-type", "milestone-activity-types"]
+    },
+    "milestone-activity-types": {
+      "sequence": {
+        "item-type": "milestone-activity-type"
+      }
+    },
+    "milestone-activity-type": {
+      "allowed-values": ["created", "closed", "opened", "edited", "deleted"]
+    },
+    "page-build-string": {
+      "description": "Runs your workflow when someone pushes to a branch that is the publishing source for GitHub Pages, if GitHub Pages is enabled for the repository.",
+      "string": {
+        "constant": "page_build"
+      }
+    },
+    "page-build": {
+      "description": "Runs your workflow when someone pushes to a branch that is the publishing source for GitHub Pages, if GitHub Pages is enabled for the repository.",
+      "null": {}
+    },
+    "project-string": {
+      "description": "Runs your workflow when a project board is created or modified. For activity related to cards or columns in a project board, use the `project_card` or `project_column` events instead.",
+      "string": {
+        "constant": "project"
+      }
+    },
+    "project": {
+      "description": "Runs your workflow when a project board is created or modified. For activity related to cards or columns in a project board, use the `project_card` or `project_column` events instead.",
+      "one-of": ["null", "project-mapping"]
+    },
+    "project-mapping": {
+      "mapping": {
+        "properties": {
+          "types": "project-activity"
+        }
+      }
+    },
+    "project-activity": {
+      "description": "The types of project activity that trigger the workflow. Supported activity types: `created`, `closed`, `reopened`, `edited`, `deleted`.",
+      "one-of": ["project-activity-type", "project-activity-types"]
+    },
+    "project-activity-types": {
+      "sequence": {
+        "item-type": "project-activity-type"
+      }
+    },
+    "project-activity-type": {
+      "allowed-values": ["created", "closed", "reopened", "edited", "deleted"]
+    },
+    "project-card-string": {
+      "description": "Runs your workflow when a card on a project board is created or modified. For activity related to project boards or columns in a project board, use the `project` or `project_column` event instead.",
+      "string": {
+        "constant": "project_card"
+      }
+    },
+    "project-card": {
+      "description": "Runs your workflow when a card on a project board is created or modified. For activity related to project boards or columns in a project board, use the `project` or `project_column` event instead.",
+      "one-of": ["null", "project-card-mapping"]
+    },
+    "project-card-mapping": {
+      "mapping": {
+        "properties": {
+          "types": "project-card-activity"
+        }
+      }
+    },
+    "project-card-activity": {
+      "description": "The types of project card activity that trigger the workflow. Supported activity types: `created`, `moved`, `converted`, `edited`, `deleted`.",
+      "one-of": ["project-card-activity-type", "project-card-activity-types"]
+    },
+    "project-card-activity-types": {
+      "sequence": {
+        "item-type": "project-card-activity-type"
+      }
+    },
+    "project-card-activity-type": {
+      "allowed-values": ["created", "moved", "converted", "edited", "deleted"]
+    },
+    "project-column-string": {
+      "description": "Runs your workflow when a column on a project board is created or modified. For activity related to project boards or cards in a project board, use the `project` or `project_card` event instead.",
+      "string": {
+        "constant": "project_column"
+      }
+    },
+    "project-column": {
+      "description": "Runs your workflow when a column on a project board is created or modified. For activity related to project boards or cards in a project board, use the `project` or `project_card` event instead.",
+      "one-of": ["null", "project-column-mapping"]
+    },
+    "project-column-mapping": {
+      "mapping": {
+        "properties": {
+          "types": "project-column-activity"
+        }
+      }
+    },
+    "project-column-activity": {
+      "description": "The types of project column activity that trigger the workflow. Supported activity types: `created`, `updated`, `moved`, `deleted`.",
+      "one-of": [
+        "project-column-activity-type",
+        "project-column-activity-types"
+      ]
+    },
+    "project-column-activity-types": {
+      "sequence": {
+        "item-type": "project-column-activity-type"
+      }
+    },
+    "project-column-activity-type": {
+      "allowed-values": ["created", "updated", "moved", "deleted"]
+    },
+    "public-string": {
+      "description": "Runs your workflow when your workflow's repository changes from private to public.",
+      "string": {
+        "constant": "public"
+      }
+    },
+    "public": {
+      "description": "Runs your workflow when your workflow's repository changes from private to public.",
+      "null": {}
+    },
+    "pull-request-string": {
+      "description": "Runs your workflow when activity on a pull request in the workflow's repository occurs. If no activity types are specified, the workflow runs when a pull request is opened, reopened, or when the head branch of the pull request is updated.",
+      "string": {
+        "constant": "pull_request"
+      }
+    },
+    "pull-request": {
+      "description": "Runs your workflow when activity on a pull request in the workflow's repository occurs. If no activity types are specified, the workflow runs when a pull request is opened, reopened, or when the head branch of the pull request is updated.",
+      "one-of": ["null", "pull-request-mapping"]
+    },
+    "pull-request-mapping": {
+      "mapping": {
+        "properties": {
+          "types": "pull-request-activity",
+          "branches": "event-branches",
+          "branches-ignore": "event-branches-ignore",
+          "paths": "event-paths",
+          "paths-ignore": "event-paths-ignore"
+        }
+      }
+    },
+    "pull-request-activity": {
+      "description": "The types of pull request activity that trigger the workflow. Supported activity types: `assigned`, `unassigned`, `labeled`, `unlabeled`, `opened`, `edited`, `closed`, `reopened`, `synchronize`, `converted_to_draft`, `ready_for_review`, `locked`, `unlocked`, `review_requested`, `review_request_removed`, `auto_merge_enabled`, `auto_merge_disabled`.",
+      "one-of": ["pull-request-activity-type", "pull-request-activity-types"]
+    },
+    "pull-request-activity-types": {
+      "sequence": {
+        "item-type": "pull-request-activity-type"
+      }
+    },
+    "pull-request-activity-type": {
+      "allowed-values": [
+        "assigned",
+        "unassigned",
+        "labeled",
+        "unlabeled",
+        "opened",
+        "edited",
+        "closed",
+        "reopened",
+        "synchronize",
+        "converted_to_draft",
+        "ready_for_review",
+        "locked",
+        "unlocked",
+        "review_requested",
+        "review_request_removed",
+        "auto_merge_enabled",
+        "auto_merge_disabled"
+      ]
+    },
+    "pull-request-comment-string": {
+      "description": "Please use the `issue_comment` event instead.",
+      "string": {
+        "constant": "pull_request_comment"
+      }
+    },
+    "pull-request-comment": {
+      "description": "Please use the `issue_comment` event instead.",
+      "one-of": ["null", "issue-comment-mapping"]
+    },
+    "pull-request-review-string": {
+      "description": "Runs your workflow when a pull request review is submitted, edited, or dismissed. A pull request review is a group of pull request review comments in addition to a body comment and a state. For activity related to pull request review comments or pull request comments, use the `pull_request_review_comment` or `issue_comment` events instead.",
+      "string": {
+        "constant": "pull_request_review"
+      }
+    },
+    "pull-request-review": {
+      "description": "Runs your workflow when a pull request review is submitted, edited, or dismissed. A pull request review is a group of pull request review comments in addition to a body comment and a state. For activity related to pull request review comments or pull request comments, use the `pull_request_review_comment` or `issue_comment` events instead.",
+      "one-of": ["null", "pull-request-review-mapping"]
+    },
+    "pull-request-review-mapping": {
+      "mapping": {
+        "properties": {
+          "types": "pull-request-review-activity"
+        }
+      }
+    },
+    "pull-request-review-activity": {
+      "description": "The types of pull request review activity that trigger the workflow. Supported activity types: `submitted`, `edited`, `dismissed`.",
+      "one-of": [
+        "pull-request-review-activity-type",
+        "pull-request-review-activity-types"
+      ]
+    },
+    "pull-request-review-activity-types": {
+      "sequence": {
+        "item-type": "pull-request-review-activity-type"
+      }
+    },
+    "pull-request-review-activity-type": {
+      "allowed-values": ["submitted", "edited", "dismissed"]
+    },
+    "pull-request-review-comment-string": {
+      "description": "",
+      "string": {
+        "constant": "pull_request_review_comment"
+      }
+    },
+    "pull-request-review-comment": {
+      "description": "",
+      "one-of": ["null", "pull-request-review-comment-mapping"]
+    },
+    "pull-request-review-comment-mapping": {
+      "mapping": {
+        "properties": {
+          "types": "pull-request-review-comment-activity"
+        }
+      }
+    },
+    "pull-request-review-comment-activity": {
+      "description": "The types of pull request review comment activity that trigger the workflow. Supported activity types: `created`, `edited`, `deleted`.",
+      "one-of": [
+        "pull-request-review-comment-activity-type",
+        "pull-request-review-comment-activity-types"
+      ]
+    },
+    "pull-request-review-comment-activity-types": {
+      "sequence": {
+        "item-type": "pull-request-review-comment-activity-type"
+      }
+    },
+    "pull-request-review-comment-activity-type": {
+      "allowed-values": ["created", "edited", "deleted"]
+    },
+    "pull-request-target-string": {
+      "description": "Runs your workflow when activity on a pull request in the workflow's repository occurs. If no activity types are specified, the workflow runs when a pull request is opened, reopened, or when the head branch of the pull request is updated.\n\nThis event runs in the context of the base of the pull request, rather than in the context of the merge commit, as the `pull_request` event does. This prevents execution of unsafe code from the head of the pull request that could alter your repository or steal any secrets you use in your workflow. This event allows your workflow to do things like label or comment on pull requests from forks. Avoid using this event if you need to build or run code from the pull request.",
+      "string": {
+        "constant": "pull_request_target"
+      }
+    },
+    "pull-request-target": {
+      "description": "Runs your workflow when activity on a pull request in the workflow's repository occurs. If no activity types are specified, the workflow runs when a pull request is opened, reopened, or when the head branch of the pull request is updated.\n\nThis event runs in the context of the base of the pull request, rather than in the context of the merge commit, as the `pull_request` event does. This prevents execution of unsafe code from the head of the pull request that could alter your repository or steal any secrets you use in your workflow. This event allows your workflow to do things like label or comment on pull requests from forks. Avoid using this event if you need to build or run code from the pull request.",
+      "one-of": ["null", "pull-request-target-mapping"]
+    },
+    "pull-request-target-mapping": {
+      "mapping": {
+        "properties": {
+          "types": "pull-request-target-activity",
+          "branches": "event-branches",
+          "branches-ignore": "event-branches-ignore",
+          "paths": "event-paths",
+          "paths-ignore": "event-paths-ignore"
+        }
+      }
+    },
+    "pull-request-target-activity": {
+      "description": "The types of pull request activity that trigger the workflow. Supported activity types: `assigned`, `unassigned`, `labeled`, `unlabeled`, `opened`, `edited`, `closed`, `reopened`, `synchronize`, `converted_to_draft`, `ready_for_review`, `locked`, `unlocked`, `review_requested`, `review_request_removed`, `auto_merge_enabled`, `auto_merge_disabled`.",
+      "one-of": [
+        "pull-request-target-activity-type",
+        "pull-request-target-activity-types"
+      ]
+    },
+    "pull-request-target-activity-types": {
+      "sequence": {
+        "item-type": "pull-request-target-activity-type"
+      }
+    },
+    "pull-request-target-activity-type": {
+      "allowed-values": [
+        "assigned",
+        "unassigned",
+        "labeled",
+        "unlabeled",
+        "opened",
+        "edited",
+        "closed",
+        "reopened",
+        "synchronize",
+        "converted_to_draft",
+        "ready_for_review",
+        "locked",
+        "unlocked",
+        "review_requested",
+        "review_request_removed",
+        "auto_merge_enabled",
+        "auto_merge_disabled"
+      ]
+    },
+    "push-string": {
+      "description": "Runs your workflow when you push a commit or tag.",
+      "string": {
+        "constant": "push"
+      }
+    },
+    "push": {
+      "description": "Runs your workflow when you push a commit or tag.",
+      "one-of": ["null", "push-mapping"]
+    },
+    "push-mapping": {
+      "mapping": {
+        "properties": {
+          "branches": "event-branches",
+          "branches-ignore": "event-branches-ignore",
+          "tags": "event-tags",
+          "tags-ignore": "event-tags-ignore",
+          "paths": "event-paths",
+          "paths-ignore": "event-paths-ignore"
+        }
+      }
+    },
+    "registry-package-string": {
+      "description": "Runs your workflow when activity related to GitHub Packages occurs in your repository.",
+      "string": {
+        "constant": "registry_package"
+      }
+    },
+    "registry-package": {
+      "description": "Runs your workflow when activity related to GitHub Packages occurs in your repository.",
+      "one-of": ["null", "registry-package-mapping"]
+    },
+    "registry-package-mapping": {
+      "mapping": {
+        "properties": {
+          "types": "registry-package-activity"
+        }
+      }
+    },
+    "registry-package-activity": {
+      "description": "The types of registry package activity that trigger the workflow. Supported activity types: `published`, `updated`.",
+      "one-of": [
+        "registry-package-activity-type",
+        "registry-package-activity-types"
+      ]
+    },
+    "registry-package-activity-types": {
+      "sequence": {
+        "item-type": "registry-package-activity-type"
+      }
+    },
+    "registry-package-activity-type": {
+      "allowed-values": ["published", "updated"]
+    },
+    "release-string": {
+      "description": "Runs your workflow when release activity in your repository occurs.",
+      "string": {
+        "constant": "release"
+      }
+    },
+    "release": {
+      "description": "Runs your workflow when release activity in your repository occurs.",
+      "one-of": ["null", "release-mapping"]
+    },
+    "release-mapping": {
+      "mapping": {
+        "properties": {
+          "types": "release-activity"
+        }
+      }
+    },
+    "release-activity": {
+      "description": "The types of release activity that trigger the workflow. Supported activity types: `published`, `unpublished`, `created`, `edited`, `deleted`, `prereleased`, `released`.",
+      "one-of": ["release-activity-type", "release-activity-types"]
+    },
+    "release-activity-types": {
+      "sequence": {
+        "item-type": "release-activity-type"
+      }
+    },
+    "release-activity-type": {
+      "allowed-values": [
+        "published",
+        "unpublished",
+        "created",
+        "edited",
+        "deleted",
+        "prereleased",
+        "released"
+      ]
+    },
+    "schedule-string": {
+      "description": "The `schedule` event allows you to trigger a workflow at a scheduled time.\n\nYou can schedule a workflow to run at specific UTC times using POSIX cron syntax. Scheduled workflows run on the latest commit on the default or base branch. The shortest interval you can run scheduled workflows is once every 5 minutes. GitHub Actions does not support the non-standard syntax `@yearly`, `@monthly`, `@weekly`, `@daily`, `@hourly`, and `@reboot`.",
+      "string": {
+        "constant": "schedule"
+      }
+    },
+    "schedule": {
+      "description": "The `schedule` event allows you to trigger a workflow at a scheduled time.\n\nYou can schedule a workflow to run at specific UTC times using POSIX cron syntax. Scheduled workflows run on the latest commit on the default or base branch. The shortest interval you can run scheduled workflows is once every 5 minutes. GitHub Actions does not support the non-standard syntax `@yearly`, `@monthly`, `@weekly`, `@daily`, `@hourly`, and `@reboot`.",
+      "sequence": {
+        "item-type": "cron-mapping"
+      }
+    },
+    "status-string": {
+      "description": "Runs your workflow when the status of a Git commit changes. For example, commits can be marked as `error`, `failure`, `pending`, or `success`. If you want to provide more details about the status change, you may want to use the `check_run` event.",
+      "string": {
+        "constant": "status"
+      }
+    },
+    "status": {
+      "description": "Runs your workflow when the status of a Git commit changes. For example, commits can be marked as `error`, `failure`, `pending`, or `success`. If you want to provide more details about the status change, you may want to use the `check_run` event.",
+      "null": {}
+    },
+    "watch-string": {
+      "description": "Runs your workflow when the workflow's repository is starred.",
+      "string": {
+        "constant": "watch"
+      }
+    },
+    "watch": {
+      "description": "Runs your workflow when the workflow's repository is starred.",
+      "one-of": ["null", "watch-mapping"]
+    },
+    "watch-mapping": {
+      "mapping": {
+        "properties": {
+          "types": "watch-activity"
+        }
+      }
+    },
+    "watch-activity": {
+      "description": "The types of watch activity that trigger the workflow. Supported activity types: `started`.",
+      "one-of": ["watch-activity-type", "watch-activity-types"]
+    },
+    "watch-activity-types": {
+      "sequence": {
+        "item-type": "watch-activity-type"
+      }
+    },
+    "watch-activity-type": {
+      "allowed-values": ["started"]
+    },
+    "workflow-run-string": {
+      "description": "This event occurs when a workflow run is requested or completed. It allows you to execute a workflow based on execution or completion of another workflow. The workflow started by the `workflow_run` event is able to access secrets and write tokens, even if the previous workflow was not. This is useful in cases where the previous workflow is intentionally not privileged, but you need to take a privileged action in a later workflow.",
+      "string": {
+        "constant": "workflow_run"
+      }
+    },
+    "workflow-run": {
+      "description": "This event occurs when a workflow run is requested or completed. It allows you to execute a workflow based on execution or completion of another workflow. The workflow started by the `workflow_run` event is able to access secrets and write tokens, even if the previous workflow was not. This is useful in cases where the previous workflow is intentionally not privileged, but you need to take a privileged action in a later workflow.",
+      "one-of": ["null", "workflow-run-mapping"]
+    },
+    "workflow-run-mapping": {
+      "mapping": {
+        "properties": {
+          "types": "workflow-run-activity",
+          "workflows": "workflow-run-workflows",
+          "branches": "event-branches",
+          "branches-ignore": "event-branches-ignore"
+        }
+      }
+    },
+    "workflow-run-workflows": {
+      "description": "The name of the workflow that triggers the `workflow_run` event. The workflow must be in the same repository as the workflow that uses the `workflow_run` event.",
+      "one-of": ["non-empty-string", "sequence-of-non-empty-string"]
+    },
+    "workflow-run-activity": {
+      "description": "The types of workflow run activity that trigger the workflow. Supported activity types: `completed`, `requested`, `in_progress`.",
+      "one-of": ["workflow-run-activity-type", "workflow-run-activity-types"]
+    },
+    "workflow-run-activity-types": {
+      "sequence": {
+        "item-type": "workflow-run-activity-type"
+      }
+    },
+    "workflow-run-activity-type": {
+      "allowed-values": ["requested", "completed", "in_progress"]
+    },
+    "event-branches": {
+      "description": "Use the `branches` filter when you want to include branch name patterns or when you want to both include and exclude branch name patterns. You cannot use both the `branches` and `branches-ignore` filters for the same event in a workflow.",
+      "one-of": ["non-empty-string", "sequence-of-non-empty-string"]
+    },
+    "event-branches-ignore": {
+      "description": "Use the `branches-ignore` filter when you only want to exclude branch name patterns. You cannot use both the `branches` and `branches-ignore` filters for the same event in a workflow.",
+      "one-of": ["non-empty-string", "sequence-of-non-empty-string"]
+    },
+    "event-tags": {
+      "description": "Use the `tags` filter when you want to include tag name patterns or when you want to both include and exclude tag names patterns. You cannot use both the `tags` and `tags-ignore` filters for the same event in a workflow.",
+      "one-of": ["non-empty-string", "sequence-of-non-empty-string"]
+    },
+    "event-tags-ignore": {
+      "description": "Use the `tags-ignore` filter when you only want to exclude tag name patterns. You cannot use both the `tags` and `tags-ignore` filters for the same event in a workflow.",
+      "one-of": ["non-empty-string", "sequence-of-non-empty-string"]
+    },
+    "event-paths": {
+      "description": "Use the `paths` filter when you want to include file path patterns or when you want to both include and exclude file path patterns. You cannot use both the `paths` and `paths-ignore` filters for the same event in a workflow.",
+      "one-of": ["non-empty-string", "sequence-of-non-empty-string"]
+    },
+    "event-paths-ignore": {
+      "description": "Use the `paths-ignore` filter when you only want to exclude file path patterns. You cannot use both the `paths` and `paths-ignore` filters for the same event in a workflow.",
+      "one-of": ["non-empty-string", "sequence-of-non-empty-string"]
+    },
+    "repository-dispatch-string": {
+      "description": "You can use the GitHub API to trigger a webhook event called `repository_dispatch` when you want to trigger a workflow for activity that happens outside of GitHub.",
+      "string": {
+        "constant": "branch_protection_rule"
+      }
+    },
+    "repository-dispatch": {
+      "description": "You can use the GitHub API to trigger a webhook event called `repository_dispatch` when you want to trigger a workflow for activity that happens outside of GitHub.",
+      "one-of": ["null", "repository-dispatch-mapping"]
+    },
+    "repository-dispatch-mapping": {
+      "mapping": {
+        "properties": {
+          "types": "sequence-of-non-empty-string"
+        }
+      }
+    },
+    "workflow-call-string": {
+      "description": "The `workflow_call` event is used to indicate that a workflow can be called by another workflow. When a workflow is triggered with the `workflow_call` event, the event payload in the called workflow is the same event payload from the calling workflow.",
+      "string": {
+        "constant": "workflow_call"
+      }
+    },
+    "workflow-call": {
+      "description": "The `workflow_call` event is used to indicate that a workflow can be called by another workflow. When a workflow is triggered with the `workflow_call` event, the event payload in the called workflow is the same event payload from the calling workflow.",
+      "one-of": ["null", "workflow-call-mapping"]
+    },
+    "workflow-call-mapping": {
+      "mapping": {
+        "properties": {
+          "inputs": "workflow-call-inputs",
+          "secrets": "workflow-call-secrets",
+          "outputs": "workflow-call-outputs"
+        }
+      }
+    },
+    "workflow-call-inputs": {
+      "description": "Inputs that are passed to the called workflow from the caller workflow.",
+      "mapping": {
+        "loose-key-type": "non-empty-string",
+        "loose-value-type": "workflow-call-input-definition"
+      }
+    },
+    "workflow-call-input-definition": {
+      "mapping": {
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "A string description of the input parameter."
+          },
+          "type": {
+            "type": "workflow-call-input-type",
+            "required": true
+          },
+          "required": {
+            "type": "boolean",
+            "description": "A boolean to indicate whether the action requires the input parameter. Set to `true` when the parameter is required."
+          },
+          "default": "workflow-call-input-default"
+        }
+      }
+    },
+    "workflow-call-input-type": {
+      "description": "Required if input is defined for the `on.workflow_call` keyword. The value of this parameter is a string specifying the data type of the input. This must be one of: `boolean`, `number`, or `string`.",
+      "one-of": ["input-type-string", "input-type-boolean", "input-type-number"]
+    },
+    "input-type-string": {
+      "string": {
+        "constant": "string"
+      }
+    },
+    "input-type-boolean": {
+      "string": {
+        "constant": "boolean"
+      }
+    },
+    "input-type-number": {
+      "string": {
+        "constant": "number"
+      }
+    },
+    "input-type-choice": {
+      "string": {
+        "constant": "choice"
+      }
+    },
+    "input-type-environment": {
+      "string": {
+        "constant": "environment"
+      }
+    },
+    "workflow-call-input-default": {
+      "description": "If a `default` parameter is not set, the default value of the input is `false` for boolean, `0` for a number, and `\"\"` for a string.",
+      "context": ["github", "inputs", "vars"],
+      "one-of": ["string", "boolean", "number"]
+    },
+    "workflow-call-secrets": {
+      "description": "A map of the secrets that can be used in the called workflow. Within the called workflow, you can use the `secrets` context to refer to a secret.",
+      "mapping": {
+        "loose-key-type": "workflow-call-secret-name",
+        "loose-value-type": "workflow-call-secret-definition"
+      }
+    },
+    "workflow-call-secret-name": {
+      "string": {
+        "require-non-empty": true
+      },
+      "description": "A string identifier to associate with the secret."
+    },
+    "workflow-call-secret-definition": {
+      "one-of": ["null", "workflow-call-secret-mapping-definition"]
+    },
+    "workflow-call-secret-mapping-definition": {
+      "mapping": {
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "A string description of the secret parameter."
+          },
+          "required": {
+            "type": "boolean",
+            "description": "A boolean specifying whether the secret must be supplied."
+          }
+        }
+      }
+    },
+    "workflow-call-outputs": {
+      "description": "A reusable workflow may generate data that you want to use in the caller workflow. To use these outputs, you must specify them as the outputs of the reusable workflow.",
+      "mapping": {
+        "loose-key-type": "workflow-call-output-name",
+        "loose-value-type": "workflow-call-output-definition"
+      }
+    },
+    "workflow-call-output-name": {
+      "string": {
+        "require-non-empty": true
+      },
+      "description": "A string identifier to associate with the output. The value of `<output_id>` is a map of the input's metadata. The `<output_id>` must be a unique identifier within the outputs object and must start with a letter or _ and contain only alphanumeric characters, -, or _."
+    },
+    "workflow-call-output-definition": {
+      "mapping": {
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "A string description of the output parameter."
+          },
+          "value": {
+            "type": "workflow-output-context",
+            "required": true
+          }
+        }
+      }
+    },
+    "workflow-output-context": {
+      "description": "The value to assign to the output parameter.",
+      "context": ["github", "inputs", "vars", "jobs"],
+      "string": {}
+    },
+    "workflow-dispatch-string": {
+      "description": "The `workflow_dispatch` event allows you to manually trigger a workflow run. A workflow can be manually triggered using the GitHub API, GitHub CLI, or GitHub browser interface.",
+      "string": {
+        "constant": "workflow_dispatch"
+      }
+    },
+    "workflow-dispatch": {
+      "description": "The `workflow_dispatch` event allows you to manually trigger a workflow run. A workflow can be manually triggered using the GitHub API, GitHub CLI, or GitHub browser interface.",
+      "one-of": ["null", "workflow-dispatch-mapping"]
+    },
+    "workflow-dispatch-mapping": {
+      "mapping": {
+        "properties": {
+          "inputs": "workflow-dispatch-inputs"
+        }
+      }
+    },
+    "workflow-dispatch-inputs": {
+      "description": "You can configure custom-defined input properties, default input values, and required inputs for the event directly in your workflow. When you trigger the event, you can provide the `ref` and any `inputs`. When the workflow runs, you can access the input values in the `inputs` context.",
+      "mapping": {
+        "loose-key-type": "workflow-dispatch-input-name",
+        "loose-value-type": "workflow-dispatch-input"
+      }
+    },
+    "workflow-dispatch-input-name": {
+      "string": {
+        "require-non-empty": true
+      },
+      "description": "A string identifier to associate with the input. The value of <input_id> is a map of the input's metadata. The <input_id> must be a unique identifier within the inputs object. The <input_id> must start with a letter or _ and contain only alphanumeric characters, -, or _."
+    },
+    "workflow-dispatch-input": {
+      "mapping": {
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "A string description of the input parameter."
+          },
+          "type": {
+            "type": "workflow-dispatch-input-type"
+          },
+          "required": {
+            "type": "boolean",
+            "description": "A boolean to indicate whether the workflow requires the input parameter. Set to true when the parameter is required."
+          },
+          "default": "workflow-dispatch-input-default",
+          "options": {
+            "type": "sequence-of-non-empty-string",
+            "description": "The options of the dropdown list, if the type is a choice."
+          }
+        }
+      }
+    },
+    "workflow-dispatch-input-type": {
+      "description": "A string representing the type of the input. This must be one of: `boolean`, `number`, `string`, `choice`, or `environment`.",
+      "one-of": [
+        "input-type-string",
+        "input-type-boolean",
+        "input-type-number",
+        "input-type-environment",
+        "input-type-choice"
+      ]
+    },
+    "workflow-dispatch-input-default": {
+      "description": "The default value is used when an input parameter isn't specified in a workflow file.",
+      "one-of": ["string", "boolean", "number"]
+    },
+    "permissions": {
+      "description": "You can use `permissions` to modify the default permissions granted to the `GITHUB_TOKEN`, adding or removing access as required, so that you only allow the minimum required access.\n\n[Documentation](https://docs.github.com/actions/using-workflows/workflow-syntax-for-github-actions#permissions)",
+      "one-of": [
+        "permissions-mapping",
+        "permission-level-shorthand-read-all",
+        "permission-level-shorthand-write-all"
+      ]
+    },
+    "permissions-mapping": {
+      "mapping": {
+        "properties": {
+          "actions": {
+            "type": "permission-level-any",
+            "description": "Actions workflows, workflow runs, and artifacts."
+          },
+          "attestations": {
+            "type": "permission-level-any",
+            "description": "Artifact attestations."
+          },
+          "checks": {
+            "type": "permission-level-any",
+            "description": "Check runs and check suites."
+          },
+          "contents": {
+            "type": "permission-level-any",
+            "description": "Repository contents, commits, branches, downloads, releases, and merges."
+          },
+          "deployments": {
+            "type": "permission-level-any",
+            "description": "Deployments and deployment statuses."
+          },
+          "discussions": {
+            "type": "permission-level-any",
+            "description": "Discussions and related comments and labels."
+          },
+          "id-token": {
+            "type": "permission-level-write-or-no-access",
+            "description": "Token to request an OpenID Connect token."
+          },
+          "issues": {
+            "type": "permission-level-any",
+            "description": "Issues and related comments, assignees, labels, and milestones."
+          },
+          "packages": {
+            "type": "permission-level-any",
+            "description": "Packages published to the GitHub Package Platform."
+          },
+          "pages": {
+            "type": "permission-level-any",
+            "description": "Retrieve Pages statuses, configuration, and builds, as well as create new builds."
+          },
+          "pull-requests": {
+            "type": "permission-level-any",
+            "description": "Pull requests and related comments, assignees, labels, milestones, and merges."
+          },
+          "repository-projects": {
+            "type": "permission-level-any",
+            "description": "Classic projects within a repository."
+          },
+          "security-events": {
+            "type": "permission-level-any",
+            "description": "Code scanning and Dependabot alerts."
+          },
+          "statuses": {
+            "type": "permission-level-any",
+            "description": "Commit statuses."
+          }
+        }
+      }
+    },
+    "permission-level-any": {
+      "description": "The permission level for the `GITHUB_TOKEN`.",
+      "one-of": [
+        "permission-level-read",
+        "permission-level-write",
+        "permission-level-no-access"
+      ]
+    },
+    "permission-level-read-or-no-access": {
+      "one-of": ["permission-level-read", "permission-level-no-access"]
+    },
+    "permission-level-write-or-no-access": {
+      "one-of": ["permission-level-write", "permission-level-no-access"]
+    },
+    "permission-level-read": {
+      "description": "The permission level for the `GITHUB_TOKEN`. Grants `read` permission for the specified scope.",
+      "string": {
+        "constant": "read"
+      }
+    },
+    "permission-level-write": {
+      "description": "The permission level for the `GITHUB_TOKEN`. Grants `write` permission for the specified scope.",
+      "string": {
+        "constant": "write"
+      }
+    },
+    "permission-level-no-access": {
+      "description": "The permission level for the `GITHUB_TOKEN`. Restricts all access for the specified scope.",
+      "string": {
+        "constant": "none"
+      }
+    },
+    "permission-level-shorthand-read-all": {
+      "description": "The permission level for the `GITHUB_TOKEN`. Grants `read` access for all scopes.",
+      "string": {
+        "constant": "read-all"
+      }
+    },
+    "permission-level-shorthand-write-all": {
+      "description": "The permission level for the `GITHUB_TOKEN`. Grants `write` access for all scopes.",
+      "string": {
+        "constant": "write-all"
+      }
+    },
+    "workflow-defaults": {
+      "description": "Use `defaults` to create a map of default settings that will apply to all jobs in the workflow. You can also set default settings that are only available to a job.\n\n[Documentation](https://docs.github.com/actions/using-workflows/workflow-syntax-for-github-actions#defaults)",
+      "mapping": {
+        "properties": {
+          "run": "workflow-defaults-run"
+        }
+      }
+    },
+    "workflow-defaults-run": {
+      "mapping": {
+        "properties": {
+          "shell": "shell",
+          "working-directory": "working-directory"
+        }
+      }
+    },
+    "workflow-env": {
+      "description": "A map of environment variables that are available to the steps of all jobs in the workflow. You can also set environment variables that are only available to the steps of a single job or to a single step.\n\n[Documentation](https://docs.github.com/actions/using-workflows/workflow-syntax-for-github-actions#env)",
+      "context": ["github", "inputs", "vars", "secrets"],
+      "mapping": {
+        "loose-key-type": "non-empty-string",
+        "loose-value-type": "string"
+      }
+    },
+    "jobs": {
+      "description": "A workflow run is made up of one or more `jobs`, which run in parallel by default. To run jobs sequentially, you can define dependencies on other jobs using the `jobs.<job_id>.needs` keyword. Each job runs in a runner environment specified by `runs-on`.\n\n[Documentation](https://docs.github.com/actions/using-workflows/workflow-syntax-for-github-actions#jobs)",
+      "mapping": {
+        "loose-key-type": "job-id",
+        "loose-value-type": "job"
+      }
+    },
+    "job-id": {
+      "string": {
+        "require-non-empty": true
+      },
+      "description": "A unique identifier for the job. The identifier must start with a letter or _ and contain only alphanumeric characters, -, or _."
+    },
+    "job": {
+      "description": "Each job must have an id to associate with the job. The key `job_id` is a string and its value is a map of the job's configuration data. You must replace `<job_id>` with a string that is unique to the jobs object. The `<job_id>` must start with a letter or _ and contain only alphanumeric characters, -, or _.",
+      "one-of": ["job-factory", "workflow-job"]
+    },
+    "job-factory": {
+      "mapping": {
+        "properties": {
+          "needs": "needs",
+          "if": "job-if",
+          "strategy": "strategy",
+          "name": {
+            "type": "string-strategy-context",
+            "description": "The name of the job displayed on GitHub."
+          },
+          "runs-on": {
+            "type": "runs-on",
+            "required": true
+          },
+          "timeout-minutes": {
+            "type": "number-strategy-context",
+            "description": "The maximum number of minutes to let a workflow run before GitHub automatically cancels it. Default: 360"
+          },
+          "cancel-timeout-minutes": "number-strategy-context",
+          "continue-on-error": {
+            "type": "boolean-strategy-context",
+            "description": "Prevents a workflow run from failing when a job fails. Set to true to allow a workflow run to pass when this job fails."
+          },
+          "container": "container",
+          "services": "services",
+          "env": "job-env",
+          "environment": "job-environment",
+          "permissions": "permissions",
+          "concurrency": "job-concurrency",
+          "outputs": "job-outputs",
+          "defaults": "job-defaults",
+          "steps": "steps"
+        }
+      }
+    },
+    "workflow-job": {
+      "mapping": {
+        "properties": {
+          "name": {
+            "type": "string-strategy-context",
+            "description": "The name of the job displayed on GitHub."
+          },
+          "uses": {
+            "description": "The location and version of a reusable workflow file to run as a job. Use one of the following formats:\n\n* `{owner}/{repo}/.github/workflows/{filename}@{ref}` for reusable workflows in public and private repositories.\n* `./.github/workflows/{filename}` for reusable workflows in the same repository.\n\n{ref} can be a SHA, a release tag, or a branch name. Using the commit SHA is the safest for stability and security.",
+            "type": "non-empty-string",
+            "required": true
+          },
+          "with": "workflow-job-with",
+          "secrets": "workflow-job-secrets",
+          "needs": "needs",
+          "if": "job-if",
+          "permissions": "permissions",
+          "concurrency": "job-concurrency",
+          "strategy": "strategy"
+        }
+      }
+    },
+    "workflow-job-with": {
+      "description": "When a job is used to call a reusable workflow, you can use `with` to provide a map of inputs that are passed to the called workflow.\n\nAny inputs that you pass must match the input specifications defined in the called workflow.",
+      "mapping": {
+        "loose-key-type": "non-empty-string",
+        "loose-value-type": "scalar-needs-context"
+      }
+    },
+    "workflow-job-secrets": {
+      "description": "When a job is used to call a reusable workflow, you can use `secrets` to provide a map of secrets that are passed to the called workflow.\n\nAny secrets that you pass must match the names defined in the called workflow.",
+      "one-of": ["workflow-job-secrets-mapping", "workflow-job-secrets-inherit"]
+    },
+    "workflow-job-secrets-mapping": {
+      "mapping": {
+        "loose-key-type": "non-empty-string",
+        "loose-value-type": "scalar-needs-context-with-secrets"
+      }
+    },
+    "workflow-job-secrets-inherit": {
+      "string": {
+        "constant": "inherit"
+      }
+    },
+    "needs": {
+      "description": "Use `needs` to identify any jobs that must complete successfully before this job will run. It can be a string or array of strings. If a job fails, all jobs that need it are skipped unless the jobs use a conditional expression that causes the job to continue. If a run contains a series of jobs that need each other, a failure applies to all jobs in the dependency chain from the point of failure onwards.",
+      "one-of": ["sequence-of-non-empty-string", "non-empty-string"]
+    },
+    "job-if": {
+      "description": "You can use the `if` conditional to prevent a job from running unless a condition is met. You can use any supported context and expression to create a conditional.",
+      "context": [
+        "github",
+        "inputs",
+        "vars",
+        "needs",
+        "always(0,0)",
+        "failure(0,MAX)",
+        "cancelled(0,0)",
+        "success(0,MAX)"
+      ],
+      "string": {
+        "is-expression": true
+      }
+    },
+    "job-if-result": {
+      "context": [
+        "github",
+        "inputs",
+        "vars",
+        "needs",
+        "always(0,0)",
+        "failure(0,MAX)",
+        "cancelled(0,0)",
+        "success(0,MAX)"
+      ],
+      "one-of": ["null", "boolean", "number", "string", "sequence", "mapping"]
+    },
+    "strategy": {
+      "description": "Use `strategy` to use a matrix strategy for your jobs. A matrix strategy lets you use variables in a single job definition to automatically create multiple job runs that are based on the combinations of the variables. ",
+      "context": ["github", "inputs", "vars", "needs"],
+      "mapping": {
+        "properties": {
+          "fail-fast": {
+            "type": "boolean",
+            "description": "Setting `fail-fast` to `false` prevents GitHub from canceling all in-progress jobs if any matrix job fails. Default: `true`"
+          },
+          "max-parallel": {
+            "type": "number",
+            "description": "The maximum number of jobs that can run simultaneously when using a matrix job strategy. By default, GitHub will maximize the number of jobs run in parallel depending on runner availability."
+          },
+          "matrix": "matrix"
+        }
+      }
+    },
+    "matrix": {
+      "description": "Use `matrix` to define a matrix of different job configurations. Within your matrix, define one or more variables followed by an array of values.",
+      "mapping": {
+        "properties": {
+          "include": {
+            "type": "matrix-filter",
+            "description": "Use `include` to expand existing matrix configurations or to add new configurations. The value of `include` is a list of objects.\n\nFor each object in the `include` list, the key:value pairs in the object will be added to each of the matrix combinations if none of the key:value pairs overwrite any of the original matrix values. If the object cannot be added to any of the matrix combinations, a new matrix combination will be created instead. Note that the original matrix values will not be overwritten, but added matrix values can be overwritten."
+          },
+          "exclude": {
+            "type": "matrix-filter",
+            "description": "To remove specific configurations defined in the matrix, use `exclude`. An excluded configuration only has to be a partial match for it to be excluded."
+          }
+        },
+        "loose-key-type": "non-empty-string",
+        "loose-value-type": "sequence"
+      }
+    },
+    "matrix-filter": {
+      "sequence": {
+        "item-type": "matrix-filter-item"
+      }
+    },
+    "matrix-filter-item": {
+      "mapping": {
+        "loose-key-type": "non-empty-string",
+        "loose-value-type": "any"
+      }
+    },
+    "runs-on": {
+      "description": "Use `runs-on` to define the type of machine to run the job on.\n* The destination machine can be either a GitHub-hosted runner, larger runner, or a self-hosted runner.\n* You can target runners based on the labels assigned to them, or their group membership, or a combination of these.\n* You can provide `runs-on` as a single string or as an array of strings.\n* If you specify an array of strings, your workflow will execute on any runner that matches all of the specified `runs-on` values.\n* If you would like to run your workflow on multiple machines, use `jobs.<job_id>.strategy`.",
+      "context": ["github", "inputs", "vars", "needs", "strategy", "matrix"],
+      "one-of": [
+        "non-empty-string",
+        "sequence-of-non-empty-string",
+        "runs-on-mapping"
+      ]
+    },
+    "runs-on-mapping": {
+      "mapping": {
+        "properties": {
+          "group": {
+            "description": "The group from which to select a runner.",
+            "type": "non-empty-string"
+          },
+          "labels": "runs-on-labels"
+        }
+      }
+    },
+    "runs-on-labels": {
+      "description": "The label by which to filter for available runners.",
+      "one-of": ["non-empty-string", "sequence-of-non-empty-string"]
+    },
+    "job-env": {
+      "description": "A map of variables that are available to all steps in the job.",
+      "context": [
+        "github",
+        "inputs",
+        "vars",
+        "needs",
+        "strategy",
+        "matrix",
+        "secrets"
+      ],
+      "mapping": {
+        "loose-key-type": "non-empty-string",
+        "loose-value-type": "string"
+      }
+    },
+    "workflow-concurrency": {
+      "description": "Concurrency ensures that only a single job or workflow using the same concurrency group will run at a time. A concurrency group can be any string or expression.\n\nYou can also specify `concurrency` at the job level.\n\n[Documentation](https://docs.github.com/actions/using-workflows/workflow-syntax-for-github-actions#concurrency)",
+      "context": ["github", "inputs", "vars"],
+      "one-of": ["string", "concurrency-mapping"]
+    },
+    "job-concurrency": {
+      "description": "Concurrency ensures that only a single job using the same concurrency group will run at a time. A concurrency group can be any string or expression. The expression can use any context except for the `secrets` context.\n\nYou can also specify `concurrency` at the workflow level.",
+      "context": ["github", "inputs", "vars", "needs", "strategy", "matrix"],
+      "one-of": ["non-empty-string", "concurrency-mapping"]
+    },
+    "concurrency-mapping": {
+      "description": "Concurrency ensures that only a single job or workflow using the same concurrency group will run at a time. A concurrency group can be any string or expression.\n\nYou can also specify `concurrency` at the job level.\n\n[Documentation](https://docs.github.com/actions/using-workflows/workflow-syntax-for-github-actions#concurrency)",
+      "mapping": {
+        "properties": {
+          "group": {
+            "type": "non-empty-string",
+            "required": true,
+            "description": "When a concurrent job or workflow is queued, if another job or workflow using the same concurrency group in the repository is in progress, the queued job or workflow will be `pending`. Any previously pending job or workflow in the concurrency group will be canceled. To also cancel any currently running job or workflow in the same concurrency group, specify `cancel-in-progress: true`."
+          },
+          "cancel-in-progress": {
+            "type": "boolean",
+            "description": "To cancel any currently running job or workflow in the same concurrency group, specify cancel-in-progress: true."
+          }
+        }
+      }
+    },
+    "job-environment": {
+      "description": "The environment that the job references. All environment protection rules must pass before a job referencing the environment is sent to a runner.",
+      "context": ["github", "inputs", "vars", "needs", "strategy", "matrix"],
+      "one-of": ["string", "job-environment-mapping"]
+    },
+    "job-environment-mapping": {
+      "mapping": {
+        "properties": {
+          "name": {
+            "type": "job-environment-name",
+            "required": true
+          },
+          "url": {
+            "type": "string-runner-context-no-secrets",
+            "description": "The environment URL, which maps to `environment_url` in the deployments API."
+          }
+        }
+      }
+    },
+    "job-environment-name": {
+      "description": "The name of the environment used by the job.",
+      "context": ["github", "inputs", "vars", "needs", "strategy", "matrix"],
+      "string": {}
+    },
+    "job-defaults": {
+      "description": "A map of default settings that will apply to all steps in the job. You can also set default settings for the entire workflow.",
+      "mapping": {
+        "properties": {
+          "run": "job-defaults-run"
+        }
+      }
+    },
+    "job-defaults-run": {
+      "context": [
+        "github",
+        "inputs",
+        "vars",
+        "strategy",
+        "matrix",
+        "needs",
+        "env"
+      ],
+      "mapping": {
+        "properties": {
+          "shell": "shell",
+          "working-directory": "working-directory"
+        }
+      }
+    },
+    "job-outputs": {
+      "description": "A map of outputs for a called workflow. Called workflow outputs are available to all downstream jobs in the caller workflow. Each output has an identifier, an optional `description,` and a `value`. The `value` must be set to the value of an output from a job within the called workflow.",
+      "mapping": {
+        "loose-key-type": "non-empty-string",
+        "loose-value-type": "string-runner-context"
+      }
+    },
+    "steps": {
+      "description": "A job contains a sequence of tasks called `steps`. Steps can run commands, run setup tasks, or run an action in your repository, a public repository, or an action published in a Docker registry. Not all steps run actions, but all actions run as a step. Each step runs in its own process in the runner environment and has access to the workspace and filesystem. Because steps run in their own process, changes to environment variables are not preserved between steps. GitHub provides built-in steps to set up and complete a job. Must contain either `uses` or `run`.",
+      "sequence": {
+        "item-type": "steps-item"
+      }
+    },
+    "steps-item": {
+      "one-of": ["run-step", "regular-step"]
+    },
+    "run-step": {
+      "mapping": {
+        "properties": {
+          "name": "step-name",
+          "id": "step-id",
+          "if": "step-if",
+          "timeout-minutes": "step-timeout-minutes",
+          "run": {
+            "type": "string-steps-context",
+            "description": "Runs command-line programs using the operating system's shell. If you do not provide a `name`, the step name will default to the text specified in the `run` command. Commands run using non-login shells by default. You can choose a different shell and customize the shell used to run commands. Each `run` keyword represents a new process and shell in the virtual environment. When you provide multi-line commands, each line runs in the same shell.",
+            "required": true
+          },
+          "continue-on-error": "step-continue-on-error",
+          "env": "step-env",
+          "working-directory": "string-steps-context",
+          "shell": "shell"
+        }
+      }
+    },
+    "regular-step": {
+      "mapping": {
+        "properties": {
+          "name": "step-name",
+          "id": "step-id",
+          "if": "step-if",
+          "continue-on-error": "step-continue-on-error",
+          "timeout-minutes": "step-timeout-minutes",
+          "uses": {
+            "type": "step-uses",
+            "required": true
+          },
+          "with": "step-with",
+          "env": "step-env"
+        }
+      }
+    },
+    "step-uses": {
+      "description": "Selects an action to run as part of a step in your job. An action is a reusable unit of code. You can use an action defined in the same repository as the workflow, a public repository, or in a published Docker container image.",
+      "string": {
+        "require-non-empty": true
+      }
+    },
+    "step-continue-on-error": {
+      "context": [
+        "github",
+        "inputs",
+        "vars",
+        "needs",
+        "strategy",
+        "matrix",
+        "secrets",
+        "steps",
+        "job",
+        "runner",
+        "env",
+        "hashFiles(1,255)"
+      ],
+      "boolean": {},
+      "description": "Prevents a job from failing when a step fails. Set to `true` to allow a job to pass when this step fails."
+    },
+    "step-id": {
+      "string": {
+        "require-non-empty": true
+      },
+      "description": "A unique identifier for the step. You can use the `id` to reference the step in contexts."
+    },
+    "step-if": {
+      "context": [
+        "github",
+        "inputs",
+        "vars",
+        "needs",
+        "strategy",
+        "matrix",
+        "steps",
+        "job",
+        "runner",
+        "env",
+        "always(0,0)",
+        "failure(0,0)",
+        "cancelled(0,0)",
+        "success(0,0)",
+        "hashFiles(1,255)"
+      ],
+      "description": "Use the `if` conditional to prevent a step from running unless a condition is met. Any supported context and expression can be used to create a conditional. Expressions in an `if` conditional do not require the bracketed expression syntax. When you use expressions in an `if` conditional, you may omit the expression syntax because GitHub automatically evaluates the `if` conditional as an expression.",
+      "string": {
+        "is-expression": true
+      }
+    },
+    "step-if-result": {
+      "context": [
+        "github",
+        "inputs",
+        "vars",
+        "strategy",
+        "matrix",
+        "steps",
+        "job",
+        "runner",
+        "env",
+        "always(0,0)",
+        "failure(0,0)",
+        "cancelled(0,0)",
+        "success(0,0)",
+        "hashFiles(1,255)"
+      ],
+      "one-of": ["null", "boolean", "number", "string", "sequence", "mapping"]
+    },
+    "step-env": {
+      "description": "Sets variables for steps to use in the runner environment. You can also set variables for the entire workflow or a job.",
+      "context": [
+        "github",
+        "inputs",
+        "vars",
+        "needs",
+        "strategy",
+        "matrix",
+        "secrets",
+        "steps",
+        "job",
+        "runner",
+        "env",
+        "hashFiles(1,255)"
+      ],
+      "mapping": {
+        "loose-key-type": "non-empty-string",
+        "loose-value-type": "string"
+      }
+    },
+    "step-name": {
+      "context": [
+        "github",
+        "inputs",
+        "vars",
+        "needs",
+        "strategy",
+        "matrix",
+        "secrets",
+        "steps",
+        "job",
+        "runner",
+        "env",
+        "hashFiles(1,255)"
+      ],
+      "string": {},
+      "description": "A name for your step to display on GitHub."
+    },
+    "step-timeout-minutes": {
+      "context": [
+        "github",
+        "inputs",
+        "vars",
+        "needs",
+        "strategy",
+        "matrix",
+        "secrets",
+        "steps",
+        "job",
+        "runner",
+        "env",
+        "hashFiles(1,255)"
+      ],
+      "number": {},
+      "description": "The maximum number of minutes to run the step before killing the process."
+    },
+    "step-with": {
+      "description": "A map of the input parameters defined by the action. Each input parameter is a key/value pair. Input parameters are set as variables. When you specify an input in a workflow file or use a default input value, GitHub creates a variable for the input with the name `INPUT_<VARIABLE_NAME>`. The variable created converts input names to uppercase letters and replaces spaces with `_`.",
+      "context": [
+        "github",
+        "inputs",
+        "vars",
+        "needs",
+        "strategy",
+        "matrix",
+        "secrets",
+        "steps",
+        "job",
+        "runner",
+        "env",
+        "hashFiles(1,255)"
+      ],
+      "mapping": {
+        "loose-key-type": "non-empty-string",
+        "loose-value-type": "string"
+      }
+    },
+    "container": {
+      "description": "A container to run any steps in a job that don't already specify a container. If you have steps that use both script and container actions, the container actions will run as sibling containers on the same network with the same volume mounts.\n\nIf you do not set a container, all steps will run directly on the host specified by runs-on unless a step refers to an action configured to run in a container.",
+      "context": ["github", "inputs", "vars", "needs", "strategy", "matrix"],
+      "one-of": ["string", "container-mapping"]
+    },
+    "container-mapping": {
+      "mapping": {
+        "properties": {
+          "image": {
+            "type": "non-empty-string",
+            "description": "Use `jobs.<job_id>.container.image` to define the Docker image to use as the container to run the action. The value can be the Docker Hub image or a registry name."
+          },
+          "options": {
+            "type": "non-empty-string",
+            "description": "Use `jobs.<job_id>.container.options` to configure additional Docker container resource options."
+          },
+          "env": "container-env",
+          "ports": {
+            "type": "sequence-of-non-empty-string",
+            "description": "Use `jobs.<job_id>.container.ports` to set an array of ports to expose on the container."
+          },
+          "volumes": {
+            "type": "sequence-of-non-empty-string",
+            "description": "Use `jobs.<job_id>.container.volumes` to set an array of volumes for the container to use. You can use volumes to share data between services or other steps in a job. You can specify named Docker volumes, anonymous Docker volumes, or bind mounts on the host."
+          },
+          "credentials": "container-registry-credentials"
+        }
+      }
+    },
+    "services": {
+      "description": "Additional containers to host services for a job in a workflow. These are useful for creating databases or cache services like redis. The runner on the virtual machine will automatically create a network and manage the life cycle of the service containers. When you use a service container for a job or your step uses container actions, you don't need to set port information to access the service. Docker automatically exposes all ports between containers on the same network. When both the job and the action run in a container, you can directly reference the container by its hostname. The hostname is automatically mapped to the service name. When a step does not use a container action, you must access the service using localhost and bind the ports.",
+      "context": ["github", "inputs", "vars", "needs", "strategy", "matrix"],
+      "mapping": {
+        "loose-key-type": "non-empty-string",
+        "loose-value-type": "services-container"
+      }
+    },
+    "services-container": {
+      "context": ["github", "inputs", "vars", "needs", "strategy", "matrix"],
+      "one-of": ["non-empty-string", "container-mapping"]
+    },
+    "container-registry-credentials": {
+      "description": "If the image's container registry requires authentication to pull the image, you can use `jobs.<job_id>.container.credentials` to set a map of the username and password. The credentials are the same values that you would provide to the `docker login` command.",
+      "context": ["github", "inputs", "vars", "secrets", "env"],
+      "mapping": {
+        "properties": {
+          "username": "non-empty-string",
+          "password": "non-empty-string"
+        }
+      }
+    },
+    "container-env": {
+      "description": "Use `jobs.<job_id>.container.env` to set a map of variables in the container.",
+      "mapping": {
+        "loose-key-type": "non-empty-string",
+        "loose-value-type": "string-runner-context"
+      }
+    },
+    "non-empty-string": {
+      "string": {
+        "require-non-empty": true
+      }
+    },
+    "sequence-of-non-empty-string": {
+      "sequence": {
+        "item-type": "non-empty-string"
+      }
+    },
+    "boolean-needs-context": {
+      "context": ["github", "inputs", "vars", "needs"],
+      "boolean": {}
+    },
+    "number-needs-context": {
+      "context": ["github", "inputs", "vars", "needs"],
+      "number": {}
+    },
+    "string-needs-context": {
+      "context": ["github", "inputs", "vars", "needs"],
+      "string": {}
+    },
+    "scalar-needs-context": {
+      "context": ["github", "inputs", "vars", "needs", "strategy", "matrix"],
+      "one-of": ["string", "boolean", "number"]
+    },
+    "scalar-needs-context-with-secrets": {
+      "context": [
+        "github",
+        "inputs",
+        "vars",
+        "needs",
+        "secrets",
+        "strategy",
+        "matrix"
+      ],
+      "one-of": ["string", "boolean", "number"]
+    },
+    "boolean-strategy-context": {
+      "context": ["github", "inputs", "vars", "needs", "strategy", "matrix"],
+      "boolean": {}
+    },
+    "number-strategy-context": {
+      "context": ["github", "inputs", "vars", "needs", "strategy", "matrix"],
+      "number": {}
+    },
+    "string-strategy-context": {
+      "context": ["github", "inputs", "vars", "needs", "strategy", "matrix"],
+      "string": {}
+    },
+    "boolean-steps-context": {
+      "context": [
+        "github",
+        "inputs",
+        "vars",
+        "needs",
+        "strategy",
+        "matrix",
+        "secrets",
+        "steps",
+        "job",
+        "runner",
+        "env",
+        "hashFiles(1,255)"
+      ],
+      "boolean": {}
+    },
+    "number-steps-context": {
+      "context": [
+        "github",
+        "inputs",
+        "vars",
+        "needs",
+        "strategy",
+        "matrix",
+        "secrets",
+        "steps",
+        "job",
+        "runner",
+        "env",
+        "hashFiles(1,255)"
+      ],
+      "number": {}
+    },
+    "string-runner-context": {
+      "context": [
+        "github",
+        "inputs",
+        "vars",
+        "needs",
+        "strategy",
+        "matrix",
+        "secrets",
+        "steps",
+        "job",
+        "runner",
+        "env"
+      ],
+      "string": {}
+    },
+    "string-runner-context-no-secrets": {
+      "context": [
+        "github",
+        "inputs",
+        "vars",
+        "needs",
+        "strategy",
+        "matrix",
+        "steps",
+        "job",
+        "runner",
+        "env"
+      ],
+      "string": {}
+    },
+    "string-steps-context": {
+      "context": [
+        "github",
+        "inputs",
+        "vars",
+        "needs",
+        "strategy",
+        "matrix",
+        "secrets",
+        "steps",
+        "job",
+        "runner",
+        "env",
+        "hashFiles(1,255)"
+      ],
+      "string": {}
+    },
+    "shell": {
+      "string": {
+        "require-non-empty": true
+      },
+      "description": "Use `shell` to override the default shell settings in the runner's operating system. You can use built-in shell keywords, or you can define a custom set of shell options. The shell command that is run internally executes a temporary file that contains the commands specified in `run`."
+    },
+    "working-directory": {
+      "string": {
+        "require-non-empty": true
+      },
+      "description": "The `working-directory` keyword specifies the working directory where the command is run."
+    },
+    "cron-mapping": {
+      "mapping": {
+        "properties": {
+          "cron": "cron-pattern"
+        }
+      }
+    },
+    "cron-pattern": {
+      "string": {
+        "require-non-empty": true
+      }
+    }
+  }
+}

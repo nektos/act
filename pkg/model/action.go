@@ -5,6 +5,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/nektos/act/pkg/schema"
 	"gopkg.in/yaml.v3"
 )
 
@@ -76,6 +77,18 @@ type Action struct {
 		Color string `yaml:"color"`
 		Icon  string `yaml:"icon"`
 	} `yaml:"branding"`
+}
+
+func (a *Action) UnmarshalYAML(node *yaml.Node) error {
+	// Validate the schema before deserializing it into our model
+	if err := (&schema.Node{
+		Definition: "action-root",
+		Schema:     schema.GetActionSchema(),
+	}).UnmarshalYAML(node); err != nil {
+		return err
+	}
+	type ActionDefault Action
+	return node.Decode((*ActionDefault)(a))
 }
 
 // Input parameters allow you to specify data that the action expects to use during runtime. GitHub stores input parameters as environment variables. Input ids with uppercase letters are converted to lowercase during runtime. We recommended using lowercase input ids.

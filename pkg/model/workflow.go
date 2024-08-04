@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/nektos/act/pkg/common"
+	"github.com/nektos/act/pkg/schema"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 )
@@ -64,6 +65,18 @@ func (w *Workflow) OnEvent(event string) interface{} {
 		return val[event]
 	}
 	return nil
+}
+
+func (w *Workflow) UnmarshalYAML(node *yaml.Node) error {
+	// Validate the schema before deserializing it into our model
+	if err := (&schema.Node{
+		Definition: "workflow-root-strict",
+		Schema:     schema.GetWorkflowSchema(),
+	}).UnmarshalYAML(node); err != nil {
+		return err
+	}
+	type WorkflowDefault Workflow
+	return node.Decode((*WorkflowDefault)(w))
 }
 
 type WorkflowDispatchInput struct {

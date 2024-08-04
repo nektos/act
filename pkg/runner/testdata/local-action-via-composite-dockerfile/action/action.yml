@@ -1,0 +1,44 @@
+inputs:
+  who-to-greet:
+    default: 'Mona the Octocat'
+runs:
+  using: composite
+  steps:
+  # Test if GITHUB_ACTION_PATH is set correctly before all steps
+  - run: stat $GITHUB_ACTION_PATH/../push.yml
+    shell: bash
+  - run: stat $GITHUB_ACTION_PATH/action.yml
+    shell: bash
+  - run: '[[ "$GITHUB_ACTION_REPOSITORY" == "" ]] && [[ "$GITHUB_ACTION_REF" == "" ]]'
+    shell: bash
+  - uses: ./actions/docker-local
+    id: dockerlocal
+    with:
+      who-to-greet: ${{inputs.who-to-greet}}
+  - run: '[[ "${{ env.SOMEVAR }}" == "${{inputs.who-to-greet}}" ]]'
+    shell: bash
+  - run: '[ "${SOMEVAR}" = "Not Mona" ] || exit 1'
+    shell: bash
+    env:
+      SOMEVAR: 'Not Mona'
+  - run: '[[ "${{ steps.dockerlocal.outputs.whoami }}" == "${{inputs.who-to-greet}}" ]]'
+    shell: bash
+  # Test if overriding args doesn't leak inputs
+  - uses: ./actions/docker-local-noargs
+    with:
+      args: ${{format('"{0}"', 'Mona is not the Octocat') }}
+      who-to-greet: ${{inputs.who-to-greet}}
+  - run: '[[ "${{ env.SOMEVAR }}" == "Mona is not the Octocat" ]]'
+    shell: bash
+  - uses: ./localdockerimagetest_
+  # Also test a remote docker action here
+  - uses: actions/hello-world-docker-action@v1
+    with:
+      who-to-greet: 'Mona the Octocat'
+  # Test if GITHUB_ACTION_PATH is set correctly after all steps
+  - run: stat $GITHUB_ACTION_PATH/../push.yml
+    shell: bash
+  - run: stat $GITHUB_ACTION_PATH/action.yml
+    shell: bash
+  - run: '[[ "$GITHUB_ACTION_REPOSITORY" == "" ]] && [[ "$GITHUB_ACTION_REF" == "" ]]'
+    shell: bash
