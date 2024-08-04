@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/rhysd/actionlint"
@@ -125,20 +126,17 @@ type FunctionInfo struct {
 }
 
 func (s *Node) checkSingleExpression(exprNode actionlint.ExprNode) error {
-	funcs := &[]FunctionInfo{}
-	AddFunction(funcs, "contains", 2, 2)
-	AddFunction(funcs, "endsWith", 2, 2)
-	AddFunction(funcs, "format", 1, 255)
-	AddFunction(funcs, "join", 1, 2)
-	AddFunction(funcs, "startsWith", 2, 2)
-	AddFunction(funcs, "toJson", 1, 1)
-	AddFunction(funcs, "fromJson", 1, 1)
-	for _, v := range s.Context {
-		fun := FunctionInfo{}
-		if n, err := fmt.Scanf("%s(%d,%d)", &fun.name, &fun.min, &fun.max); n == len(v) && err == nil {
-			*funcs = append(*funcs, fun)
+	if len(s.Context) == 0 {
+		switch exprNode.Token().Kind {
+		case actionlint.TokenKindFloat:
+		case actionlint.TokenKindString:
+			return nil
+		default:
+			return fmt.Errorf("expressions are not allowed here")
 		}
 	}
+
+	funcs := s.GetFunctions()
 
 	var err error
 	actionlint.VisitExprNode(exprNode, func(node, _ actionlint.ExprNode, entering bool) {
@@ -166,6 +164,24 @@ func (s *Node) checkSingleExpression(exprNode actionlint.ExprNode) error {
 		}
 	})
 	return err
+}
+
+func (s *Node) GetFunctions() *[]FunctionInfo {
+	funcs := &[]FunctionInfo{}
+	AddFunction(funcs, "contains", 2, 2)
+	AddFunction(funcs, "endsWith", 2, 2)
+	AddFunction(funcs, "format", 1, 255)
+	AddFunction(funcs, "join", 1, 2)
+	AddFunction(funcs, "startsWith", 2, 2)
+	AddFunction(funcs, "toJson", 1, 1)
+	AddFunction(funcs, "fromJson", 1, 1)
+	for _, v := range s.Context {
+		fun := FunctionInfo{}
+		if n, err := fmt.Scanf("%s(%d,%d)", &fun.name, &fun.min, &fun.max); n == len(v) && err == nil {
+			*funcs = append(*funcs, fun)
+		}
+	}
+	return funcs
 }
 
 func (s *Node) checkExpression(node *yaml.Node) (bool, error) {
@@ -329,9 +345,17 @@ func (s *Node) checkMapping(node *yaml.Node, def Definition) error {
 	if node.Kind != yaml.MappingNode {
 		return fmt.Errorf("%sExpected a mapping got %v", formatLocation(node), getStringKind(node.Kind))
 	}
+	insertDirective := regexp.MustCompile(`\${{\s*insert\s*}}`)
 	var allErrors error
 	for i, k := range node.Content {
 		if i%2 == 0 {
+			if insertDirective.MatchString(k.Value) {
+				if len(s.Context) == 0 {
+					allErrors = errors.Join(allErrors, fmt.Errorf("%sinsert is not allowed here", formatLocation(k)))
+				}
+				continue
+			}
+
 			isExpr, err := s.checkExpression(k)
 			if err != nil {
 				allErrors = errors.Join(allErrors, err)
