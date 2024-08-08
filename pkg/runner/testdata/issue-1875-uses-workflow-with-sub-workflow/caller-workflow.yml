@@ -1,0 +1,7 @@
+name: Call Reusable Workflow
+on:
+  push:
+
+jobs:
+  call-reusable-workflow-with-sub:
+    uses: wildsheepz/TestReusableWorkflow/.github/workflows/main.yaml@ubuntu_platform
