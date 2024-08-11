@@ -121,6 +121,7 @@ type FunctionInfo struct {
 func (s *Node) checkSingleExpression(exprNode actionlint.ExprNode) error {
 	if len(s.Context) == 0 {
 		switch exprNode.Token().Kind {
+		case actionlint.TokenKindInt:
 		case actionlint.TokenKindFloat:
 		case actionlint.TokenKindString:
 			return nil
