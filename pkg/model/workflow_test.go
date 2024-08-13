@@ -280,15 +280,8 @@ jobs:
         uses: ./local-action
 `
 
-	workflow, err := ReadWorkflow(strings.NewReader(yaml))
-	assert.NoError(t, err, "read workflow should succeed")
-	assert.Len(t, workflow.Jobs, 1)
-	assert.Len(t, workflow.Jobs["test"].Steps, 5)
-	assert.Equal(t, workflow.Jobs["test"].Steps[0].Type(), StepTypeInvalid)
-	assert.Equal(t, workflow.Jobs["test"].Steps[1].Type(), StepTypeRun)
-	assert.Equal(t, workflow.Jobs["test"].Steps[2].Type(), StepTypeUsesActionRemote)
-	assert.Equal(t, workflow.Jobs["test"].Steps[3].Type(), StepTypeUsesDockerURL)
-	assert.Equal(t, workflow.Jobs["test"].Steps[4].Type(), StepTypeUsesActionLocal)
+	_, err := ReadWorkflow(strings.NewReader(yaml))
+	assert.Error(t, err, "read workflow should fail")
 }
 
 // See: https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#jobsjob_idoutputs
