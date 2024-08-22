@@ -1,6 +1,8 @@
 package artifactcache
 
 import (
+	"crypto/x509"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -15,6 +17,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	"github.com/julienschmidt/httprouter"
 	"github.com/sirupsen/logrus"
 	"github.com/timshannon/bolthold"
@@ -39,6 +43,32 @@ type Handler struct {
 	gcAt  time.Time
 
 	outboundIP string
+}
+
+type MyCustomClaims struct {
+	Repository           string `json:"repository"`
+	RunAttempt           string `json:"run_attempt"`
+	Ref                  string `json:"ref"`
+	RunId                string `json:"run_id"`
+	RunNumber            string `json:"run_number"`
+	Environment          string `json:"environment"`
+	HeadRef              string `json:"head_ref"`
+	BaseRef              string `json:"base_ref"`
+	Actor                string `json:"actor"`
+	ActorID              string `json:"actor_id"`
+	RepositoryID         string `json:"repository_id"`
+	RepositoryOwner      string `json:"repository_owner"`
+	RepositoryOwnerID    string `json:"repository_owner_id"`
+	Workflow             string `json:"workflow"`
+	EventName            string `json:"event_name"`
+	RefType              string `json:"ref_type"`
+	JobWorkflowRef       string `json:"job_workflow_ref"`
+	JobWorkflowSha       string `json:"job_workflow_sha"`
+	Sha                  string `json:"sha"`
+	RepositoryVisibility string `json:"repository_visibility"`
+	WorkflowRef          string `json:"workflow_ref"`
+	WorkflowSha          string `json:"workflow_sha"`
+	jwt.RegisteredClaims
 }
 
 func StartHandler(dir, outboundIP string, port uint16, logger logrus.FieldLogger) (*Handler, error) {
@@ -86,6 +116,35 @@ func StartHandler(dir, outboundIP string, port uint16, logger logrus.FieldLogger
 	router.POST(urlBase+"/caches/:id", h.middleware(h.commit))
 	router.GET(urlBase+"/artifacts/:id", h.middleware(h.get))
 	router.POST(urlBase+"/clean", h.middleware(h.clean))
+
+	router.GET("/idtoken", h.middleware(func(w http.ResponseWriter, _ *http.Request, p httprouter.Params) {
+		audience := "sts.amazonaws.com"
+		if q := p.ByName("audience"); q != "" {
+			audience = q
+		}
+
+		priv := os.Getenv("ACT_OIDC_KEY")
+		b, _ := base64.StdEncoding.DecodeString(priv)
+		pkey, _ := x509.ParsePKCS1PrivateKey(b)
+		now := time.Now().UTC().Add(-30 * time.Second)
+		token2 := jwt.NewWithClaims(jwt.SigningMethodRS256, MyCustomClaims{
+			RegisteredClaims: jwt.RegisteredClaims{
+				Subject:   "repo=stub/stub",
+				Issuer:    os.Getenv("ACT_OIDC_ISSUER"),
+				ID:        uuid.New().String(),
+				Audience:  []string{audience},
+				NotBefore: jwt.NewNumericDate(now),
+				IssuedAt:  jwt.NewNumericDate(now),
+				ExpiresAt: jwt.NewNumericDate(now.Add(time.Minute * 5)),
+			},
+		})
+		stkn, _ := token2.SignedString(pkey)
+		d, _ := json.Marshal(map[string]interface{}{
+			"value": stkn,
+		})
+		w.WriteHeader(200)
+		_, _ = w.Write(d)
+	}))
 
 	h.router = router
 

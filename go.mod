@@ -39,6 +39,7 @@ require (
 require (
 	dario.cat/mergo v1.0.1
 	github.com/golang-jwt/jwt/v5 v5.2.1
+	github.com/google/uuid v1.5.0
 	google.golang.org/protobuf v1.34.2
 )
 

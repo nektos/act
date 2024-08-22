@@ -602,6 +602,8 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 		cancel := artifacts.Serve(ctx, input.artifactServerPath, input.artifactServerAddr, input.artifactServerPort)
 
 		const cacheURLKey = "ACTIONS_CACHE_URL"
+		const oidc = "ACTIONS_ID_TOKEN_REQUEST_URL"
+		const oidc_token = "ACTIONS_ID_TOKEN_REQUEST_TOKEN"
 		var cacheHandler *artifactcache.Handler
 		if !input.noCacheServer && envs[cacheURLKey] == "" {
 			var err error
@@ -610,6 +612,8 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 				return err
 			}
 			envs[cacheURLKey] = cacheHandler.ExternalURL() + "/"
+			envs[oidc] = cacheHandler.ExternalURL() + "/idtoken?test=test"
+			envs[oidc_token] = "idtoken"
 		}
 
 		ctx = common.WithDryrun(ctx, input.dryrun)
@@ -639,7 +643,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 func defaultImageSurvey(actrc string) error {
 	var answer string
 	confirmation := &survey.Select{
-		Message: "Please choose the default image you want to use with act:\n  - Large size image: ca. 17GB download + 53.1GB storage, you will need 75GB of free disk space, snapshots of GitHub Hosted Runners without snap and pulled docker images\n  - Medium size image: ~500MB, includes only necessary tools to bootstrap actions and aims to be compatible with most actions\n  - Micro size image: <200MB, contains only NodeJS required to bootstrap actions, doesn't work with all actions\n\nDefault image and other options can be changed manually in " +  configLocations()[0] + " (please refer to https://github.com/nektos/act#configuration for additional information about file structure)",
+		Message: "Please choose the default image you want to use with act:\n  - Large size image: ca. 17GB download + 53.1GB storage, you will need 75GB of free disk space, snapshots of GitHub Hosted Runners without snap and pulled docker images\n  - Medium size image: ~500MB, includes only necessary tools to bootstrap actions and aims to be compatible with most actions\n  - Micro size image: <200MB, contains only NodeJS required to bootstrap actions, doesn't work with all actions\n\nDefault image and other options can be changed manually in " + configLocations()[0] + " (please refer to https://github.com/nektos/act#configuration for additional information about file structure)",
 		Help:    "If you want to know why act asks you that, please go to https://github.com/nektos/act/issues/107",
 		Default: "Medium",
 		Options: []string{"Large", "Medium", "Micro"},
