@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"os"
 	"os/exec"
@@ -43,6 +44,7 @@ func CreateNewVM(
 	cpuOverride uint64,
 	memoryOverride uint64,
 ) (*VM, error) {
+	log.Print("CreateNewVM")
 	vm := &VM{
 		id: gitLabEnv.VirtualMachineID(),
 	}
@@ -60,20 +62,20 @@ func (vm *VM) cloneAndConfigure(
 	cpuOverride uint64,
 	memoryOverride uint64,
 ) error {
-	_, _, err := TartExec(ctx, "clone", gitLabEnv.JobImage, vm.id)
+	_, _, err := Exec(ctx, "clone", gitLabEnv.JobImage, vm.id)
 	if err != nil {
 		return err
 	}
 
 	if cpuOverride != 0 {
-		_, _, err = TartExec(ctx, "set", "--cpu", strconv.FormatUint(cpuOverride, 10), vm.id)
+		_, _, err = Exec(ctx, "set", "--cpu", strconv.FormatUint(cpuOverride, 10), vm.id)
 		if err != nil {
 			return err
 		}
 	}
 
 	if memoryOverride != 0 {
-		_, _, err = TartExec(ctx, "set", "--memory", strconv.FormatUint(memoryOverride, 10), vm.id)
+		_, _, err = Exec(ctx, "set", "--memory", strconv.FormatUint(memoryOverride, 10), vm.id)
 		if err != nil {
 			return err
 		}
@@ -83,6 +85,7 @@ func (vm *VM) cloneAndConfigure(
 }
 
 func (vm *VM) Start(config Config, gitLabEnv *Env, customDirectoryMounts []string) error {
+	os.Remove(vm.tartRunOutputPath())
 	var runArgs = []string{"run"}
 
 	if config.Softnet {
@@ -97,16 +100,6 @@ func (vm *VM) Start(config Config, gitLabEnv *Env, customDirectoryMounts []strin
 		runArgs = append(runArgs, "--dir", customDirectoryMount)
 	}
 
-	if config.HostDir {
-		runArgs = append(runArgs, "--dir", fmt.Sprintf("hostdir:%s", gitLabEnv.HostDirPath()))
-	} else if buildsDir, ok := os.LookupEnv(EnvTartExecutorInternalBuildsDir); ok {
-		runArgs = append(runArgs, "--dir", fmt.Sprintf("buildsdir:%s", buildsDir))
-	}
-
-	if cacheDir, ok := os.LookupEnv(EnvTartExecutorInternalCacheDir); ok {
-		runArgs = append(runArgs, "--dir", fmt.Sprintf("cachedir:%s", cacheDir))
-	}
-
 	runArgs = append(runArgs, vm.id)
 
 	cmd := exec.Command(tartCommandName, runArgs...)
@@ -115,12 +108,13 @@ func (vm *VM) Start(config Config, gitLabEnv *Env, customDirectoryMounts []strin
 	if err != nil {
 		return err
 	}
+	outputFile.WriteString(strings.Join(runArgs, " ") + "\n")
 
 	cmd.Stdout = outputFile
 	cmd.Stderr = outputFile
 
 	cmd.SysProcAttr = &syscall.SysProcAttr{
-		// Setsid: true,
+		Setsid: true,
 	}
 
 	err = cmd.Start()
@@ -177,7 +171,7 @@ func (vm *VM) OpenSSH(ctx context.Context, config Config) (*ssh.Client, error) {
 	}
 
 	sshConfig := &ssh.ClientConfig{
-		HostKeyCallback: func(hostname string, remote net.Addr, key ssh.PublicKey) error {
+		HostKeyCallback: func(_ string, _ net.Addr, _ ssh.PublicKey) error {
 			return nil
 		},
 		User: config.SSHUsername,
@@ -195,7 +189,7 @@ func (vm *VM) OpenSSH(ctx context.Context, config Config) (*ssh.Client, error) {
 }
 
 func (vm *VM) IP(ctx context.Context) (string, error) {
-	stdout, _, err := TartExec(ctx, "ip", "--wait", "60", vm.id)
+	stdout, _, err := Exec(ctx, "ip", "--wait", "60", vm.id)
 	if err != nil {
 		return "", err
 	}
@@ -204,13 +198,13 @@ func (vm *VM) IP(ctx context.Context) (string, error) {
 }
 
 func (vm *VM) Stop() error {
-	_, _, err := TartExec(context.Background(), "stop", vm.id)
+	_, _, err := Exec(context.Background(), "stop", vm.id)
 
 	return err
 }
 
 func (vm *VM) Delete() error {
-	_, _, err := TartExec(context.Background(), "delete", vm.id)
+	_, _, err := Exec(context.Background(), "delete", vm.id)
 	if err != nil {
 		return fmt.Errorf("%w: failed to delete VM %s: %v", ErrVMFailed, vm.id, err)
 	}
@@ -218,14 +212,14 @@ func (vm *VM) Delete() error {
 	return nil
 }
 
-func TartExec(
+func Exec(
 	ctx context.Context,
 	args ...string,
 ) (string, string, error) {
-	return TartExecWithEnv(ctx, nil, args...)
+	return ExecWithEnv(ctx, nil, args...)
 }
 
-func TartExecWithEnv(
+func ExecWithEnv(
 	ctx context.Context,
 	env map[string]string,
 	args ...string,

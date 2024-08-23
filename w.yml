@@ -1,0 +1,20 @@
+on: push
+jobs:
+  _:
+    runs-on: macos-14
+    steps:
+    - run: uname -a
+    - run: |
+        echo "$TEST"
+      env:
+        TEST: my test env
+    - run: |
+        echo "$TEST"
+      env:
+        TEST: |
+          my test env
+          another line
+    - uses: actions/github-script@v6
+      with:
+        script: console.log("Hello World")
+        github-token: what
