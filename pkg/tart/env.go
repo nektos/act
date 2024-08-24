@@ -2,7 +2,6 @@ package tart
 
 import (
 	"errors"
-	"fmt"
 )
 
 var ErrGitLabEnv = errors.New("GitLab environment error")
@@ -21,5 +20,5 @@ type Registry struct {
 }
 
 func (e Env) VirtualMachineID() string {
-	return fmt.Sprintf("gitlab-%s", e.JobID)
+	return e.JobID
 }
