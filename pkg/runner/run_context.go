@@ -239,7 +239,6 @@ func (rc *RunContext) startHostEnvironment() common.Executor {
 				Mode: 0o666,
 				Body: "",
 			}),
-			rc.JobContainer.Start(true),
 		)(ctx)
 	}
 }
