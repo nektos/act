@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -43,7 +44,10 @@ func (rc *RunContext) startTartEnvironment() common.Executor {
 			return err
 		}
 		toolCache := filepath.Join(cacheDir, "tool_cache")
-		rc.JobContainer = &tart.Environment{
+		platImage := rc.runsOnImage(ctx)
+		platURI, _ := url.Parse(platImage)
+		query := platURI.Query()
+		tenv := &tart.Environment{
 			HostEnvironment: container.HostEnvironment{
 				Path:      path,
 				TmpDir:    runnerTmp,
@@ -58,15 +62,22 @@ func (rc *RunContext) startTartEnvironment() common.Executor {
 			Config: tart.Config{
 				SSHUsername: "admin",
 				SSHPassword: "admin",
-				Softnet:     false,
-				Headless:    true,
-				AlwaysPull:  false,
+				Softnet:     query.Get("softnet") == "1",
+				Headless:    query.Get("headless") != "0",
+				AlwaysPull:  query.Get("pull") != "0",
 			},
 			Env: &tart.Env{
-				JobImage: "ghcr.io/cirruslabs/macos-sonoma-base:latest",
-				JobID:    "43",
+				JobImage: platURI.Host + platURI.EscapedPath(),
+				JobID:    rc.jobContainerName(),
 			},
 			Miscpath: miscpath,
+		}
+		rc.JobContainer = tenv
+		if query.Has("sshusername") {
+			tenv.Config.SSHUsername = query.Get("sshusername")
+		}
+		if query.Has("sshpassword") {
+			tenv.Config.SSHPassword = query.Get("sshpassword")
 		}
 		rc.cleanUpJobContainer = rc.JobContainer.Remove()
 		for k, v := range rc.JobContainer.GetRunnerContext(ctx) {

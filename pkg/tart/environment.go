@@ -220,3 +220,10 @@ func (e *Environment) CopyDir(destPath string, srcPath string, useGitIgnore bool
 func (e *Environment) GetContainerArchive(ctx context.Context, srcPath string) (io.ReadCloser, error) {
 	return e.HostEnvironment.GetContainerArchive(ctx, e.ToHostPath(srcPath))
 }
+
+func (e *Environment) GetRunnerContext(ctx context.Context) map[string]interface{} {
+	rctx := e.HostEnvironment.GetRunnerContext(ctx)
+	rctx["temp"] = e.ToContainerPath(e.TmpDir)
+	rctx["tool_cache"] = e.ToContainerPath(e.ToolCache)
+	return rctx
+}

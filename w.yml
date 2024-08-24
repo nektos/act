@@ -13,8 +13,23 @@ jobs:
       env:
         TEST: |
           my test env
+          echo 'test'
           another line
+    
     - uses: actions/github-script@v6
       with:
         script: console.log("Hello World")
         github-token: what
+    - name: Test
+      run: |
+        env
+        sudo mkdir /Users/m1
+    - name: Test
+      run: |
+        echo test > file
+    - uses: actions/cache/save@v4
+      id: cache
+      with:
+        path: file
+        key: ${{ runner.os }}
+        #-${{ hashFiles('**/lockfiles') }}
