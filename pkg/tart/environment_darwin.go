@@ -67,21 +67,21 @@ func (e *Environment) Start(b bool) common.Executor {
 }
 
 func (e *Environment) start(ctx context.Context) error {
-	gitLabEnv := e.Env
+	actEnv := e.Env
 
 	config := e.Config
 
 	if config.AlwaysPull {
-		log.Printf("Pulling the latest version of %s...\n", gitLabEnv.JobImage)
-		_, _, err := ExecWithEnv(ctx, nil, /*additionalPullEnv(gitLabEnv.Registry)*/
-			"pull", gitLabEnv.JobImage)
+		log.Printf("Pulling the latest version of %s...\n", actEnv.JobImage)
+		_, _, err := ExecWithEnv(ctx, nil,
+			"pull", actEnv.JobImage)
 		if err != nil {
 			return err
 		}
 	}
 
 	log.Println("Cloning and configuring a new VM...")
-	vm, err := CreateNewVM(ctx, *gitLabEnv, 0, 0)
+	vm, err := CreateNewVM(ctx, *actEnv, 0, 0)
 	if err != nil {
 		return err
 	}
@@ -89,7 +89,7 @@ func (e *Environment) start(ctx context.Context) error {
 	_ = os.MkdirAll(e.Miscpath, 0666)
 	customDirectoryMounts = append(customDirectoryMounts, "act:"+e.Miscpath)
 	e.vm = vm
-	err = vm.Start(config, gitLabEnv, customDirectoryMounts)
+	err = vm.Start(config, actEnv, customDirectoryMounts)
 	if err != nil {
 		return err
 	}
@@ -99,13 +99,13 @@ func (e *Environment) start(ctx context.Context) error {
 func (e *Environment) Stop(ctx context.Context) error {
 	log.Println("Stop VM?")
 
-	gitLabEnv := e.Env
+	actEnv := e.Env
 
 	var vm *VM
 	if e.vm != nil {
 		vm = e.vm
 	} else {
-		vm = ExistingVM(*gitLabEnv)
+		vm = ExistingVM(*actEnv)
 	}
 
 	if err := vm.Stop(); err != nil {
@@ -117,17 +117,6 @@ func (e *Environment) Stop(ctx context.Context) error {
 
 		return err
 	}
-
-	// tartConfig := e.Config
-
-	// if tartConfig.HostDir {
-	// 	if err := os.RemoveAll(gitLabEnv.HostDirPath()); err != nil {
-	// 		log.Printf("Failed to clean up %q (temporary directory from the host): %v",
-	// 			gitLabEnv.HostDirPath(), err)
-
-	// 		return err
-	// 	}
-	// }
 
 	return nil
 }
@@ -162,13 +151,13 @@ func (e *Environment) exec(ctx context.Context, command []string, _ string, env 
 }
 
 func (e *Environment) execRaw(ctx context.Context, script string) error {
-	gitLabEnv := e.Env
+	actEnv := e.Env
 
 	var vm *VM
 	if e.vm != nil {
 		vm = e.vm
 	} else {
-		vm = ExistingVM(*gitLabEnv)
+		vm = ExistingVM(*actEnv)
 	}
 
 	// Monitor "tart run" command's output so it's not silenced

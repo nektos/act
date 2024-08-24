@@ -33,24 +33,24 @@ type VM struct {
 	runcmd *exec.Cmd
 }
 
-func ExistingVM(gitLabEnv Env) *VM {
+func ExistingVM(actEnv Env) *VM {
 	return &VM{
-		id: gitLabEnv.VirtualMachineID(),
+		id: actEnv.VirtualMachineID(),
 	}
 }
 
 func CreateNewVM(
 	ctx context.Context,
-	gitLabEnv Env,
+	actEnv Env,
 	cpuOverride uint64,
 	memoryOverride uint64,
 ) (*VM, error) {
 	log.Print("CreateNewVM")
 	vm := &VM{
-		id: gitLabEnv.VirtualMachineID(),
+		id: actEnv.VirtualMachineID(),
 	}
 
-	if err := vm.cloneAndConfigure(ctx, gitLabEnv, cpuOverride, memoryOverride); err != nil {
+	if err := vm.cloneAndConfigure(ctx, actEnv, cpuOverride, memoryOverride); err != nil {
 		return nil, fmt.Errorf("failed to clone the VM: %w", err)
 	}
 
@@ -59,11 +59,11 @@ func CreateNewVM(
 
 func (vm *VM) cloneAndConfigure(
 	ctx context.Context,
-	gitLabEnv Env,
+	actEnv Env,
 	cpuOverride uint64,
 	memoryOverride uint64,
 ) error {
-	_, _, err := Exec(ctx, "clone", gitLabEnv.JobImage, vm.id)
+	_, _, err := Exec(ctx, "clone", actEnv.JobImage, vm.id)
 	if err != nil {
 		return err
 	}
@@ -85,7 +85,7 @@ func (vm *VM) cloneAndConfigure(
 	return nil
 }
 
-func (vm *VM) Start(config Config, gitLabEnv *Env, customDirectoryMounts []string) error {
+func (vm *VM) Start(config Config, _ *Env, customDirectoryMounts []string) error {
 	os.Remove(vm.tartRunOutputPath())
 	var runArgs = []string{"run"}
 
@@ -207,10 +207,9 @@ func (vm *VM) Stop() error {
 		_ = vm.runcmd.Wait()
 		log.Println("wait done?")
 		return nil
-	} else {
-		_, _, err := Exec(context.Background(), "stop", vm.id)
-		return err
 	}
+	_, _, err := Exec(context.Background(), "stop", vm.id)
+	return err
 }
 
 func (vm *VM) Delete() error {
@@ -279,12 +278,5 @@ func firstNonEmptyLine(outputs ...string) string {
 }
 
 func (vm *VM) tartRunOutputPath() string {
-	// GitLab Runner redefines the TMPDIR environment variable for
-	// custom executors[1] and cleans it up (you can check that by
-	// following the "cmdOpts.Dir" xrefs, so we don't need to bother
-	// with that ourselves.
-	//
-	//nolint:lll
-	// [1]: https://com/gitlab-org/gitlab-runner/-/blob/8f29a2558bd9e72bee1df34f6651db5ba48df029/executors/custom/command/command.go#L53
 	return filepath.Join(os.TempDir(), fmt.Sprintf("%s-tart-run-output.log", vm.id))
 }

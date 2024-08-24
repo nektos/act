@@ -1,11 +1,5 @@
 package tart
 
-import (
-	"errors"
-)
-
-var ErrGitLabEnv = errors.New("GitLab environment error")
-
 type Env struct {
 	JobID           string
 	JobImage        string
