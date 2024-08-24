@@ -88,6 +88,7 @@ func (e *Environment) start(ctx context.Context) error {
 	var customDirectoryMounts []string
 	os.MkdirAll(e.Miscpath, 0666)
 	customDirectoryMounts = append(customDirectoryMounts, "act:"+e.Miscpath)
+	e.vm = vm
 	err = vm.Start(config, gitLabEnv, customDirectoryMounts)
 	if err != nil {
 		return err
@@ -100,7 +101,12 @@ func (e *Environment) Stop(ctx context.Context) error {
 
 	gitLabEnv := e.Env
 
-	vm := ExistingVM(*gitLabEnv)
+	var vm *VM
+	if e.vm != nil {
+		vm = e.vm
+	} else {
+		vm = ExistingVM(*gitLabEnv)
+	}
 
 	if err := vm.Stop(); err != nil {
 		log.Printf("Failed to stop VM: %v", err)
@@ -158,7 +164,12 @@ func (e *Environment) exec(ctx context.Context, command []string, _ string, env 
 func (e *Environment) execRaw(ctx context.Context, script string) error {
 	gitLabEnv := e.Env
 
-	vm := ExistingVM(*gitLabEnv)
+	var vm *VM
+	if e.vm != nil {
+		vm = e.vm
+	} else {
+		vm = ExistingVM(*gitLabEnv)
+	}
 
 	// Monitor "tart run" command's output so it's not silenced
 	go vm.MonitorTartRunOutput()

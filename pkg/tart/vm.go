@@ -29,7 +29,8 @@ var (
 )
 
 type VM struct {
-	id string
+	id     string
+	runcmd *exec.Cmd
 }
 
 func ExistingVM(gitLabEnv Env) *VM {
@@ -121,8 +122,8 @@ func (vm *VM) Start(config Config, gitLabEnv *Env, customDirectoryMounts []strin
 	if err != nil {
 		return err
 	}
-
-	return cmd.Process.Release()
+	vm.runcmd = cmd
+	return nil
 }
 
 func (vm *VM) MonitorTartRunOutput() {
@@ -198,9 +199,18 @@ func (vm *VM) IP(ctx context.Context) (string, error) {
 }
 
 func (vm *VM) Stop() error {
-	_, _, err := Exec(context.Background(), "stop", vm.id)
-
-	return err
+	log.Println("Stop VM REAL?")
+	if vm.runcmd != nil {
+		log.Println("send sigint?")
+		vm.runcmd.Process.Signal(os.Interrupt)
+		log.Println("wait?")
+		vm.runcmd.Wait()
+		log.Println("wait done?")
+		return nil
+	} else {
+		_, _, err := Exec(context.Background(), "stop", vm.id)
+		return err
+	}
 }
 
 func (vm *VM) Delete() error {
