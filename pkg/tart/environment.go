@@ -86,7 +86,7 @@ func (e *Environment) start(ctx context.Context) error {
 		return err
 	}
 	var customDirectoryMounts []string
-	os.MkdirAll(e.Miscpath, 0666)
+	_ = os.MkdirAll(e.Miscpath, 0666)
 	customDirectoryMounts = append(customDirectoryMounts, "act:"+e.Miscpath)
 	e.vm = vm
 	err = vm.Start(config, gitLabEnv, customDirectoryMounts)
@@ -134,7 +134,7 @@ func (e *Environment) Stop(ctx context.Context) error {
 
 func (e *Environment) Remove() common.Executor {
 	return func(ctx context.Context) error {
-		e.Stop(ctx)
+		_ = e.Stop(ctx)
 		log.Println("Remove VM?")
 		if e.CleanUp != nil {
 			e.CleanUp()

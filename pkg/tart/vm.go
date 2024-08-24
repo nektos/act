@@ -109,7 +109,7 @@ func (vm *VM) Start(config Config, gitLabEnv *Env, customDirectoryMounts []strin
 	if err != nil {
 		return err
 	}
-	outputFile.WriteString(strings.Join(runArgs, " ") + "\n")
+	_, _ = outputFile.WriteString(strings.Join(runArgs, " ") + "\n")
 
 	cmd.Stdout = outputFile
 	cmd.Stderr = outputFile
@@ -202,9 +202,9 @@ func (vm *VM) Stop() error {
 	log.Println("Stop VM REAL?")
 	if vm.runcmd != nil {
 		log.Println("send sigint?")
-		vm.runcmd.Process.Signal(os.Interrupt)
+		_ = vm.runcmd.Process.Signal(os.Interrupt)
 		log.Println("wait?")
-		vm.runcmd.Wait()
+		_ = vm.runcmd.Wait()
 		log.Println("wait done?")
 		return nil
 	} else {
