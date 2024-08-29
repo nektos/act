@@ -1,6 +1,7 @@
 package lxc
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -10,7 +11,6 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/kballard/go-shellquote"
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/container"
 
@@ -89,6 +89,33 @@ func (e *Environment) start(ctx context.Context) error {
 	}
 
 	log.Println("Cloning and configuring a new VM...")
+
+	var startScript bytes.Buffer
+	if err := startTemplate.Execute(&startScript, struct {
+		Name     string
+		Template string
+		Release  string
+		Repo     string
+		Root     string
+		TmpDir   string
+		Script   string
+	}{
+		Name:     e.Env.JobID,
+		Template: "debian",
+		Release:  "bullseye",
+		Repo:     "", // step.Environment["CI_REPO"],
+		Root:     e.Miscpath,
+		TmpDir:   e.TmpDir,
+		Script:   "", // "commands-" + step.Name,
+	}); err != nil {
+		return err
+	}
+	// e.Copy(rc.JobContainer.GetActPath()+"/", &container.FileEntry{
+	// 	Name: "workflow/start-lxc.sh",
+	// 	Mode: 0755,
+	// 	Body: startScript.String(),
+	// }),
+	// rc.JobContainer.Exec([]string{rc.JobContainer.GetActPath() + "/workflow/start-lxc.sh"}, map[string]string{}, "root", rc.Config.Workdir),
 	return nil
 }
 func (e *Environment) Stop(ctx context.Context) error {
@@ -111,25 +138,12 @@ func (e *Environment) Remove() common.Executor {
 	}
 }
 func (e *Environment) exec(ctx context.Context, command []string, _ string, env map[string]string, _, workdir string) error {
-	var wd string
-	if workdir != "" {
-		if filepath.IsAbs(workdir) {
-			wd = filepath.Clean(workdir)
-		} else {
-			wd = filepath.Clean(filepath.Join(e.Path, workdir))
-		}
-	} else {
-		wd = e.ToContainerPath(e.Path)
-	}
-	envs := ""
+	fcommand := []string{"/usr/bin/lxc-attach"}
 	for k, v := range env {
-		envs += shellquote.Join(k) + "=" + shellquote.Join(v) + " "
+		fcommand = append(fcommand, "--set-var", k+"="+v)
 	}
-	return e.execRaw(ctx, "cd "+shellquote.Join(wd)+"\nenv "+envs+shellquote.Join(command...)+"\nexit $?")
-}
-
-func (e *Environment) execRaw(ctx context.Context, script string) error {
-	// ...
+	fcommand = append(fcommand, "--name", e.Env.JobID, "--")
+	fcommand = append(fcommand, command...)
 	return nil
 }
 
