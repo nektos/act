@@ -1,0 +1,261 @@
+{
+  "definitions": {
+    "action-root": {
+      "description": "Action file",
+      "mapping": {
+        "properties": {
+          "name": "string",
+          "description": "string",
+          "inputs": "inputs",
+          "runs": "runs",
+          "outputs": "outputs"
+        },
+        "loose-key-type": "non-empty-string",
+        "loose-value-type": "any"
+      }
+    },
+    "inputs": {
+      "mapping": {
+        "loose-key-type": "non-empty-string",
+        "loose-value-type": "input"
+      }
+    },
+    "input": {
+      "mapping": {
+        "properties": {
+          "default": "input-default-context"
+        },
+        "loose-key-type": "non-empty-string",
+        "loose-value-type": "any"
+      }
+    },
+    "outputs": {
+      "mapping": {
+        "loose-key-type": "non-empty-string",
+        "loose-value-type": "output-definition"
+      }
+    },
+    "output-definition": {
+      "mapping": {
+        "properties": {
+          "description": "string",
+          "value": "output-value"
+        }
+      }
+    },
+    "runs": {
+      "one-of": ["container-runs", "node-runs", "plugin-runs", "composite-runs"]
+    },
+    "container-runs": {
+      "mapping": {
+        "properties": {
+          "using": "non-empty-string",
+          "image": "non-empty-string",
+          "entrypoint": "non-empty-string",
+          "args": "container-runs-args",
+          "env": "container-runs-env",
+          "pre-entrypoint": "non-empty-string",
+          "pre-if": "non-empty-string",
+          "post-entrypoint": "non-empty-string",
+          "post-if": "non-empty-string"
+        }
+      }
+    },
+    "container-runs-args": {
+      "sequence": {
+        "item-type": "container-runs-context"
+      }
+    },
+    "container-runs-env": {
+      "context": ["inputs"],
+      "mapping": {
+        "loose-key-type": "non-empty-string",
+        "loose-value-type": "string"
+      }
+    },
+    "node-runs": {
+      "mapping": {
+        "properties": {
+          "using": "non-empty-string",
+          "main": "non-empty-string",
+          "pre": "non-empty-string",
+          "pre-if": "non-empty-string",
+          "post": "non-empty-string",
+          "post-if": "non-empty-string"
+        }
+      }
+    },
+    "plugin-runs": {
+      "mapping": {
+        "properties": {
+          "plugin": "non-empty-string"
+        }
+      }
+    },
+    "composite-runs": {
+      "mapping": {
+        "properties": {
+          "using": "non-empty-string",
+          "steps": "composite-steps"
+        }
+      }
+    },
+    "composite-steps": {
+      "sequence": {
+        "item-type": "composite-step"
+      }
+    },
+    "composite-step": {
+      "one-of": ["run-step", "uses-step"]
+    },
+    "run-step": {
+      "mapping": {
+        "properties": {
+          "name": "string-steps-context",
+          "id": "non-empty-string",
+          "if": "step-if",
+          "run": {
+            "type": "string-steps-context",
+            "required": true
+          },
+          "env": "step-env",
+          "continue-on-error": "boolean-steps-context",
+          "working-directory": "string-steps-context",
+          "shell": {
+            "type": "string-steps-context",
+            "required": true
+          }
+        }
+      }
+    },
+    "uses-step": {
+      "mapping": {
+        "properties": {
+          "name": "string-steps-context",
+          "id": "non-empty-string",
+          "if": "step-if",
+          "uses": {
+            "type": "non-empty-string",
+            "required": true
+          },
+          "continue-on-error": "boolean-steps-context",
+          "with": "step-with",
+          "env": "step-env"
+        }
+      }
+    },
+    "container-runs-context": {
+      "context": ["inputs"],
+      "string": {}
+    },
+    "output-value": {
+      "context": [
+        "github",
+        "strategy",
+        "matrix",
+        "steps",
+        "inputs",
+        "job",
+        "runner",
+        "env"
+      ],
+      "string": {}
+    },
+    "input-default-context": {
+      "context": [
+        "github",
+        "strategy",
+        "matrix",
+        "job",
+        "runner",
+        "hashFiles(1,255)"
+      ],
+      "string": {}
+    },
+    "non-empty-string": {
+      "string": {
+        "require-non-empty": true
+      }
+    },
+    "string-steps-context": {
+      "context": [
+        "github",
+        "inputs",
+        "strategy",
+        "matrix",
+        "steps",
+        "job",
+        "runner",
+        "env",
+        "hashFiles(1,255)"
+      ],
+      "string": {}
+    },
+    "boolean-steps-context": {
+      "context": [
+        "github",
+        "inputs",
+        "strategy",
+        "matrix",
+        "steps",
+        "job",
+        "runner",
+        "env",
+        "hashFiles(1,255)"
+      ],
+      "boolean": {}
+    },
+    "step-env": {
+      "context": [
+        "github",
+        "inputs",
+        "strategy",
+        "matrix",
+        "steps",
+        "job",
+        "runner",
+        "env",
+        "hashFiles(1,255)"
+      ],
+      "mapping": {
+        "loose-key-type": "non-empty-string",
+        "loose-value-type": "string"
+      }
+    },
+    "step-if": {
+      "context": [
+        "github",
+        "inputs",
+        "strategy",
+        "matrix",
+        "steps",
+        "job",
+        "runner",
+        "env",
+        "always(0,0)",
+        "failure(0,0)",
+        "cancelled(0,0)",
+        "success(0,0)",
+        "hashFiles(1,255)"
+      ],
+      "string": {}
+    },
+    "step-with": {
+      "context": [
+        "github",
+        "inputs",
+        "strategy",
+        "matrix",
+        "steps",
+        "job",
+        "runner",
+        "env",
+        "hashFiles(1,255)"
+      ],
+      "mapping": {
+        "loose-key-type": "non-empty-string",
+        "loose-value-type": "string"
+      }
+    }
+  }
+}
