@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/rhysd/actionlint"
@@ -17,6 +19,8 @@ var workflowSchema string
 
 //go:embed action_schema.json
 var actionSchema string
+
+var functions = regexp.MustCompile(`^([a-zA-Z0-9_]+)\(([0-9]+),([0-9]+|MAX)\)$`)
 
 type Schema struct {
 	Definitions map[string]Definition
@@ -138,10 +142,10 @@ func (s *Node) checkSingleExpression(exprNode actionlint.ExprNode) error {
 			for _, v := range *funcs {
 				if strings.EqualFold(funcCallNode.Callee, v.name) {
 					if v.min > len(funcCallNode.Args) {
-						err = errors.Join(err, fmt.Errorf("Missing parameters for %s expected > %v got %v", funcCallNode.Callee, v.min, len(funcCallNode.Args)))
+						err = errors.Join(err, fmt.Errorf("Missing parameters for %s expected >= %v got %v", funcCallNode.Callee, v.min, len(funcCallNode.Args)))
 					}
 					if v.max < len(funcCallNode.Args) {
-						err = errors.Join(err, fmt.Errorf("To many parameters for %s expected < %v got %v", funcCallNode.Callee, v.max, len(funcCallNode.Args)))
+						err = errors.Join(err, fmt.Errorf("To many parameters for %s expected <= %v got %v", funcCallNode.Callee, v.max, len(funcCallNode.Args)))
 					}
 					return
 				}
@@ -174,11 +178,22 @@ func (s *Node) GetFunctions() *[]FunctionInfo {
 		if i == -1 {
 			continue
 		}
-		fun := FunctionInfo{
-			name: v[:i],
-		}
-		if n, err := fmt.Sscanf(v[i:], "(%d,%d)", &fun.min, &fun.max); n == 2 && err == nil {
-			*funcs = append(*funcs, fun)
+		smatch := functions.FindStringSubmatch(v)
+		if len(smatch) > 0 {
+			functionName := smatch[1]
+			minParameters, _ := strconv.ParseInt(smatch[2], 10, 32)
+			maxParametersRaw := smatch[3]
+			var maxParameters int64
+			if strings.EqualFold(maxParametersRaw, "MAX") {
+				maxParameters = math.MaxInt32
+			} else {
+				maxParameters, _ = strconv.ParseInt(smatch[2], 10, 32)
+			}
+			*funcs = append(*funcs, FunctionInfo{
+				name: functionName,
+				min:  int(minParameters),
+				max:  int(maxParameters),
+			})
 		}
 	}
 	return funcs
@@ -220,6 +235,9 @@ func AddFunction(funcs *[]FunctionInfo, s string, i1, i2 int) {
 }
 
 func (s *Node) UnmarshalYAML(node *yaml.Node) error {
+	if node != nil && node.Kind == yaml.DocumentNode {
+		return s.UnmarshalYAML(node.Content[0])
+	}
 	def := s.Schema.GetDefinition(s.Definition)
 	if s.Context == nil {
 		s.Context = def.Context
