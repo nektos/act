@@ -9,7 +9,7 @@ usage() {
   cat <<EOF
 $this: download go binaries for nektos/act
 
-Usage: $this [-b] bindir [-d] [tag]
+Usage: $this [-b bindir] [-d] [tag]
   -b sets bindir or installation directory, Defaults to ./bin
   -d turns on debug logging
    [tag] is a tag from
