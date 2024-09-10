@@ -187,7 +187,7 @@ func (s *Node) GetFunctions() *[]FunctionInfo {
 			if strings.EqualFold(maxParametersRaw, "MAX") {
 				maxParameters = math.MaxInt32
 			} else {
-				maxParameters, _ = strconv.ParseInt(smatch[2], 10, 32)
+				maxParameters, _ = strconv.ParseInt(maxParametersRaw, 10, 32)
 			}
 			*funcs = append(*funcs, FunctionInfo{
 				name: functionName,
