@@ -145,7 +145,7 @@ func (s *Node) checkSingleExpression(exprNode actionlint.ExprNode) error {
 						err = errors.Join(err, fmt.Errorf("Missing parameters for %s expected >= %v got %v", funcCallNode.Callee, v.min, len(funcCallNode.Args)))
 					}
 					if v.max < len(funcCallNode.Args) {
-						err = errors.Join(err, fmt.Errorf("To many parameters for %s expected <= %v got %v", funcCallNode.Callee, v.max, len(funcCallNode.Args)))
+						err = errors.Join(err, fmt.Errorf("Too many parameters for %s expected <= %v got %v", funcCallNode.Callee, v.max, len(funcCallNode.Args)))
 					}
 					return
 				}
