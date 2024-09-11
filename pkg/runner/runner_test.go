@@ -196,16 +196,20 @@ func (j *TestJobFileInfo) runTest(ctx context.Context, t *testing.T, cfg *Config
 	assert.Nil(t, err, j.workflowPath)
 
 	planner, err := model.NewWorkflowPlanner(fullWorkflowPath, true)
-	assert.Nil(t, err, fullWorkflowPath)
+	if err != nil {
+		assert.Error(t, err, j.errorMessage)
+	} else {
+		assert.Nil(t, err, fullWorkflowPath)
 
-	plan, err := planner.PlanEvent(j.eventName)
-	assert.True(t, (err == nil) != (plan == nil), "PlanEvent should return either a plan or an error")
-	if err == nil && plan != nil {
-		err = runner.NewPlanExecutor(plan)(ctx)
-		if j.errorMessage == "" {
-			assert.Nil(t, err, fullWorkflowPath)
-		} else {
-			assert.Error(t, err, j.errorMessage)
+		plan, err := planner.PlanEvent(j.eventName)
+		assert.True(t, (err == nil) != (plan == nil), "PlanEvent should return either a plan or an error")
+		if err == nil && plan != nil {
+			err = runner.NewPlanExecutor(plan)(ctx)
+			if j.errorMessage == "" {
+				assert.Nil(t, err, fullWorkflowPath)
+			} else {
+				assert.Error(t, err, j.errorMessage)
+			}
 		}
 	}
 
@@ -317,6 +321,7 @@ func TestRunEvent(t *testing.T) {
 		{workdir, "services-empty-image", "push", "", platforms, secrets},
 		{workdir, "services-host-network", "push", "", platforms, secrets},
 		{workdir, "services-with-container", "push", "", platforms, secrets},
+		{workdir, "mysql-service-container-with-health-check", "push", "", platforms, secrets},
 
 		// local remote action overrides
 		{workdir, "local-remote-action-overrides", "push", "", platforms, secrets},
@@ -333,7 +338,7 @@ func TestRunEvent(t *testing.T) {
 				config.EventPath = eventFile
 			}
 
-			testConfigFile := filepath.Join(workdir, table.workflowPath, "config.yml")
+			testConfigFile := filepath.Join(workdir, table.workflowPath, "config/config.yml")
 			if file, err := os.ReadFile(testConfigFile); err == nil {
 				testConfig := &TestConfig{}
 				if yaml.Unmarshal(file, testConfig) == nil {

@@ -26,7 +26,7 @@ jobs:
         with:
           version: v1.53
           only-new-issues: true
-      - uses: megalinter/megalinter/flavors/go@v7.11.1
+      - uses: megalinter/megalinter/flavors/go@v8.0.0
         env:
           DEFAULT_BRANCH: master
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -60,6 +60,8 @@ jobs:
           upload-logs-name: logs-linux
       - name: Run act from cli
         run: go run main.go -P ubuntu-latest=node:16-buster-slim -C ./pkg/runner/testdata/ -W ./basic/push.yml
+      - name: Run act from cli without docker support
+        run: go run -tags WITHOUT_DOCKER main.go -P ubuntu-latest=-self-hosted -C ./pkg/runner/testdata/ -W ./local-action-js/push.yml
       - name: Upload Codecov report
         uses: codecov/codecov-action@v4
         with:

@@ -435,6 +435,8 @@ func goArchToActionArch(arch string) string {
 
 func goOsToActionOs(os string) string {
 	osMapper := map[string]string{
+		"linux": "Linux",
+		"windows": "Windows",
 		"darwin": "macOS",
 	}
 	if os, ok := osMapper[os]; ok {
@@ -450,6 +452,10 @@ func (e *HostEnvironment) GetRunnerContext(_ context.Context) map[string]interfa
 		"temp":       e.TmpDir,
 		"tool_cache": e.ToolCache,
 	}
+}
+
+func (e *HostEnvironment) GetHealth(ctx context.Context) ContainerHealth {
+	return ContainerHealthHealthy
 }
 
 func (e *HostEnvironment) ReplaceLogWriter(stdout io.Writer, _ io.Writer) (io.Writer, io.Writer) {

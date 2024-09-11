@@ -16,6 +16,7 @@ import (
 	"strconv"
 	"strings"
 
+	"dario.cat/mergo"
 	"github.com/Masterminds/semver"
 	"github.com/docker/cli/cli/connhelper"
 	"github.com/docker/docker/api/types"
@@ -28,7 +29,6 @@ import (
 	"github.com/go-git/go-billy/v5/helper/polyfill"
 	"github.com/go-git/go-billy/v5/osfs"
 	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
-	"github.com/imdario/mergo"
 	"github.com/joho/godotenv"
 	"github.com/kballard/go-shellquote"
 	specs "github.com/opencontainers/image-spec/specs-go/v1"
@@ -167,6 +167,30 @@ func (cr *containerReference) Remove() common.Executor {
 	).Finally(
 		cr.remove(),
 	).IfNot(common.Dryrun)
+}
+
+func (cr *containerReference) GetHealth(ctx context.Context) ContainerHealth {
+	resp, err := cr.cli.ContainerInspect(ctx, cr.id)
+	logger := common.Logger(ctx)
+	if err != nil {
+		logger.Errorf("failed to query container health %s", err)
+		return ContainerHealthUnHealthy
+	}
+	if resp.Config == nil || resp.Config.Healthcheck == nil || resp.State == nil || resp.State.Health == nil || len(resp.Config.Healthcheck.Test) == 1 && strings.EqualFold(resp.Config.Healthcheck.Test[0], "NONE") {
+		logger.Debugf("no container health check defined")
+		return ContainerHealthHealthy
+	}
+
+	logger.Infof("container health of %s (%s) is %s", cr.id, resp.Config.Image, resp.State.Health.Status)
+	switch resp.State.Health.Status {
+	case "starting":
+		return ContainerHealthStarting
+	case "healthy":
+		return ContainerHealthHealthy
+	case "unhealthy":
+		return ContainerHealthUnHealthy
+	}
+	return ContainerHealthUnHealthy
 }
 
 func (cr *containerReference) ReplaceLogWriter(stdout io.Writer, stderr io.Writer) (io.Writer, io.Writer) {

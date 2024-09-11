@@ -1,0 +1,19 @@
+name: service-container
+on: push
+jobs:
+  service-container-test:
+    runs-on: ubuntu-latest
+    container: mysql:8
+    services:
+      maindb:
+        image: mysql:8
+        env:
+          MYSQL_DATABASE: dbname
+          MYSQL_USER: dbuser
+          MYSQL_PASSWORD: dbpass
+          MYSQL_RANDOM_ROOT_PASSWORD: yes
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+    steps:
+    - run: mysql -u dbuser -D dbname -pdbpass -h maindb -e "create table T(id INT NOT NULL AUTO_INCREMENT, val VARCHAR(255), PRIMARY KEY (id))"
+    - run: mysql -u dbuser -D dbname -pdbpass -h maindb -e "insert into T(val) values ('test'),('h')"
+    - run: mysql -u dbuser -D dbname -pdbpass -h maindb -e "select * from T"
