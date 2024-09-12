@@ -387,15 +387,15 @@ func TestGetGitHubContext(t *testing.T) {
 		owner = o
 	}
 
-	assert.Equal(t, ghc.RunID, "1")
-	assert.Equal(t, ghc.RunNumber, "1")
-	assert.Equal(t, ghc.RetentionDays, "0")
-	assert.Equal(t, ghc.Actor, actor)
-	assert.Equal(t, ghc.Repository, repo)
-	assert.Equal(t, ghc.RepositoryOwner, owner)
-	assert.Equal(t, ghc.RunnerPerflog, "/dev/null")
-	assert.Equal(t, ghc.Token, rc.Config.Secrets["GITHUB_TOKEN"])
-	assert.Equal(t, ghc.Job, "job1")
+	assert.Equal(t, "1", ghc.RunID)
+	assert.Equal(t, "1", ghc.RunNumber)
+	assert.Equal(t, "0", ghc.RetentionDays)
+	assert.Equal(t, actor, ghc.Actor)
+	assert.Equal(t, repo, ghc.Repository)
+	assert.Equal(t, owner, ghc.RepositoryOwner)
+	assert.Equal(t, "/dev/null", ghc.RunnerPerflog)
+	assert.Equal(t, rc.Config.Secrets["GITHUB_TOKEN"], ghc.Token)
+	assert.Equal(t, "job1", ghc.Job)
 }
 
 func TestGetGithubContextRef(t *testing.T) {
