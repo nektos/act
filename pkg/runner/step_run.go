@@ -166,16 +166,18 @@ func (sr *stepRun) setupShell(ctx context.Context) {
 	step := sr.Step
 
 	if step.Shell == "" {
-		step.Shell = rc.Run.Job().Defaults.Run.Shell
+		step.WorkflowShell = rc.Run.Job().Defaults.Run.Shell
+	} else {
+		step.WorkflowShell = step.Shell
 	}
 
-	step.Shell = rc.NewExpressionEvaluator(ctx).Interpolate(ctx, step.Shell)
+	step.WorkflowShell = rc.NewExpressionEvaluator(ctx).Interpolate(ctx, step.WorkflowShell)
 
-	if step.Shell == "" {
-		step.Shell = rc.Run.Workflow.Defaults.Run.Shell
+	if step.WorkflowShell == "" {
+		step.WorkflowShell = rc.Run.Workflow.Defaults.Run.Shell
 	}
 
-	if step.Shell == "" {
+	if step.WorkflowShell == "" {
 		if _, ok := rc.JobContainer.(*container.HostEnvironment); ok {
 			shellWithFallback := []string{"bash", "sh"}
 			// Don't use bash on windows by default, if not using a docker container
@@ -196,6 +198,8 @@ func (sr *stepRun) setupShell(ctx context.Context) {
 			// Currently only linux containers are supported, use sh by default like actions/runner
 			step.Shell = "sh"
 		}
+	} else {
+		step.Shell = step.WorkflowShell
 	}
 }
 
