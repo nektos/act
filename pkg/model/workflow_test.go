@@ -397,15 +397,18 @@ func TestReadWorkflow_Strategy(t *testing.T) {
 func TestStep_ShellCommand(t *testing.T) {
 	tests := []struct {
 		shell string
+		workflowShell string
 		want  string
 	}{
-		{"pwsh -v '. {0}'", "pwsh -v '. {0}'"},
-		{"pwsh", "pwsh -command . '{0}'"},
-		{"powershell", "powershell -command . '{0}'"},
+		{"pwsh -v '. {0}'", "", "pwsh -v '. {0}'"},
+		{"pwsh", "", "pwsh -command . '{0}'"},
+		{"powershell", "", "powershell -command . '{0}'"},
+		{"bash", "", "bash -e {0}"},
+		{"bash", "bash", "bash --noprofile --norc -e -o pipefail {0}"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.shell, func(t *testing.T) {
-			got := (&Step{Shell: tt.shell}).ShellCommand()
+			got := (&Step{Shell: tt.shell, WorkflowShell: tt.workflowShell}).ShellCommand()
 			assert.Equal(t, got, tt.want)
 		})
 	}

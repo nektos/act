@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -19,6 +20,7 @@ import (
 	gitignore "github.com/sabhiram/go-gitignore"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/spf13/cobra/doc"
 	"gopkg.in/yaml.v3"
 
 	"github.com/nektos/act/pkg/artifactcache"
@@ -47,6 +49,7 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.Flags().BoolP("graph", "g", false, "draw workflows")
 	rootCmd.Flags().StringP("job", "j", "", "run a specific job ID")
 	rootCmd.Flags().BoolP("bug-report", "", false, "Display system information for bug report")
+	rootCmd.Flags().BoolP("man-page", "", false, "Print a generated manual page to stdout")
 
 	rootCmd.Flags().StringVar(&input.remoteName, "remote-name", "origin", "git remote name that will be used to retrieve url of git repo")
 	rootCmd.Flags().StringArrayVarP(&input.secrets, "secret", "s", []string{}, "secret to make available to actions with optional value (e.g. -s mysecret=foo or -s mysecret)")
@@ -227,6 +230,18 @@ func bugReport(ctx context.Context, version string) error {
 	return nil
 }
 
+func generateManPage(cmd *cobra.Command) error {
+	header := &doc.GenManHeader{
+		Title:   "act",
+		Section: "1",
+		Source:  fmt.Sprintf("act %s", cmd.Version),
+	}
+	buf := new(bytes.Buffer)
+	cobra.CheckErr(doc.GenMan(cmd, header, buf))
+	fmt.Print(buf.String())
+	return nil
+}
+
 func readArgsFile(file string, split bool) []string {
 	args := make([]string, 0)
 	f, err := os.Open(file)
@@ -341,6 +356,10 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 		if ok, _ := cmd.Flags().GetBool("bug-report"); ok {
 			return bugReport(ctx, cmd.Version)
 		}
+		if ok, _ := cmd.Flags().GetBool("man-page"); ok {
+			return generateManPage(cmd)
+		}
+
 		if ret, err := container.GetSocketAndHost(input.containerDaemonSocket); err != nil {
 			log.Warnf("Couldn't get a valid docker connection: %+v", err)
 		} else {
