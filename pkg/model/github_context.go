@@ -13,6 +13,7 @@ type GithubContext struct {
 	Event            map[string]interface{} `json:"event"`
 	EventPath        string                 `json:"event_path"`
 	Workflow         string                 `json:"workflow"`
+	RunAttempt       string                 `json:"run_attempt"`
 	RunID            string                 `json:"run_id"`
 	RunNumber        string                 `json:"run_number"`
 	Actor            string                 `json:"actor"`
