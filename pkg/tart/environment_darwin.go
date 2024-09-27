@@ -83,6 +83,7 @@ func (e *Environment) start(ctx context.Context) error {
 	log.Println("Cloning and configuring a new VM...")
 	vm, err := CreateNewVM(ctx, *actEnv, 0, 0)
 	if err != nil {
+		_ = e.Stop(ctx)
 		return err
 	}
 	var customDirectoryMounts []string
@@ -91,6 +92,7 @@ func (e *Environment) start(ctx context.Context) error {
 	e.vm = vm
 	err = vm.Start(config, actEnv, customDirectoryMounts)
 	if err != nil {
+		_ = e.Stop(ctx)
 		return err
 	}
 
