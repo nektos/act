@@ -131,11 +131,15 @@ func NewWorkflowPlanner(path string, noWorkflowRecurse bool) (WorkflowPlanner, e
 			log.Debugf("Reading workflow '%s'", f.Name())
 			workflow, err := ReadWorkflow(f)
 			if err != nil {
-				_ = f.Close()
+				// If the error is EOF, it means the file is empty.
+				// Log a warning and continue to the next file.
 				if err == io.EOF {
-					return nil, fmt.Errorf("unable to read workflow '%s': file is empty: %w", wf.workflowDirEntry.Name(), err)
+					log.Warnf("unable to read workflow '%s': file is empty: %v", wf.workflowDirEntry.Name(), err)
+				} else {
+					// If there's an error other than EOF, close the file and return an error.
+					_ = f.Close()
+					return nil, fmt.Errorf("workflow is not valid. '%s': %w", wf.workflowDirEntry.Name(), err)
 				}
-				return nil, fmt.Errorf("workflow is not valid. '%s': %w", wf.workflowDirEntry.Name(), err)
 			}
 			_, err = f.Seek(0, 0)
 			if err != nil {
