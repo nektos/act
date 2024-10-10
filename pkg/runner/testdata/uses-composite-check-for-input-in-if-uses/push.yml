@@ -1,0 +1,24 @@
+name: uses-composite-check-for-input-in-if-uses
+on: push
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./uses-composite-check-for-input-in-if-uses/composite_action
+        with:
+          b: true
+          b2: true
+      - uses: ./uses-composite-check-for-input-in-if-uses/composite_action
+        with:
+          b: false
+          b2: false
+      - uses: ./uses-composite-check-for-input-in-if-uses/composite_action
+        with:
+          b: true
+          b2: false
+      - uses: ./uses-composite-check-for-input-in-if-uses/composite_action
+        with:
+          b: false
+          b2: true

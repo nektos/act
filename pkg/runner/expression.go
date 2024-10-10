@@ -108,6 +108,19 @@ var hashfiles string
 
 // NewStepExpressionEvaluator creates a new evaluator
 func (rc *RunContext) NewStepExpressionEvaluator(ctx context.Context, step step) ExpressionEvaluator {
+	return rc.NewStepExpressionEvaluatorExt(ctx, step, false)
+}
+
+// NewStepExpressionEvaluatorExt creates a new evaluator
+func (rc *RunContext) NewStepExpressionEvaluatorExt(ctx context.Context, step step, rcInputs bool) ExpressionEvaluator {
+	ghc := rc.getGithubContext(ctx)
+	if rcInputs {
+		return rc.newStepExpressionEvaluator(ctx, step, ghc, getEvaluatorInputs(ctx, rc, nil, ghc))
+	}
+	return rc.newStepExpressionEvaluator(ctx, step, ghc, getEvaluatorInputs(ctx, rc, step, ghc))
+}
+
+func (rc *RunContext) newStepExpressionEvaluator(ctx context.Context, step step, ghc *model.GithubContext, inputs map[string]interface{}) ExpressionEvaluator {
 	// todo: cleanup EvaluationEnvironment creation
 	job := rc.Run.Job()
 	strategy := make(map[string]interface{})
@@ -126,9 +139,6 @@ func (rc *RunContext) NewStepExpressionEvaluator(ctx context.Context, step step)
 			Result:  jobs[needs].Result,
 		}
 	}
-
-	ghc := rc.getGithubContext(ctx)
-	inputs := getEvaluatorInputs(ctx, rc, step, ghc)
 
 	ee := &exprparser.EvaluationEnvironment{
 		Github:   step.getGithubContext(ctx),
