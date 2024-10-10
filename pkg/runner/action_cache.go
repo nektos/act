@@ -19,6 +19,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
+	"github.com/nektos/act/pkg/common"
 )
 
 type ActionCache interface {
@@ -31,17 +32,23 @@ type GoGitActionCache struct {
 }
 
 func (c GoGitActionCache) Fetch(ctx context.Context, cacheDir, url, ref, token string) (string, error) {
+	logger := common.Logger(ctx)
+
 	gitPath := path.Join(c.Path, safeFilename(cacheDir)+".git")
+
+	logger.Infof("GoGitActionCache fetch %s with ref %s at %s", url, ref, gitPath)
+
 	gogitrepo, err := git.PlainInit(gitPath, true)
 	if errors.Is(err, git.ErrRepositoryAlreadyExists) {
+		logger.Debugf("GoGitActionCache cache hit %s with ref %s at %s", url, ref, gitPath)
 		gogitrepo, err = git.PlainOpen(gitPath)
 	}
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("GoGitActionCache failed to open bare git %s with ref %s at %s: %w", url, ref, gitPath, err)
 	}
 	tmpBranch := make([]byte, 12)
 	if _, err := rand.Read(tmpBranch); err != nil {
-		return "", err
+		return "", fmt.Errorf("GoGitActionCache failed to generate random tmp branch %s with ref %s at %s: %w", url, ref, gitPath, err)
 	}
 	branchName := hex.EncodeToString(tmpBranch)
 
@@ -59,7 +66,7 @@ func (c GoGitActionCache) Fetch(ctx context.Context, cacheDir, url, ref, token s
 		},
 	})
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("GoGitActionCache failed to create remote %s with ref %s at %s: %w", url, ref, gitPath, err)
 	}
 	defer func() {
 		_ = gogitrepo.DeleteBranch(branchName)
@@ -71,12 +78,13 @@ func (c GoGitActionCache) Fetch(ctx context.Context, cacheDir, url, ref, token s
 		Auth:  auth,
 		Force: true,
 	}); err != nil {
-		return "", err
+		return "", fmt.Errorf("GoGitActionCache failed to fetch %s with ref %s at %s: %w", url, ref, gitPath, err)
 	}
 	hash, err := gogitrepo.ResolveRevision(plumbing.Revision(branchName))
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("GoGitActionCache failed to resolve sha %s with ref %s at %s: %w", url, ref, gitPath, err)
 	}
+	logger.Infof("GoGitActionCache fetch %s with ref %s at %s resolved to %s", url, ref, gitPath, hash.String())
 	return hash.String(), nil
 }
 
@@ -119,22 +127,27 @@ func (g *GitFileInfo) Sys() any {
 }
 
 func (c GoGitActionCache) GetTarArchive(ctx context.Context, cacheDir, sha, includePrefix string) (io.ReadCloser, error) {
+	logger := common.Logger(ctx)
+
 	gitPath := path.Join(c.Path, safeFilename(cacheDir)+".git")
+
+	logger.Infof("GoGitActionCache get content %s with sha %s subpath %s at %s", cacheDir, sha, includePrefix, gitPath)
+
 	gogitrepo, err := git.PlainOpen(gitPath)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("GoGitActionCache failed to open bare git %s with sha %s subpath %s at %s: %w", cacheDir, sha, includePrefix, gitPath, err)
 	}
 	commit, err := gogitrepo.CommitObject(plumbing.NewHash(sha))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("GoGitActionCache failed to get commit %s with sha %s subpath %s at %s: %w", cacheDir, sha, includePrefix, gitPath, err)
 	}
 	t, err := commit.Tree()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("GoGitActionCache failed to open git tree %s with sha %s subpath %s at %s: %w", cacheDir, sha, includePrefix, gitPath, err)
 	}
 	files, err := commit.Files()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("GoGitActionCache failed to list files %s with sha %s subpath %s at %s: %w", cacheDir, sha, includePrefix, gitPath, err)
 	}
 	rpipe, wpipe := io.Pipe()
 	// Interrupt io.Copy using ctx
