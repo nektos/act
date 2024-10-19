@@ -201,18 +201,28 @@ func findGitRemoteURL(_ context.Context, file, remoteName string) (string, error
 func findGitSlug(url string, githubInstance string) (string, string, error) {
 	if matches := codeCommitHTTPRegex.FindStringSubmatch(url); matches != nil {
 		return "CodeCommit", matches[2], nil
-	} else if matches := codeCommitSSHRegex.FindStringSubmatch(url); matches != nil {
+	}
+
+	if matches := codeCommitSSHRegex.FindStringSubmatch(url); matches != nil {
 		return "CodeCommit", matches[2], nil
-	} else if matches := githubHTTPRegex.FindStringSubmatch(url); matches != nil {
+	}
+
+	if matches := githubHTTPRegex.FindStringSubmatch(url); matches != nil {
 		return "GitHub", fmt.Sprintf("%s/%s", matches[1], matches[2]), nil
-	} else if matches := githubSSHRegex.FindStringSubmatch(url); matches != nil {
+	}
+
+	if matches := githubSSHRegex.FindStringSubmatch(url); matches != nil {
 		return "GitHub", fmt.Sprintf("%s/%s", matches[1], matches[2]), nil
-	} else if githubInstance != "github.com" {
+	}
+
+	if githubInstance != "github.com" {
 		gheHTTPRegex := regexp.MustCompile(fmt.Sprintf(`^https?://%s/(.+)/(.+?)(?:.git)?$`, githubInstance))
 		gheSSHRegex := regexp.MustCompile(fmt.Sprintf(`%s[:/](.+)/(.+?)(?:.git)?$`, githubInstance))
 		if matches := gheHTTPRegex.FindStringSubmatch(url); matches != nil {
 			return "GitHubEnterprise", fmt.Sprintf("%s/%s", matches[1], matches[2]), nil
-		} else if matches := gheSSHRegex.FindStringSubmatch(url); matches != nil {
+		}
+
+		if matches := gheSSHRegex.FindStringSubmatch(url); matches != nil {
 			return "GitHubEnterprise", fmt.Sprintf("%s/%s", matches[1], matches[2]), nil
 		}
 	}
