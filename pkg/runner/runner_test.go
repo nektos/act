@@ -370,7 +370,7 @@ func TestTartNotSupportedOnNonDarwin(t *testing.T) {
 
 	if runtime.GOOS != "darwin" {
 		platforms := map[string]string{
-			"macos-14": "tart://ghcr.io/cirruslabs/macos-sonoma-base:latest",
+			"ubuntu-latest": "tart://ghcr.io/cirruslabs/macos-sonoma-base:latest",
 		}
 
 		tables = append(tables, []TestJobFileInfo{
