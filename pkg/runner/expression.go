@@ -512,7 +512,7 @@ func getEvaluatorInputs(ctx context.Context, rc *RunContext, step step, ghc *mod
 			for k, v := range config.Inputs {
 				value := nestedMapLookup(ghc.Event, "inputs", k)
 				if value == nil {
-					_ = v.Default.Decode(&value)
+					v.Default.Decode(&value)
 				}
 				if v.Type == "boolean" {
 					inputs[k] = value == "true"
