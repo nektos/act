@@ -261,7 +261,7 @@ func isStepEnabled(ctx context.Context, expr string, step step, stage stepStage)
 		defaultStatusCheck = exprparser.DefaultStatusCheckSuccess
 	}
 
-	runStep, err := EvalBool(ctx, rc.NewStepExpressionEvaluator(ctx, step), expr, defaultStatusCheck)
+	runStep, err := EvalBool(ctx, rc.NewStepExpressionEvaluatorExt(ctx, step, stage == stepStageMain), expr, defaultStatusCheck)
 	if err != nil {
 		return false, fmt.Errorf("  \u274C  Error in if-expression: \"if: %s\" (%s)", expr, err)
 	}

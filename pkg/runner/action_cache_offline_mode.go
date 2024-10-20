@@ -7,6 +7,7 @@ import (
 
 	git "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/nektos/act/pkg/common"
 )
 
 type GoGitActionCacheOfflineMode struct {
@@ -14,8 +15,13 @@ type GoGitActionCacheOfflineMode struct {
 }
 
 func (c GoGitActionCacheOfflineMode) Fetch(ctx context.Context, cacheDir, url, ref, token string) (string, error) {
-	sha, fetchErr := c.Parent.Fetch(ctx, cacheDir, url, ref, token)
+	logger := common.Logger(ctx)
+
 	gitPath := path.Join(c.Parent.Path, safeFilename(cacheDir)+".git")
+
+	logger.Infof("GoGitActionCacheOfflineMode fetch content %s with ref %s at %s", url, ref, gitPath)
+
+	sha, fetchErr := c.Parent.Fetch(ctx, cacheDir, url, ref, token)
 	gogitrepo, err := git.PlainOpen(gitPath)
 	if err != nil {
 		return "", fetchErr

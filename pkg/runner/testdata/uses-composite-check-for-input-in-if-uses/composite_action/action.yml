@@ -1,0 +1,47 @@
+name: "Test Composite Action"
+description: "Test action uses composite"
+
+inputs:
+  b:
+    default: true
+  b2: {}
+
+runs:
+  using: "composite"
+  steps:
+  - uses: actions/github-script@v7
+    if: inputs.b == 'true'
+    with:
+      script: |
+        console.log(${{ tojson(inputs) }})
+        if( ${{ tojson(inputs.b) }} != 'true' ) {
+          process.exit(-1);
+        }
+      github-token: noop
+  - uses: actions/github-script@v7
+    if: inputs.b != 'true'
+    with:
+      script: |
+        console.log(${{ tojson(inputs) }})
+        if( ${{ tojson(inputs.b) }} == 'true' ) {
+          process.exit(-1);
+        }
+      github-token: noop
+  - uses: actions/github-script@v7
+    if: inputs.b2 == 'false'
+    with:
+      script: |
+        console.log(${{ tojson(inputs) }})
+        if( ${{ tojson(inputs.b2) }} != 'false' ) {
+          process.exit(-1);
+        }
+      github-token: noop
+  - uses: actions/github-script@v7
+    if: inputs.b2 != 'false'
+    with:
+      script: |
+        console.log(${{ tojson(inputs) }})
+        if( ${{ tojson(inputs.b2) }} == 'false' ) {
+          process.exit(-1);
+        }
+      github-token: noop
