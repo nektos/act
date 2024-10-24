@@ -435,9 +435,9 @@ func goArchToActionArch(arch string) string {
 
 func goOsToActionOs(os string) string {
 	osMapper := map[string]string{
-		"linux": "Linux",
+		"linux":   "Linux",
 		"windows": "Windows",
-		"darwin": "macOS",
+		"darwin":  "macOS",
 	}
 	if os, ok := osMapper[os]; ok {
 		return os
