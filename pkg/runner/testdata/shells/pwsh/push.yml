@@ -5,14 +5,14 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - shell: ${{ env.MY_SHELL }}
+      - shell: pwsh
         run: |
           $PSVersionTable
   check-container:
     runs-on: ubuntu-latest
     container: catthehacker/ubuntu:pwsh-latest
     steps:
-      - shell: ${{ env.MY_SHELL }}
+      - shell: pwsh
         run: |
           $PSVersionTable
   check-job-default:

@@ -5,7 +5,7 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - shell: ${{ env.MY_SHELL }}
+      - shell: sh
         run: |
           if [ -z ${BASH+x} ]; then
             echo "I'm sh!"
@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     container: alpine:latest
     steps:
-      - shell: ${{ env.MY_SHELL }}
+      - shell: sh
         run: |
           if [ -z ${BASH+x} ]; then
             echo "I'm sh!"

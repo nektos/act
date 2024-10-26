@@ -1,5 +1,5 @@
 name: actions-with-environment-and-context-tests
-description: "Actions with environment (env vars) and context (expression) tests"
+run-name: "Actions with environment (env vars) and context (expression) tests"
 on: push
 
 jobs:
