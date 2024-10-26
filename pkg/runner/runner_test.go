@@ -375,7 +375,7 @@ func TestTartNotSupportedOnNonDarwin(t *testing.T) {
 
 		tables = append(tables, []TestJobFileInfo{
 			// Shells
-			{workdir, "shells/sh", "push", "tart not supported", platforms, secrets},
+			{workdir, "basic", "push", "tart not supported", platforms, secrets},
 		}...)
 	}
 
