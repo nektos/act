@@ -4,7 +4,7 @@ jobs:
     runs-on: self-hosted
     steps:
     - uses: actions/checkout@v3
-    - uses: ./inputs-via-env-context
+    - uses: ./inputs-via-env-context/action
       with:
         test-env-input: ${{ env.test-env-input }}
       env:
