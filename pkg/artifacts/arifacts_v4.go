@@ -379,7 +379,7 @@ func (r *artifactV4Routes) listArtifacts(ctx *ArtifactContext) {
 			data := &ListArtifactsResponse_MonolithArtifact{
 				Name:                    entry.Name(),
 				CreatedAt:               timestamppb.Now(),
-				DatabaseId:              ,
+				DatabaseId:              id,
 				WorkflowRunBackendId:    req.WorkflowRunBackendId,
 				WorkflowJobRunBackendId: req.WorkflowJobRunBackendId,
 				Size:                    0,
