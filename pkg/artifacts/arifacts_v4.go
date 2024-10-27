@@ -450,7 +450,7 @@ func (r *artifactV4Routes) deleteArtifact(ctx *ArtifactContext) {
 
 	respData := DeleteArtifactResponse{
 		Ok:         true,
-		ArtifactId: 1,
+		ArtifactId: artifactNameToID(req.Name),
 	}
 	r.sendProtbufBody(ctx, &respData)
 }
