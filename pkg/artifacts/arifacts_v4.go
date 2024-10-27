@@ -84,6 +84,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"hash/fnv"
 	"io"
 	"io/fs"
 	"net/http"
@@ -119,10 +120,10 @@ type ArtifactContext struct {
 	Resp http.ResponseWriter
 }
 
-func artifactNameToID(s string) uint64 {
+func artifactNameToID(s string) int64 {
 	h := fnv.New64a()
 	h.Write([]byte(s))
-	return h.Sum64()
+	return int64(h.Sum64())
 }
 
 func (c ArtifactContext) Error(status int, _ ...interface{}) {
