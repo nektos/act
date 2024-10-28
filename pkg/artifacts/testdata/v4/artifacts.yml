@@ -59,3 +59,29 @@ jobs:
       run: |
         [[ "$(cat context.txt)" = "$(cat out2/context.txt)" ]] || exit 1
       shell: bash
+
+    - uses: actions/download-artifact@v4
+      with:
+        name: test2
+        path: out3
+    - run: cat out3/data.txt
+
+    - name: assert 3
+      run: |
+        [[ "$(cat data.txt)" = "$(cat out3/data.txt)" ]] || exit 1
+      shell: bash
+
+    - uses: actions/download-artifact@v4
+      with:
+        name: "test*"
+        path: out4
+        merge-multiple: true
+
+    - run: cat out4/data.txt
+    - run: cat out4/context.txt
+
+    - name: assert 4
+      run: |
+        [[ "$(cat context.txt)" = "$(cat out4/context.txt)" ]] || exit 1
+        [[ "$(cat data.txt)" = "$(cat out4/data.txt)" ]] || exit 1
+      shell: bash
