@@ -376,7 +376,7 @@ func (r *artifactV4Routes) listArtifacts(ctx *ArtifactContext) {
 
 	for _, entry := range entries {
 		id := artifactNameToID(entry.Name())
-		if (req.NameFilter == nil || req.NameFilter.Value == entry.Name()) || (req.IdFilter == nil || req.IdFilter.Value == id) {
+		if (req.NameFilter == nil || req.NameFilter.Value == entry.Name()) && (req.IdFilter == nil || req.IdFilter.Value == id) {
 			data := &ListArtifactsResponse_MonolithArtifact{
 				Name:                    entry.Name(),
 				CreatedAt:               timestamppb.Now(),

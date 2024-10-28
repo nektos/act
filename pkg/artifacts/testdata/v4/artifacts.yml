@@ -17,16 +17,29 @@ jobs:
         strategy:
         ${{ tojson(strategy) }}            
       shell: cp {0} context.txt
+    - run: echo Artifact2 > data.txt
+
     - uses: actions/upload-artifact@v4
       with:
         name: test
         path: context.txt
+
+    - uses: actions/upload-artifact@v4
+      with:
+        name: test2
+        path: data.txt
 
     - uses: actions/download-artifact@v4
       with:
         name: test
         path: out
     - run: cat out/context.txt
+
+    - name: assert
+      run: |
+        [[ "$(cat context.txt)" = "$(cat out/context.txt)" ]] || exit 1
+      shell: bash
+
     - run: |
         No content        
       shell: cp {0} context.txt
@@ -41,3 +54,8 @@ jobs:
         name: test
         path: out2
     - run: cat out2/context.txt
+
+    - name: assert 2
+      run: |
+        [[ "$(cat context.txt)" = "$(cat out2/context.txt)" ]] || exit 1
+      shell: bash
