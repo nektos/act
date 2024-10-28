@@ -73,7 +73,7 @@ jobs:
 
     - uses: actions/download-artifact@v4
       with:
-        name: "test*"
+        pattern: "test*"
         path: out4
         merge-multiple: true
 
