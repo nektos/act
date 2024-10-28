@@ -121,9 +121,9 @@ type ArtifactContext struct {
 }
 
 func artifactNameToID(s string) int64 {
-	h := fnv.New64a()
+	h := fnv.New32a()
 	h.Write([]byte(s))
-	return int64(h.Sum64())
+	return int64(h.Sum32())
 }
 
 func (c ArtifactContext) Error(status int, _ ...interface{}) {
