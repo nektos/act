@@ -35,7 +35,7 @@ jobs:
       env:
         KeY: 'n/a'
     - uses: actions/checkout@v3
-    - uses: ./windows-add-env
+    - uses: ./windows-add-env/action
     - name: Assert composite env is merged case insensitive
       run: exit 1
       if: env.KEY != 'n/a' || env.Key != 'n/a' || env.key != 'n/a'
