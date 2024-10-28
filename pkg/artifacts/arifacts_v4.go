@@ -84,6 +84,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"hash/fnv"
 	"io"
 	"io/fs"
 	"net/http"
@@ -117,6 +118,12 @@ type artifactV4Routes struct {
 type ArtifactContext struct {
 	Req  *http.Request
 	Resp http.ResponseWriter
+}
+
+func artifactNameToID(s string) int64 {
+	h := fnv.New64a()
+	h.Write([]byte(s))
+	return int64(h.Sum64())
 }
 
 func (c ArtifactContext) Error(status int, _ ...interface{}) {
@@ -342,7 +349,7 @@ func (r *artifactV4Routes) finalizeArtifact(ctx *ArtifactContext) {
 
 	respData := FinalizeArtifactResponse{
 		Ok:         true,
-		ArtifactId: 1,
+		ArtifactId: artifactNameToID(req.Name),
 	}
 	r.sendProtbufBody(ctx, &respData)
 }
@@ -368,11 +375,12 @@ func (r *artifactV4Routes) listArtifacts(ctx *ArtifactContext) {
 	list := []*ListArtifactsResponse_MonolithArtifact{}
 
 	for _, entry := range entries {
-		if req.NameFilter == nil || req.NameFilter.Value == entry.Name() {
+		id := artifactNameToID(entry.Name())
+		if (req.NameFilter == nil || req.NameFilter.Value == entry.Name()) || (req.IdFilter == nil || req.IdFilter.Value == id) {
 			data := &ListArtifactsResponse_MonolithArtifact{
 				Name:                    entry.Name(),
 				CreatedAt:               timestamppb.Now(),
-				DatabaseId:              1,
+				DatabaseId:              id,
 				WorkflowRunBackendId:    req.WorkflowRunBackendId,
 				WorkflowJobRunBackendId: req.WorkflowJobRunBackendId,
 				Size:                    0,
@@ -442,7 +450,7 @@ func (r *artifactV4Routes) deleteArtifact(ctx *ArtifactContext) {
 
 	respData := DeleteArtifactResponse{
 		Ok:         true,
-		ArtifactId: 1,
+		ArtifactId: artifactNameToID(req.Name),
 	}
 	r.sendProtbufBody(ctx, &respData)
 }
