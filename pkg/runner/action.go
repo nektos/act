@@ -133,21 +133,13 @@ func maybeCopyToActionDir(ctx context.Context, step actionStep, actionDir string
 		containerActionDirCopy += `/`
 	}
 
-	if rc.Config != nil && rc.Config.ActionCache != nil {
-		raction := step.(*stepActionRemote)
-		ta, err := rc.Config.ActionCache.GetTarArchive(ctx, raction.cacheDir, raction.resolvedSha, "")
-		if err != nil {
-			return err
-		}
-		defer ta.Close()
-		return rc.JobContainer.CopyTarStream(ctx, containerActionDirCopy, ta)
-	}
-
-	if err := removeGitIgnore(ctx, actionDir); err != nil {
+	raction := step.(*stepActionRemote)
+	ta, err := rc.getActionCache().GetTarArchive(ctx, raction.cacheDir, raction.resolvedSha, "")
+	if err != nil {
 		return err
 	}
-
-	return rc.JobContainer.CopyDir(containerActionDirCopy, actionDir+"/", rc.Config.UseGitIgnore)(ctx)
+	defer ta.Close()
+	return rc.JobContainer.CopyTarStream(ctx, containerActionDirCopy, ta)
 }
 
 func runActionImpl(step actionStep, actionDir string, remoteAction *remoteAction) common.Executor {
@@ -291,9 +283,9 @@ func execAsDocker(ctx context.Context, step actionStep, actionName string, based
 					return err
 				}
 				defer buildContext.Close()
-			} else if rc.Config.ActionCache != nil {
+			} else {
 				rstep := step.(*stepActionRemote)
-				buildContext, err = rc.Config.ActionCache.GetTarArchive(ctx, rstep.cacheDir, rstep.resolvedSha, contextDir)
+				buildContext, err = rc.getActionCache().GetTarArchive(ctx, rstep.cacheDir, rstep.resolvedSha, contextDir)
 				if err != nil {
 					return err
 				}

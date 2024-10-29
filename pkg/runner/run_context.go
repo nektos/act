@@ -628,6 +628,15 @@ func (rc *RunContext) ActionCacheDir() string {
 	return filepath.Join(xdgCache, "act")
 }
 
+func (rc *RunContext) getActionCache() ActionCache {
+	if rc.Config.ActionCache == nil {
+		rc.Config.ActionCache = &GoGitActionCache{
+			Path: rc.ActionCacheDir(),
+		}
+	}
+	return rc.Config.ActionCache
+}
+
 // Interpolate outputs after a job is done
 func (rc *RunContext) interpolateOutputs() common.Executor {
 	return func(ctx context.Context) error {

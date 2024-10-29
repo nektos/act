@@ -58,7 +58,6 @@ type Input struct {
 	actionOfflineMode                  bool
 	logPrefixJobID                     bool
 	networkName                        string
-	useNewActionCache                  bool
 	localRepository                    []string
 }
 

@@ -13,7 +13,6 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/nektos/act/pkg/common"
-	"github.com/nektos/act/pkg/common/git"
 	"github.com/nektos/act/pkg/model"
 )
 
@@ -29,6 +28,20 @@ func (sarm *stepActionRemoteMocks) readAction(_ context.Context, step *model.Ste
 func (sarm *stepActionRemoteMocks) runAction(step actionStep, actionDir string, remoteAction *remoteAction) common.Executor {
 	args := sarm.Called(step, actionDir, remoteAction)
 	return args.Get(0).(func(context.Context) error)
+}
+
+type TestRepositoryCache struct {
+	mock.Mock
+}
+
+func (l *TestRepositoryCache) Fetch(ctx context.Context, cacheDir, url, ref, token string) (string, error) {
+	args := l.Called(ctx, cacheDir, url, ref, token)
+	return args.Get(0).(string), nil
+}
+
+func (l *TestRepositoryCache) GetTarArchive(ctx context.Context, cacheDir, sha, includePrefix string) (io.ReadCloser, error) {
+	args := l.Called(ctx, cacheDir, sha, includePrefix)
+	return args.Get(0).(io.ReadCloser), nil
 }
 
 func TestStepActionRemote(t *testing.T) {
@@ -124,23 +137,13 @@ func TestStepActionRemote(t *testing.T) {
 			cm := &containerMock{}
 			sarm := &stepActionRemoteMocks{}
 
-			clonedAction := false
-
-			origStepAtionRemoteNewCloneExecutor := stepActionRemoteNewCloneExecutor
-			stepActionRemoteNewCloneExecutor = func(input git.NewGitCloneExecutorInput) common.Executor {
-				return func(ctx context.Context) error {
-					clonedAction = true
-					return nil
-				}
-			}
-			defer (func() {
-				stepActionRemoteNewCloneExecutor = origStepAtionRemoteNewCloneExecutor
-			})()
+			cacheMock := &TestRepositoryCache{}
 
 			sar := &stepActionRemote{
 				RunContext: &RunContext{
 					Config: &Config{
 						GitHubInstance: "github.com",
+						ActionCache:    cacheMock,
 					},
 					Run: &model.Run{
 						JobID: "1",
@@ -159,6 +162,7 @@ func TestStepActionRemote(t *testing.T) {
 			}
 			sar.RunContext.ExprEval = sar.RunContext.NewExpressionEvaluator(ctx)
 
+			cacheMock.On("Fetch", ctx, mock.AnythingOfType("string"), "https://github.com/remote/action", "v1", "").Return("someval")
 			suffixMatcher := func(suffix string) interface{} {
 				return mock.MatchedBy(func(actionDir string) bool {
 					return strings.HasSuffix(actionDir, suffix)
@@ -166,7 +170,7 @@ func TestStepActionRemote(t *testing.T) {
 			}
 
 			if tt.mocks.read {
-				sarm.On("readAction", sar.Step, suffixMatcher("act/remote-action@v1"), "", mock.Anything, mock.Anything).Return(&model.Action{}, nil)
+				sarm.On("readAction", sar.Step, "someval", "", mock.Anything, mock.Anything).Return(&model.Action{}, nil)
 			}
 			if tt.mocks.run {
 				sarm.On("runAction", sar, suffixMatcher("act/remote-action@v1"), newRemoteAction(sar.Step.Uses)).Return(func(ctx context.Context) error { return tt.runError })
@@ -196,11 +200,11 @@ func TestStepActionRemote(t *testing.T) {
 			}
 
 			assert.Equal(t, tt.runError, err)
-			assert.Equal(t, tt.mocks.cloned, clonedAction)
 			assert.Equal(t, tt.result, sar.RunContext.StepResults["step"])
 
 			sarm.AssertExpectations(t)
 			cm.AssertExpectations(t)
+			cacheMock.AssertExpectations(t)
 		})
 	}
 }
@@ -222,25 +226,15 @@ func TestStepActionRemotePre(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.Background()
 
-			clonedAction := false
+			cacheMock := &TestRepositoryCache{}
 			sarm := &stepActionRemoteMocks{}
-
-			origStepAtionRemoteNewCloneExecutor := stepActionRemoteNewCloneExecutor
-			stepActionRemoteNewCloneExecutor = func(input git.NewGitCloneExecutorInput) common.Executor {
-				return func(ctx context.Context) error {
-					clonedAction = true
-					return nil
-				}
-			}
-			defer (func() {
-				stepActionRemoteNewCloneExecutor = origStepAtionRemoteNewCloneExecutor
-			})()
 
 			sar := &stepActionRemote{
 				Step: tt.stepModel,
 				RunContext: &RunContext{
 					Config: &Config{
-						GitHubInstance: "https://github.com",
+						GitHubInstance: "github.com",
+						ActionCache:    cacheMock,
 					},
 					Run: &model.Run{
 						JobID: "1",
@@ -254,20 +248,15 @@ func TestStepActionRemotePre(t *testing.T) {
 				readAction: sarm.readAction,
 			}
 
-			suffixMatcher := func(suffix string) interface{} {
-				return mock.MatchedBy(func(actionDir string) bool {
-					return strings.HasSuffix(actionDir, suffix)
-				})
-			}
-
-			sarm.On("readAction", sar.Step, suffixMatcher("org-repo-path@ref"), "path", mock.Anything, mock.Anything).Return(&model.Action{}, nil)
+			sarm.On("readAction", sar.Step, "someval", "path", mock.Anything, mock.Anything).Return(&model.Action{}, nil)
+			cacheMock.On("Fetch", ctx, mock.AnythingOfType("string"), "https://github.com/org/repo", "ref", "").Return("someval")
 
 			err := sar.pre()(ctx)
 
 			assert.Nil(t, err)
-			assert.Equal(t, true, clonedAction)
 
 			sarm.AssertExpectations(t)
+			cacheMock.AssertExpectations(t)
 		})
 	}
 }
@@ -289,21 +278,8 @@ func TestStepActionRemotePreThroughAction(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.Background()
 
-			clonedAction := false
+			cacheMock := &TestRepositoryCache{}
 			sarm := &stepActionRemoteMocks{}
-
-			origStepAtionRemoteNewCloneExecutor := stepActionRemoteNewCloneExecutor
-			stepActionRemoteNewCloneExecutor = func(input git.NewGitCloneExecutorInput) common.Executor {
-				return func(ctx context.Context) error {
-					if input.URL == "https://github.com/org/repo" {
-						clonedAction = true
-					}
-					return nil
-				}
-			}
-			defer (func() {
-				stepActionRemoteNewCloneExecutor = origStepAtionRemoteNewCloneExecutor
-			})()
 
 			sar := &stepActionRemote{
 				Step: tt.stepModel,
@@ -311,6 +287,7 @@ func TestStepActionRemotePreThroughAction(t *testing.T) {
 					Config: &Config{
 						GitHubInstance:                "https://enterprise.github.com",
 						ReplaceGheActionWithGithubCom: []string{"org/repo"},
+						ActionCache:                   cacheMock,
 					},
 					Run: &model.Run{
 						JobID: "1",
@@ -324,20 +301,15 @@ func TestStepActionRemotePreThroughAction(t *testing.T) {
 				readAction: sarm.readAction,
 			}
 
-			suffixMatcher := func(suffix string) interface{} {
-				return mock.MatchedBy(func(actionDir string) bool {
-					return strings.HasSuffix(actionDir, suffix)
-				})
-			}
-
-			sarm.On("readAction", sar.Step, suffixMatcher("org-repo-path@ref"), "path", mock.Anything, mock.Anything).Return(&model.Action{}, nil)
+			sarm.On("readAction", sar.Step, mock.AnythingOfType("string"), "path", mock.Anything, mock.Anything).Return(&model.Action{}, nil)
+			cacheMock.On("Fetch", ctx, mock.AnythingOfType("string"), "https://github.com/org/repo", "ref", "").Return("someval")
 
 			err := sar.pre()(ctx)
 
 			assert.Nil(t, err)
-			assert.Equal(t, true, clonedAction)
 
 			sarm.AssertExpectations(t)
+			cacheMock.AssertExpectations(t)
 		})
 	}
 }
@@ -359,22 +331,9 @@ func TestStepActionRemotePreThroughActionToken(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.Background()
 
-			clonedAction := false
 			sarm := &stepActionRemoteMocks{}
 
-			origStepAtionRemoteNewCloneExecutor := stepActionRemoteNewCloneExecutor
-			stepActionRemoteNewCloneExecutor = func(input git.NewGitCloneExecutorInput) common.Executor {
-				return func(ctx context.Context) error {
-					if input.URL == "https://github.com/org/repo" && input.Token == "PRIVATE_ACTIONS_TOKEN_ON_GITHUB" {
-						clonedAction = true
-					}
-					return nil
-				}
-			}
-			defer (func() {
-				stepActionRemoteNewCloneExecutor = origStepAtionRemoteNewCloneExecutor
-			})()
-
+			cacheMock := &TestRepositoryCache{}
 			sar := &stepActionRemote{
 				Step: tt.stepModel,
 				RunContext: &RunContext{
@@ -382,6 +341,7 @@ func TestStepActionRemotePreThroughActionToken(t *testing.T) {
 						GitHubInstance:                     "https://enterprise.github.com",
 						ReplaceGheActionWithGithubCom:      []string{"org/repo"},
 						ReplaceGheActionTokenWithGithubCom: "PRIVATE_ACTIONS_TOKEN_ON_GITHUB",
+						ActionCache:                        cacheMock,
 					},
 					Run: &model.Run{
 						JobID: "1",
@@ -395,20 +355,15 @@ func TestStepActionRemotePreThroughActionToken(t *testing.T) {
 				readAction: sarm.readAction,
 			}
 
-			suffixMatcher := func(suffix string) interface{} {
-				return mock.MatchedBy(func(actionDir string) bool {
-					return strings.HasSuffix(actionDir, suffix)
-				})
-			}
-
-			sarm.On("readAction", sar.Step, suffixMatcher("org-repo-path@ref"), "path", mock.Anything, mock.Anything).Return(&model.Action{}, nil)
+			sarm.On("readAction", sar.Step, mock.AnythingOfType("string"), "path", mock.Anything, mock.Anything).Return(&model.Action{}, nil)
+			cacheMock.On("Fetch", ctx, mock.AnythingOfType("string"), "https://github.com/org/repo", "ref", "PRIVATE_ACTIONS_TOKEN_ON_GITHUB").Return("someval")
 
 			err := sar.pre()(ctx)
 
 			assert.Nil(t, err)
-			assert.Equal(t, true, clonedAction)
 
 			sarm.AssertExpectations(t)
+			cacheMock.AssertExpectations(t)
 		})
 	}
 }
