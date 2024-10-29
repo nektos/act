@@ -227,10 +227,10 @@ func TestActionRunner(t *testing.T) {
 			ctx := context.Background()
 
 			cm := &containerMock{}
-			cm.On("CopyDir", "/var/run/act/actions/dir/", "dir/", false).Return(func(ctx context.Context) error { return nil })
+			cm.Mock.On("CopyTarStream", ctx, "/var/run/act/actions/dir/", mock.Anything).Return(nil)
 
 			cacheMock := &TestRepositoryCache{}
-			cacheMock.On("GetTarArchive", ctx, "", "", "").Return(io.MultiReader())
+			cacheMock.Mock.On("GetTarArchive", ctx, "", "", "").Return(io.NopCloser(io.MultiReader()))
 
 			envMatcher := mock.MatchedBy(func(env map[string]string) bool {
 				for k, v := range tt.expectedEnv {
