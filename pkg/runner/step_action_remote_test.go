@@ -355,7 +355,7 @@ func TestStepActionRemotePreThroughActionToken(t *testing.T) {
 				readAction: sarm.readAction,
 			}
 
-			sarm.On("readAction", sar.Step, mock.AnythingOfType("string"), "path", mock.Anything, mock.Anything).Return(&model.Action{}, nil)
+			sarm.Mock.On("readAction", sar.Step, mock.AnythingOfType("string"), "path", mock.Anything, mock.Anything).Return(&model.Action{}, nil)
 			cacheMock.Mock.On("Fetch", ctx, mock.AnythingOfType("string"), "https://github.com/org/repo", "ref", "PRIVATE_ACTIONS_TOKEN_ON_GITHUB").Return("someval")
 
 			err := sar.pre()(ctx)
