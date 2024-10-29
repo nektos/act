@@ -35,12 +35,12 @@ type TestRepositoryCache struct {
 }
 
 func (l *TestRepositoryCache) Fetch(ctx context.Context, cacheDir, url, ref, token string) (string, error) {
-	args := l.Called(ctx, cacheDir, url, ref, token)
+	args := l.Mock.Called(ctx, cacheDir, url, ref, token)
 	return args.Get(0).(string), nil
 }
 
 func (l *TestRepositoryCache) GetTarArchive(ctx context.Context, cacheDir, sha, includePrefix string) (io.ReadCloser, error) {
-	args := l.Called(ctx, cacheDir, sha, includePrefix)
+	args := l.Mock.Called(ctx, cacheDir, sha, includePrefix)
 	return args.Get(0).(io.ReadCloser), nil
 }
 
@@ -162,7 +162,7 @@ func TestStepActionRemote(t *testing.T) {
 			}
 			sar.RunContext.ExprEval = sar.RunContext.NewExpressionEvaluator(ctx)
 
-			cacheMock.On("Fetch", ctx, mock.AnythingOfType("string"), "https://github.com/remote/action", "v1", "").Return("someval")
+			cacheMock.Mock.On("Fetch", ctx, mock.AnythingOfType("string"), "https://github.com/remote/action", "v1", "").Return("someval")
 			suffixMatcher := func(suffix string) interface{} {
 				return mock.MatchedBy(func(actionDir string) bool {
 					return strings.HasSuffix(actionDir, suffix)
@@ -204,7 +204,7 @@ func TestStepActionRemote(t *testing.T) {
 
 			sarm.AssertExpectations(t)
 			cm.AssertExpectations(t)
-			cacheMock.AssertExpectations(t)
+			cacheMock.Mock.AssertExpectations(t)
 		})
 	}
 }
@@ -249,14 +249,14 @@ func TestStepActionRemotePre(t *testing.T) {
 			}
 
 			sarm.On("readAction", sar.Step, "someval", "path", mock.Anything, mock.Anything).Return(&model.Action{}, nil)
-			cacheMock.On("Fetch", ctx, mock.AnythingOfType("string"), "https://github.com/org/repo", "ref", "").Return("someval")
+			cacheMock.Mock.On("Fetch", ctx, mock.AnythingOfType("string"), "https://github.com/org/repo", "ref", "").Return("someval")
 
 			err := sar.pre()(ctx)
 
 			assert.Nil(t, err)
 
 			sarm.AssertExpectations(t)
-			cacheMock.AssertExpectations(t)
+			cacheMock.Mock.AssertExpectations(t)
 		})
 	}
 }
@@ -302,14 +302,14 @@ func TestStepActionRemotePreThroughAction(t *testing.T) {
 			}
 
 			sarm.On("readAction", sar.Step, mock.AnythingOfType("string"), "path", mock.Anything, mock.Anything).Return(&model.Action{}, nil)
-			cacheMock.On("Fetch", ctx, mock.AnythingOfType("string"), "https://github.com/org/repo", "ref", "").Return("someval")
+			cacheMock.Mock.On("Fetch", ctx, mock.AnythingOfType("string"), "https://github.com/org/repo", "ref", "").Return("someval")
 
 			err := sar.pre()(ctx)
 
 			assert.Nil(t, err)
 
 			sarm.AssertExpectations(t)
-			cacheMock.AssertExpectations(t)
+			cacheMock.Mock.AssertExpectations(t)
 		})
 	}
 }
@@ -356,14 +356,14 @@ func TestStepActionRemotePreThroughActionToken(t *testing.T) {
 			}
 
 			sarm.On("readAction", sar.Step, mock.AnythingOfType("string"), "path", mock.Anything, mock.Anything).Return(&model.Action{}, nil)
-			cacheMock.On("Fetch", ctx, mock.AnythingOfType("string"), "https://github.com/org/repo", "ref", "PRIVATE_ACTIONS_TOKEN_ON_GITHUB").Return("someval")
+			cacheMock.Mock.On("Fetch", ctx, mock.AnythingOfType("string"), "https://github.com/org/repo", "ref", "PRIVATE_ACTIONS_TOKEN_ON_GITHUB").Return("someval")
 
 			err := sar.pre()(ctx)
 
 			assert.Nil(t, err)
 
 			sarm.AssertExpectations(t)
-			cacheMock.AssertExpectations(t)
+			cacheMock.Mock.AssertExpectations(t)
 		})
 	}
 }
