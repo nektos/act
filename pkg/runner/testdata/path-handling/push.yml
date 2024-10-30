@@ -18,7 +18,7 @@ jobs:
           fi
 
       - id: action-with-output
-        uses: ./path-handling/
+        uses: ./path-handling/action/
 
       - name: test path (after local action)
         run: |

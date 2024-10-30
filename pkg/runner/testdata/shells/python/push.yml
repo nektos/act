@@ -5,7 +5,7 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - shell: ${{ env.MY_SHELL }}
+      - shell: python
         run: |
           import platform
           print(platform.python_version())
@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     container: node:16-buster
     steps:
-      - shell: ${{ env.MY_SHELL }}
+      - shell: python
         run: |
           import platform
           print(platform.python_version())
