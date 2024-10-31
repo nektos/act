@@ -589,23 +589,58 @@ func (impl *interperterImpl) evaluateFuncCall(funcCallNode *actionlint.FuncCallN
 		args = append(args, reflect.ValueOf(value))
 	}
 
+	argCountCheck := func(argCount int) error {
+		if len(args) != argCount {
+			return fmt.Errorf("'%s' expected %d arguments but got %d instead", funcCallNode.Callee, argCount, len(args))
+		}
+		return nil
+	}
+
+	argAtLeastCheck := func(atLeast int) error {
+		if len(args) < atLeast {
+			return fmt.Errorf("'%s' expected at least %d arguments but got %d instead", funcCallNode.Callee, atLeast, len(args))
+		}
+		return nil
+	}
+
 	switch strings.ToLower(funcCallNode.Callee) {
 	case "contains":
+		if err := argCountCheck(2); err != nil {
+			return nil, err
+		}
 		return impl.contains(args[0], args[1])
 	case "startswith":
+		if err := argCountCheck(2); err != nil {
+			return nil, err
+		}
 		return impl.startsWith(args[0], args[1])
 	case "endswith":
+		if err := argCountCheck(2); err != nil {
+			return nil, err
+		}
 		return impl.endsWith(args[0], args[1])
 	case "format":
+		if err := argAtLeastCheck(1); err != nil {
+			return nil, err
+		}
 		return impl.format(args[0], args[1:]...)
 	case "join":
+		if err := argAtLeastCheck(1); err != nil {
+			return nil, err
+		}
 		if len(args) == 1 {
 			return impl.join(args[0], reflect.ValueOf(","))
 		}
 		return impl.join(args[0], args[1])
 	case "tojson":
+		if err := argCountCheck(1); err != nil {
+			return nil, err
+		}
 		return impl.toJSON(args[0])
 	case "fromjson":
+		if err := argCountCheck(1); err != nil {
+			return nil, err
+		}
 		return impl.fromJSON(args[0])
 	case "hashfiles":
 		if impl.env.HashFiles != nil {

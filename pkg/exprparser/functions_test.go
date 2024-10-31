@@ -43,6 +43,9 @@ func TestFunctionContains(t *testing.T) {
 			assert.Equal(t, tt.expected, output)
 		})
 	}
+
+	_, err := NewInterpeter(env, Config{}).Evaluate("contains('one')", DefaultStatusCheckNone)
+	assert.Error(t, err)
 }
 
 func TestFunctionStartsWith(t *testing.T) {
@@ -72,6 +75,9 @@ func TestFunctionStartsWith(t *testing.T) {
 			assert.Equal(t, tt.expected, output)
 		})
 	}
+
+	_, err := NewInterpeter(env, Config{}).Evaluate("startsWith('one')", DefaultStatusCheckNone)
+	assert.Error(t, err)
 }
 
 func TestFunctionEndsWith(t *testing.T) {
@@ -101,6 +107,9 @@ func TestFunctionEndsWith(t *testing.T) {
 			assert.Equal(t, tt.expected, output)
 		})
 	}
+
+	_, err := NewInterpeter(env, Config{}).Evaluate("endsWith('one')", DefaultStatusCheckNone)
+	assert.Error(t, err)
 }
 
 func TestFunctionJoin(t *testing.T) {
@@ -128,6 +137,9 @@ func TestFunctionJoin(t *testing.T) {
 			assert.Equal(t, tt.expected, output)
 		})
 	}
+
+	_, err := NewInterpeter(env, Config{}).Evaluate("join()", DefaultStatusCheckNone)
+	assert.Error(t, err)
 }
 
 func TestFunctionToJSON(t *testing.T) {
@@ -154,6 +166,9 @@ func TestFunctionToJSON(t *testing.T) {
 			assert.Equal(t, tt.expected, output)
 		})
 	}
+
+	_, err := NewInterpeter(env, Config{}).Evaluate("tojson()", DefaultStatusCheckNone)
+	assert.Error(t, err)
 }
 
 func TestFunctionFromJSON(t *testing.T) {
@@ -177,6 +192,9 @@ func TestFunctionFromJSON(t *testing.T) {
 			assert.Equal(t, tt.expected, output)
 		})
 	}
+
+	_, err := NewInterpeter(env, Config{}).Evaluate("fromjson()", DefaultStatusCheckNone)
+	assert.Error(t, err)
 }
 
 func TestFunctionHashFiles(t *testing.T) {
@@ -248,4 +266,7 @@ func TestFunctionFormat(t *testing.T) {
 			}
 		})
 	}
+
+	_, err := NewInterpeter(env, Config{}).Evaluate("format()", DefaultStatusCheckNone)
+	assert.Error(t, err)
 }
