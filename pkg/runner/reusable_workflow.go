@@ -32,27 +32,20 @@ func newRemoteReusableWorkflowExecutor(rc *RunContext) common.Executor {
 	// instead we will just use {owner}-{repo}@{ref} as our target directory. This should also improve performance when we are using
 	// multiple reusable workflows from the same repository and ref since for each workflow we won't have to clone it again
 	filename := fmt.Sprintf("%s/%s@%s", remoteReusableWorkflow.Org, remoteReusableWorkflow.Repo, remoteReusableWorkflow.Ref)
-	workflowDir := fmt.Sprintf("%s/%s", rc.ActionCacheDir(), safeFilename(filename))
 
-	if rc.Config.ActionCache != nil {
-		return newActionCacheReusableWorkflowExecutor(rc, filename, remoteReusableWorkflow)
-	}
-
-	return common.NewPipelineExecutor(
-		newMutexExecutor(cloneIfRequired(rc, *remoteReusableWorkflow, workflowDir)),
-		newReusableWorkflowExecutor(rc, workflowDir, fmt.Sprintf("./.github/workflows/%s", remoteReusableWorkflow.Filename)),
-	)
+	return newActionCacheReusableWorkflowExecutor(rc, filename, remoteReusableWorkflow)
 }
 
 func newActionCacheReusableWorkflowExecutor(rc *RunContext, filename string, remoteReusableWorkflow *remoteReusableWorkflow) common.Executor {
 	return func(ctx context.Context) error {
 		ghctx := rc.getGithubContext(ctx)
 		remoteReusableWorkflow.URL = ghctx.ServerURL
-		sha, err := rc.Config.ActionCache.Fetch(ctx, filename, remoteReusableWorkflow.CloneURL(), remoteReusableWorkflow.Ref, ghctx.Token)
+		cache := rc.getActionCache()
+		sha, err := cache.Fetch(ctx, filename, remoteReusableWorkflow.CloneURL(), remoteReusableWorkflow.Ref, ghctx.Token)
 		if err != nil {
 			return err
 		}
-		archive, err := rc.Config.ActionCache.GetTarArchive(ctx, filename, sha, fmt.Sprintf(".github/workflows/%s", remoteReusableWorkflow.Filename))
+		archive, err := cache.GetTarArchive(ctx, filename, sha, fmt.Sprintf(".github/workflows/%s", remoteReusableWorkflow.Filename))
 		if err != nil {
 			return err
 		}

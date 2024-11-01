@@ -227,7 +227,10 @@ func TestActionRunner(t *testing.T) {
 			ctx := context.Background()
 
 			cm := &containerMock{}
-			cm.On("CopyDir", "/var/run/act/actions/dir/", "dir/", false).Return(func(ctx context.Context) error { return nil })
+			cm.Mock.On("CopyTarStream", ctx, "/var/run/act/actions/dir/", mock.Anything).Return(nil)
+
+			cacheMock := &TestRepositoryCache{}
+			cacheMock.Mock.On("GetTarArchive", ctx, "", "", "").Return(io.NopCloser(io.MultiReader()))
 
 			envMatcher := mock.MatchedBy(func(env map[string]string) bool {
 				for k, v := range tt.expectedEnv {
@@ -241,6 +244,7 @@ func TestActionRunner(t *testing.T) {
 			cm.On("Exec", []string{"node", "/var/run/act/actions/dir/path"}, envMatcher, "", "").Return(func(ctx context.Context) error { return nil })
 
 			tt.step.getRunContext().JobContainer = cm
+			tt.step.getRunContext().Config.ActionCache = cacheMock
 
 			err := runActionImpl(tt.step, "dir", newRemoteAction("org/repo/path@ref"))(ctx)
 
