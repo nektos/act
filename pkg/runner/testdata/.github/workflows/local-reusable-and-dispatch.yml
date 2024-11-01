@@ -1,0 +1,30 @@
+name: reuse
+
+on:
+  workflow_dispatch:
+    inputs:
+      my-val:
+        type: string
+        required: true
+        default: "default_value_reuse_workflow_dispatch_call"
+      dispatch-val:
+        type: string
+        default: "I am a dispatch var for checking if I am being used in workflow_call"
+
+  workflow_call:
+    inputs:
+      my-val:
+        type: string
+        required: true
+        default: "default_value_reuse_workflow_call"
+
+jobs:
+  reusable_workflow_job:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run a one-line script
+        run: echo "✅ 🚀 ✅ hello this is from workflow reuse. Value - " ${{ inputs.my-val }} ${{ github.event_name }} ${{ inputs.dispatch-val }}
+      - name: Assert
+        run: |
+          exit ${{ ( inputs.my-val == 'default_value_reuse_workflow_call' || inputs.my-val == 'passed value from main' ) && !inputs.dispatch-val && '0' || '1' }}

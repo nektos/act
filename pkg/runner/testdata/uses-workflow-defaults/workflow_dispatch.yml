@@ -1,0 +1,21 @@
+name: CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run a one-line script
+        run: echo "✅ 🚀 ✅ hello this is from workflow main" ${{ github.event_name }}  
+  call-reuse-w-val:
+    uses: ./.github/workflows/local-reusable-and-dispatch.yml
+    with:
+      my-val: "passed value from main"
