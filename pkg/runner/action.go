@@ -285,7 +285,7 @@ func execAsDocker(ctx context.Context, step actionStep, actionName, basedir, sub
 				defer buildContext.Close()
 			} else {
 				rstep := step.(*stepActionRemote)
-				buildContext, err = rc.getActionCache().GetTarArchive(ctx, rstep.cacheDir, rstep.resolvedSha, path.Join(subpath, action.Runs.Image))
+				buildContext, err = rc.getActionCache().GetTarArchive(ctx, rstep.cacheDir, rstep.resolvedSha, subpath)
 				if err != nil {
 					return err
 				}
