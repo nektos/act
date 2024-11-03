@@ -62,6 +62,9 @@ func (e *HostEnvironment) Copy(destPath string, files ...*FileEntry) common.Exec
 }
 
 func (e *HostEnvironment) CopyTarStream(ctx context.Context, destPath string, tarStream io.Reader) error {
+	if common.Dryrun(ctx) {
+		return nil
+	}
 	if err := os.RemoveAll(destPath); err != nil {
 		return err
 	}
