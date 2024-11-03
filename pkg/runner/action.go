@@ -292,7 +292,7 @@ func execAsDocker(ctx context.Context, step actionStep, actionName, basedir, sub
 				defer buildContext.Close()
 			}
 			prepImage = container.NewDockerBuildExecutor(container.NewDockerBuildExecutorInput{
-				ContextDir:   contextDir,
+				ContextDir:   filepath.Join(basedir, contextDir),
 				Dockerfile:   fileName,
 				ImageTag:     image,
 				BuildContext: buildContext,
@@ -316,6 +316,7 @@ func execAsDocker(ctx context.Context, step actionStep, actionName, basedir, sub
 	if len(entrypoint) == 0 {
 		if entrypointType == "pre-entrypoint" && action.Runs.PreEntrypoint != "" {
 			entrypoint, err = shellquote.Split(action.Runs.PreEntrypoint)
+			
 			if err != nil {
 				return err
 			}
