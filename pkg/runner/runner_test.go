@@ -357,6 +357,33 @@ func TestRunEvent(t *testing.T) {
 	}
 }
 
+func TestTartNotSupportedOnNonDarwin(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	ctx := context.Background()
+
+	tables := []TestJobFileInfo{}
+
+	if runtime.GOOS != "darwin" {
+		platforms := map[string]string{
+			"ubuntu-latest": "tart://ghcr.io/cirruslabs/macos-sonoma-base:latest",
+		}
+
+		tables = append(tables, []TestJobFileInfo{
+			// Shells
+			{workdir, "basic", "push", "tart not supported", platforms, secrets},
+		}...)
+	}
+
+	for _, table := range tables {
+		t.Run(table.workflowPath, func(t *testing.T) {
+			table.runTest(ctx, t, &Config{})
+		})
+	}
+}
+
 func TestRunEventHostEnvironment(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
