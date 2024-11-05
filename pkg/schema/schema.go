@@ -318,6 +318,12 @@ func (s *Node) checkOneOf(def Definition, node *yaml.Node) error {
 		if err == nil {
 			return nil
 		}
+		hadPartial := errors.Is(allErrors, partialMatch)
+		hasPartial := errors.Is(err, partialMatch)
+
+		if !hadPartial && hasPartial {
+			allErrors = nil
+		}
 		allErrors = errors.Join(allErrors, fmt.Errorf("%sFailed to match %s: %w", formatLocation(node), v, err))
 	}
 	return allErrors
@@ -359,12 +365,29 @@ func formatLocation(node *yaml.Node) string {
 	return fmt.Sprintf("Line: %v Column %v: ", node.Line, node.Column)
 }
 
+type mappingValidationError struct {
+	message string
+}
+
+func (t *mappingValidationError) Error() string {
+	return t.message
+}
+
+var missingRequired error = &mappingValidationError{message: "missing required property"}
+var noMatch error = &mappingValidationError{message: "no match"}
+var partialMatch error = &mappingValidationError{message: "partial match"}
+
 func (s *Node) checkMapping(node *yaml.Node, def Definition) error {
 	if node.Kind != yaml.MappingNode {
-		return fmt.Errorf("%sExpected a mapping got %v", formatLocation(node), getStringKind(node.Kind))
+		return fmt.Errorf("%sExpected a mapping got %v + %w", formatLocation(node), getStringKind(node.Kind), noMatch)
 	}
 	insertDirective := regexp.MustCompile(`\${{\s*insert\s*}}`)
 	var allErrors error
+
+	hasRequiredProperty := false
+	hasKnownProperty := false
+	knownRequiredProperties := map[string]MappingProperty{}
+
 	for i, k := range node.Content {
 		if i%2 == 0 {
 			if insertDirective.MatchString(k.Value) {
@@ -389,6 +412,13 @@ func (s *Node) checkMapping(node *yaml.Node, def Definition) error {
 					continue
 				}
 				vdef = MappingProperty{Type: def.Mapping.LooseValueType}
+			} else {
+				hasKnownProperty = true
+			}
+
+			if vdef.Required {
+				hasRequiredProperty = hasRequiredProperty || true
+				knownRequiredProperties[k.Value] = vdef
 			}
 
 			if err := (&Node{
@@ -401,5 +431,22 @@ func (s *Node) checkMapping(node *yaml.Node, def Definition) error {
 			}
 		}
 	}
+	if allErrors == nil {
+		for name, vdef := range def.Mapping.Properties {
+			if vdef.Required {
+				if _, ok := knownRequiredProperties[name]; !ok {
+					allErrors = errors.Join(allErrors, missingRequired, fmt.Errorf("%sMissing Required Property %v", formatLocation(node), name))
+				}
+			}
+		}
+		if allErrors == nil {
+			return nil
+		}
+	}
+
+	if hasRequiredProperty || hasKnownProperty {
+		return errors.Join(allErrors, partialMatch)
+	}
+
 	return allErrors
 }

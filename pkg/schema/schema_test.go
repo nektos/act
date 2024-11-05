@@ -1,6 +1,8 @@
 package schema
 
 import (
+	"errors"
+	"io"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -89,4 +91,33 @@ jobs:
 		Schema:     GetWorkflowSchema(),
 	}).UnmarshalYAML(&node)
 	assert.NoError(t, err)
+}
+
+func TestMissingRequiredIsError(t *testing.T) {
+	var node yaml.Node
+	err := yaml.Unmarshal([]byte(`
+on: push
+jobs:
+  job-with-condition:
+    runs-on: self-hosted
+    steps:
+    - name: Hello
+      if: ${{ success() || failure() || always() }}
+`), &node)
+	if !assert.NoError(t, err) {
+		return
+	}
+	err = (&Node{
+		Definition: "workflow-root-strict",
+		Schema:     GetWorkflowSchema(),
+	}).UnmarshalYAML(&node)
+	assert.NoError(t, err)
+}
+
+func TestOneOfMapping(t *testing.T) {
+	var err error
+	err = &mappingValidationError{message: "is Part"}
+
+	r := errors.Is(errors.Join(err, io.EOF), err)
+	assert.True(t, r)
 }
