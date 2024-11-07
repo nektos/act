@@ -70,10 +70,10 @@ func (w *Workflow) OnEvent(event string) interface{} {
 func (w *Workflow) UnmarshalYAML(node *yaml.Node) error {
 	// Validate the schema before deserializing it into our model
 	if err := (&schema.Node{
-		Definition: "workflow-root-strict",
+		Definition: "workflow-root",
 		Schema:     schema.GetWorkflowSchema(),
 	}).UnmarshalYAML(node); err != nil {
-		return err
+		return errors.join(err, fmt.Errorf("Actions YAML Schema Validation Error detected:\nFor more information, see https://nektosact.com/usage/schema.html."))
 	}
 	type WorkflowDefault Workflow
 	return node.Decode((*WorkflowDefault)(w))
