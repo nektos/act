@@ -80,10 +80,12 @@ func NewWorkflowPlanner(path string, noWorkflowRecurse bool) (WorkflowPlanner, e
 			}
 
 			for _, v := range files {
-				workflows = append(workflows, WorkflowFiles{
-					dirPath:          path,
-					workflowDirEntry: v,
-				})
+				if strings.HasSuffix(v.Name(), ".yml") || strings.HasSuffix(v.Name(), ".yaml") {
+					workflows = append(workflows, WorkflowFiles{
+						dirPath:          path,
+						workflowDirEntry: v,
+					})
+				}
 			}
 		} else {
 			log.Debug("Loading workflows recursively")
@@ -93,7 +95,7 @@ func NewWorkflowPlanner(path string, noWorkflowRecurse bool) (WorkflowPlanner, e
 						return err
 					}
 
-					if !f.IsDir() {
+					if !f.IsDir() && (strings.HasSuffix(f.Name(), ".yml") || strings.HasSuffix(f.Name(), ".yaml")) {
 						log.Debugf("Found workflow '%s' in '%s'", f.Name(), p)
 						workflows = append(workflows, WorkflowFiles{
 							dirPath:          filepath.Dir(p),
