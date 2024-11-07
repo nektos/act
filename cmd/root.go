@@ -75,7 +75,7 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.Flags().StringArrayVarP(&input.matrix, "matrix", "", []string{}, "specify which matrix configuration to include (e.g. --matrix java:13")
 	rootCmd.PersistentFlags().StringVarP(&input.actor, "actor", "a", "nektos/act", "user that triggered the event")
 	rootCmd.PersistentFlags().StringVarP(&input.workflowsPath, "workflows", "W", "./.github/workflows/", "path to workflow file(s)")
-	rootCmd.PersistentFlags().BoolVarP(&input.noWorkflowRecurse, "no-recurse", "", false, "Flag to disable running workflows from subdirectories of specified path in '--workflows'/'-W' flag")
+	rootCmd.PersistentFlags().BoolVarP(&input.workflowRecurse, "recurse", "", false, "Flag to enable running workflows from subdirectories of specified path in '--workflows'/'-W' flag, this feature doesn't exist on GitHub Actions as of 2024/11")
 	rootCmd.PersistentFlags().StringVarP(&input.workdir, "directory", "C", ".", "working directory")
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "verbose output")
 	rootCmd.PersistentFlags().BoolVar(&input.jsonLogger, "json", false, "Output logs in json format")
@@ -396,7 +396,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 		matrixes := parseMatrix(input.matrix)
 		log.Debugf("Evaluated matrix inclusions: %v", matrixes)
 
-		planner, err := model.NewWorkflowPlanner(input.WorkflowsPath(), input.noWorkflowRecurse)
+		planner, err := model.NewWorkflowPlanner(input.WorkflowsPath(), !input.workflowRecurse)
 		if err != nil {
 			return err
 		}
