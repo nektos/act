@@ -23,7 +23,7 @@ require (
 	github.com/opencontainers/image-spec v1.1.0
 	github.com/opencontainers/selinux v1.11.1
 	github.com/pkg/errors v0.9.1
-	github.com/rhysd/actionlint v1.7.3
+	github.com/rhysd/actionlint v1.7.4
 	github.com/sabhiram/go-gitignore v0.0.0-20210923224102-525f6e181f06
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.8.1
@@ -46,6 +46,7 @@ require (
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect
 	github.com/Microsoft/go-winio v0.6.1 // indirect
 	github.com/ProtonMail/go-crypto v1.0.0 // indirect
+	github.com/bmatcuk/doublestar/v4 v4.7.1 // indirect
 	github.com/cloudflare/circl v1.3.7 // indirect
 	github.com/containerd/containerd v1.7.13 // indirect
 	github.com/containerd/log v0.1.0 // indirect
