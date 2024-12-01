@@ -1,3 +1,4 @@
+
 pull_request_rules:
   - name: warn on conflicts
     conditions:
@@ -63,7 +64,12 @@ pull_request_rules:
         teams:
           - '@nektos/act-maintainers'
   - name: Automatic merge on approval
-    conditions:
+    conditions: []
+    actions:
+      queue:
+queue_rules:
+  - name: default
+    queue_conditions:
       - '#changes-requested-reviews-by=0'
       - or:
           - 'approved-reviews-by=@nektos/act-committers'
@@ -83,15 +89,10 @@ pull_request_rules:
       - check-success=codecov/patch
       - check-success=codecov/project
       - check-success=snapshot
-    actions:
-      queue:
-        method: squash
-        name: default
-queue_rules:
-  - name: default
-    conditions:
+    merge_conditions:
       - check-success=lint
       - check-success=test-linux
       - check-success=codecov/patch
       - check-success=codecov/project
       - check-success=snapshot
+    merge_method: squash
