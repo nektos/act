@@ -31,3 +31,5 @@ coverage.txt
 
 # megalinter
 report/
+
+vendor/
