@@ -62,6 +62,9 @@ func (e *HostEnvironment) Copy(destPath string, files ...*FileEntry) common.Exec
 }
 
 func (e *HostEnvironment) CopyTarStream(ctx context.Context, destPath string, tarStream io.Reader) error {
+	if common.Dryrun(ctx) {
+		return nil
+	}
 	if err := os.RemoveAll(destPath); err != nil {
 		return err
 	}
@@ -435,9 +438,9 @@ func goArchToActionArch(arch string) string {
 
 func goOsToActionOs(os string) string {
 	osMapper := map[string]string{
-		"linux": "Linux",
+		"linux":   "Linux",
 		"windows": "Windows",
-		"darwin": "macOS",
+		"darwin":  "macOS",
 	}
 	if os, ok := osMapper[os]; ok {
 		return os

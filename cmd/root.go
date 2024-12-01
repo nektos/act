@@ -102,7 +102,6 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.PersistentFlags().StringVarP(&input.actionCachePath, "action-cache-path", "", filepath.Join(CacheHomeDir, "act"), "Defines the path where the actions get cached and host workspaces created.")
 	rootCmd.PersistentFlags().BoolVarP(&input.actionOfflineMode, "action-offline-mode", "", false, "If action contents exists, it will not be fetch and pull again. If turn on this,will turn off force pull")
 	rootCmd.PersistentFlags().StringVarP(&input.networkName, "network", "", "host", "Sets a docker network name. Defaults to host.")
-	rootCmd.PersistentFlags().BoolVarP(&input.useNewActionCache, "use-new-action-cache", "", false, "Enable using the new Action Cache for storing Actions locally")
 	rootCmd.PersistentFlags().StringArrayVarP(&input.localRepository, "local-repository", "", []string{}, "Replaces the specified repository and ref with a local folder (e.g. https://github.com/test/test@v0=/home/act/test or test/test@v0=/home/act/test, the latter matches any hosts or protocols)")
 	rootCmd.SetArgs(args())
 
@@ -393,6 +392,16 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 		vars := newSecrets(input.vars)
 		_ = readEnvs(input.Varfile(), vars)
 
+		log.Debugf("Cleaning up %s old action cache format", input.actionCachePath)
+		entries, _ := os.ReadDir(input.actionCachePath)
+		for _, entry := range entries {
+			if strings.Contains(entry.Name(), "@") {
+				fullPath := filepath.Join(input.actionCachePath, entry.Name())
+				log.Debugf("Removing %s", fullPath)
+				_ = os.RemoveAll(fullPath)
+			}
+		}
+
 		matrixes := parseMatrix(input.matrix)
 		log.Debugf("Evaluated matrix inclusions: %v", matrixes)
 
@@ -588,31 +597,26 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			Matrix:                             matrixes,
 			ContainerNetworkMode:               docker_container.NetworkMode(input.networkName),
 		}
-		if input.useNewActionCache || len(input.localRepository) > 0 {
-			if input.actionOfflineMode {
-				config.ActionCache = &runner.GoGitActionCacheOfflineMode{
-					Parent: runner.GoGitActionCache{
-						Path: config.ActionCacheDir,
-					},
-				}
-			} else {
-				config.ActionCache = &runner.GoGitActionCache{
+		if input.actionOfflineMode {
+			config.ActionCache = &runner.GoGitActionCacheOfflineMode{
+				Parent: runner.GoGitActionCache{
 					Path: config.ActionCacheDir,
-				}
-			}
-			if len(input.localRepository) > 0 {
-				localRepositories := map[string]string{}
-				for _, l := range input.localRepository {
-					k, v, _ := strings.Cut(l, "=")
-					localRepositories[k] = v
-				}
-				config.ActionCache = &runner.LocalRepositoryCache{
-					Parent:            config.ActionCache,
-					LocalRepositories: localRepositories,
-					CacheDirCache:     map[string]string{},
-				}
+				},
 			}
 		}
+		if len(input.localRepository) > 0 {
+			localRepositories := map[string]string{}
+			for _, l := range input.localRepository {
+				k, v, _ := strings.Cut(l, "=")
+				localRepositories[k] = v
+			}
+			config.ActionCache = &runner.LocalRepositoryCache{
+				Parent:            config.ActionCache,
+				LocalRepositories: localRepositories,
+				CacheDirCache:     map[string]string{},
+			}
+		}
+
 		r, err := runner.New(config)
 		if err != nil {
 			return err
@@ -658,7 +662,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 func defaultImageSurvey(actrc string) error {
 	var answer string
 	confirmation := &survey.Select{
-		Message: "Please choose the default image you want to use with act:\n  - Large size image: ca. 17GB download + 53.1GB storage, you will need 75GB of free disk space, snapshots of GitHub Hosted Runners without snap and pulled docker images\n  - Medium size image: ~500MB, includes only necessary tools to bootstrap actions and aims to be compatible with most actions\n  - Micro size image: <200MB, contains only NodeJS required to bootstrap actions, doesn't work with all actions\n\nDefault image and other options can be changed manually in " +  configLocations()[0] + " (please refer to https://github.com/nektos/act#configuration for additional information about file structure)",
+		Message: "Please choose the default image you want to use with act:\n  - Large size image: ca. 17GB download + 53.1GB storage, you will need 75GB of free disk space, snapshots of GitHub Hosted Runners without snap and pulled docker images\n  - Medium size image: ~500MB, includes only necessary tools to bootstrap actions and aims to be compatible with most actions\n  - Micro size image: <200MB, contains only NodeJS required to bootstrap actions, doesn't work with all actions\n\nDefault image and other options can be changed manually in " + configLocations()[0] + " (please refer to https://github.com/nektos/act#configuration for additional information about file structure)",
 		Help:    "If you want to know why act asks you that, please go to https://github.com/nektos/act/issues/107",
 		Default: "Medium",
 		Options: []string{"Large", "Medium", "Micro"},
