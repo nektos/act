@@ -70,7 +70,7 @@ runs:
       env:
         FILTER: ${{ inputs.filter }}
         UPLOAD_LOGS: ${{ inputs.upload-logs }}
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       if: always() && inputs.upload-logs == 'true' && !env.ACT
       with:
         name: ${{ inputs.upload-logs-name }}
