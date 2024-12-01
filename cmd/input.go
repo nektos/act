@@ -35,7 +35,7 @@ type Input struct {
 	containerArchitecture              string
 	containerDaemonSocket              string
 	containerOptions                   string
-	noWorkflowRecurse                  bool
+	workflowRecurse                    bool
 	useGitIgnore                       bool
 	githubInstance                     string
 	containerCapAdd                    []string
