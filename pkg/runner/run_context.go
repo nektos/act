@@ -990,13 +990,18 @@ func nestedMapLookup(m map[string]interface{}, ks ...string) (rval interface{}) 
 	}
 	if rval, ok = m[ks[0]]; !ok {
 		return nil
-	} else if len(ks) == 1 { // we've reached the final key
-		return rval
-	} else if m, ok = rval.(map[string]interface{}); !ok {
-		return nil
-	} else { // 1+ more keys
-		return nestedMapLookup(m, ks[1:]...)
 	}
+
+	if len(ks) == 1 { // we've reached the final key
+		return rval
+	}
+
+	if m, ok = rval.(map[string]interface{}); !ok {
+		return nil
+	}
+
+	// 1+ more keys
+	return nestedMapLookup(m, ks[1:]...)
 }
 
 func (rc *RunContext) withGithubEnv(ctx context.Context, github *model.GithubContext, env map[string]string) map[string]string {
