@@ -21,8 +21,8 @@ type Input struct {
 	inputs                             []string
 	platforms                          []string
 	dryrun                             bool
-	forcePull                          bool
-	forceRebuild                       bool
+	pullIfNeeded                       bool
+	noRebuild                          bool
 	noOutput                           bool
 	envfile                            string
 	inputfile                          string
