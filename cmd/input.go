@@ -60,6 +60,7 @@ type Input struct {
 	networkName                        string
 	useNewActionCache                  bool
 	localRepository                    []string
+	dind                               bool
 }
 
 func (i *Input) resolve(path string) string {

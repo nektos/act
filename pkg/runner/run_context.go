@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -131,7 +132,7 @@ func (rc *RunContext) GetBindsAndMounts() ([]string, map[string]string) {
 	}
 
 	binds := []string{}
-	if rc.Config.ContainerDaemonSocket != "-" {
+	if rc.Config.ContainerDaemonSocket != "-" && !rc.Config.Dind {
 		daemonPath := getDockerDaemonSocketMountPath(rc.Config.ContainerDaemonSocket)
 		binds = append(binds, fmt.Sprintf("%s:%s", daemonPath, "/var/run/docker.sock"))
 	}
@@ -343,6 +344,35 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			rc.ServiceContainers = append(rc.ServiceContainers, c)
 		}
 
+		if rc.Config.Dind {
+			imageName := "docker:dind"
+
+			serviceContainerName := createContainerName(rc.jobContainerName(), "act-dind")
+			c := container.NewContainer(&container.NewContainerInput{
+				Name:       serviceContainerName,
+				WorkingDir: ext.ToContainerPath(rc.Config.Workdir),
+				Cmd: []string{
+					"--host",
+					"unix://" + path.Join(ext.GetActPath(), "docker.sock"),
+				},
+				Image:       imageName,
+				Username:    username,
+				Password:    password,
+				Mounts:      mounts,
+				Binds:       binds,
+				Stdout:      logWriter,
+				Stderr:      logWriter,
+				Privileged:  true,
+				UsernsMode:  rc.Config.UsernsMode,
+				Platform:    rc.Config.ContainerArchitecture,
+				NetworkMode: networkName,
+				Options:     "--health-cmd=\"docker info\" --health-interval=10s --health-timeout=5s --health-retries=3",
+			})
+			rc.ServiceContainers = append(rc.ServiceContainers, c)
+
+			envList = append(envList, fmt.Sprintf("%s=%s", "DOCKER_HOST", "unix://"+path.Join(ext.GetActPath(), "docker.sock")))
+		}
+
 		rc.cleanUpJobContainer = func(ctx context.Context) error {
 			reuseJobContainer := func(ctx context.Context) bool {
 				return rc.Config.ReuseContainers
@@ -350,8 +380,6 @@ func (rc *RunContext) startJobContainer() common.Executor {
 
 			if rc.JobContainer != nil {
 				return rc.JobContainer.Remove().IfNot(reuseJobContainer).
-					Then(container.NewDockerVolumeRemoveExecutor(rc.jobContainerName(), false)).IfNot(reuseJobContainer).
-					Then(container.NewDockerVolumeRemoveExecutor(rc.jobContainerName()+"-env", false)).IfNot(reuseJobContainer).
 					Then(func(ctx context.Context) error {
 						if len(rc.ServiceContainers) > 0 {
 							logger.Infof("Cleaning up services for job %s", rc.JobName)
@@ -370,7 +398,9 @@ func (rc *RunContext) startJobContainer() common.Executor {
 							}
 						}
 						return nil
-					})(ctx)
+					}).
+					Then(container.NewDockerVolumeRemoveExecutor(rc.jobContainerName(), false)).IfNot(reuseJobContainer).
+					Then(container.NewDockerVolumeRemoveExecutor(rc.jobContainerName()+"-env", false)).IfNot(reuseJobContainer)(ctx)
 			}
 			return nil
 		}
