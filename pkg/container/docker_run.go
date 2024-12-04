@@ -699,6 +699,9 @@ func (cr *containerReference) waitForCommand(ctx context.Context, isTerminal boo
 }
 
 func (cr *containerReference) CopyTarStream(ctx context.Context, destPath string, tarStream io.Reader) error {
+	if common.Dryrun(ctx) {
+		return nil
+	}
 	// Mkdir
 	buf := &bytes.Buffer{}
 	tw := tar.NewWriter(buf)
