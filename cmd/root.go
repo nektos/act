@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"html/template"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -35,10 +34,10 @@ import (
 )
 
 type Flag struct {
-	Name    string `json:"name"`
-	Default string `json:"default"`
-	Type    string `json:"type"`
-	Usage   string `json:"usage"`
+	Name        string `json:"name"`
+	Default     string `json:"default"`
+	Type        string `json:"type"`
+	Description string `json:"description"`
 }
 
 // Execute is the entry point to running the CLI
@@ -55,50 +54,6 @@ func Execute(ctx context.Context, version string) {
 		SilenceUsage:      true,
 	}
 
-	cobra.AddTemplateFunc("json", func(v interface{}) template.JS {
-		// a, _ := json.Marshal(v)
-		flags := []Flag{}
-		rootCmd.LocalFlags().VisitAll(func(f *pflag.Flag) {
-			flags = append(flags, Flag{Name: f.Name, Default: f.DefValue, Usage: f.Usage, Type: f.Value.Type()})
-		})
-		a, _ := json.Marshal(flags)
-		return template.JS(a)
-	})
-
-	rootCmd.SetUsageTemplate(`We won
-Usage:{{if .Runnable}}
-  {{.UseLine}}{{end}}{{if .HasAvailableSubCommands}}
-  {{.CommandPath}} [command]{{end}}{{if gt (len .Aliases) 0}}
-
-Aliases:
-  {{.NameAndAliases}}{{end}}{{if .HasExample}}
-
-Examples:
-{{.Example}}{{end}}{{if .HasAvailableSubCommands}}{{$cmds := .Commands}}{{if eq (len .Groups) 0}}
-
-Available Commands:{{range $cmds}}{{if (or .IsAvailableCommand (eq .Name "help"))}}
-  {{rpad .Name .NamePadding }} {{.Short}}{{end}}{{end}}{{else}}{{range $group := .Groups}}
-
-{{.Title}}{{range $cmds}}{{if (and (eq .GroupID $group.ID) (or .IsAvailableCommand (eq .Name "help")))}}
-  {{rpad .Name .NamePadding }} {{.Short}}{{end}}{{end}}{{end}}{{if not .AllChildCommandsHaveGroup}}
-
-Additional Commands:{{range $cmds}}{{if (and (eq .GroupID "") (or .IsAvailableCommand (eq .Name "help")))}}
-  {{rpad .Name .NamePadding }} {{.Short}}{{end}}{{end}}{{end}}{{end}}{{end}}{{if .HasAvailableLocalFlags}}
-
-Json Flags:
-{{json .LocalFlags}}
-
-Flags:
-{{.LocalFlags.FlagUsages | trimTrailingWhitespaces}}{{end}}{{if .HasAvailableInheritedFlags}}
-
-Global Flags:
-{{.InheritedFlags.FlagUsages | trimTrailingWhitespaces}}{{end}}{{if .HasHelpSubCommands}}
-
-Additional help topics:{{range .Commands}}{{if .IsAdditionalHelpTopicCommand}}
-  {{rpad .CommandPath .CommandPathPadding}} {{.Short}}{{end}}{{end}}{{end}}{{if .HasAvailableSubCommands}}
-
-Use "{{.CommandPath}} [command] --help" for more information about a command.{{end}}
-`)
 	rootCmd.Flags().BoolP("watch", "w", false, "watch the contents of the local repo and run when files change")
 	rootCmd.Flags().BoolP("list", "l", false, "list workflows")
 	rootCmd.Flags().BoolP("graph", "g", false, "draw workflows")
@@ -159,6 +114,7 @@ Use "{{.CommandPath}} [command] --help" for more information about a command.{{e
 	rootCmd.PersistentFlags().StringVarP(&input.networkName, "network", "", "host", "Sets a docker network name. Defaults to host.")
 	rootCmd.PersistentFlags().BoolVarP(&input.useNewActionCache, "use-new-action-cache", "", false, "Enable using the new Action Cache for storing Actions locally")
 	rootCmd.PersistentFlags().StringArrayVarP(&input.localRepository, "local-repository", "", []string{}, "Replaces the specified repository and ref with a local folder (e.g. https://github.com/test/test@v0=/home/act/test or test/test@v0=/home/act/test, the latter matches any hosts or protocols)")
+	rootCmd.PersistentFlags().BoolVar(&input.listOptions, "list-options", false, "Print a json structure of compatible options")
 	rootCmd.SetArgs(args())
 
 	if err := rootCmd.Execute(); err != nil {
@@ -297,6 +253,16 @@ func generateManPage(cmd *cobra.Command) error {
 	return nil
 }
 
+func listOptions(cmd *cobra.Command) error {
+	flags := []Flag{}
+	cmd.LocalFlags().VisitAll(func(f *pflag.Flag) {
+		flags = append(flags, Flag{Name: f.Name, Default: f.DefValue, Description: f.Usage, Type: f.Value.Type()})
+	})
+	a, err := json.Marshal(flags)
+	fmt.Println(string(a))
+	return err
+}
+
 func readArgsFile(file string, split bool) []string {
 	args := make([]string, 0)
 	f, err := os.Open(file)
@@ -413,6 +379,9 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 		}
 		if ok, _ := cmd.Flags().GetBool("man-page"); ok {
 			return generateManPage(cmd)
+		}
+		if input.listOptions {
+			return listOptions(cmd)
 		}
 
 		if ret, err := container.GetSocketAndHost(input.containerDaemonSocket); err != nil {
