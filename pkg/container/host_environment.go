@@ -423,6 +423,7 @@ func (*HostEnvironment) JoinPathVariable(paths ...string) string {
 // https://docs.github.com/en/actions/learn-github-actions/contexts#runner-context
 func goArchToActionArch(arch string) string {
 	archMapper := map[string]string{
+		"amd64":   "X64",
 		"x86_64":  "X64",
 		"386":     "X86",
 		"aarch64": "ARM64",
