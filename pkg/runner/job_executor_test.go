@@ -266,28 +266,25 @@ func TestNewJobExecutor(t *testing.T) {
 			jim.On("steps").Return(tt.steps)
 
 			if len(tt.steps) > 0 {
-				jim.On("startContainer").Return(func(ctx context.Context) error {
+				jim.On("startContainer").Return(func(_ context.Context) error {
 					executorOrder = append(executorOrder, "startContainer")
 					return nil
 				})
 			}
 
 			for i, stepModel := range tt.steps {
-				i := i
-				stepModel := stepModel
-
 				sm := &stepMock{}
 
 				sfm.On("newStep", stepModel, rc).Return(sm, nil)
 
-				sm.On("pre").Return(func(ctx context.Context) error {
+				sm.On("pre").Return(func(_ context.Context) error {
 					if tt.preSteps[i] {
 						executorOrder = append(executorOrder, "pre"+stepModel.ID)
 					}
 					return nil
 				})
 
-				sm.On("main").Return(func(ctx context.Context) error {
+				sm.On("main").Return(func(_ context.Context) error {
 					executorOrder = append(executorOrder, "step"+stepModel.ID)
 					if tt.hasError {
 						return fmt.Errorf("error")
@@ -295,7 +292,7 @@ func TestNewJobExecutor(t *testing.T) {
 					return nil
 				})
 
-				sm.On("post").Return(func(ctx context.Context) error {
+				sm.On("post").Return(func(_ context.Context) error {
 					if tt.postSteps[i] {
 						executorOrder = append(executorOrder, "post"+stepModel.ID)
 					}
@@ -308,13 +305,13 @@ func TestNewJobExecutor(t *testing.T) {
 			if len(tt.steps) > 0 {
 				jim.On("matrix").Return(map[string]interface{}{})
 
-				jim.On("interpolateOutputs").Return(func(ctx context.Context) error {
+				jim.On("interpolateOutputs").Return(func(_ context.Context) error {
 					executorOrder = append(executorOrder, "interpolateOutputs")
 					return nil
 				})
 
 				if contains("stopContainer", tt.executedSteps) {
-					jim.On("stopContainer").Return(func(ctx context.Context) error {
+					jim.On("stopContainer").Return(func(_ context.Context) error {
 						executorOrder = append(executorOrder, "stopContainer")
 						return nil
 					})
@@ -322,7 +319,7 @@ func TestNewJobExecutor(t *testing.T) {
 
 				jim.On("result", tt.result)
 
-				jim.On("closeContainer").Return(func(ctx context.Context) error {
+				jim.On("closeContainer").Return(func(_ context.Context) error {
 					executorOrder = append(executorOrder, "closeContainer")
 					return nil
 				})
