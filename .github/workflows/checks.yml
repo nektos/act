@@ -56,7 +56,7 @@ jobs:
       - name: Install gotestfmt
         run: go install github.com/gotesttools/gotestfmt/v2/cmd/gotestfmt@v2.5.0
       - name: Run Tests
-        run: go test -json -v -cover -coverpkg=./... -coverprofile=coverage.txt -covermode=atomic -timeout 20m ./... 2>&1 | gotestfmt -hide successful-packages,empty-packages
+        run: go test -json -v -cover -coverpkg=./... -coverprofile=coverage.txt -covermode=atomic -timeout 20m ./... | gotestfmt -hide successful-packages,empty-packages 2>&1
       - name: Run act from cli
         run: go run main.go -P ubuntu-latest=node:16-buster-slim -C ./pkg/runner/testdata/ -W ./basic/push.yml
       - name: Run act from cli without docker support
@@ -74,7 +74,7 @@ jobs:
         os:
           - windows-latest
           - macos-latest
-    name: test-${{matrix.os}}
+    name: test-host-${{matrix.os}}
     runs-on: ${{matrix.os}}
     steps:
       - uses: actions/checkout@v4
@@ -87,7 +87,7 @@ jobs:
       - name: Install gotestfmt
         run: go install github.com/gotesttools/gotestfmt/v2/cmd/gotestfmt@v2.5.0
       - name: Run Tests
-        run: go test -json -v -cover -coverpkg=./... -coverprofile=coverage.txt -covermode=atomic -timeout 20m -run ^TestRunEventHostEnvironment$ ./... 2>&1 | gotestfmt -hide successful-packages,empty-packages
+        run: go test -json -v -cover -coverpkg=./... -coverprofile=coverage.txt -covermode=atomic -timeout 20m -run ^TestRunEventHostEnvironment$ ./... | gotestfmt -hide successful-packages,empty-packages 2>&1
 
   snapshot:
     name: snapshot
