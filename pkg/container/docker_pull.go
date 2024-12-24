@@ -9,8 +9,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/docker/distribution/reference"
-	"github.com/docker/docker/api/types"
+	"github.com/distribution/reference"
+	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/registry"
 
 	"github.com/nektos/act/pkg/common"
@@ -74,8 +74,8 @@ func NewDockerPullExecutor(input NewDockerPullExecutorInput) common.Executor {
 	}
 }
 
-func getImagePullOptions(ctx context.Context, input NewDockerPullExecutorInput) (types.ImagePullOptions, error) {
-	imagePullOptions := types.ImagePullOptions{
+func getImagePullOptions(ctx context.Context, input NewDockerPullExecutorInput) (image.PullOptions, error) {
+	imagePullOptions := image.PullOptions{
 		Platform: input.Platform,
 	}
 	logger := common.Logger(ctx)
