@@ -300,8 +300,9 @@ func TestParseWithMacAddress(t *testing.T) {
 	if _, _, _, err := parseRun([]string{invalidMacAddress, "img", "cmd"}); err != nil && err.Error() != "invalidMacAddress is not a valid mac address" {
 		t.Fatalf("Expected an error with %v mac-address, got %v", invalidMacAddress, err)
 	}
-	_, _, networkingConfig := mustParse(t, validMacAddress)
-	assert.Equal(t, "92:d0:c6:0a:29:33", networkingConfig.EndpointsConfig["bridge"].MacAddress)
+	config, hostConfig, _ := mustParse(t, validMacAddress)
+	fmt.Printf("MacAddress: %+v\n", hostConfig)
+	assert.Equal(t, "92:d0:c6:0a:29:33", config.MacAddress) //nolint:staticcheck
 }
 
 func TestRunFlagsParseWithMemory(t *testing.T) {
