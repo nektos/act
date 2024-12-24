@@ -87,7 +87,9 @@ jobs:
       - name: Install gotestfmt
         run: go install github.com/gotesttools/gotestfmt/v2/cmd/gotestfmt@v2.5.0
       - name: Run Tests
-        run: go test -v -cover -coverpkg=./... -coverprofile=coverage.txt -covermode=atomic -timeout 20m -run ^TestRunEventHostEnvironment$ ./... 
+        run: go test -v -cover -coverpkg=./... -coverprofile=coverage.txt -covermode=atomic -timeout 20m -run ^TestRunEventHostEnvironment$ ./...
+        shell: bash
+
 
   snapshot:
     name: snapshot
