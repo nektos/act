@@ -25,7 +25,6 @@ jobs:
       - uses: golangci/golangci-lint-action@v6.1.1
         with:
           version: v1.53
-          only-new-issues: true
       - uses: megalinter/megalinter/flavors/go@v8.3.0
         env:
           DEFAULT_BRANCH: master
