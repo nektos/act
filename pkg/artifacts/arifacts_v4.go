@@ -151,46 +151,46 @@ func RoutesV4(router *httprouter.Router, baseDir string, fsys WriteFS, rfs fs.FS
 		baseDir: baseDir,
 		prefix:  ArtifactV4RouteBase,
 	}
-	router.POST(path.Join(ArtifactV4RouteBase, "CreateArtifact"), func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	router.POST(path.Join(ArtifactV4RouteBase, "CreateArtifact"), func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		route.AppURL = r.Host
 		route.createArtifact(&ArtifactContext{
 			Req:  r,
 			Resp: w,
 		})
 	})
-	router.POST(path.Join(ArtifactV4RouteBase, "FinalizeArtifact"), func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	router.POST(path.Join(ArtifactV4RouteBase, "FinalizeArtifact"), func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		route.finalizeArtifact(&ArtifactContext{
 			Req:  r,
 			Resp: w,
 		})
 	})
-	router.POST(path.Join(ArtifactV4RouteBase, "ListArtifacts"), func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	router.POST(path.Join(ArtifactV4RouteBase, "ListArtifacts"), func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		route.listArtifacts(&ArtifactContext{
 			Req:  r,
 			Resp: w,
 		})
 	})
-	router.POST(path.Join(ArtifactV4RouteBase, "GetSignedArtifactURL"), func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	router.POST(path.Join(ArtifactV4RouteBase, "GetSignedArtifactURL"), func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		route.AppURL = r.Host
 		route.getSignedArtifactURL(&ArtifactContext{
 			Req:  r,
 			Resp: w,
 		})
 	})
-	router.POST(path.Join(ArtifactV4RouteBase, "DeleteArtifact"), func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	router.POST(path.Join(ArtifactV4RouteBase, "DeleteArtifact"), func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		route.AppURL = r.Host
 		route.deleteArtifact(&ArtifactContext{
 			Req:  r,
 			Resp: w,
 		})
 	})
-	router.PUT(path.Join(ArtifactV4RouteBase, "UploadArtifact"), func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	router.PUT(path.Join(ArtifactV4RouteBase, "UploadArtifact"), func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		route.uploadArtifact(&ArtifactContext{
 			Req:  r,
 			Resp: w,
 		})
 	})
-	router.GET(path.Join(ArtifactV4RouteBase, "DownloadArtifact"), func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	router.GET(path.Join(ArtifactV4RouteBase, "DownloadArtifact"), func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		route.downloadArtifact(&ArtifactContext{
 			Req:  r,
 			Resp: w,

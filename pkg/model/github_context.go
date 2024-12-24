@@ -63,9 +63,9 @@ func nestedMapLookup(m map[string]interface{}, ks ...string) (rval interface{}) 
 		return rval
 	} else if m, ok = rval.(map[string]interface{}); !ok {
 		return nil
-	} else { // 1+ more keys
-		return nestedMapLookup(m, ks[1:]...)
 	}
+	// 1+ more keys
+	return nestedMapLookup(m, ks[1:]...)
 }
 
 func withDefaultBranch(ctx context.Context, b string, event map[string]interface{}) map[string]interface{} {

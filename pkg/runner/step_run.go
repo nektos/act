@@ -24,7 +24,7 @@ type stepRun struct {
 }
 
 func (sr *stepRun) pre() common.Executor {
-	return func(ctx context.Context) error {
+	return func(_ context.Context) error {
 		return nil
 	}
 }
@@ -44,7 +44,7 @@ func (sr *stepRun) main() common.Executor {
 }
 
 func (sr *stepRun) post() common.Executor {
-	return func(ctx context.Context) error {
+	return func(_ context.Context) error {
 		return nil
 	}
 }
