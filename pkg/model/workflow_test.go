@@ -396,9 +396,9 @@ func TestReadWorkflow_Strategy(t *testing.T) {
 
 func TestStep_ShellCommand(t *testing.T) {
 	tests := []struct {
-		shell string
+		shell         string
 		workflowShell string
-		want  string
+		want          string
 	}{
 		{"pwsh -v '. {0}'", "", "pwsh -v '. {0}'"},
 		{"pwsh", "", "pwsh -command . '{0}'"},
