@@ -797,7 +797,7 @@ func TestParseEnvfileVariablesWithBOMUnicode(t *testing.T) {
 	}
 
 	// UTF16 with BOM
-	e := "contains invalid utf8 bytes at line"
+	e := "invalid env file"
 	if _, _, _, err := parseRun([]string{"--env-file=testdata/utf16.env", "img", "cmd"}); err == nil || !strings.Contains(err.Error(), e) {
 		t.Fatalf("Expected an error with message '%s', got %v", e, err)
 	}
