@@ -53,10 +53,10 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
+      - name: Install gotestfmt
+        run: go install github.com/gotesttools/gotestfmt/v2/cmd/gotestfmt@v2.5.0
       - name: Run Tests
-        uses: ./.github/actions/run-tests
-        with:
-          upload-logs-name: logs-linux
+        run: go test -v -cover -coverpkg=./... -coverprofile=coverage.txt -covermode=atomic -timeout 20m 2>&1 | gotestfmt
       - name: Run act from cli
         run: go run main.go -P ubuntu-latest=node:16-buster-slim -C ./pkg/runner/testdata/ -W ./basic/push.yml
       - name: Run act from cli without docker support
@@ -84,11 +84,10 @@ jobs:
         with:
           go-version-file: go.mod
           check-latest: true
+      - name: Install gotestfmt
+        run: go install github.com/gotesttools/gotestfmt/v2/cmd/gotestfmt@v2.5.0
       - name: Run Tests
-        uses: ./.github/actions/run-tests
-        with:
-          filter: '^TestRunEventHostEnvironment$'
-          upload-logs-name: logs-${{ matrix.os }}
+        run: go test -v -cover -coverpkg=./... -coverprofile=coverage.txt -covermode=atomic -timeout 20m -run '^TestRunEventHostEnvironment$' 2>&1 | gotestfmt
 
   snapshot:
     name: snapshot
