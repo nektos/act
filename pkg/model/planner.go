@@ -56,8 +56,6 @@ type WorkflowFiles struct {
 }
 
 // NewWorkflowPlanner will load a specific workflow, all workflows from a directory or all workflows from a directory and its subdirectories
-//
-//nolint:gocyclo
 func NewWorkflowPlanner(path string, noWorkflowRecurse bool) (WorkflowPlanner, error) {
 	path, err := filepath.Abs(path)
 	if err != nil {
@@ -114,9 +112,6 @@ func NewWorkflowPlanner(path string, noWorkflowRecurse bool) (WorkflowPlanner, e
 			dirPath:          dirname,
 			workflowDirEntry: fs.FileInfoToDirEntry(fi),
 		})
-	}
-	if err != nil {
-		return nil, err
 	}
 
 	wp := new(workflowPlanner)

@@ -160,7 +160,7 @@ func uploads(router *httprouter.Router, baseDir string, fsys WriteFS) {
 		}
 	})
 
-	router.PATCH("/_apis/pipelines/workflows/:runId/artifacts", func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
+	router.PATCH("/_apis/pipelines/workflows/:runId/artifacts", func(w http.ResponseWriter, _ *http.Request, _ httprouter.Params) {
 		json, err := json.Marshal(ResponseMessage{
 			Message: "success",
 		})
@@ -214,7 +214,7 @@ func downloads(router *httprouter.Router, baseDir string, fsys fs.FS) {
 		safePath := safeResolve(baseDir, filepath.Join(container, itemPath))
 
 		var files []ContainerItem
-		err := fs.WalkDir(fsys, safePath, func(path string, entry fs.DirEntry, err error) error {
+		err := fs.WalkDir(fsys, safePath, func(path string, entry fs.DirEntry, _ error) error {
 			if !entry.IsDir() {
 				rel, err := filepath.Rel(safePath, path)
 				if err != nil {
@@ -253,7 +253,7 @@ func downloads(router *httprouter.Router, baseDir string, fsys fs.FS) {
 		}
 	})
 
-	router.GET("/artifact/*path", func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
+	router.GET("/artifact/*path", func(w http.ResponseWriter, _ *http.Request, params httprouter.Params) {
 		path := params.ByName("path")[1:]
 
 		safePath := safeResolve(baseDir, path)

@@ -108,7 +108,7 @@ type containerOptions struct {
 	cpusetCpus         string
 	cpusetMems         string
 	blkioWeight        uint16
-	ioMaxBandwidth     opts.MemBytes
+	ioMaxBandwidth     uint64
 	ioMaxIOps          uint64
 	swappiness         int64
 	netMode            opts.NetworkOpt
@@ -285,7 +285,7 @@ func addFlags(flags *pflag.FlagSet) *containerOptions {
 	flags.Var(&copts.deviceReadIOps, "device-read-iops", "Limit read rate (IO per second) from a device")
 	flags.Var(&copts.deviceWriteBps, "device-write-bps", "Limit write rate (bytes per second) to a device")
 	flags.Var(&copts.deviceWriteIOps, "device-write-iops", "Limit write rate (IO per second) to a device")
-	flags.Var(&copts.ioMaxBandwidth, "io-maxbandwidth", "Maximum IO bandwidth limit for the system drive (Windows only)")
+	flags.Uint64Var(&copts.ioMaxBandwidth, "io-maxbandwidth", 0, "Maximum IO bandwidth limit for the system drive (Windows only)")
 	flags.SetAnnotation("io-maxbandwidth", "ostype", []string{"windows"})
 	flags.Uint64Var(&copts.ioMaxIOps, "io-maxiops", 0, "Maximum IOps limit for the system drive (Windows only)")
 	flags.SetAnnotation("io-maxiops", "ostype", []string{"windows"})
@@ -597,7 +597,7 @@ func parse(flags *pflag.FlagSet, copts *containerOptions, serverOS string) (*con
 		BlkioDeviceReadIOps:  copts.deviceReadIOps.GetList(),
 		BlkioDeviceWriteIOps: copts.deviceWriteIOps.GetList(),
 		IOMaximumIOps:        copts.ioMaxIOps,
-		IOMaximumBandwidth:   uint64(copts.ioMaxBandwidth),
+		IOMaximumBandwidth:   copts.ioMaxBandwidth,
 		Ulimits:              copts.ulimits.GetList(),
 		DeviceCgroupRules:    copts.deviceCgroupRules.GetAll(),
 		Devices:              deviceMappings,
@@ -722,7 +722,6 @@ func parseNetworkOpts(copts *containerOptions) (map[string]*networktypes.Endpoin
 	)
 
 	for i, n := range copts.netMode.Value() {
-		n := n
 		if container.NetworkMode(n.Target).IsUserDefined() {
 			hasUserDefined = true
 		} else {

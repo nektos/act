@@ -126,7 +126,7 @@ func (sar *stepActionRemote) prepareActionExecutor() common.Executor {
 			}
 		}
 
-		remoteReader := func(ctx context.Context) actionYamlReader {
+		remoteReader := func(_ context.Context) actionYamlReader {
 			return func(filename string) (io.Reader, io.Closer, error) {
 				f, err := os.Open(filepath.Join(actionDir, sar.remoteAction.Path, filename))
 				return f, f, err

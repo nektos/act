@@ -19,7 +19,7 @@ type jobInfo interface {
 	result(result string)
 }
 
-//nolint:contextcheck,gocyclo
+//nolint:contextcheck
 func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executor {
 	steps := make([]common.Executor, 0)
 	preSteps := make([]common.Executor, 0)
@@ -54,9 +54,8 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 	})
 
 	for i, stepModel := range infoSteps {
-		stepModel := stepModel
 		if stepModel == nil {
-			return func(ctx context.Context) error {
+			return func(_ context.Context) error {
 				return fmt.Errorf("invalid Step %v: missing run or uses key", i)
 			}
 		}

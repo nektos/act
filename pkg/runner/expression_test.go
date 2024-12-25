@@ -138,7 +138,6 @@ func TestEvaluateRunContext(t *testing.T) {
 	}
 
 	for _, table := range tables {
-		table := table
 		t.Run(table.in, func(t *testing.T) {
 			assertObject := assert.New(t)
 			out, err := ee.evaluate(context.Background(), table.in, exprparser.DefaultStatusCheckNone)
@@ -178,7 +177,6 @@ func TestEvaluateStep(t *testing.T) {
 	}
 
 	for _, table := range tables {
-		table := table
 		t.Run(table.in, func(t *testing.T) {
 			assertObject := assert.New(t)
 			out, err := ee.evaluate(context.Background(), table.in, exprparser.DefaultStatusCheckNone)
@@ -262,7 +260,6 @@ func TestInterpolate(t *testing.T) {
 
 	updateTestExpressionWorkflow(t, tables, rc)
 	for _, table := range tables {
-		table := table
 		t.Run("interpolate", func(t *testing.T) {
 			assertObject := assert.New(t)
 			out := ee.Interpolate(context.Background(), table.in)

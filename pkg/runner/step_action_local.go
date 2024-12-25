@@ -29,7 +29,7 @@ type stepActionLocal struct {
 func (sal *stepActionLocal) pre() common.Executor {
 	sal.env = map[string]string{}
 
-	return func(ctx context.Context) error {
+	return func(_ context.Context) error {
 		return nil
 	}
 }
