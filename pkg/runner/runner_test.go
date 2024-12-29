@@ -305,6 +305,7 @@ func TestRunEvent(t *testing.T) {
 		{workdir, "workflow_dispatch_no_inputs_mapping", "workflow_dispatch", "", platforms, secrets},
 		{workdir, "workflow_dispatch-scalar", "workflow_dispatch", "", platforms, secrets},
 		{workdir, "workflow_dispatch-scalar-composite-action", "workflow_dispatch", "", platforms, secrets},
+		{workdir, "uses-workflow-defaults", "workflow_dispatch", "", platforms, secrets},
 		{workdir, "job-needs-context-contains-result", "push", "", platforms, secrets},
 		{"../model/testdata", "strategy", "push", "", platforms, secrets}, // TODO: move all testdata into pkg so we can validate it with planner and runner
 		{"../model/testdata", "container-volumes", "push", "", platforms, secrets},
@@ -534,7 +535,7 @@ func (f *maskJobLoggerFactory) WithJobLogger() *log.Logger {
 }
 
 func TestMaskValues(t *testing.T) {
-	assertNoSecret := func(text string, secret string) {
+	assertNoSecret := func(text string, _ string) {
 		index := strings.Index(text, "composite secret")
 		if index > -1 {
 			fmt.Printf("\nFound Secret in the given text:\n%s\n", text)

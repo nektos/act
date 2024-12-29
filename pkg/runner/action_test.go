@@ -120,7 +120,7 @@ runs:
 				return strings.NewReader(tt.fileContent), closerMock, nil
 			}
 
-			writeFile := func(filename string, data []byte, perm fs.FileMode) error {
+			writeFile := func(filename string, _ []byte, perm fs.FileMode) error {
 				assert.Equal(t, "actionDir/actionPath/trampoline.js", filename)
 				assert.Equal(t, fs.FileMode(0400), perm)
 				return nil
@@ -227,7 +227,7 @@ func TestActionRunner(t *testing.T) {
 			ctx := context.Background()
 
 			cm := &containerMock{}
-			cm.On("CopyDir", "/var/run/act/actions/dir/", "dir/", false).Return(func(ctx context.Context) error { return nil })
+			cm.On("CopyDir", "/var/run/act/actions/dir/", "dir/", false).Return(func(_ context.Context) error { return nil })
 
 			envMatcher := mock.MatchedBy(func(env map[string]string) bool {
 				for k, v := range tt.expectedEnv {
@@ -238,7 +238,7 @@ func TestActionRunner(t *testing.T) {
 				return true
 			})
 
-			cm.On("Exec", []string{"node", "/var/run/act/actions/dir/path"}, envMatcher, "", "").Return(func(ctx context.Context) error { return nil })
+			cm.On("Exec", []string{"node", "/var/run/act/actions/dir/path"}, envMatcher, "", "").Return(func(_ context.Context) error { return nil })
 
 			tt.step.getRunContext().JobContainer = cm
 

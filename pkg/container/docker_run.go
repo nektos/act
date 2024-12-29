@@ -169,28 +169,28 @@ func (cr *containerReference) Remove() common.Executor {
 	).IfNot(common.Dryrun)
 }
 
-func (cr *containerReference) GetHealth(ctx context.Context) ContainerHealth {
+func (cr *containerReference) GetHealth(ctx context.Context) Health {
 	resp, err := cr.cli.ContainerInspect(ctx, cr.id)
 	logger := common.Logger(ctx)
 	if err != nil {
 		logger.Errorf("failed to query container health %s", err)
-		return ContainerHealthUnHealthy
+		return HealthUnHealthy
 	}
 	if resp.Config == nil || resp.Config.Healthcheck == nil || resp.State == nil || resp.State.Health == nil || len(resp.Config.Healthcheck.Test) == 1 && strings.EqualFold(resp.Config.Healthcheck.Test[0], "NONE") {
 		logger.Debugf("no container health check defined")
-		return ContainerHealthHealthy
+		return HealthHealthy
 	}
 
 	logger.Infof("container health of %s (%s) is %s", cr.id, resp.Config.Image, resp.State.Health.Status)
 	switch resp.State.Health.Status {
 	case "starting":
-		return ContainerHealthStarting
+		return HealthStarting
 	case "healthy":
-		return ContainerHealthHealthy
+		return HealthHealthy
 	case "unhealthy":
-		return ContainerHealthUnHealthy
+		return HealthUnHealthy
 	}
-	return ContainerHealthUnHealthy
+	return HealthUnHealthy
 }
 
 func (cr *containerReference) ReplaceLogWriter(stdout io.Writer, stderr io.Writer) (io.Writer, io.Writer) {
@@ -290,7 +290,7 @@ func (cr *containerReference) connect() common.Executor {
 }
 
 func (cr *containerReference) Close() common.Executor {
-	return func(ctx context.Context) error {
+	return func(_ context.Context) error {
 		if cr.cli != nil {
 			err := cr.cli.Close()
 			cr.cli = nil
@@ -570,7 +570,7 @@ func (cr *containerReference) exec(cmd []string, env map[string]string, user, wo
 		}
 		logger.Debugf("Working directory '%s'", wd)
 
-		idResp, err := cr.cli.ContainerExecCreate(ctx, cr.id, types.ExecConfig{
+		idResp, err := cr.cli.ContainerExecCreate(ctx, cr.id, container.ExecOptions{
 			User:         user,
 			Cmd:          cmd,
 			WorkingDir:   wd,
@@ -583,7 +583,7 @@ func (cr *containerReference) exec(cmd []string, env map[string]string, user, wo
 			return fmt.Errorf("failed to create exec: %w", err)
 		}
 
-		resp, err := cr.cli.ContainerExecAttach(ctx, idResp.ID, types.ExecStartCheck{
+		resp, err := cr.cli.ContainerExecAttach(ctx, idResp.ID, container.ExecStartOptions{
 			Tty: isTerminal,
 		})
 		if err != nil {
@@ -614,7 +614,7 @@ func (cr *containerReference) exec(cmd []string, env map[string]string, user, wo
 
 func (cr *containerReference) tryReadID(opt string, cbk func(id int)) common.Executor {
 	return func(ctx context.Context) error {
-		idResp, err := cr.cli.ContainerExecCreate(ctx, cr.id, types.ExecConfig{
+		idResp, err := cr.cli.ContainerExecCreate(ctx, cr.id, container.ExecOptions{
 			Cmd:          []string{"id", opt},
 			AttachStdout: true,
 			AttachStderr: true,
@@ -623,7 +623,7 @@ func (cr *containerReference) tryReadID(opt string, cbk func(id int)) common.Exe
 			return nil
 		}
 
-		resp, err := cr.cli.ContainerExecAttach(ctx, idResp.ID, types.ExecStartCheck{})
+		resp, err := cr.cli.ContainerExecAttach(ctx, idResp.ID, container.ExecStartOptions{})
 		if err != nil {
 			return nil
 		}
@@ -711,12 +711,12 @@ func (cr *containerReference) CopyTarStream(ctx context.Context, destPath string
 		Typeflag: tar.TypeDir,
 	})
 	tw.Close()
-	err := cr.cli.CopyToContainer(ctx, cr.id, "/", buf, types.CopyToContainerOptions{})
+	err := cr.cli.CopyToContainer(ctx, cr.id, "/", buf, container.CopyToContainerOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to mkdir to copy content to container: %w", err)
 	}
 	// Copy Content
-	err = cr.cli.CopyToContainer(ctx, cr.id, destPath, tarStream, types.CopyToContainerOptions{})
+	err = cr.cli.CopyToContainer(ctx, cr.id, destPath, tarStream, container.CopyToContainerOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to copy content to container: %w", err)
 	}
@@ -790,7 +790,7 @@ func (cr *containerReference) copyDir(dstPath string, srcPath string, useGitIgno
 		if err != nil {
 			return fmt.Errorf("failed to seek tar archive: %w", err)
 		}
-		err = cr.cli.CopyToContainer(ctx, cr.id, "/", tarFile, types.CopyToContainerOptions{})
+		err = cr.cli.CopyToContainer(ctx, cr.id, "/", tarFile, container.CopyToContainerOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to copy content to container: %w", err)
 		}
@@ -807,7 +807,7 @@ func (cr *containerReference) copyContent(dstPath string, files ...*FileEntry) c
 			logger.Debugf("Writing entry to tarball %s len:%d", file.Name, len(file.Body))
 			hdr := &tar.Header{
 				Name: file.Name,
-				Mode: file.Mode,
+				Mode: int64(file.Mode),
 				Size: int64(len(file.Body)),
 				Uid:  cr.UID,
 				Gid:  cr.GID,
@@ -824,7 +824,7 @@ func (cr *containerReference) copyContent(dstPath string, files ...*FileEntry) c
 		}
 
 		logger.Debugf("Extracting content to '%s'", dstPath)
-		err := cr.cli.CopyToContainer(ctx, cr.id, dstPath, &buf, types.CopyToContainerOptions{})
+		err := cr.cli.CopyToContainer(ctx, cr.id, dstPath, &buf, container.CopyToContainerOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to copy content to container: %w", err)
 		}

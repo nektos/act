@@ -9,9 +9,10 @@ usage() {
   cat <<EOF
 $this: download go binaries for nektos/act
 
-Usage: $this [-b bindir] [-d] [tag]
+Usage: $this [-b bindir] [-d] [-f] [tag]
   -b sets bindir or installation directory, Defaults to ./bin
   -d turns on debug logging
+  -f forces installation, bypassing version checks
    [tag] is a tag from
    https://github.com/nektos/act/releases
    If tag is missing, then the latest will be used.
@@ -24,10 +25,11 @@ parse_args() {
   # over-ridden by flag below
 
   BINDIR=${BINDIR:-./bin}
-  while getopts "b:dh?x" arg; do
+  while getopts "b:dfh?x" arg; do
     case "$arg" in
       b) BINDIR="$OPTARG" ;;
       d) log_set_priority 10 ;;
+      f) FORCE_INSTALL="true" ;;
       h | \?) usage "$0" ;;
       x) set -x ;;
     esac
@@ -124,6 +126,37 @@ adjust_arch() {
   esac
   true
 }
+check_installed_version() {
+  # Check if force install flag is set
+  if [ "${FORCE_INSTALL}" = "true" ]; then
+    log_info "force install enabled. Skipping version check."
+    return
+  fi
+
+  # Check if the binary exists
+  if is_command "$BINARY"; then
+    # Extract installed version using cut
+    INSTALLED_VERSION=$($BINARY --version | cut -d' ' -f3)
+
+    if [ -z "$INSTALLED_VERSION" ]; then
+      log_err "failed to detect installed version. Proceeding with installation."
+      return
+    fi
+
+    log_info "found installed version: $INSTALLED_VERSION"
+
+    # Compare versions
+    if [ "$INSTALLED_VERSION" = "$VERSION" ]; then
+      log_info "$BINARY version $INSTALLED_VERSION is already installed."
+      exit 0
+    else
+      log_debug "updating $BINARY from version $INSTALLED_VERSION to $VERSION..."
+    fi
+  else
+    log_debug "$BINARY is not installed. Proceeding with installation..."
+  fi
+}
+
 
 cat /dev/null <<EOF
 ------------------------------------------------------------------------
@@ -379,6 +412,8 @@ parse_args "$@"
 get_binaries
 
 tag_to_version
+
+check_installed_version
 
 adjust_format
 

@@ -57,39 +57,39 @@ func TestStepDockerMain(t *testing.T) {
 	}
 	sd.RunContext.ExprEval = sd.RunContext.NewExpressionEvaluator(ctx)
 
-	cm.On("Pull", false).Return(func(ctx context.Context) error {
+	cm.On("Pull", false).Return(func(_ context.Context) error {
 		return nil
 	})
 
-	cm.On("Remove").Return(func(ctx context.Context) error {
+	cm.On("Remove").Return(func(_ context.Context) error {
 		return nil
 	})
 
-	cm.On("Create", []string(nil), []string(nil)).Return(func(ctx context.Context) error {
+	cm.On("Create", []string(nil), []string(nil)).Return(func(_ context.Context) error {
 		return nil
 	})
 
-	cm.On("Start", true).Return(func(ctx context.Context) error {
+	cm.On("Start", true).Return(func(_ context.Context) error {
 		return nil
 	})
 
-	cm.On("Close").Return(func(ctx context.Context) error {
+	cm.On("Close").Return(func(_ context.Context) error {
 		return nil
 	})
 
-	cm.On("Copy", "/var/run/act", mock.AnythingOfType("[]*container.FileEntry")).Return(func(ctx context.Context) error {
+	cm.On("Copy", "/var/run/act", mock.AnythingOfType("[]*container.FileEntry")).Return(func(_ context.Context) error {
 		return nil
 	})
 
-	cm.On("UpdateFromEnv", "/var/run/act/workflow/envs.txt", mock.AnythingOfType("*map[string]string")).Return(func(ctx context.Context) error {
+	cm.On("UpdateFromEnv", "/var/run/act/workflow/envs.txt", mock.AnythingOfType("*map[string]string")).Return(func(_ context.Context) error {
 		return nil
 	})
 
-	cm.On("UpdateFromEnv", "/var/run/act/workflow/statecmd.txt", mock.AnythingOfType("*map[string]string")).Return(func(ctx context.Context) error {
+	cm.On("UpdateFromEnv", "/var/run/act/workflow/statecmd.txt", mock.AnythingOfType("*map[string]string")).Return(func(_ context.Context) error {
 		return nil
 	})
 
-	cm.On("UpdateFromEnv", "/var/run/act/workflow/outputcmd.txt", mock.AnythingOfType("*map[string]string")).Return(func(ctx context.Context) error {
+	cm.On("UpdateFromEnv", "/var/run/act/workflow/outputcmd.txt", mock.AnythingOfType("*map[string]string")).Return(func(_ context.Context) error {
 		return nil
 	})
 
