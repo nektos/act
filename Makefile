@@ -111,3 +111,8 @@ snapshot:
 		--snapshot
 
 .PHONY: clean all
+
+.PHONY: upgrade
+upgrade:
+	go get -u
+	go mod tidy

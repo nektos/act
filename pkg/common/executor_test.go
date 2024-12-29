@@ -25,11 +25,11 @@ func TestNewWorkflow(t *testing.T) {
 	// multiple success case
 	runcount := 0
 	successWorkflow := NewPipelineExecutor(
-		func(ctx context.Context) error {
+		func(_ context.Context) error {
 			runcount++
 			return nil
 		},
-		func(ctx context.Context) error {
+		func(_ context.Context) error {
 			runcount++
 			return nil
 		})
@@ -45,12 +45,12 @@ func TestNewConditionalExecutor(t *testing.T) {
 	trueCount := 0
 	falseCount := 0
 
-	err := NewConditionalExecutor(func(ctx context.Context) bool {
+	err := NewConditionalExecutor(func(_ context.Context) bool {
 		return false
-	}, func(ctx context.Context) error {
+	}, func(_ context.Context) error {
 		trueCount++
 		return nil
-	}, func(ctx context.Context) error {
+	}, func(_ context.Context) error {
 		falseCount++
 		return nil
 	})(ctx)
@@ -59,12 +59,12 @@ func TestNewConditionalExecutor(t *testing.T) {
 	assert.Equal(0, trueCount)
 	assert.Equal(1, falseCount)
 
-	err = NewConditionalExecutor(func(ctx context.Context) bool {
+	err = NewConditionalExecutor(func(_ context.Context) bool {
 		return true
-	}, func(ctx context.Context) error {
+	}, func(_ context.Context) error {
 		trueCount++
 		return nil
-	}, func(ctx context.Context) error {
+	}, func(_ context.Context) error {
 		falseCount++
 		return nil
 	})(ctx)
@@ -82,7 +82,7 @@ func TestNewParallelExecutor(t *testing.T) {
 	count := 0
 	activeCount := 0
 	maxCount := 0
-	emptyWorkflow := NewPipelineExecutor(func(ctx context.Context) error {
+	emptyWorkflow := NewPipelineExecutor(func(_ context.Context) error {
 		count++
 
 		activeCount++
@@ -120,7 +120,7 @@ func TestNewParallelExecutorFailed(t *testing.T) {
 	cancel()
 
 	count := 0
-	errorWorkflow := NewPipelineExecutor(func(ctx context.Context) error {
+	errorWorkflow := NewPipelineExecutor(func(_ context.Context) error {
 		count++
 		return fmt.Errorf("fake error")
 	})
@@ -138,11 +138,11 @@ func TestNewParallelExecutorCanceled(t *testing.T) {
 	errExpected := fmt.Errorf("fake error")
 
 	count := 0
-	successWorkflow := NewPipelineExecutor(func(ctx context.Context) error {
+	successWorkflow := NewPipelineExecutor(func(_ context.Context) error {
 		count++
 		return nil
 	})
-	errorWorkflow := NewPipelineExecutor(func(ctx context.Context) error {
+	errorWorkflow := NewPipelineExecutor(func(_ context.Context) error {
 		count++
 		return errExpected
 	})

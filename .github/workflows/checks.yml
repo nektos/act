@@ -24,9 +24,8 @@ jobs:
           check-latest: true
       - uses: golangci/golangci-lint-action@v6.1.1
         with:
-          version: v1.53
-          only-new-issues: true
-      - uses: megalinter/megalinter/flavors/go@v8.1.0
+          version: v1.62
+      - uses: megalinter/megalinter/flavors/go@v8.3.0
         env:
           DEFAULT_BRANCH: master
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -54,16 +53,16 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
+      - name: Install gotestfmt
+        run: go install github.com/gotesttools/gotestfmt/v2/cmd/gotestfmt@v2.5.0
       - name: Run Tests
-        uses: ./.github/actions/run-tests
-        with:
-          upload-logs-name: logs-linux
+        run: go test -json -v -cover -coverpkg=./... -coverprofile=coverage.txt -covermode=atomic -timeout 20m ./... | gotestfmt -hide successful-packages,empty-packages 2>&1
       - name: Run act from cli
         run: go run main.go -P ubuntu-latest=node:16-buster-slim -C ./pkg/runner/testdata/ -W ./basic/push.yml
       - name: Run act from cli without docker support
         run: go run -tags WITHOUT_DOCKER main.go -P ubuntu-latest=-self-hosted -C ./pkg/runner/testdata/ -W ./local-action-js/push.yml
       - name: Upload Codecov report
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           files: coverage.txt
           fail_ci_if_error: true # optional (default = false)
@@ -75,7 +74,7 @@ jobs:
         os:
           - windows-latest
           - macos-latest
-    name: test-${{matrix.os}}
+    name: test-host-${{matrix.os}}
     runs-on: ${{matrix.os}}
     steps:
       - uses: actions/checkout@v4
@@ -85,11 +84,12 @@ jobs:
         with:
           go-version-file: go.mod
           check-latest: true
+      - name: Install gotestfmt
+        run: go install github.com/gotesttools/gotestfmt/v2/cmd/gotestfmt@v2.5.0
       - name: Run Tests
-        uses: ./.github/actions/run-tests
-        with:
-          filter: '^TestRunEventHostEnvironment$'
-          upload-logs-name: logs-${{ matrix.os }}
+        run: go test -v -cover -coverpkg=./... -coverprofile=coverage.txt -covermode=atomic -timeout 20m -run ^TestRunEventHostEnvironment$ ./...
+        shell: bash
+
 
   snapshot:
     name: snapshot
