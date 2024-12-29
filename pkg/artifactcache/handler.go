@@ -227,7 +227,7 @@ func (h *Handler) reserve(w http.ResponseWriter, r *http.Request, _ httprouter.P
 
 // PATCH /_apis/artifactcache/caches/:id
 func (h *Handler) upload(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	id, err := strconv.ParseInt(params.ByName("id"), 10, 64)
+	id, err := strconv.ParseUint(params.ByName("id"), 10, 64)
 	if err != nil {
 		h.responseJSON(w, r, 400, err)
 		return
@@ -323,13 +323,13 @@ func (h *Handler) commit(w http.ResponseWriter, r *http.Request, params httprout
 
 // GET /_apis/artifactcache/artifacts/:id
 func (h *Handler) get(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	id, err := strconv.ParseInt(params.ByName("id"), 10, 64)
+	id, err := strconv.ParseUint(params.ByName("id"), 10, 64)
 	if err != nil {
 		h.responseJSON(w, r, 400, err)
 		return
 	}
 	h.useCache(id)
-	h.storage.Serve(w, r, uint64(id))
+	h.storage.Serve(w, r, id)
 }
 
 // POST /_apis/artifactcache/clean
@@ -394,7 +394,7 @@ func insertCache(db *bolthold.Store, cache *Cache) error {
 	return nil
 }
 
-func (h *Handler) useCache(id int64) {
+func (h *Handler) useCache(id uint64) {
 	db, err := h.openDB()
 	if err != nil {
 		return

@@ -120,7 +120,7 @@ func (rc *RunContext) NewStepExpressionEvaluatorExt(ctx context.Context, step st
 	return rc.newStepExpressionEvaluator(ctx, step, ghc, getEvaluatorInputs(ctx, rc, step, ghc))
 }
 
-func (rc *RunContext) newStepExpressionEvaluator(ctx context.Context, step step, ghc *model.GithubContext, inputs map[string]interface{}) ExpressionEvaluator {
+func (rc *RunContext) newStepExpressionEvaluator(ctx context.Context, step step, _ *model.GithubContext, inputs map[string]interface{}) ExpressionEvaluator {
 	// todo: cleanup EvaluationEnvironment creation
 	job := rc.Run.Job()
 	strategy := make(map[string]interface{})
@@ -413,7 +413,6 @@ func escapeFormatString(in string) string {
 	return strings.ReplaceAll(strings.ReplaceAll(in, "{", "{{"), "}", "}}")
 }
 
-//nolint:gocyclo
 func rewriteSubExpression(ctx context.Context, in string, forceFormat bool) (string, error) {
 	if !strings.Contains(in, "${{") || !strings.Contains(in, "}}") {
 		return in, nil
@@ -480,7 +479,6 @@ func rewriteSubExpression(ctx context.Context, in string, forceFormat bool) (str
 	return out, nil
 }
 
-//nolint:gocyclo
 func getEvaluatorInputs(ctx context.Context, rc *RunContext, step step, ghc *model.GithubContext) map[string]interface{} {
 	inputs := map[string]interface{}{}
 
@@ -499,7 +497,7 @@ func getEvaluatorInputs(ctx context.Context, rc *RunContext, step step, ghc *mod
 		}
 	}
 
-	if ghc.EventName == "workflow_dispatch" {
+	if rc.caller == nil && ghc.EventName == "workflow_dispatch" {
 		config := rc.Run.Workflow.WorkflowDispatchConfig()
 		if config != nil && config.Inputs != nil {
 			for k, v := range config.Inputs {
@@ -522,7 +520,9 @@ func getEvaluatorInputs(ctx context.Context, rc *RunContext, step step, ghc *mod
 			for k, v := range config.Inputs {
 				value := nestedMapLookup(ghc.Event, "inputs", k)
 				if value == nil {
-					v.Default.Decode(&value)
+					if err := v.Default.Decode(&value); err != nil {
+						common.Logger(ctx).Debugf("error decoding default value for %s: %v", k, err)
+					}
 				}
 				if v.Type == "boolean" {
 					inputs[k] = value == "true"

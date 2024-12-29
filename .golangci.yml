@@ -2,18 +2,21 @@
 run:
   timeout: 3m
 
-skip-dirs:
-  - report # megalinter results+fixes
+issues:
+  exclude-dirs:
+    - report # megalinter results+fixes
+  max-issues-per-linter: 0
+  max-same-issues: 0
 
 linters-settings:
   gocyclo:
     # minimal code complexity to report, 30 by default (but we recommend 10-20)
-    min-complexity: 15
+    min-complexity: 20
   gocritic:
     disabled-checks:
       - ifElseChain
   importas:
-    aliases:
+    alias:
       - pkg: 'github.com/sirupsen/logrus'
         alias: log
       - pkg: 'github.com/stretchr/testify/assert'
@@ -30,7 +33,9 @@ linters-settings:
             desc: Please keep logging unified using only github.com/sirupsen/logrus
 linters:
   enable:
-    - megacheck
+    - gosimple
+    - staticcheck
+    - unused
     - govet
     - revive
     - gocyclo
@@ -39,7 +44,7 @@ linters:
     - dupl
     - nakedret
     - prealloc
-    - exportloopref
+    - copyloopvar
     - gocritic
     - goimports
     - whitespace

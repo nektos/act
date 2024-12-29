@@ -108,8 +108,8 @@ func TestGitFindRef(t *testing.T) {
 		Assert  func(t *testing.T, ref string, err error)
 	}{
 		"new_repo": {
-			Prepare: func(t *testing.T, dir string) {},
-			Assert: func(t *testing.T, ref string, err error) {
+			Prepare: func(_ *testing.T, _ string) {},
+			Assert: func(t *testing.T, _ string, err error) {
 				require.Error(t, err)
 			},
 		},
@@ -165,8 +165,6 @@ func TestGitFindRef(t *testing.T) {
 			},
 		},
 	} {
-		tt := tt
-		name := name
 		t.Run(name, func(t *testing.T) {
 			dir := filepath.Join(basedir, name)
 			require.NoError(t, os.MkdirAll(dir, 0o755))
