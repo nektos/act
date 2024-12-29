@@ -127,8 +127,8 @@ func TestStepActionRemote(t *testing.T) {
 			clonedAction := false
 
 			origStepAtionRemoteNewCloneExecutor := stepActionRemoteNewCloneExecutor
-			stepActionRemoteNewCloneExecutor = func(input git.NewGitCloneExecutorInput) common.Executor {
-				return func(ctx context.Context) error {
+			stepActionRemoteNewCloneExecutor = func(_ git.NewGitCloneExecutorInput) common.Executor {
+				return func(_ context.Context) error {
 					clonedAction = true
 					return nil
 				}
@@ -169,21 +169,21 @@ func TestStepActionRemote(t *testing.T) {
 				sarm.On("readAction", sar.Step, suffixMatcher("act/remote-action@v1"), "", mock.Anything, mock.Anything).Return(&model.Action{}, nil)
 			}
 			if tt.mocks.run {
-				sarm.On("runAction", sar, suffixMatcher("act/remote-action@v1"), newRemoteAction(sar.Step.Uses)).Return(func(ctx context.Context) error { return tt.runError })
+				sarm.On("runAction", sar, suffixMatcher("act/remote-action@v1"), newRemoteAction(sar.Step.Uses)).Return(func(_ context.Context) error { return tt.runError })
 
-				cm.On("Copy", "/var/run/act", mock.AnythingOfType("[]*container.FileEntry")).Return(func(ctx context.Context) error {
+				cm.On("Copy", "/var/run/act", mock.AnythingOfType("[]*container.FileEntry")).Return(func(_ context.Context) error {
 					return nil
 				})
 
-				cm.On("UpdateFromEnv", "/var/run/act/workflow/envs.txt", mock.AnythingOfType("*map[string]string")).Return(func(ctx context.Context) error {
+				cm.On("UpdateFromEnv", "/var/run/act/workflow/envs.txt", mock.AnythingOfType("*map[string]string")).Return(func(_ context.Context) error {
 					return nil
 				})
 
-				cm.On("UpdateFromEnv", "/var/run/act/workflow/statecmd.txt", mock.AnythingOfType("*map[string]string")).Return(func(ctx context.Context) error {
+				cm.On("UpdateFromEnv", "/var/run/act/workflow/statecmd.txt", mock.AnythingOfType("*map[string]string")).Return(func(_ context.Context) error {
 					return nil
 				})
 
-				cm.On("UpdateFromEnv", "/var/run/act/workflow/outputcmd.txt", mock.AnythingOfType("*map[string]string")).Return(func(ctx context.Context) error {
+				cm.On("UpdateFromEnv", "/var/run/act/workflow/outputcmd.txt", mock.AnythingOfType("*map[string]string")).Return(func(_ context.Context) error {
 					return nil
 				})
 
@@ -226,8 +226,8 @@ func TestStepActionRemotePre(t *testing.T) {
 			sarm := &stepActionRemoteMocks{}
 
 			origStepAtionRemoteNewCloneExecutor := stepActionRemoteNewCloneExecutor
-			stepActionRemoteNewCloneExecutor = func(input git.NewGitCloneExecutorInput) common.Executor {
-				return func(ctx context.Context) error {
+			stepActionRemoteNewCloneExecutor = func(_ git.NewGitCloneExecutorInput) common.Executor {
+				return func(_ context.Context) error {
 					clonedAction = true
 					return nil
 				}
@@ -294,7 +294,7 @@ func TestStepActionRemotePreThroughAction(t *testing.T) {
 
 			origStepAtionRemoteNewCloneExecutor := stepActionRemoteNewCloneExecutor
 			stepActionRemoteNewCloneExecutor = func(input git.NewGitCloneExecutorInput) common.Executor {
-				return func(ctx context.Context) error {
+				return func(_ context.Context) error {
 					if input.URL == "https://github.com/org/repo" {
 						clonedAction = true
 					}
@@ -364,7 +364,7 @@ func TestStepActionRemotePreThroughActionToken(t *testing.T) {
 
 			origStepAtionRemoteNewCloneExecutor := stepActionRemoteNewCloneExecutor
 			stepActionRemoteNewCloneExecutor = func(input git.NewGitCloneExecutorInput) common.Executor {
-				return func(ctx context.Context) error {
+				return func(_ context.Context) error {
 					if input.URL == "https://github.com/org/repo" && input.Token == "PRIVATE_ACTIONS_TOKEN_ON_GITHUB" {
 						clonedAction = true
 					}
@@ -581,21 +581,21 @@ func TestStepActionRemotePost(t *testing.T) {
 			sar.RunContext.ExprEval = sar.RunContext.NewExpressionEvaluator(ctx)
 
 			if tt.mocks.exec {
-				cm.On("Exec", []string{"node", "/var/run/act/actions/remote-action@v1/post.js"}, sar.env, "", "").Return(func(ctx context.Context) error { return tt.err })
+				cm.On("Exec", []string{"node", "/var/run/act/actions/remote-action@v1/post.js"}, sar.env, "", "").Return(func(_ context.Context) error { return tt.err })
 
-				cm.On("Copy", "/var/run/act", mock.AnythingOfType("[]*container.FileEntry")).Return(func(ctx context.Context) error {
+				cm.On("Copy", "/var/run/act", mock.AnythingOfType("[]*container.FileEntry")).Return(func(_ context.Context) error {
 					return nil
 				})
 
-				cm.On("UpdateFromEnv", "/var/run/act/workflow/envs.txt", mock.AnythingOfType("*map[string]string")).Return(func(ctx context.Context) error {
+				cm.On("UpdateFromEnv", "/var/run/act/workflow/envs.txt", mock.AnythingOfType("*map[string]string")).Return(func(_ context.Context) error {
 					return nil
 				})
 
-				cm.On("UpdateFromEnv", "/var/run/act/workflow/statecmd.txt", mock.AnythingOfType("*map[string]string")).Return(func(ctx context.Context) error {
+				cm.On("UpdateFromEnv", "/var/run/act/workflow/statecmd.txt", mock.AnythingOfType("*map[string]string")).Return(func(_ context.Context) error {
 					return nil
 				})
 
-				cm.On("UpdateFromEnv", "/var/run/act/workflow/outputcmd.txt", mock.AnythingOfType("*map[string]string")).Return(func(ctx context.Context) error {
+				cm.On("UpdateFromEnv", "/var/run/act/workflow/outputcmd.txt", mock.AnythingOfType("*map[string]string")).Return(func(_ context.Context) error {
 					return nil
 				})
 

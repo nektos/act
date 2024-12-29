@@ -318,8 +318,6 @@ func runTestJobFile(ctx context.Context, t *testing.T, tjfi TestJobFileInfo) {
 }
 
 func TestMkdirFsImplSafeResolve(t *testing.T) {
-	assert := assert.New(t)
-
 	baseDir := "/foo/bar"
 
 	tests := map[string]struct {
@@ -337,6 +335,7 @@ func TestMkdirFsImplSafeResolve(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
+			assert := assert.New(t)
 			assert.Equal(tc.want, safeResolve(baseDir, tc.input))
 		})
 	}
