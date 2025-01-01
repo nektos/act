@@ -102,7 +102,7 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 		if strings.Contains(stepString, "::add-mask::") {
 			stepString = "add-mask command"
 		}
-		logger.Infof("\u2B50 Run %s %s", stage, stepString)
+		logger.Infof("\u2B50 Run %s: %s", stage, stepString)
 
 		// Prepare and clean Runner File Commands
 		actPath := rc.JobContainer.GetActPath()
@@ -144,7 +144,7 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 		err = executor(timeoutctx)
 
 		if err == nil {
-			logger.WithField("stepResult", stepResult.Outcome).Infof("  \u2705  Success - %s %s", stage, stepString)
+			logger.WithField("stepResult", stepResult.Outcome).Infof("  \u2705  Success - %s: %s", stage, stepString)
 		} else {
 			stepResult.Outcome = model.StepStatusFailure
 
@@ -162,7 +162,7 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 				stepResult.Conclusion = model.StepStatusFailure
 			}
 
-			logger.WithField("stepResult", stepResult.Outcome).Errorf("  \u274C  Failure - %s %s", stage, stepString)
+			logger.WithField("stepResult", stepResult.Outcome).Errorf("  \u274C  Failure - %s: %s", stage, stepString)
 		}
 		// Process Runner File Commands
 		orgerr := err
