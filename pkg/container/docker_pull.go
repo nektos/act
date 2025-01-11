@@ -70,6 +70,11 @@ func NewDockerPullExecutor(input NewDockerPullExecutorInput) common.Executor {
 			}
 			return err
 		}
+
+		// Log the error to the task output, otherwise it fails silently and makes everyone sad
+		// rawOutput is how to reach either gitea runner output, or the terminal output itself
+		common.Logger(ctx).WithField("raw_output", true).Errorf("Failed to pull docker image %s: %s", imageRef, err)
+
 		return nil
 	}
 }
