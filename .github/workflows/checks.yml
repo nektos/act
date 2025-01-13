@@ -90,7 +90,6 @@ jobs:
         run: go test -v -cover -coverpkg=./... -coverprofile=coverage.txt -covermode=atomic -timeout 20m -run ^TestRunEventHostEnvironment$ ./...
         shell: bash
 
-
   snapshot:
     name: snapshot
     runs-on: ubuntu-latest

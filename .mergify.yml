@@ -1,4 +1,3 @@
-
 pull_request_rules:
   - name: warn on conflicts
     conditions:
