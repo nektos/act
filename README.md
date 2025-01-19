@@ -10,7 +10,7 @@ Run your [GitHub Actions](https://developer.github.com/actions/) locally! Why wo
 - **Local Task Runner** - I love [make](<https://en.wikipedia.org/wiki/Make_(software)>). However, I also hate repeating myself. With `act`, you can use the GitHub Actions defined in your `.github/workflows/` to replace your `Makefile`!
 
 > [!TIP]
-> **Now Manage and Run Act Directly From VS Code!**   
+> **Now Manage and Run Act Directly From VS Code!**
 > Check out the [GitHub Local Actions](https://sanjulaganepola.github.io/github-local-actions-docs/) Visual Studio Code extension which allows you to leverage the power of `act` to run and test workflows locally without leaving your editor.
 
 # How Does It Work?
