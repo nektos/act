@@ -2,6 +2,7 @@ package common
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	log "github.com/sirupsen/logrus"
@@ -130,6 +131,31 @@ func NewParallelExecutor(parallel int, executors ...Executor) Executor {
 	}
 }
 
+func NewFieldExecutor(name string, value interface{}, exec Executor) Executor {
+	return func(ctx context.Context) error {
+		return exec(WithLogger(ctx, Logger(ctx).WithField(name, value)))
+	}
+}
+
+// Then runs another executor if this executor succeeds
+func (e Executor) ThenError(then func(ctx context.Context, err error) error) Executor {
+	return func(ctx context.Context) error {
+		err := e(ctx)
+		if err != nil {
+			switch err.(type) {
+			case Warning:
+				Logger(ctx).Warning(err.Error())
+			default:
+				return then(ctx, err)
+			}
+		}
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		return then(ctx, err)
+	}
+}
+
 // Then runs another executor if this executor succeeds
 func (e Executor) Then(then Executor) Executor {
 	return func(ctx context.Context) error {
@@ -146,6 +172,25 @@ func (e Executor) Then(then Executor) Executor {
 			return ctx.Err()
 		}
 		return then(ctx)
+	}
+}
+
+// Then runs another executor if this executor succeeds
+func (e Executor) OnError(then Executor) Executor {
+	return func(ctx context.Context) error {
+		err := e(ctx)
+		if err != nil {
+			switch err.(type) {
+			case Warning:
+				Logger(ctx).Warning(err.Error())
+			default:
+				return errors.Join(err, then(ctx))
+			}
+		}
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		return nil
 	}
 }
 
