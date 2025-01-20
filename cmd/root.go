@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -21,6 +22,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
+	"github.com/spf13/pflag"
 	"gopkg.in/yaml.v3"
 
 	"github.com/nektos/act/pkg/artifactcache"
@@ -30,6 +32,13 @@ import (
 	"github.com/nektos/act/pkg/model"
 	"github.com/nektos/act/pkg/runner"
 )
+
+type Flag struct {
+	Name        string `json:"name"`
+	Default     string `json:"default"`
+	Type        string `json:"type"`
+	Description string `json:"description"`
+}
 
 // Execute is the entry point to running the CLI
 func Execute(ctx context.Context, version string) {
@@ -44,6 +53,7 @@ func Execute(ctx context.Context, version string) {
 		Version:           version,
 		SilenceUsage:      true,
 	}
+
 	rootCmd.Flags().BoolP("watch", "w", false, "watch the contents of the local repo and run when files change")
 	rootCmd.Flags().BoolP("list", "l", false, "list workflows")
 	rootCmd.Flags().BoolP("graph", "g", false, "draw workflows")
@@ -104,6 +114,7 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.PersistentFlags().StringVarP(&input.networkName, "network", "", "host", "Sets a docker network name. Defaults to host.")
 	rootCmd.PersistentFlags().BoolVarP(&input.useNewActionCache, "use-new-action-cache", "", false, "Enable using the new Action Cache for storing Actions locally")
 	rootCmd.PersistentFlags().StringArrayVarP(&input.localRepository, "local-repository", "", []string{}, "Replaces the specified repository and ref with a local folder (e.g. https://github.com/test/test@v0=/home/act/test or test/test@v0=/home/act/test, the latter matches any hosts or protocols)")
+	rootCmd.PersistentFlags().BoolVar(&input.listOptions, "list-options", false, "Print a json structure of compatible options")
 	rootCmd.SetArgs(args())
 
 	if err := rootCmd.Execute(); err != nil {
@@ -242,6 +253,16 @@ func generateManPage(cmd *cobra.Command) error {
 	return nil
 }
 
+func listOptions(cmd *cobra.Command) error {
+	flags := []Flag{}
+	cmd.LocalFlags().VisitAll(func(f *pflag.Flag) {
+		flags = append(flags, Flag{Name: f.Name, Default: f.DefValue, Description: f.Usage, Type: f.Value.Type()})
+	})
+	a, err := json.Marshal(flags)
+	fmt.Println(string(a))
+	return err
+}
+
 func readArgsFile(file string, split bool) []string {
 	args := make([]string, 0)
 	f, err := os.Open(file)
@@ -358,6 +379,9 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 		}
 		if ok, _ := cmd.Flags().GetBool("man-page"); ok {
 			return generateManPage(cmd)
+		}
+		if input.listOptions {
+			return listOptions(cmd)
 		}
 
 		if ret, err := container.GetSocketAndHost(input.containerDaemonSocket); err != nil {
