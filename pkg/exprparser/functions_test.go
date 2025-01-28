@@ -34,6 +34,7 @@ func TestFunctionContains(t *testing.T) {
 		{`contains(fromJSON('[{ "first": { "result": "success" }},{ "second": { "result": "success" }}]').first.result, 'success') }}`, true, "multiple-contains-item"},
 		{`contains(fromJSON('[{ "result": "success" },{ "result": "failure" }]').*.result, 'failure') }}`, true, "multiple-contains-dereferenced-failure-item"},
 		{`contains(fromJSON('[{ "result": "failure" },{ "result": "success" }]').*.result, 'success') }}`, true, "multiple-contains-dereferenced-success-item"},
+		{`contains(fromJSON('[{ "result": "failure" },{ "result": "success" }]').*.result, 'notthere') }}`, false, "multiple-contains-dereferenced-missing-item"},
 	}
 
 	env := &EvaluationEnvironment{}
