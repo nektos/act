@@ -9,11 +9,11 @@ jobs:
     steps:
     - run: |
         mkdir build
-        echo '@echo off' > build/test.cmd
-        echo 'echo Hi' >> build/test.cmd
+        echo '@echo off' | Out-File -FilePath build/test.cmd -Encoding utf8
+        echo 'echo Hi' | Out-File -FilePath build/test.cmd -Encoding utf8 -Append
         mkdir build2
-        echo '@echo off' > build2/test2.cmd
-        echo 'echo test2' >> build2/test2.cmd
+        echo '@echo off' | Out-File -FilePath build/test2.cmd -Encoding utf8
+        echo 'echo test2' | Out-File -FilePath build/test2.cmd -Encoding utf8 -Append
     - run: |
         echo '${{ tojson(runner) }}'
         ls

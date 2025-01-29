@@ -25,7 +25,7 @@ func parseEnvFile(e Container, srcPath string, env *map[string]string) common.Ex
 			return err
 		}
 		s := bufio.NewScanner(reader)
-		firstLine := false
+		firstLine := true
 		for s.Scan() {
 			line := s.Text()
 			if firstLine {

@@ -26,8 +26,9 @@ jobs:
       shell: powershell
     - run: |
         echo $env:GITHUB_ENV
-        echo "KEY=test" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-        echo "Key=expected" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        echo "KEY=test" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8
+        # Defect missing append
+        echo "Key=expected" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8
       shell: powershell
     - name: Assert GITHUB_ENV is merged case insensitive
       run: exit 1

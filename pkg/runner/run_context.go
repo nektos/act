@@ -520,7 +520,7 @@ func (rc *RunContext) UpdateExtraPath(ctx context.Context, githubEnvPath string)
 		return err
 	}
 	s := bufio.NewScanner(reader)
-	firstLine := false
+	firstLine := true
 	for s.Scan() {
 		line := s.Text()
 		if firstLine {
