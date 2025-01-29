@@ -1,0 +1,34 @@
+on:
+  push:
+defaults:
+  run:
+    shell: powershell
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+    - run: |
+        mkdir build
+        echo '@echo off' > build/test.cmd
+        echo 'echo Hi' >> build/test.cmd
+        mkdir build2
+        echo '@echo off' > build2/test2.cmd
+        echo 'echo test2' >> build2/test2.cmd
+    - run: |
+        echo '${{ tojson(runner) }}'
+        ls
+        echo '${{ github.workspace }}'
+      working-directory: ${{ github.workspace }}\build
+    - run: |
+        echo $env:GITHUB_PATH
+        echo '${{ github.workspace }}\build' > $env:GITHUB_PATH
+        cat $env:GITHUB_PATH
+    - run: |
+        echo $env:PATH
+        test
+    - run: |
+        echo "PATH=$env:PATH;${{ github.workspace }}\build2" > $env:GITHUB_ENV
+    - run: |
+        echo $env:PATH
+        test
+        test2

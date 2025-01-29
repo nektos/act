@@ -1,0 +1,47 @@
+on:
+  push:
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+    - run: |
+        echo $env:GITHUB_ENV
+        echo "key=val" > $env:GITHUB_ENV
+        echo "key2<<EOF" >> $env:GITHUB_ENV
+        echo "line1" >> $env:GITHUB_ENV
+        echo "line2" >> $env:GITHUB_ENV
+        echo "EOF" >> $env:GITHUB_ENV
+        cat $env:GITHUB_ENV
+      shell: powershell
+    - run: |
+        ls env:
+        if($env:key -ne 'val') {
+          echo "Unexpected value for `$env:key: $env:key"
+          exit 1
+        }
+        if($env:key2 -ne "line1`nline2") {
+          echo "Unexpected value for `$env:key2: $env:key2"
+          exit 1
+        }
+      shell: powershell
+    - run: |
+        echo $env:GITHUB_ENV
+        echo "KEY=test" > $env:GITHUB_ENV
+        echo "Key=expected" > $env:GITHUB_ENV
+      shell: powershell
+    - name: Assert GITHUB_ENV is merged case insensitive
+      run: exit 1
+      if: env.KEY != 'expected' || env.Key != 'expected' || env.key != 'expected'
+      shell: powershell
+    - name: Assert step env is merged case insensitive
+      run: exit 1
+      if: env.KEY != 'n/a' || env.Key != 'n/a' || env.key != 'n/a'
+      env:
+        KeY: 'n/a'
+      shell: powershell
+    - uses: actions/checkout@v3
+    - uses: ./windows-add-env/action
+    - name: Assert composite env is merged case insensitive
+      run: exit 1
+      if: env.KEY != 'n/a' || env.Key != 'n/a' || env.key != 'n/a'
+      shell: powershell
