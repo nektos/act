@@ -3,5 +3,5 @@ runs:
   steps:
   - run: |
       echo $env:GITHUB_ENV
-      echo "kEy=n/a" > $env:GITHUB_ENV
+      echo "kEy=n/a" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
     shell: powershell

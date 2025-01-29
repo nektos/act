@@ -6,7 +6,7 @@ jobs:
     steps:
     - run: |
         echo $env:GITHUB_ENV
-        echo "key=val" > $env:GITHUB_ENV
+        echo "key=val" >> $env:GITHUB_ENV
         echo "key2<<EOF" >> $env:GITHUB_ENV
         echo "line1" >> $env:GITHUB_ENV
         echo "line2" >> $env:GITHUB_ENV
@@ -24,8 +24,8 @@ jobs:
         }
     - run: |
         echo $env:GITHUB_ENV
-        echo "KEY=test" > $env:GITHUB_ENV
-        echo "Key=expected" > $env:GITHUB_ENV
+        echo "KEY=test" >> $env:GITHUB_ENV
+        echo "Key=expected" >> $env:GITHUB_ENV
     - name: Assert GITHUB_ENV is merged case insensitive
       run: exit 1
       if: env.KEY != 'expected' || env.Key != 'expected' || env.key != 'expected'
