@@ -27,7 +27,7 @@ jobs:
     - run: |
         echo $env:GITHUB_ENV
         echo "KEY=test" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8
-        # Defect missing append
+        # Defect missing append, test is broken!!!
         echo "Key=expected" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8
       shell: powershell
     - name: Assert GITHUB_ENV is merged case insensitive

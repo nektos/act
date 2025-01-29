@@ -26,6 +26,7 @@ jobs:
         echo $env:GITHUB_ENV
         # Defect missing append
         echo "KEY=test" > $env:GITHUB_ENV
+        # Defect missing append, test is broken!!!
         echo "Key=expected" > $env:GITHUB_ENV
     - name: Assert GITHUB_ENV is merged case insensitive
       run: exit 1
