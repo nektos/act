@@ -232,9 +232,8 @@ func (impl *interperterImpl) evaluateObjectDeref(objectDerefNode *actionlint.Obj
 	_, receiverIsDeref := objectDerefNode.Receiver.(*actionlint.ArrayDerefNode)
 	if receiverIsDeref {
 		return impl.getPropertyValueDereferenced(reflect.ValueOf(left), objectDerefNode.Property)
-	} else {
-		return impl.getPropertyValue(reflect.ValueOf(left), objectDerefNode.Property)
 	}
+	return impl.getPropertyValue(reflect.ValueOf(left), objectDerefNode.Property)
 }
 
 func (impl *interperterImpl) evaluateArrayDeref(arrayDerefNode *actionlint.ArrayDerefNode) (interface{}, error) {
