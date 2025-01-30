@@ -255,16 +255,16 @@ func TestFunctionFormat(t *testing.T) {
 }
 
 func TestMapContains(t *testing.T) {
-	env := &EvaluationEnvironment{}
-
-	env.Needs = map[string]Needs{
-		"first-job": {
-			Outputs: map[string]string{},
-			Result:  "success",
-		},
-		"second-job": {
-			Outputs: map[string]string{},
-			Result:  "failure",
+	env := &EvaluationEnvironment{
+		Needs: map[string]Needs{
+			"first-job": {
+				Outputs: map[string]string{},
+				Result:  "success",
+			},
+			"second-job": {
+				Outputs: map[string]string{},
+				Result:  "failure",
+			},
 		},
 	}
 
