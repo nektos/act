@@ -35,6 +35,9 @@ func TestFunctionContains(t *testing.T) {
 		{`contains(fromJSON('[{ "result": "success" },{ "result": "failure" }]').*.result, 'failure') }}`, true, "multiple-contains-dereferenced-failure-item"},
 		{`contains(fromJSON('[{ "result": "failure" },{ "result": "success" }]').*.result, 'success') }}`, true, "multiple-contains-dereferenced-success-item"},
 		{`contains(fromJSON('[{ "result": "failure" },{ "result": "success" }]').*.result, 'notthere') }}`, false, "multiple-contains-dereferenced-missing-item"},
+		{`contains(fromJSON('[{ "result": "failure", "outputs": { "key": "val1" } },{ "result": "success", "outputs": { "key": "val2" } }]').*.outputs.key, 'val1') }}`, true, "multiple-contains-dereferenced-output-item"},
+		{`contains(fromJSON('[{ "result": "failure", "outputs": { "key": "val1" } },{ "result": "success", "outputs": { "key": "val2" } }]').*.outputs.key, 'val2') }}`, true, "multiple-contains-dereferenced-output-item-2"},
+		{`contains(fromJSON('[{ "result": "failure", "outputs": { "key": "val1" } },{ "result": "success", "outputs": { "key": "val2" } }]').*.outputs.key, 'missing') }}`, false, "multiple-contains-dereferenced-output-misssing-item"},
 	}
 
 	env := &EvaluationEnvironment{}
