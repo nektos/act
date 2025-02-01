@@ -25,8 +25,16 @@ func parseEnvFile(e Container, srcPath string, env *map[string]string) common.Ex
 			return err
 		}
 		s := bufio.NewScanner(reader)
+		firstLine := true
 		for s.Scan() {
 			line := s.Text()
+			if firstLine {
+				firstLine = false
+				// skip utf8 bom, powershell 5 legacy uses it for utf8
+				if len(line) >= 3 && line[0] == 239 && line[1] == 187 && line[2] == 191 {
+					line = line[3:]
+				}
+			}
 			singleLineEnv := strings.Index(line, "=")
 			multiLineEnv := strings.Index(line, "<<")
 			if singleLineEnv != -1 && (multiLineEnv == -1 || singleLineEnv < multiLineEnv) {
