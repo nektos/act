@@ -20,6 +20,10 @@ type Notice struct {
 }
 
 func displayNotices(input *Input) {
+	// Avoid causing trouble parsing the json
+	if input.listOptions {
+		return
+	}
 	select {
 	case notices := <-noticesLoaded:
 		if len(notices) > 0 {
