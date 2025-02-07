@@ -326,6 +326,47 @@ jobs:
 	assert.Equal(t, "${{ steps.test1_1.outputs.b-key }}", workflow.Jobs["test1"].Outputs["some-b-key"])
 }
 
+func TestReadWorkflow_MatrixCoverage(t *testing.T) {
+	w, err := NewWorkflowPlanner("testdata/strategy/matrix/coverage_test.yml", true)
+	assert.NoError(t, err)
+
+	p, err := w.PlanJob("test-coverage")
+	assert.NoError(t, err)
+
+	assert.Equal(t, len(p.Stages), 1)
+	assert.Equal(t, len(p.Stages[0].Runs), 1)
+
+	wf := p.Stages[0].Runs[0].Workflow
+
+	job := wf.Jobs["test-coverage"]
+	matrixes, err := job.GetMatrixes()
+	assert.NoError(t, err)
+	assert.Equal(t, matrixes,
+		[]map[string]interface{}{
+			{"animal": "cat", "color": "green", "fruit": "apple", "shape": "circle"},
+			{"animal": "dog", "color": "green", "fruit": "apple", "shape": "circle"},
+			{"animal": "cat", "color": "green", "fruit": "pear"},
+			{"animal": "dog", "color": "green", "fruit": "pear"},
+			{"fruit": "banana"},
+			{"fruit": "banana", "animal": "cat"},
+		},
+	)
+
+	job = wf.Jobs["test-no-coverage"]
+	matrixes, err = job.GetMatrixes()
+	assert.NoError(t, err)
+	assert.Equal(t, matrixes,
+		[]map[string]interface{}{
+			{"animal": "cat", "color": "pink", "fruit": "apple", "shape": "circle"},
+			{"animal": "dog", "color": "green", "fruit": "apple", "shape": "circle"},
+			{"animal": "cat", "color": "pink", "fruit": "pear"},
+			{"animal": "dog", "color": "green", "fruit": "pear"},
+			{"fruit": "banana"},
+			{"fruit": "banana", "animal": "cat"},
+		},
+	)
+}
+
 func TestReadWorkflow_Strategy(t *testing.T) {
 	w, err := NewWorkflowPlanner("testdata/strategy/push.yml", true)
 	assert.NoError(t, err)

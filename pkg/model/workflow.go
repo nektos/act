@@ -488,8 +488,8 @@ func commonKeysMatch2(a map[string]interface{}, b map[string]interface{}, m map[
 }
 
 func commonCheckAllOriginKey(a map[string][]interface{}, b map[string]interface{}) bool {
-	for aKey := range a {
-		if _, ok := b[aKey]; !ok {
+	for bKey := range b {
+		if _, ok := a[bKey]; !ok {
 			return false
 		}
 	}
