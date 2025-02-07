@@ -434,10 +434,6 @@ func TestReadWorkflow_Strategy(t *testing.T) {
 	assert.Equal(t, job.Strategy.FailFast, false)
 }
 
-func TestReadWorkflow_Matrix(t *testing.T) {
-
-}
-
 func TestStep_ShellCommand(t *testing.T) {
 	tests := []struct {
 		shell         string
