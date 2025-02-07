@@ -424,7 +424,7 @@ func (j *Job) GetMatrixes() ([]map[string]interface{}, error) {
 				case []interface{}:
 					for _, i := range t {
 						i := i.(map[string]interface{})
-						if commonCheckAllOriginKey(m, i) {
+						if commonAllOriginKeyMatch(m, i) {
 							log.Debugf("Adding include '%v'", i)
 							matrixes = append(matrixes, i)
 						} else {
@@ -440,7 +440,7 @@ func (j *Job) GetMatrixes() ([]map[string]interface{}, error) {
 					}
 				case interface{}:
 					i := t.(map[string]interface{})
-					if commonCheckAllOriginKey(m, i) {
+					if commonAllOriginKeyMatch(m, i) {
 						log.Debugf("Adding include '%v'", i)
 						matrixes = append(matrixes, i)
 					} else {
@@ -487,7 +487,7 @@ func commonKeysMatch2(a map[string]interface{}, b map[string]interface{}, m map[
 	return true
 }
 
-func commonCheckAllOriginKey(a map[string][]interface{}, b map[string]interface{}) bool {
+func commonAllOriginKeyMatch(a map[string][]interface{}, b map[string]interface{}) bool {
 	for bKey := range b {
 		if _, ok := a[bKey]; !ok {
 			return false
