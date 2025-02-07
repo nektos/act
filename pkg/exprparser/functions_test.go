@@ -31,6 +31,13 @@ func TestFunctionContains(t *testing.T) {
 		{`contains(fromJSON('[3.14,"second"]'), 3.14) }}`, true, "contains-item-number-number"},
 		{`contains(fromJSON('["","second"]'), fromJSON('[]')) }}`, false, "contains-item-str-arr"},
 		{`contains(fromJSON('["","second"]'), fromJSON('{}')) }}`, false, "contains-item-str-obj"},
+		{`contains(fromJSON('[{ "first": { "result": "success" }},{ "second": { "result": "success" }}]').first.result, 'success') }}`, true, "multiple-contains-item"},
+		{`contains(fromJSON('[{ "result": "success" },{ "result": "failure" }]').*.result, 'failure') }}`, true, "multiple-contains-dereferenced-failure-item"},
+		{`contains(fromJSON('[{ "result": "failure" },{ "result": "success" }]').*.result, 'success') }}`, true, "multiple-contains-dereferenced-success-item"},
+		{`contains(fromJSON('[{ "result": "failure" },{ "result": "success" }]').*.result, 'notthere') }}`, false, "multiple-contains-dereferenced-missing-item"},
+		{`contains(fromJSON('[{ "result": "failure", "outputs": { "key": "val1" } },{ "result": "success", "outputs": { "key": "val2" } }]').*.outputs.key, 'val1') }}`, true, "multiple-contains-dereferenced-output-item"},
+		{`contains(fromJSON('[{ "result": "failure", "outputs": { "key": "val1" } },{ "result": "success", "outputs": { "key": "val2" } }]').*.outputs.key, 'val2') }}`, true, "multiple-contains-dereferenced-output-item-2"},
+		{`contains(fromJSON('[{ "result": "failure", "outputs": { "key": "val1" } },{ "result": "success", "outputs": { "key": "val2" } }]').*.outputs.key, 'missing') }}`, false, "multiple-contains-dereferenced-output-misssing-item"},
 	}
 
 	env := &EvaluationEnvironment{}
@@ -248,4 +255,24 @@ func TestFunctionFormat(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestMapContains(t *testing.T) {
+	env := &EvaluationEnvironment{
+		Needs: map[string]Needs{
+			"first-job": {
+				Outputs: map[string]string{},
+				Result:  "success",
+			},
+			"second-job": {
+				Outputs: map[string]string{},
+				Result:  "failure",
+			},
+		},
+	}
+
+	output, err := NewInterpeter(env, Config{}).Evaluate("contains(needs.*.result, 'failure')", DefaultStatusCheckNone)
+	assert.Nil(t, err)
+
+	assert.Equal(t, true, output)
 }
