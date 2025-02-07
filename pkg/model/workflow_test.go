@@ -367,10 +367,9 @@ func TestReadWorkflow_Strategy(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, matrixes,
 		[]map[string]interface{}{
-			{"datacenter": "site-c", "node-version": "14.x", "site": "staging"},
-			{"datacenter": "site-c", "node-version": "16.x", "site": "staging"},
-			{"datacenter": "site-d", "node-version": "16.x", "site": "staging"},
-			{"php-version": 5.4},
+			{"datacenter": "site-c", "node-version": "14.x", "site": "staging", "php-version": 5.4},
+			{"datacenter": "site-c", "node-version": "16.x", "site": "staging", "php-version": 5.4},
+			{"datacenter": "site-d", "node-version": "16.x", "site": "staging", "php-version": 5.4},
 			{"datacenter": "site-a", "node-version": "10.x", "site": "prod"},
 			{"datacenter": "site-b", "node-version": "12.x", "site": "dev"},
 		},
@@ -392,6 +391,10 @@ func TestReadWorkflow_Strategy(t *testing.T) {
 	)
 	assert.Equal(t, job.Strategy.MaxParallel, 2)
 	assert.Equal(t, job.Strategy.FailFast, false)
+}
+
+func TestReadWorkflow_Matrix(t *testing.T) {
+
 }
 
 func TestStep_ShellCommand(t *testing.T) {
