@@ -29,6 +29,7 @@ import (
 	"github.com/nektos/act/pkg/artifacts"
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/container"
+	"github.com/nektos/act/pkg/gh"
 	"github.com/nektos/act/pkg/model"
 	"github.com/nektos/act/pkg/runner"
 )
@@ -412,6 +413,15 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 		log.Debugf("Loading secrets from %s", input.Secretfile())
 		secrets := newSecrets(input.secrets)
 		_ = readEnvs(input.Secretfile(), secrets)
+		hasGitHubToken := false
+		for k := range secrets {
+			if strings.EqualFold(k, "GITHUB_TOKEN") {
+				hasGitHubToken = true
+			}
+		}
+		if !hasGitHubToken {
+			secrets["GITHUB_TOKEN"], _ = gh.GetToken(ctx, "")
+		}
 
 		log.Debugf("Loading vars from %s", input.Varfile())
 		vars := newSecrets(input.vars)
