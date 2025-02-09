@@ -7,8 +7,6 @@ pull_request_rules:
       - -merged
       - conflict
     actions:
-      comment:
-        message: '@{{author}} this pull request is now in conflict 😩'
       label:
         add:
           - conflict
@@ -31,8 +29,6 @@ pull_request_rules:
           - check-failure=codecov/project
           - check-failure=snapshot
     actions:
-      comment:
-        message: '@{{author}} this pull request has failed checks 🛠'
       label:
         add:
           - needs-work
