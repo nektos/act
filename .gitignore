@@ -25,6 +25,7 @@ pkg/runner/act/
 dist/local/act
 
 coverage.txt
+unit-tests.xml
 
 .env
 .secrets
