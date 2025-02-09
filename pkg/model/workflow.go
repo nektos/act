@@ -412,6 +412,9 @@ func (j *Job) GetMatrixes() ([]map[string]interface{}, error) {
 				}
 				matrixes = append(matrixes, matrix)
 			}
+			if len(matrixes) == 0 {
+				matrixes = append(matrixes, make(map[string]interface{}))
+			}
 			// FIX: https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/running-variations-of-jobs-in-a-workflow#expanding-or-adding-matrix-configurations
 			//
 			// For each object in the include list, the key:value pairs in the object will be added to each of the matrix combinations
