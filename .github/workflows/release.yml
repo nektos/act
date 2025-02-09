@@ -4,6 +4,10 @@ on:
     tags:
       - v*
 
+permissions:
+  contents: write
+  actions: write
+
 jobs:
   release:
     name: release
