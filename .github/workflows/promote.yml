@@ -8,6 +8,7 @@ jobs:
   release:
     name: promote
     runs-on: ubuntu-latest
+    environment: promote
     steps:
       - uses: actions/checkout@v4
         with:
