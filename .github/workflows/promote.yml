@@ -13,7 +13,7 @@ jobs:
         with:
           fetch-depth: 0
           ref: master
-          token: ${{ secrets.RELEASE_TOKEN }}
+          token: ${{ secrets.PROMOTE_TOKEN }}
       - uses: fregante/setup-git-user@v2
       - uses: actions/setup-go@v5
         with:
