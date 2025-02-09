@@ -4,6 +4,10 @@ on:
     - cron: '0 2 1 * *'
   workflow_dispatch: {}
 
+permissions:
+  contents: write
+  actions: write
+
 jobs:
   release:
     name: promote
@@ -13,7 +17,6 @@ jobs:
         with:
           fetch-depth: 0
           ref: master
-          token: ${{ secrets.GORELEASER_GITHUB_TOKEN }}
       - uses: fregante/setup-git-user@v2
       - uses: actions/setup-go@v5
         with:
