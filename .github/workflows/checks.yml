@@ -21,7 +21,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - uses: golangci/golangci-lint-action@v6.2.0
+      - uses: golangci/golangci-lint-action@v6.3.1
         with:
           version: v1.62
       - uses: megalinter/megalinter/flavors/go@v8.3.0
