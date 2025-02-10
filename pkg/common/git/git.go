@@ -16,6 +16,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/storer"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
+	"github.com/go-git/go-git/v5/storage/memory"
 	"github.com/mattn/go-isatty"
 	log "github.com/sirupsen/logrus"
 
@@ -30,8 +31,9 @@ var (
 
 	cloneLock sync.Mutex
 
-	ErrShortRef = errors.New("short SHA references are not supported")
-	ErrNoRepo   = errors.New("unable to find git repo")
+	ErrShortRef    = errors.New("short SHA references are not supported")
+	ErrNoRepo      = errors.New("unable to find git repo")
+	ErrNoRefInRepo = errors.New("unable to find ref in git repo")
 )
 
 type Error struct {
@@ -414,4 +416,25 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) common.Executor {
 		logger.Debugf("Checked out %s", input.Ref)
 		return nil
 	}
+}
+
+func GetShaForRefInRemote(ref string, remoteURL string) (string, error) {
+	if plumbing.IsHash(ref) {
+		return ref, nil
+	}
+
+	remote := git.NewRemote(memory.NewStorage(), &config.RemoteConfig{Name: "", URLs: []string{remoteURL}})
+	references, err := remote.List(&git.ListOptions{})
+
+	if err != nil {
+		return "", err
+	}
+
+	for _, reference := range references {
+		if reference.Name().Short() == ref {
+			return reference.Hash().String(), err
+		}
+	}
+
+	return "", ErrNoRefInRepo
 }

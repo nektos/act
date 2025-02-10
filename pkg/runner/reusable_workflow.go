@@ -31,7 +31,13 @@ func newRemoteReusableWorkflowExecutor(rc *RunContext) common.Executor {
 	// uses with safe filename makes the target directory look something like this {owner}-{repo}-.github-workflows-{filename}@{ref}
 	// instead we will just use {owner}-{repo}@{ref} as our target directory. This should also improve performance when we are using
 	// multiple reusable workflows from the same repository and ref since for each workflow we won't have to clone it again
-	filename := fmt.Sprintf("%s/%s@%s", remoteReusableWorkflow.Org, remoteReusableWorkflow.Repo, remoteReusableWorkflow.Ref)
+	sha, err := git.GetShaForRefInRemote(remoteReusableWorkflow.Ref, fmt.Sprintf("%s.git", remoteReusableWorkflow.CloneURL()))
+
+	if err != nil {
+		return common.NewErrorExecutor(fmt.Errorf("%s", err))
+	}
+
+	filename := fmt.Sprintf("%s/%s@%s", remoteReusableWorkflow.Org, remoteReusableWorkflow.Repo, sha)
 	workflowDir := fmt.Sprintf("%s/%s", rc.ActionCacheDir(), safeFilename(filename))
 
 	if rc.Config.ActionCache != nil {
