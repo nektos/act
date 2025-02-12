@@ -41,9 +41,19 @@ type Flag struct {
 	Description string `json:"description"`
 }
 
+var exitFunc = os.Exit
+
 // Execute is the entry point to running the CLI
 func Execute(ctx context.Context, version string) {
 	input := new(Input)
+	rootCmd := createRootCommand(ctx, input, version)
+
+	if err := rootCmd.Execute(); err != nil {
+		exitFunc(1)
+	}
+}
+
+func createRootCommand(ctx context.Context, input *Input, version string) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:               "act [event name to run] [flags]\n\nIf no event name passed, will default to \"on: push\"\nIf actions handles only one event it will be used as default instead of \"on: push\"",
 		Short:             "Run GitHub actions locally by specifying the event name (e.g. `push`) or an action name directly.",
@@ -117,10 +127,7 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.PersistentFlags().StringArrayVarP(&input.localRepository, "local-repository", "", []string{}, "Replaces the specified repository and ref with a local folder (e.g. https://github.com/test/test@v0=/home/act/test or test/test@v0=/home/act/test, the latter matches any hosts or protocols)")
 	rootCmd.PersistentFlags().BoolVar(&input.listOptions, "list-options", false, "Print a json structure of compatible options")
 	rootCmd.SetArgs(args())
-
-	if err := rootCmd.Execute(); err != nil {
-		os.Exit(1)
-	}
+	return rootCmd
 }
 
 // Return locations where Act's config can be found in order: XDG spec, .actrc in HOME directory, .actrc in invocation directory
