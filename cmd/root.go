@@ -331,6 +331,10 @@ func readYamlFile(file string) (map[string]string, error) {
 }
 
 func readEnvs(path string, envs map[string]string) bool {
+	return readEnvsEx(path, envs, false)
+}
+
+func readEnvsEx(path string, envs map[string]string, caseInsensitive bool) bool {
 	if _, err := os.Stat(path); err == nil {
 		var env map[string]string
 		if ext := filepath.Ext(path); ext == ".yml" || ext == ".yaml" {
@@ -342,6 +346,9 @@ func readEnvs(path string, envs map[string]string) bool {
 			log.Fatalf("Error loading from %s: %v", path, err)
 		}
 		for k, v := range env {
+			if caseInsensitive {
+				k = strings.ToUpper(k)
+			}
 			if _, ok := envs[k]; !ok {
 				envs[k] = v
 			}
@@ -412,14 +419,9 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 
 		log.Debugf("Loading secrets from %s", input.Secretfile())
 		secrets := newSecrets(input.secrets)
-		_ = readEnvs(input.Secretfile(), secrets)
-		hasGitHubToken := false
-		for k := range secrets {
-			if strings.EqualFold(k, "GITHUB_TOKEN") {
-				hasGitHubToken = true
-			}
-		}
-		if !hasGitHubToken {
+		_ = readEnvsEx(input.Secretfile(), secrets, true)
+
+		if _, hasGitHubToken := secrets["GITHUB_TOKEN"]; !hasGitHubToken {
 			secrets["GITHUB_TOKEN"], _ = gh.GetToken(ctx, "")
 		}
 
