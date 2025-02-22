@@ -1,0 +1,33 @@
+name: lint
+on: [pull_request, workflow_dispatch]
+
+concurrency:
+  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.ref }}
+
+env:
+  ACT_OWNER: ${{ github.repository_owner }}
+  ACT_REPOSITORY: ${{ github.repository }}
+  CGO_ENABLED: 0
+
+jobs:
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: golangci/golangci-lint-action@v6.5.0
+        with:
+          version: v1.62
+      - uses: megalinter/megalinter/flavors/go@v8.4.2
+        env:
+          DEFAULT_BRANCH: master
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VALIDATE_ALL_CODEBASE: false
+          GITHUB_STATUS_REPORTER: ${{ !env.ACT }}
+          GITHUB_COMMENT_REPORTER: ${{ !env.ACT }}
