@@ -195,6 +195,29 @@ func TestDockerCopyTarStream(t *testing.T) {
 	client.AssertExpectations(t)
 }
 
+func TestDockerCopyTarStreamDryRun(t *testing.T) {
+	ctx := common.WithDryrun(context.Background(), true)
+	
+	conn := &mockConn{}
+
+	client := &mockDockerClient{}
+	client.On("CopyToContainer", ctx, "123", "/", mock.Anything, mock.AnythingOfType("container.CopyToContainerOptions")).Return(nil)
+	client.On("CopyToContainer", ctx, "123", "/var/run/act", mock.Anything, mock.AnythingOfType("container.CopyToContainerOptions")).Return(nil)
+	cr := &containerReference{
+		id:  "123",
+		cli: client,
+		input: &NewContainerInput{
+			Image: "image",
+		},
+	}
+
+	_ = cr.CopyTarStream(ctx, "/var/run/act", &bytes.Buffer{})
+
+	conn.AssertExpectations(t)
+	client.AssertExpectations(t)
+}
+
+
 func TestDockerCopyTarStreamErrorInCopyFiles(t *testing.T) {
 	ctx := context.Background()
 
