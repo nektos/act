@@ -13,7 +13,7 @@ jobs:
     needs:
     - prepare
     strategy:
-      matrix: 
+      matrix:
         ${{needs.prepare.outputs.helix}}: |-
           ${{fromJson(needs.prepare.outputs.matrix)}}
     runs-on: ubuntu-latest
