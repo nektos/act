@@ -103,7 +103,7 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 			defer cancel()
 
 			logger := common.Logger(ctx)
-			logger.Infof("Cleaning up container for job %s", rc.JobName)
+			logger.Infof("\U0001f9f9 Cleaning up container for job %s", rc.JobName)
 			if err = info.stopContainer()(ctx); err != nil {
 				logger.Errorf("Error while stop job container: %v", err)
 			}
@@ -129,9 +129,9 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 
 	return common.NewPipelineExecutor(
 		common.NewFieldExecutor("step", "Set up job", common.NewFieldExecutor("stepid", []string{"--setup-job"},
-			common.NewPipelineExecutor(common.NewInfoExecutor("\u2B50 Run Set up job"), info.startContainer(), rc.InitializeNodeTool()).
-				Then(common.NewFieldExecutor("stepResult", model.StepStatusSuccess, common.NewInfoExecutor("  \u2705  Success - Set up job"))).
-				OnError(common.NewFieldExecutor("stepResult", model.StepStatusFailure, common.NewInfoExecutor("  \u274C  Failure - Set up job")).ThenError(setJobError)))),
+			common.NewPipelineExecutor(common.NewInfoExecutor("\U00002B50 Run Set up job"), info.startContainer(), rc.InitializeNodeTool()).
+				Then(common.NewFieldExecutor("stepResult", model.StepStatusSuccess, common.NewInfoExecutor("\U00002705 Success - Set up job"))).
+				OnError(common.NewFieldExecutor("stepResult", model.StepStatusFailure, common.NewInfoExecutor("\U0000274C Failure - Set up job")).ThenError(setJobError)))),
 		common.NewPipelineExecutor(pipeline...).
 			Finally(func(ctx context.Context) error { //nolint:contextcheck
 				var cancel context.CancelFunc
@@ -144,11 +144,11 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 				return postExecutor(ctx)
 			}).
 			Finally(common.NewFieldExecutor("step", "Complete job", common.NewFieldExecutor("stepid", []string{"--complete-job"},
-				common.NewInfoExecutor("\u2B50 Run Complete job").
+				common.NewInfoExecutor("\U00002B50 Run Complete job").
 					Finally(stopContainerExecutor).
 					Finally(
-						info.interpolateOutputs().Finally(info.closeContainer()).Then(common.NewFieldExecutor("stepResult", model.StepStatusSuccess, common.NewInfoExecutor("  \u2705  Success - Complete job"))).
-							OnError(common.NewFieldExecutor("stepResult", model.StepStatusFailure, common.NewInfoExecutor("  \u274C  Failure - Complete job"))),
+						info.interpolateOutputs().Finally(info.closeContainer()).Then(common.NewFieldExecutor("stepResult", model.StepStatusSuccess, common.NewInfoExecutor("\U00002705 Success - Complete job"))).
+							OnError(common.NewFieldExecutor("stepResult", model.StepStatusFailure, common.NewInfoExecutor("\U0000274C Failure - Complete job"))),
 					)))).Finally(setJobResultExecutor))
 }
 
@@ -177,7 +177,7 @@ func setJobResult(ctx context.Context, info jobInfo, rc *RunContext, success boo
 		jobResultMessage = "failed"
 	}
 
-	logger.WithField("jobResult", jobResult).Infof("\U0001F3C1  Job %s", jobResultMessage)
+	logger.WithField("jobResult", jobResult).Infof("\U0001F3C1 Job %s", jobResultMessage)
 }
 
 func setJobOutputs(ctx context.Context, rc *RunContext) {
