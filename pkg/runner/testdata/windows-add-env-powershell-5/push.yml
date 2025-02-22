@@ -6,12 +6,13 @@ jobs:
     steps:
     - run: |
         echo $env:GITHUB_ENV
-        echo "key=val" >> $env:GITHUB_ENV
-        echo "key2<<EOF" >> $env:GITHUB_ENV
-        echo "line1" >> $env:GITHUB_ENV
-        echo "line2" >> $env:GITHUB_ENV
-        echo "EOF" >> $env:GITHUB_ENV
+        echo "key=val" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        echo "key2<<EOF" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        echo "line1" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        echo "line2" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        echo "EOF" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         cat $env:GITHUB_ENV
+      shell: powershell
     - run: |
         ls env:
         if($env:key -ne 'val') {
@@ -22,22 +23,26 @@ jobs:
           echo "Unexpected value for `$env:key2: $env:key2"
           exit 1
         }
+      shell: powershell
     - run: |
         echo $env:GITHUB_ENV
-        # Defect missing append
-        echo "KEY=test" > $env:GITHUB_ENV
+        echo "KEY=test" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8
         # Defect missing append, test is broken!!!
-        echo "Key=expected" > $env:GITHUB_ENV
+        echo "Key=expected" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8
+      shell: powershell
     - name: Assert GITHUB_ENV is merged case insensitive
       run: exit 1
       if: env.KEY != 'expected' || env.Key != 'expected' || env.key != 'expected'
+      shell: powershell
     - name: Assert step env is merged case insensitive
       run: exit 1
       if: env.KEY != 'n/a' || env.Key != 'n/a' || env.key != 'n/a'
       env:
         KeY: 'n/a'
+      shell: powershell
     - uses: actions/checkout@v3
-    - uses: ./windows-add-env/action
+    - uses: ./windows-add-env-powershell-5/action
     - name: Assert composite env is merged case insensitive
       run: exit 1
       if: env.KEY != 'n/a' || env.Key != 'n/a' || env.key != 'n/a'
+      shell: powershell
