@@ -14,6 +14,7 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
+	"github.com/nektos/act/pkg/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -197,7 +198,7 @@ func TestDockerCopyTarStream(t *testing.T) {
 
 func TestDockerCopyTarStreamDryRun(t *testing.T) {
 	ctx := common.WithDryrun(context.Background(), true)
-	
+
 	conn := &mockConn{}
 
 	client := &mockDockerClient{}
@@ -216,7 +217,6 @@ func TestDockerCopyTarStreamDryRun(t *testing.T) {
 	conn.AssertExpectations(t)
 	client.AssertExpectations(t)
 }
-
 
 func TestDockerCopyTarStreamErrorInCopyFiles(t *testing.T) {
 	ctx := context.Background()
