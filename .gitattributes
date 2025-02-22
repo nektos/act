@@ -1,0 +1,11 @@
+# Auto detect text files and perform normalization
+*			text=auto eol=lf
+
+*.sh		text eol=lf
+*.ps1		text eol=crlf
+
+*.go		text diff=golang eol=lf
+
+# Ignore generated files
+pkg/runner/testdata/actions/node*/node_modules/**	-text
+pkg/runner/testdata/actions/node*/dist/**			-text
