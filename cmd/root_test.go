@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"os"
 	"path"
 	"testing"
 
@@ -81,4 +82,22 @@ func TestFlags(t *testing.T) {
 			assert.NoError(t, err)
 		})
 	}
+}
+
+func TestReadArgsFile(t *testing.T) {
+	assert.Equal(
+		t,
+		[]string{"--container-architecture=linux/amd64", "--action-offline-mode"},
+		readArgsFile(path.Join("testdata", "simple.actrc"), true),
+	)
+	assert.Equal(
+		t,
+		[]string{"--artifact-server-path", os.Getenv("PWD") + "/.artifacts"},
+		readArgsFile(path.Join("testdata", "env.actrc"), true),
+	)
+	assert.Equal(
+		t,
+		[]string{"--container-options", "--volume /foo:/bar --volume /baz:/qux --volume /tmp:/tmp"},
+		readArgsFile(path.Join("testdata", "opts.actrc"), true),
+	)
 }
