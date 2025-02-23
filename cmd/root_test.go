@@ -100,8 +100,12 @@ func TestReadArgsFile(t *testing.T) {
 			split: true,
 			env: map[string]string{
 				"FAKEPWD": "/fake/test/pwd",
+				"FOO":     "foo",
 			},
-			args: []string{"--artifact-server-path", "/fake/test/pwd/.artifacts"},
+			args: []string{
+				"--artifact-server-path", "/fake/test/pwd/.artifacts",
+				"--env", "FOO=prefix/foo/suffix",
+			},
 		},
 		{
 			path:  path.Join("testdata", "split.actrc"),
