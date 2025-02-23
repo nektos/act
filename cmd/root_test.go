@@ -101,7 +101,7 @@ func TestReadArgsFile(t *testing.T) {
 			[]string{"--artifact-server-path", os.Getenv("PWD") + "/.artifacts"},
 		},
 		{
-			path.Join("testdata", "opts.actrc"),
+			path.Join("testdata", "split.actrc"),
 			true,
 			[]string{"--container-options", "--volume /foo:/bar --volume /baz:/qux --volume /tmp:/tmp"},
 		},
