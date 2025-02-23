@@ -85,19 +85,31 @@ func TestFlags(t *testing.T) {
 }
 
 func TestReadArgsFile(t *testing.T) {
-	assert.Equal(
-		t,
-		[]string{"--container-architecture=linux/amd64", "--action-offline-mode"},
-		readArgsFile(path.Join("testdata", "simple.actrc"), true),
-	)
-	assert.Equal(
-		t,
-		[]string{"--artifact-server-path", os.Getenv("PWD") + "/.artifacts"},
-		readArgsFile(path.Join("testdata", "env.actrc"), true),
-	)
-	assert.Equal(
-		t,
-		[]string{"--container-options", "--volume /foo:/bar --volume /baz:/qux --volume /tmp:/tmp"},
-		readArgsFile(path.Join("testdata", "opts.actrc"), true),
-	)
+	tables := []struct {
+		path  string
+		split bool
+		args  []string
+	}{
+		{
+			path.Join("testdata", "simple.actrc"),
+			true,
+			[]string{"--container-architecture=linux/amd64", "--action-offline-mode"},
+		},
+		{
+			path.Join("testdata", "env.actrc"),
+			true,
+			[]string{"--artifact-server-path", os.Getenv("PWD") + "/.artifacts"},
+		},
+		{
+			path.Join("testdata", "opts.actrc"),
+			true,
+			[]string{"--container-options", "--volume /foo:/bar --volume /baz:/qux --volume /tmp:/tmp"},
+		},
+	}
+	for _, table := range tables {
+		t.Run(table.path, func(t *testing.T) {
+			args := readArgsFile(table.path, table.split)
+			assert.Equal(t, table.args, args)
+		})
+	}
 }
