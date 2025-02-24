@@ -171,7 +171,7 @@ func TestAddmaskUsemask(t *testing.T) {
 		handler("::set-output:: token=secret\n")
 	})
 
-	a.Equal("[testjob]\U00002699  ***\n[testjob]\U00002699  ::set-output:: = token=***\n", re)
+	a.Equal("[testjob] \U00002699  ***\n[testjob] \U00002699  ::set-output:: = token=***\n", re)
 }
 
 func TestSaveState(t *testing.T) {
