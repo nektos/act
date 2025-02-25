@@ -77,6 +77,7 @@ func (c GoGitActionCache) Fetch(ctx context.Context, cacheDir, url, ref, token s
 		},
 		Auth:  auth,
 		Force: true,
+		Depth: 1,
 	}); err != nil {
 		return "", fmt.Errorf("GoGitActionCache failed to fetch %s with ref %s at %s: %w", url, ref, gitPath, err)
 	}
