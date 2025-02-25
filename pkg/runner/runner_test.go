@@ -271,6 +271,7 @@ func TestRunEvent(t *testing.T) {
 		{workdir, "job-container-invalid-credentials", "push", "failed to handle credentials: failed to interpolate container.credentials.password", platforms, secrets},
 		{workdir, "container-hostname", "push", "", platforms, secrets},
 		{workdir, "remote-action-docker", "push", "", platforms, secrets},
+		{workdir, "remote-action-docker-new-cache", "push", "", platforms, secrets},
 		{workdir, "remote-action-js", "push", "", platforms, secrets},
 		{workdir, "remote-action-js-node-user", "push", "", platforms, secrets}, // Test if this works with non root container
 		{workdir, "matrix", "push", "", platforms, secrets},
@@ -429,6 +430,8 @@ func TestRunEventHostEnvironment(t *testing.T) {
 		tables = append(tables, []TestJobFileInfo{
 			{workdir, "windows-prepend-path", "push", "", platforms, secrets},
 			{workdir, "windows-add-env", "push", "", platforms, secrets},
+			{workdir, "windows-prepend-path-powershell-5", "push", "", platforms, secrets},
+			{workdir, "windows-add-env-powershell-5", "push", "", platforms, secrets},
 			{workdir, "windows-shell-cmd", "push", "", platforms, secrets},
 		}...)
 	} else {

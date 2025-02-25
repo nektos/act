@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -21,19 +22,38 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
+	"github.com/spf13/pflag"
 	"gopkg.in/yaml.v3"
 
 	"github.com/nektos/act/pkg/artifactcache"
 	"github.com/nektos/act/pkg/artifacts"
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/container"
+	"github.com/nektos/act/pkg/gh"
 	"github.com/nektos/act/pkg/model"
 	"github.com/nektos/act/pkg/runner"
 )
 
+type Flag struct {
+	Name        string `json:"name"`
+	Default     string `json:"default"`
+	Type        string `json:"type"`
+	Description string `json:"description"`
+}
+
+var exitFunc = os.Exit
+
 // Execute is the entry point to running the CLI
 func Execute(ctx context.Context, version string) {
 	input := new(Input)
+	rootCmd := createRootCommand(ctx, input, version)
+
+	if err := rootCmd.Execute(); err != nil {
+		exitFunc(1)
+	}
+}
+
+func createRootCommand(ctx context.Context, input *Input, version string) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:               "act [event name to run] [flags]\n\nIf no event name passed, will default to \"on: push\"\nIf actions handles only one event it will be used as default instead of \"on: push\"",
 		Short:             "Run GitHub actions locally by specifying the event name (e.g. `push`) or an action name directly.",
@@ -44,6 +64,7 @@ func Execute(ctx context.Context, version string) {
 		Version:           version,
 		SilenceUsage:      true,
 	}
+
 	rootCmd.Flags().BoolP("watch", "w", false, "watch the contents of the local repo and run when files change")
 	rootCmd.Flags().BoolP("list", "l", false, "list workflows")
 	rootCmd.Flags().BoolP("graph", "g", false, "draw workflows")
@@ -100,15 +121,13 @@ func Execute(ctx context.Context, version string) {
 	rootCmd.PersistentFlags().StringVarP(&input.cacheServerAddr, "cache-server-addr", "", common.GetOutboundIP().String(), "Defines the address to which the cache server binds.")
 	rootCmd.PersistentFlags().Uint16VarP(&input.cacheServerPort, "cache-server-port", "", 0, "Defines the port where the artifact server listens. 0 means a randomly available port.")
 	rootCmd.PersistentFlags().StringVarP(&input.actionCachePath, "action-cache-path", "", filepath.Join(CacheHomeDir, "act"), "Defines the path where the actions get cached and host workspaces created.")
-	rootCmd.PersistentFlags().BoolVarP(&input.actionOfflineMode, "action-offline-mode", "", false, "If action contents exists, it will not be fetch and pull again. If turn on this,will turn off force pull")
+	rootCmd.PersistentFlags().BoolVarP(&input.actionOfflineMode, "action-offline-mode", "", false, "If action contents exists, it will not be fetch and pull again. If turn on this, will turn off force pull")
 	rootCmd.PersistentFlags().StringVarP(&input.networkName, "network", "", "host", "Sets a docker network name. Defaults to host.")
 	rootCmd.PersistentFlags().BoolVarP(&input.useNewActionCache, "use-new-action-cache", "", false, "Enable using the new Action Cache for storing Actions locally")
 	rootCmd.PersistentFlags().StringArrayVarP(&input.localRepository, "local-repository", "", []string{}, "Replaces the specified repository and ref with a local folder (e.g. https://github.com/test/test@v0=/home/act/test or test/test@v0=/home/act/test, the latter matches any hosts or protocols)")
+	rootCmd.PersistentFlags().BoolVar(&input.listOptions, "list-options", false, "Print a json structure of compatible options")
 	rootCmd.SetArgs(args())
-
-	if err := rootCmd.Execute(); err != nil {
-		os.Exit(1)
-	}
+	return rootCmd
 }
 
 // Return locations where Act's config can be found in order: XDG spec, .actrc in HOME directory, .actrc in invocation directory
@@ -242,6 +261,16 @@ func generateManPage(cmd *cobra.Command) error {
 	return nil
 }
 
+func listOptions(cmd *cobra.Command) error {
+	flags := []Flag{}
+	cmd.LocalFlags().VisitAll(func(f *pflag.Flag) {
+		flags = append(flags, Flag{Name: f.Name, Default: f.DefValue, Description: f.Usage, Type: f.Value.Type()})
+	})
+	a, err := json.Marshal(flags)
+	fmt.Println(string(a))
+	return err
+}
+
 func readArgsFile(file string, split bool) []string {
 	args := make([]string, 0)
 	f, err := os.Open(file)
@@ -309,6 +338,10 @@ func readYamlFile(file string) (map[string]string, error) {
 }
 
 func readEnvs(path string, envs map[string]string) bool {
+	return readEnvsEx(path, envs, false)
+}
+
+func readEnvsEx(path string, envs map[string]string, caseInsensitive bool) bool {
 	if _, err := os.Stat(path); err == nil {
 		var env map[string]string
 		if ext := filepath.Ext(path); ext == ".yml" || ext == ".yaml" {
@@ -320,6 +353,9 @@ func readEnvs(path string, envs map[string]string) bool {
 			log.Fatalf("Error loading from %s: %v", path, err)
 		}
 		for k, v := range env {
+			if caseInsensitive {
+				k = strings.ToUpper(k)
+			}
 			if _, ok := envs[k]; !ok {
 				envs[k] = v
 			}
@@ -359,6 +395,9 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 		if ok, _ := cmd.Flags().GetBool("man-page"); ok {
 			return generateManPage(cmd)
 		}
+		if input.listOptions {
+			return listOptions(cmd)
+		}
 
 		if ret, err := container.GetSocketAndHost(input.containerDaemonSocket); err != nil {
 			log.Warnf("Couldn't get a valid docker connection: %+v", err)
@@ -387,7 +426,11 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 
 		log.Debugf("Loading secrets from %s", input.Secretfile())
 		secrets := newSecrets(input.secrets)
-		_ = readEnvs(input.Secretfile(), secrets)
+		_ = readEnvsEx(input.Secretfile(), secrets, true)
+
+		if _, hasGitHubToken := secrets["GITHUB_TOKEN"]; !hasGitHubToken {
+			secrets["GITHUB_TOKEN"], _ = gh.GetToken(ctx, "")
+		}
 
 		log.Debugf("Loading vars from %s", input.Varfile())
 		vars := newSecrets(input.vars)
