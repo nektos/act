@@ -271,6 +271,7 @@ func TestRunEvent(t *testing.T) {
 		{workdir, "job-container-invalid-credentials", "push", "failed to handle credentials: failed to interpolate container.credentials.password", platforms, secrets},
 		{workdir, "container-hostname", "push", "", platforms, secrets},
 		{workdir, "remote-action-docker", "push", "", platforms, secrets},
+		{workdir, "remote-action-docker-new-cache", "push", "", platforms, secrets},
 		{workdir, "remote-action-js", "push", "", platforms, secrets},
 		{workdir, "remote-action-js-node-user", "push", "", platforms, secrets}, // Test if this works with non root container
 		{workdir, "matrix", "push", "", platforms, secrets},
