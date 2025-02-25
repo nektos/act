@@ -17,11 +17,11 @@ func TestSetRef(t *testing.T) {
 	defer func() { findGitRef = oldFindGitRef }()
 	defer func() { findGitRevision = oldFindGitRevision }()
 
-	findGitRef = func(ctx context.Context, file string) (string, error) {
+	findGitRef = func(_ context.Context, _ string) (string, error) {
 		return "refs/heads/master", nil
 	}
 
-	findGitRevision = func(ctx context.Context, file string) (string, string, error) {
+	findGitRevision = func(_ context.Context, _ string) (string, string, error) {
 		return "", "1234fakesha", nil
 	}
 
@@ -108,7 +108,7 @@ func TestSetRef(t *testing.T) {
 	}
 
 	t.Run("no-default-branch", func(t *testing.T) {
-		findGitRef = func(ctx context.Context, file string) (string, error) {
+		findGitRef = func(_ context.Context, _ string) (string, error) {
 			return "", fmt.Errorf("no default branch")
 		}
 
@@ -131,11 +131,11 @@ func TestSetSha(t *testing.T) {
 	defer func() { findGitRef = oldFindGitRef }()
 	defer func() { findGitRevision = oldFindGitRevision }()
 
-	findGitRef = func(ctx context.Context, file string) (string, error) {
+	findGitRef = func(_ context.Context, _ string) (string, error) {
 		return "refs/heads/master", nil
 	}
 
-	findGitRevision = func(ctx context.Context, file string) (string, string, error) {
+	findGitRevision = func(_ context.Context, _ string) (string, string, error) {
 		return "", "1234fakesha", nil
 	}
 

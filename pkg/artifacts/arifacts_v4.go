@@ -84,6 +84,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"hash/fnv"
 	"io"
 	"io/fs"
 	"net/http"
@@ -119,6 +120,12 @@ type ArtifactContext struct {
 	Resp http.ResponseWriter
 }
 
+func artifactNameToID(s string) int64 {
+	h := fnv.New32a()
+	h.Write([]byte(s))
+	return int64(h.Sum32())
+}
+
 func (c ArtifactContext) Error(status int, _ ...interface{}) {
 	c.Resp.WriteHeader(status)
 }
@@ -144,46 +151,46 @@ func RoutesV4(router *httprouter.Router, baseDir string, fsys WriteFS, rfs fs.FS
 		baseDir: baseDir,
 		prefix:  ArtifactV4RouteBase,
 	}
-	router.POST(path.Join(ArtifactV4RouteBase, "CreateArtifact"), func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	router.POST(path.Join(ArtifactV4RouteBase, "CreateArtifact"), func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		route.AppURL = r.Host
 		route.createArtifact(&ArtifactContext{
 			Req:  r,
 			Resp: w,
 		})
 	})
-	router.POST(path.Join(ArtifactV4RouteBase, "FinalizeArtifact"), func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	router.POST(path.Join(ArtifactV4RouteBase, "FinalizeArtifact"), func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		route.finalizeArtifact(&ArtifactContext{
 			Req:  r,
 			Resp: w,
 		})
 	})
-	router.POST(path.Join(ArtifactV4RouteBase, "ListArtifacts"), func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	router.POST(path.Join(ArtifactV4RouteBase, "ListArtifacts"), func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		route.listArtifacts(&ArtifactContext{
 			Req:  r,
 			Resp: w,
 		})
 	})
-	router.POST(path.Join(ArtifactV4RouteBase, "GetSignedArtifactURL"), func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	router.POST(path.Join(ArtifactV4RouteBase, "GetSignedArtifactURL"), func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		route.AppURL = r.Host
 		route.getSignedArtifactURL(&ArtifactContext{
 			Req:  r,
 			Resp: w,
 		})
 	})
-	router.POST(path.Join(ArtifactV4RouteBase, "DeleteArtifact"), func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	router.POST(path.Join(ArtifactV4RouteBase, "DeleteArtifact"), func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		route.AppURL = r.Host
 		route.deleteArtifact(&ArtifactContext{
 			Req:  r,
 			Resp: w,
 		})
 	})
-	router.PUT(path.Join(ArtifactV4RouteBase, "UploadArtifact"), func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	router.PUT(path.Join(ArtifactV4RouteBase, "UploadArtifact"), func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		route.uploadArtifact(&ArtifactContext{
 			Req:  r,
 			Resp: w,
 		})
 	})
-	router.GET(path.Join(ArtifactV4RouteBase, "DownloadArtifact"), func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	router.GET(path.Join(ArtifactV4RouteBase, "DownloadArtifact"), func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		route.downloadArtifact(&ArtifactContext{
 			Req:  r,
 			Resp: w,
@@ -342,7 +349,7 @@ func (r *artifactV4Routes) finalizeArtifact(ctx *ArtifactContext) {
 
 	respData := FinalizeArtifactResponse{
 		Ok:         true,
-		ArtifactId: 1,
+		ArtifactId: artifactNameToID(req.Name),
 	}
 	r.sendProtbufBody(ctx, &respData)
 }
@@ -368,11 +375,12 @@ func (r *artifactV4Routes) listArtifacts(ctx *ArtifactContext) {
 	list := []*ListArtifactsResponse_MonolithArtifact{}
 
 	for _, entry := range entries {
-		if req.NameFilter == nil || req.NameFilter.Value == entry.Name() {
+		id := artifactNameToID(entry.Name())
+		if (req.NameFilter == nil || req.NameFilter.Value == entry.Name()) && (req.IdFilter == nil || req.IdFilter.Value == id) {
 			data := &ListArtifactsResponse_MonolithArtifact{
 				Name:                    entry.Name(),
 				CreatedAt:               timestamppb.Now(),
-				DatabaseId:              1,
+				DatabaseId:              id,
 				WorkflowRunBackendId:    req.WorkflowRunBackendId,
 				WorkflowJobRunBackendId: req.WorkflowJobRunBackendId,
 				Size:                    0,
@@ -442,7 +450,7 @@ func (r *artifactV4Routes) deleteArtifact(ctx *ArtifactContext) {
 
 	respData := DeleteArtifactResponse{
 		Ok:         true,
-		ArtifactId: 1,
+		ArtifactId: artifactNameToID(req.Name),
 	}
 	r.sendProtbufBody(ctx, &respData)
 }

@@ -8,22 +8,15 @@ jobs:
   release:
     name: promote
     runs-on: ubuntu-latest
+    environment: promote
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           ref: master
-          token: ${{ secrets.GORELEASER_GITHUB_TOKEN }}
+          token: ${{ secrets.PROMOTE_TOKEN }}
       - uses: fregante/setup-git-user@v2
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          check-latest: true
-      - uses: actions/cache@v4
-        if: ${{ !env.ACT }}
-        with:
-          path: ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
       - run: make promote

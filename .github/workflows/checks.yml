@@ -21,12 +21,10 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          check-latest: true
-      - uses: golangci/golangci-lint-action@v6.1.1
+      - uses: golangci/golangci-lint-action@v6.5.0
         with:
-          version: v1.53
-          only-new-issues: true
-      - uses: megalinter/megalinter/flavors/go@v8.1.0
+          version: v1.62
+      - uses: megalinter/megalinter/flavors/go@v8.4.2
         env:
           DEFAULT_BRANCH: master
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -46,24 +44,19 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          check-latest: true
-      - uses: actions/cache@v4
-        if: ${{ !env.ACT }}
-        with:
-          path: ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
       - name: Run Tests
-        uses: ./.github/actions/run-tests
+        run: go run gotest.tools/gotestsum@latest --junitfile unit-tests.xml --format pkgname -- -v -cover -coverpkg=./... -coverprofile=coverage.txt -covermode=atomic -timeout 20m ./...
+      - name: Test Summary
+        uses: test-summary/action@v2
         with:
-          upload-logs-name: logs-linux
+          paths: "unit-tests.xml"
+        if: always()
       - name: Run act from cli
         run: go run main.go -P ubuntu-latest=node:16-buster-slim -C ./pkg/runner/testdata/ -W ./basic/push.yml
       - name: Run act from cli without docker support
         run: go run -tags WITHOUT_DOCKER main.go -P ubuntu-latest=-self-hosted -C ./pkg/runner/testdata/ -W ./local-action-js/push.yml
       - name: Upload Codecov report
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           files: coverage.txt
           fail_ci_if_error: true # optional (default = false)
@@ -75,7 +68,7 @@ jobs:
         os:
           - windows-latest
           - macos-latest
-    name: test-${{matrix.os}}
+    name: test-host-${{matrix.os}}
     runs-on: ${{matrix.os}}
     steps:
       - uses: actions/checkout@v4
@@ -84,12 +77,15 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          check-latest: true
       - name: Run Tests
-        uses: ./.github/actions/run-tests
+        run: go run gotest.tools/gotestsum@latest --junitfile unit-tests.xml --format pkgname -- -v -cover -coverpkg=./... -coverprofile=coverage.txt -covermode=atomic -timeout 20m -run ^TestRunEventHostEnvironment$ ./...
+        shell: bash
+      - name: Test Summary
+        uses: test-summary/action@v2
         with:
-          filter: '^TestRunEventHostEnvironment$'
-          upload-logs-name: logs-${{ matrix.os }}
+          paths: "unit-tests.xml"
+        if: always()
+
 
   snapshot:
     name: snapshot
@@ -99,16 +95,8 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          check-latest: true
-      - uses: actions/cache@v4
-        if: ${{ !env.ACT }}
-        with:
-          path: ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
       - name: GoReleaser
-        uses: goreleaser/goreleaser-action@v5
+        uses: goreleaser/goreleaser-action@v6
         with:
           version: latest
           args: release --snapshot --clean

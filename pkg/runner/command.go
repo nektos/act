@@ -54,11 +54,11 @@ func (rc *RunContext) commandHandler(ctx context.Context) common.LineHandler {
 		case "add-path":
 			rc.addPath(ctx, arg)
 		case "debug":
-			logger.Infof("  \U0001F4AC  %s", line)
+			logger.Debugf("  \U0001F4AC  %s", line)
 		case "warning":
-			logger.Infof("  \U0001F6A7  %s", line)
+			logger.Warnf("  \U0001F6A7  %s", line)
 		case "error":
-			logger.Infof("  \U00002757  %s", line)
+			logger.Errorf("  \U00002757  %s", line)
 		case "add-mask":
 			rc.AddMask(arg)
 			logger.Infof("  \U00002699  %s", "***")

@@ -1,3 +1,4 @@
+
 pull_request_rules:
   - name: warn on conflicts
     conditions:
@@ -6,8 +7,6 @@ pull_request_rules:
       - -merged
       - conflict
     actions:
-      comment:
-        message: '@{{author}} this pull request is now in conflict 😩'
       label:
         add:
           - conflict
@@ -30,8 +29,6 @@ pull_request_rules:
           - check-failure=codecov/project
           - check-failure=snapshot
     actions:
-      comment:
-        message: '@{{author}} this pull request has failed checks 🛠'
       label:
         add:
           - needs-work
@@ -46,24 +43,13 @@ pull_request_rules:
       label:
         remove:
           - needs-work
-  - name: Automatic maintainer assignment
-    conditions:
-      - '-approved-reviews-by=@nektos/act-maintainers'
-      - -draft
-      - -merged
-      - -closed
-      - -conflict
-      - check-success=lint
-      - check-success=test-linux
-      - check-success=codecov/patch
-      - check-success=codecov/project
-      - check-success=snapshot
-    actions:
-      request_reviews:
-        teams:
-          - '@nektos/act-maintainers'
   - name: Automatic merge on approval
-    conditions:
+    conditions: []
+    actions:
+      queue:
+queue_rules:
+  - name: default
+    queue_conditions:
       - '#changes-requested-reviews-by=0'
       - or:
           - 'approved-reviews-by=@nektos/act-committers'
@@ -83,15 +69,10 @@ pull_request_rules:
       - check-success=codecov/patch
       - check-success=codecov/project
       - check-success=snapshot
-    actions:
-      queue:
-        method: squash
-        name: default
-queue_rules:
-  - name: default
-    conditions:
+    merge_conditions:
       - check-success=lint
       - check-success=test-linux
       - check-success=codecov/patch
       - check-success=codecov/project
       - check-success=snapshot
+    merge_method: squash

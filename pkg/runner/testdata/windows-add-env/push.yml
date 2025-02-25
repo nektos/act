@@ -6,7 +6,7 @@ jobs:
     steps:
     - run: |
         echo $env:GITHUB_ENV
-        echo "key=val" > $env:GITHUB_ENV
+        echo "key=val" >> $env:GITHUB_ENV
         echo "key2<<EOF" >> $env:GITHUB_ENV
         echo "line1" >> $env:GITHUB_ENV
         echo "line2" >> $env:GITHUB_ENV
@@ -24,7 +24,9 @@ jobs:
         }
     - run: |
         echo $env:GITHUB_ENV
+        # Defect missing append
         echo "KEY=test" > $env:GITHUB_ENV
+        # Defect missing append, test is broken!!!
         echo "Key=expected" > $env:GITHUB_ENV
     - name: Assert GITHUB_ENV is merged case insensitive
       run: exit 1
@@ -35,7 +37,7 @@ jobs:
       env:
         KeY: 'n/a'
     - uses: actions/checkout@v3
-    - uses: ./windows-add-env
+    - uses: ./windows-add-env/action
     - name: Assert composite env is merged case insensitive
       run: exit 1
       if: env.KEY != 'n/a' || env.Key != 'n/a' || env.key != 'n/a'

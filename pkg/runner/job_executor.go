@@ -19,7 +19,7 @@ type jobInfo interface {
 	result(result string)
 }
 
-//nolint:contextcheck,gocyclo
+//nolint:contextcheck
 func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executor {
 	steps := make([]common.Executor, 0)
 	preSteps := make([]common.Executor, 0)
@@ -54,9 +54,8 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 	})
 
 	for i, stepModel := range infoSteps {
-		stepModel := stepModel
 		if stepModel == nil {
-			return func(ctx context.Context) error {
+			return func(_ context.Context) error {
 				return fmt.Errorf("invalid Step %v: missing run or uses key", i)
 			}
 		}
@@ -95,7 +94,7 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 		}
 	}
 
-	postExecutor = postExecutor.Finally(func(ctx context.Context) error {
+	var stopContainerExecutor common.Executor = func(ctx context.Context) error {
 		jobError := common.JobError(ctx)
 		var err error
 		if rc.Config.AutoRemove || jobError == nil {
@@ -109,30 +108,48 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 				logger.Errorf("Error while stop job container: %v", err)
 			}
 		}
+		return err
+	}
+
+	var setJobResultExecutor common.Executor = func(ctx context.Context) error {
+		jobError := common.JobError(ctx)
 		setJobResult(ctx, info, rc, jobError == nil)
 		setJobOutputs(ctx, rc)
+		return nil
+	}
 
-		return err
-	})
+	var setJobError = func(ctx context.Context, err error) error {
+		common.SetJobError(ctx, err)
+		return nil
+	}
 
 	pipeline := make([]common.Executor, 0)
-	pipeline = append(pipeline, rc.InitializeNodeTool())
 	pipeline = append(pipeline, preSteps...)
 	pipeline = append(pipeline, steps...)
 
-	return common.NewPipelineExecutor(info.startContainer(), common.NewPipelineExecutor(pipeline...).
-		Finally(func(ctx context.Context) error { //nolint:contextcheck
-			var cancel context.CancelFunc
-			if ctx.Err() == context.Canceled {
-				// in case of an aborted run, we still should execute the
-				// post steps to allow cleanup.
-				ctx, cancel = context.WithTimeout(common.WithLogger(context.Background(), common.Logger(ctx)), 5*time.Minute)
-				defer cancel()
-			}
-			return postExecutor(ctx)
-		}).
-		Finally(info.interpolateOutputs()).
-		Finally(info.closeContainer()))
+	return common.NewPipelineExecutor(
+		common.NewFieldExecutor("step", "Set up job", common.NewFieldExecutor("stepid", []string{"--setup-job"},
+			common.NewPipelineExecutor(common.NewInfoExecutor("\u2B50 Run Set up job"), info.startContainer(), rc.InitializeNodeTool()).
+				Then(common.NewFieldExecutor("stepResult", model.StepStatusSuccess, common.NewInfoExecutor("  \u2705  Success - Set up job"))).
+				OnError(common.NewFieldExecutor("stepResult", model.StepStatusFailure, common.NewInfoExecutor("  \u274C  Failure - Set up job")).ThenError(setJobError)))),
+		common.NewPipelineExecutor(pipeline...).
+			Finally(func(ctx context.Context) error { //nolint:contextcheck
+				var cancel context.CancelFunc
+				if ctx.Err() == context.Canceled {
+					// in case of an aborted run, we still should execute the
+					// post steps to allow cleanup.
+					ctx, cancel = context.WithTimeout(common.WithLogger(context.Background(), common.Logger(ctx)), 5*time.Minute)
+					defer cancel()
+				}
+				return postExecutor(ctx)
+			}).
+			Finally(common.NewFieldExecutor("step", "Complete job", common.NewFieldExecutor("stepid", []string{"--complete-job"},
+				common.NewInfoExecutor("\u2B50 Run Complete job").
+					Finally(stopContainerExecutor).
+					Finally(
+						info.interpolateOutputs().Finally(info.closeContainer()).Then(common.NewFieldExecutor("stepResult", model.StepStatusSuccess, common.NewInfoExecutor("  \u2705  Success - Complete job"))).
+							OnError(common.NewFieldExecutor("stepResult", model.StepStatusFailure, common.NewInfoExecutor("  \u274C  Failure - Complete job"))),
+					)))).Finally(setJobResultExecutor))
 }
 
 func setJobResult(ctx context.Context, info jobInfo, rc *RunContext, success bool) {
