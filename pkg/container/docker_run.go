@@ -506,7 +506,7 @@ func (cr *containerReference) extractFromImageEnv(env *map[string]string) common
 	return func(ctx context.Context) error {
 		logger := common.Logger(ctx)
 
-		inspect, _, err := cr.cli.ImageInspectWithRaw(ctx, cr.input.Image)
+		inspect, err := cr.cli.ImageInspect(ctx, cr.input.Image)
 		if err != nil {
 			logger.Error(err)
 			return fmt.Errorf("inspect image: %w", err)
@@ -591,7 +591,7 @@ func (cr *containerReference) exec(cmd []string, env map[string]string, user, wo
 		}
 		defer resp.Close()
 
-		err = cr.waitForCommand(ctx, isTerminal, resp, idResp, user, workdir)
+		err = cr.waitForCommand(ctx, isTerminal, resp)
 		if err != nil {
 			return err
 		}
@@ -653,7 +653,7 @@ func (cr *containerReference) tryReadGID() common.Executor {
 	return cr.tryReadID("-g", func(id int) { cr.GID = id })
 }
 
-func (cr *containerReference) waitForCommand(ctx context.Context, isTerminal bool, resp types.HijackedResponse, _ types.IDResponse, _ string, _ string) error {
+func (cr *containerReference) waitForCommand(ctx context.Context, isTerminal bool, resp types.HijackedResponse) error {
 	logger := common.Logger(ctx)
 
 	cmdResponse := make(chan error)
