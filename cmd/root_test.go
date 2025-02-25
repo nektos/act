@@ -82,3 +82,44 @@ func TestFlags(t *testing.T) {
 		})
 	}
 }
+
+func TestReadArgsFile(t *testing.T) {
+	tables := []struct {
+		path  string
+		split bool
+		args  []string
+		env   map[string]string
+	}{
+		{
+			path:  path.Join("testdata", "simple.actrc"),
+			split: true,
+			args:  []string{"--container-architecture=linux/amd64", "--action-offline-mode"},
+		},
+		{
+			path:  path.Join("testdata", "env.actrc"),
+			split: true,
+			env: map[string]string{
+				"FAKEPWD": "/fake/test/pwd",
+				"FOO":     "foo",
+			},
+			args: []string{
+				"--artifact-server-path", "/fake/test/pwd/.artifacts",
+				"--env", "FOO=prefix/foo/suffix",
+			},
+		},
+		{
+			path:  path.Join("testdata", "split.actrc"),
+			split: true,
+			args:  []string{"--container-options", "--volume /foo:/bar --volume /baz:/qux --volume /tmp:/tmp"},
+		},
+	}
+	for _, table := range tables {
+		t.Run(table.path, func(t *testing.T) {
+			for k, v := range table.env {
+				t.Setenv(k, v)
+			}
+			args := readArgsFile(table.path, table.split)
+			assert.Equal(t, table.args, args)
+		})
+	}
+}
