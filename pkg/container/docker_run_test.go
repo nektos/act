@@ -14,6 +14,7 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
+	"github.com/nektos/act/pkg/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -181,6 +182,28 @@ func TestDockerCopyTarStream(t *testing.T) {
 	client := &mockDockerClient{}
 	client.On("CopyToContainer", ctx, "123", "/", mock.Anything, mock.AnythingOfType("container.CopyToContainerOptions")).Return(nil)
 	client.On("CopyToContainer", ctx, "123", "/var/run/act", mock.Anything, mock.AnythingOfType("container.CopyToContainerOptions")).Return(nil)
+	cr := &containerReference{
+		id:  "123",
+		cli: client,
+		input: &NewContainerInput{
+			Image: "image",
+		},
+	}
+
+	_ = cr.CopyTarStream(ctx, "/var/run/act", &bytes.Buffer{})
+
+	conn.AssertExpectations(t)
+	client.AssertExpectations(t)
+}
+
+func TestDockerCopyTarStreamDryRun(t *testing.T) {
+	ctx := common.WithDryrun(context.Background(), true)
+
+	conn := &mockConn{}
+
+	client := &mockDockerClient{}
+	client.AssertNotCalled(t, "CopyToContainer", ctx, "123", "/", mock.Anything, mock.AnythingOfType("container.CopyToContainerOptions"))
+	client.AssertNotCalled(t, "CopyToContainer", ctx, "123", "/var/run/act", mock.Anything, mock.AnythingOfType("container.CopyToContainerOptions"))
 	cr := &containerReference{
 		id:  "123",
 		cli: client,
