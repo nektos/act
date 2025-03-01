@@ -300,7 +300,7 @@ func gitOptions(token string) (fetchOptions git.FetchOptions, pullOptions git.Pu
 func NewGitCloneExecutor(input NewGitCloneExecutorInput) common.Executor {
 	return func(ctx context.Context) error {
 		logger := common.Logger(ctx)
-		logger.Infof("  \u2601  git clone '%s' # ref=%s", input.URL, input.Ref)
+		logger.Infof("\U00002601  git clone '%s' # ref=%s", input.URL, input.Ref)
 		logger.Debugf("  cloning %s to %s", input.URL, input.Dir)
 
 		cloneLock.Lock()
