@@ -32,3 +32,5 @@ unit-tests.xml
 
 # megalinter
 report/
+
+vendor/
