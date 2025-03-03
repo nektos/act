@@ -72,9 +72,9 @@ func StartHandler(dir, advertiseURL string, outboundIP string, port uint16, logg
 	}
 	h.storage = storage
 
-	h.advertiseURL = advertiseURL
-
-	if outboundIP != "" {
+	if advertiseURL != "" {
+		h.advertiseURL = advertiseURL
+	} else if outboundIP != "" {
 		h.outboundIP = outboundIP
 	} else if ip := common.GetOutboundIP(); ip == nil {
 		return nil, fmt.Errorf("unable to determine outbound IP address")
@@ -98,6 +98,7 @@ func StartHandler(dir, advertiseURL string, outboundIP string, port uint16, logg
 	if err != nil {
 		return nil, err
 	}
+
 	server := &http.Server{
 		ReadHeaderTimeout: 2 * time.Second,
 		Handler:           router,
@@ -113,14 +114,15 @@ func StartHandler(dir, advertiseURL string, outboundIP string, port uint16, logg
 	return h, nil
 }
 
+func (h *Handler) GetActualPort() int {
+	return h.listener.Addr().(*net.TCPAddr).Port
+}
+
 func (h *Handler) ExternalURL() string {
 	if h.advertiseURL != "" {
 		return h.advertiseURL
-	} else {
-		return fmt.Sprintf("http://%s:%d",
-			h.outboundIP,
-			h.listener.Addr().(*net.TCPAddr).Port)
 	}
+	return fmt.Sprintf("http://%s:%d", h.outboundIP, h.GetActualPort())
 }
 
 func (h *Handler) Close() error {
