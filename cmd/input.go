@@ -46,6 +46,7 @@ type Input struct {
 	artifactServerPort                 string
 	noCacheServer                      bool
 	cacheServerPath                    string
+	cacheServerAdvertiseURL            string
 	cacheServerAddr                    string
 	cacheServerPort                    uint16
 	jsonLogger                         bool

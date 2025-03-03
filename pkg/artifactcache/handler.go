@@ -38,10 +38,11 @@ type Handler struct {
 	gcing atomic.Bool
 	gcAt  time.Time
 
-	outboundIP string
+	outboundIP   string
+	advertiseURL string
 }
 
-func StartHandler(dir, outboundIP string, port uint16, logger logrus.FieldLogger) (*Handler, error) {
+func StartHandler(dir, advertiseURL string, outboundIP string, port uint16, logger logrus.FieldLogger) (*Handler, error) {
 	h := &Handler{}
 
 	if logger == nil {
@@ -70,6 +71,8 @@ func StartHandler(dir, outboundIP string, port uint16, logger logrus.FieldLogger
 		return nil, err
 	}
 	h.storage = storage
+
+	h.advertiseURL = advertiseURL
 
 	if outboundIP != "" {
 		h.outboundIP = outboundIP
@@ -111,10 +114,13 @@ func StartHandler(dir, outboundIP string, port uint16, logger logrus.FieldLogger
 }
 
 func (h *Handler) ExternalURL() string {
-	// TODO: make the external url configurable if necessary
-	return fmt.Sprintf("http://%s:%d",
-		h.outboundIP,
-		h.listener.Addr().(*net.TCPAddr).Port)
+	if h.advertiseURL != "" {
+		return h.advertiseURL
+	} else {
+		return fmt.Sprintf("http://%s:%d",
+			h.outboundIP,
+			h.listener.Addr().(*net.TCPAddr).Port)
+	}
 }
 
 func (h *Handler) Close() error {
