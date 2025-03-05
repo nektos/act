@@ -20,7 +20,7 @@ import (
 
 func TestHandler(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "artifactcache")
-	handler, err := StartHandler(dir, "", 0, nil)
+	handler, err := StartHandler(dir, "", "", 0, nil)
 	require.NoError(t, err)
 
 	base := fmt.Sprintf("%s%s", handler.ExternalURL(), urlBase)
@@ -587,9 +587,43 @@ func uploadCacheNormally(t *testing.T, base, key, version string, content []byte
 	}
 }
 
+func TestHandler_CustomExternalURL(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "artifactcache")
+	handler, err := StartHandler(dir, "", "", 0, nil)
+	require.NoError(t, err)
+
+	defer func() {
+		require.NoError(t, handler.Close())
+	}()
+
+	handler.customExternalURL = fmt.Sprintf("http://%s:%d", "127.0.0.1", handler.GetActualPort())
+
+	assert.Equal(t, fmt.Sprintf("http://%s:%d", "127.0.0.1", handler.GetActualPort()), handler.ExternalURL())
+
+	base := fmt.Sprintf("%s%s", handler.ExternalURL(), urlBase)
+
+	t.Run("advertise url set wrong", func(t *testing.T) {
+		original := handler.customExternalURL
+		defer func() {
+			handler.customExternalURL = original
+		}()
+		handler.customExternalURL = "http://127.0.0.999:1234"
+		assert.Equal(t, "http://127.0.0.999:1234", handler.ExternalURL())
+	})
+
+	t.Run("reserve and upload", func(t *testing.T) {
+		key := strings.ToLower(t.Name())
+		version := "c19da02a2bd7e77277f1ac29ab45c09b7d46a4ee758284e26bb3045ad11d9d20"
+		content := make([]byte, 100)
+		_, err := rand.Read(content)
+		require.NoError(t, err)
+		uploadCacheNormally(t, base, key, version, content)
+	})
+}
+
 func TestHandler_gcCache(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "artifactcache")
-	handler, err := StartHandler(dir, "", 0, nil)
+	handler, err := StartHandler(dir, "", "", 0, nil)
 	require.NoError(t, err)
 
 	defer func() {
