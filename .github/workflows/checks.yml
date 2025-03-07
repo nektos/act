@@ -86,7 +86,6 @@ jobs:
           paths: "unit-tests.xml"
         if: always()
 
-
   snapshot:
     name: snapshot
     runs-on: ubuntu-latest
