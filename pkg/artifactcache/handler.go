@@ -38,10 +38,11 @@ type Handler struct {
 	gcing atomic.Bool
 	gcAt  time.Time
 
-	outboundIP string
+	outboundIP        string
+	customExternalURL string
 }
 
-func StartHandler(dir, outboundIP string, port uint16, logger logrus.FieldLogger) (*Handler, error) {
+func StartHandler(dir, customExternalURL string, outboundIP string, port uint16, logger logrus.FieldLogger) (*Handler, error) {
 	h := &Handler{}
 
 	if logger == nil {
@@ -71,6 +72,10 @@ func StartHandler(dir, outboundIP string, port uint16, logger logrus.FieldLogger
 	}
 	h.storage = storage
 
+	if customExternalURL != "" {
+		h.customExternalURL = customExternalURL
+	}
+
 	if outboundIP != "" {
 		h.outboundIP = outboundIP
 	} else if ip := common.GetOutboundIP(); ip == nil {
@@ -95,6 +100,7 @@ func StartHandler(dir, outboundIP string, port uint16, logger logrus.FieldLogger
 	if err != nil {
 		return nil, err
 	}
+
 	server := &http.Server{
 		ReadHeaderTimeout: 2 * time.Second,
 		Handler:           router,
@@ -110,11 +116,15 @@ func StartHandler(dir, outboundIP string, port uint16, logger logrus.FieldLogger
 	return h, nil
 }
 
+func (h *Handler) GetActualPort() int {
+	return h.listener.Addr().(*net.TCPAddr).Port
+}
+
 func (h *Handler) ExternalURL() string {
-	// TODO: make the external url configurable if necessary
-	return fmt.Sprintf("http://%s:%d",
-		h.outboundIP,
-		h.listener.Addr().(*net.TCPAddr).Port)
+	if h.customExternalURL != "" {
+		return h.customExternalURL
+	}
+	return fmt.Sprintf("http://%s:%d", h.outboundIP, h.GetActualPort())
 }
 
 func (h *Handler) Close() error {

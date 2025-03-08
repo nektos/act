@@ -19,7 +19,7 @@ func ImageExistsLocally(ctx context.Context, imageName string, platform string) 
 	}
 	defer cli.Close()
 
-	inspectImage, _, err := cli.ImageInspectWithRaw(ctx, imageName)
+	inspectImage, err := cli.ImageInspect(ctx, imageName)
 	if client.IsErrNotFound(err) {
 		return false, nil
 	} else if err != nil {
@@ -42,7 +42,7 @@ func RemoveImage(ctx context.Context, imageName string, force bool, pruneChildre
 	}
 	defer cli.Close()
 
-	inspectImage, _, err := cli.ImageInspectWithRaw(ctx, imageName)
+	inspectImage, err := cli.ImageInspect(ctx, imageName)
 	if client.IsErrNotFound(err) {
 		return false, nil
 	} else if err != nil {
