@@ -41,7 +41,7 @@ func (rc *RunContext) commandHandler(ctx context.Context) common.LineHandler {
 		}
 
 		if resumeCommand != "" && command != resumeCommand {
-			logger.Infof("  \U00002699  %s", line)
+			logger.Infof("\U00002699  %s", line)
 			return false
 		}
 		arg = unescapeCommandData(arg)
@@ -54,27 +54,27 @@ func (rc *RunContext) commandHandler(ctx context.Context) common.LineHandler {
 		case "add-path":
 			rc.addPath(ctx, arg)
 		case "debug":
-			logger.Debugf("  \U0001F4AC  %s", line)
+			logger.Debugf("\U0001f4ac  %s", line)
 		case "warning":
-			logger.Warnf("  \U0001F6A7  %s", line)
+			logger.Warnf("\U0001f6a7  %s", line)
 		case "error":
-			logger.Errorf("  \U00002757  %s", line)
+			logger.Errorf("\U00002757  %s", line)
 		case "add-mask":
 			rc.AddMask(arg)
-			logger.Infof("  \U00002699  %s", "***")
+			logger.Infof("\U00002699  %s", "***")
 		case "stop-commands":
 			resumeCommand = arg
-			logger.Infof("  \U00002699  %s", line)
+			logger.Infof("\U00002699  %s", line)
 		case resumeCommand:
 			resumeCommand = ""
-			logger.Infof("  \U00002699  %s", line)
+			logger.Infof("\U00002699  %s", line)
 		case "save-state":
-			logger.Infof("  \U0001f4be  %s", line)
+			logger.Infof("\U0001f4be  %s", line)
 			rc.saveState(ctx, kvPairs, arg)
 		case "add-matcher":
-			logger.Infof("  \U00002753 add-matcher %s", arg)
+			logger.Infof("\U00002753 add-matcher %s", arg)
 		default:
-			logger.Infof("  \U00002753  %s", line)
+			logger.Infof("\U00002753  %s", line)
 		}
 
 		return false
@@ -83,7 +83,7 @@ func (rc *RunContext) commandHandler(ctx context.Context) common.LineHandler {
 
 func (rc *RunContext) setEnv(ctx context.Context, kvPairs map[string]string, arg string) {
 	name := kvPairs["name"]
-	common.Logger(ctx).Infof("  \U00002699  ::set-env:: %s=%s", name, arg)
+	common.Logger(ctx).Infof("\U00002699  ::set-env:: %s=%s", name, arg)
 	if rc.Env == nil {
 		rc.Env = make(map[string]string)
 	}
@@ -111,15 +111,15 @@ func (rc *RunContext) setOutput(ctx context.Context, kvPairs map[string]string, 
 
 	result, ok := rc.StepResults[stepID]
 	if !ok {
-		logger.Infof("  \U00002757  no outputs used step '%s'", stepID)
+		logger.Infof("\U00002757  no outputs used step '%s'", stepID)
 		return
 	}
 
-	logger.Infof("  \U00002699  ::set-output:: %s=%s", outputName, arg)
+	logger.Infof("\U00002699  ::set-output:: %s=%s", outputName, arg)
 	result.Outputs[outputName] = arg
 }
 func (rc *RunContext) addPath(ctx context.Context, arg string) {
-	common.Logger(ctx).Infof("  \U00002699  ::add-path:: %s", arg)
+	common.Logger(ctx).Infof("\U00002699  ::add-path:: %s", arg)
 	extraPath := []string{arg}
 	for _, v := range rc.ExtraPath {
 		if v != arg {
