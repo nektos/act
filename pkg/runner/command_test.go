@@ -89,7 +89,7 @@ func TestStopCommands(t *testing.T) {
 		messages = append(messages, entry.Message)
 	}
 
-	a.Contains(messages, "  \U00002699  ::set-env name=x::abcd\n")
+	a.Contains(messages, "\U00002699  ::set-env name=x::abcd\n")
 }
 
 func TestAddpathADO(t *testing.T) {
@@ -116,8 +116,8 @@ func TestAddmask(t *testing.T) {
 	handler := rc.commandHandler(loggerCtx)
 	handler("::add-mask::my-secret-value\n")
 
-	a.Equal("  \U00002699  ***", hook.LastEntry().Message)
-	a.NotEqual("  \U00002699  *my-secret-value", hook.LastEntry().Message)
+	a.Equal("\U00002699  ***", hook.LastEntry().Message)
+	a.NotEqual("\U00002699  *my-secret-value", hook.LastEntry().Message)
 }
 
 // based on https://stackoverflow.com/a/10476304
@@ -171,7 +171,7 @@ func TestAddmaskUsemask(t *testing.T) {
 		handler("::set-output:: token=secret\n")
 	})
 
-	a.Equal("[testjob]   \U00002699  ***\n[testjob]   \U00002699  ::set-output:: = token=***\n", re)
+	a.Equal("[testjob] \U00002699  ***\n[testjob] \U00002699  ::set-output:: = token=***\n", re)
 }
 
 func TestSaveState(t *testing.T) {

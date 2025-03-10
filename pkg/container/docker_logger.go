@@ -22,7 +22,7 @@ type dockerMessage struct {
 	Progress string `json:"progress"`
 }
 
-const logPrefix = "  \U0001F433  "
+const logPrefix = "\U0001F433 "
 
 func logDockerResponse(logger logrus.FieldLogger, dockerResponse io.ReadCloser, isError bool) error {
 	if dockerResponse == nil {
