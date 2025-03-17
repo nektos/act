@@ -63,6 +63,9 @@ func createRootCommand(ctx context.Context, input *Input, version string) *cobra
 		PersistentPostRun: cleanup(input),
 		Version:           version,
 		SilenceUsage:      true,
+		ValidArgsFunction: func(_cmd *cobra.Command, _args []string, _toComplete string) ([]string, cobra.ShellCompDirective) {
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		},
 	}
 
 	rootCmd.Flags().StringP("completion", "", "", "Generate shell completion script for [bash|zsh|fish|powershell]")
