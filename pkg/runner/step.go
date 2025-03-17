@@ -12,6 +12,7 @@ import (
 	"github.com/nektos/act/pkg/container"
 	"github.com/nektos/act/pkg/exprparser"
 	"github.com/nektos/act/pkg/model"
+	"github.com/sirupsen/logrus"
 )
 
 type step interface {
@@ -141,10 +142,12 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 
 		timeoutctx, cancelTimeOut := evaluateStepTimeout(ctx, rc.ExprEval, stepModel)
 		defer cancelTimeOut()
+		startTime := time.Now()
 		err = executor(timeoutctx)
+		executionTime := time.Since(startTime)
 
 		if err == nil {
-			logger.WithField("stepResult", stepResult.Outcome).Infof("  \u2705  Success - %s %s", stage, stepString)
+			logger.WithFields(logrus.Fields{"executionTime": executionTime, "stepResult": stepResult.Outcome}).Infof("  \u2705  Success - %s %s [%s]", stage, stepString, executionTime)
 		} else {
 			stepResult.Outcome = model.StepStatusFailure
 
