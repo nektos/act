@@ -165,7 +165,7 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 				stepResult.Conclusion = model.StepStatusFailure
 			}
 
-			logger.WithField("stepResult", stepResult.Outcome).Errorf("  \u274C  Failure - %s %s", stage, stepString)
+			logger.WithFields(logrus.Fields{"executionTime": executionTime, "stepResult": stepResult.Outcome}).Infof("  \u274C  Failure - %s %s [%s]", stage, stepString, executionTime)
 		}
 		// Process Runner File Commands
 		orgerr := err
