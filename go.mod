@@ -37,7 +37,7 @@ require (
 require (
 	dario.cat/mergo v1.0.1
 	github.com/distribution/reference v0.6.0
-	github.com/golang-jwt/jwt/v5 v5.2.1
+	github.com/golang-jwt/jwt/v5 v5.2.2
 	google.golang.org/protobuf v1.36.5
 )
 
