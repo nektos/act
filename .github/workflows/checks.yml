@@ -23,7 +23,7 @@ jobs:
           go-version-file: go.mod
       - uses: golangci/golangci-lint-action@v6.5.0
         with:
-          version: v1.62
+          version: v1.64.8
       - uses: megalinter/megalinter/flavors/go@v8.4.2
         env:
           DEFAULT_BRANCH: master
