@@ -53,6 +53,16 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 		return nil
 	})
 
+	var setJobError = func(ctx context.Context, err error) error {
+		if err == nil {
+			return nil
+		}
+		logger := common.Logger(ctx)
+		logger.Errorf("%v", err)
+		common.SetJobError(ctx, err)
+		return err
+	}
+
 	for i, stepModel := range infoSteps {
 		if stepModel == nil {
 			return func(_ context.Context) error {
@@ -69,18 +79,15 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 			return common.NewErrorExecutor(err)
 		}
 
-		preSteps = append(preSteps, useStepLogger(rc, stepModel, stepStagePre, step.pre()))
+		preSteps = append(preSteps, useStepLogger(rc, stepModel, stepStagePre, step.pre().ThenError(setJobError)))
 
 		stepExec := step.main()
 		steps = append(steps, useStepLogger(rc, stepModel, stepStageMain, func(ctx context.Context) error {
-			logger := common.Logger(ctx)
 			err := stepExec(ctx)
 			if err != nil {
-				logger.Errorf("%v", err)
-				common.SetJobError(ctx, err)
+				_ = setJobError(ctx, err)
 			} else if ctx.Err() != nil {
-				logger.Errorf("%v", ctx.Err())
-				common.SetJobError(ctx, ctx.Err())
+				_ = setJobError(ctx, ctx.Err())
 			}
 			return nil
 		}))
@@ -118,11 +125,6 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 		return nil
 	}
 
-	var setJobError = func(ctx context.Context, err error) error {
-		common.SetJobError(ctx, err)
-		return nil
-	}
-
 	pipeline := make([]common.Executor, 0)
 	pipeline = append(pipeline, preSteps...)
 	pipeline = append(pipeline, steps...)
@@ -131,7 +133,7 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 		common.NewFieldExecutor("step", "Set up job", common.NewFieldExecutor("stepid", []string{"--setup-job"},
 			common.NewPipelineExecutor(common.NewInfoExecutor("\u2B50 Run Set up job"), info.startContainer(), rc.InitializeNodeTool()).
 				Then(common.NewFieldExecutor("stepResult", model.StepStatusSuccess, common.NewInfoExecutor("  \u2705  Success - Set up job"))).
-				OnError(common.NewFieldExecutor("stepResult", model.StepStatusFailure, common.NewInfoExecutor("  \u274C  Failure - Set up job")).ThenError(setJobError)))),
+				ThenError(setJobError).OnError(common.NewFieldExecutor("stepResult", model.StepStatusFailure, common.NewInfoExecutor("  \u274C  Failure - Set up job"))))),
 		common.NewPipelineExecutor(pipeline...).
 			Finally(func(ctx context.Context) error { //nolint:contextcheck
 				var cancel context.CancelFunc
@@ -149,7 +151,7 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 					Finally(
 						info.interpolateOutputs().Finally(info.closeContainer()).Then(common.NewFieldExecutor("stepResult", model.StepStatusSuccess, common.NewInfoExecutor("  \u2705  Success - Complete job"))).
 							OnError(common.NewFieldExecutor("stepResult", model.StepStatusFailure, common.NewInfoExecutor("  \u274C  Failure - Complete job"))),
-					)))).Finally(setJobResultExecutor))
+					))))).Finally(setJobResultExecutor)
 }
 
 func setJobResult(ctx context.Context, info jobInfo, rc *RunContext, success bool) {
