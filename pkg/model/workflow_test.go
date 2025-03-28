@@ -517,3 +517,19 @@ func TestReadWorkflow_WorkflowDispatchConfig(t *testing.T) {
 		Type:     "choice",
 	}, workflowDispatch.Inputs["logLevel"])
 }
+
+func TestReadWorkflow_InvalidStringEvent(t *testing.T) {
+	yaml := `
+name: local-action-docker-url
+on: push2
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: ./actions/docker-url
+`
+
+	_, err := ReadWorkflow(strings.NewReader(yaml), true)
+	assert.Error(t, err, "read workflow should succeed")
+}
