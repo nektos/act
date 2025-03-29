@@ -776,10 +776,13 @@ func watchAndRun(ctx context.Context, fn common.Executor) error {
 		return err
 	}
 
+	earlyCancelCtx, cancel := common.EarlyCancelContext(ctx)
+	defer cancel()
+
 	for folderWatcher.IsRunning() {
 		log.Debugf("Watching %s for changes", dir)
 		select {
-		case <-ctx.Done():
+		case <-earlyCancelCtx.Done():
 			return nil
 		case changes := <-folderWatcher.ChangeDetails():
 			log.Debugf("%s", changes.String())
