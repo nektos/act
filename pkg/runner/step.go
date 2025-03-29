@@ -85,6 +85,9 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 			return err
 		}
 
+		cctx := common.JobCancelContext(ctx)
+		rc.Cancelled = cctx != nil && cctx.Err() != nil
+
 		runStep, err := isStepEnabled(ctx, ifExpression, step, stage)
 		if err != nil {
 			stepResult.Conclusion = model.StepStatusFailure
@@ -140,10 +143,14 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 			Mode: 0o666,
 		})(ctx)
 
-		timeoutctx, cancelTimeOut := evaluateStepTimeout(ctx, rc.ExprEval, stepModel)
+		stepCtx, cancelStepCtx := context.WithCancel(ctx)
+		defer cancelStepCtx()
+		var cancelTimeOut context.CancelFunc
+		stepCtx, cancelTimeOut = evaluateStepTimeout(stepCtx, rc.ExprEval, stepModel)
 		defer cancelTimeOut()
+		monitorJobCancellation(ctx, stepCtx, cctx, rc, logger, ifExpression, step, stage, cancelStepCtx)
 		startTime := time.Now()
-		err = executor(timeoutctx)
+		err = executor(stepCtx)
 		executionTime := time.Since(startTime)
 
 		if err == nil {
@@ -189,6 +196,24 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 			return orgerr
 		}
 		return err
+	}
+}
+
+func monitorJobCancellation(ctx context.Context, stepCtx context.Context, jobCancellationCtx context.Context, rc *RunContext, logger logrus.FieldLogger, ifExpression string, step step, stage stepStage, cancelStepCtx context.CancelFunc) {
+	if !rc.Cancelled && jobCancellationCtx != nil {
+		go func() {
+			select {
+			case <-jobCancellationCtx.Done():
+				rc.Cancelled = true
+				logger.Infof("Reevaluate condition %v due to cancellation", ifExpression)
+				keepStepRunning, err := isStepEnabled(ctx, ifExpression, step, stage)
+				logger.Infof("Result condition keepStepRunning=%v", keepStepRunning)
+				if !keepStepRunning || err != nil {
+					cancelStepCtx()
+				}
+			case <-stepCtx.Done():
+			}
+		}()
 	}
 }
 
