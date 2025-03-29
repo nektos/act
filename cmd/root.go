@@ -391,6 +391,8 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 		}
 
 		if ok, _ := cmd.Flags().GetBool("bug-report"); ok {
+			ctx, cancel := common.EarlyCancelContext(ctx)
+			defer cancel()
 			return bugReport(ctx, cmd.Version)
 		}
 		if ok, _ := cmd.Flags().GetBool("man-page"); ok {
@@ -430,6 +432,8 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 		_ = readEnvsEx(input.Secretfile(), secrets, true)
 
 		if _, hasGitHubToken := secrets["GITHUB_TOKEN"]; !hasGitHubToken {
+			ctx, cancel := common.EarlyCancelContext(ctx)
+			defer cancel()
 			secrets["GITHUB_TOKEN"], _ = gh.GetToken(ctx, "")
 		}
 

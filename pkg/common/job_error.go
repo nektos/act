@@ -46,3 +46,21 @@ func JobCancelContext(ctx context.Context) context.Context {
 	}
 	return nil
 }
+
+// EarlyCancelContext returns a new context based on ctx that is canceled when the first of the provided contexts is canceled.
+func EarlyCancelContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	val := JobCancelContext(ctx)
+	if val != nil {
+		context, cancel := context.WithCancel(ctx)
+		go func() {
+			defer cancel()
+			select {
+			case <-context.Done():
+			case <-ctx.Done():
+			case <-val.Done():
+			}
+		}()
+		return context, cancel
+	}
+	return ctx, func() {}
+}
