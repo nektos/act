@@ -299,12 +299,24 @@ func execAsDocker(ctx context.Context, step actionStep, actionName, basedir, sub
 				}
 				defer buildContext.Close()
 			}
+
+			buildArgs := map[string]string{}
+			if rc.Config.PassProxyVarsToDockerBuild {
+				buildArgs["HTTP_PROXY"] = os.Getenv("HTTP_PROXY")
+				buildArgs["HTTPS_PROXY"] = os.Getenv("HTTPS_PROXY")
+				buildArgs["NO_PROXY"] = os.Getenv("NO_PROXY")
+				buildArgs["http_proxy"] = os.Getenv("http_proxy")
+				buildArgs["https_proxy"] = os.Getenv("https_proxy")
+				buildArgs["no_proxy"] = os.Getenv("no_proxy")
+			}
+
 			prepImage = container.NewDockerBuildExecutor(container.NewDockerBuildExecutorInput{
 				ContextDir:   filepath.Join(basedir, contextDir),
 				Dockerfile:   fileName,
 				ImageTag:     image,
 				BuildContext: buildContext,
 				Platform:     rc.Config.ContainerArchitecture,
+				BuildArgs:    buildArgs,
 			})
 		} else {
 			logger.Debugf("image '%s' for architecture '%s' already exists", image, rc.Config.ContainerArchitecture)

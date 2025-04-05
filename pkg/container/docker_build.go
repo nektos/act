@@ -4,7 +4,9 @@ package container
 
 import (
 	"context"
+	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"path/filepath"
 
@@ -19,14 +21,29 @@ import (
 	"github.com/nektos/act/pkg/common"
 )
 
+// redact password from the proxy url
+func redactProxyUrl(proxyUrlStr string) string {
+	u, err := url.Parse(proxyUrlStr)
+	if err != nil {
+		// user has sent some dodgy value so we'll just accept it
+		return proxyUrlStr
+	}
+	return u.Redacted()
+}
+
 // NewDockerBuildExecutor function to create a run executor for the container
 func NewDockerBuildExecutor(input NewDockerBuildExecutorInput) common.Executor {
 	return func(ctx context.Context) error {
 		logger := common.Logger(ctx)
+
+		buildArgsStr := ""
+		for k, v := range input.BuildArgs {
+			buildArgsStr += fmt.Sprintf("%s=%s ", k, redactProxyUrl(v))
+		}
 		if input.Platform != "" {
-			logger.Infof("%sdocker build -t %s --platform %s %s", logPrefix, input.ImageTag, input.Platform, input.ContextDir)
+			logger.Infof("%sdocker build %s-t %s --platform %s %s", logPrefix, buildArgsStr, input.ImageTag, input.Platform, input.ContextDir)
 		} else {
-			logger.Infof("%sdocker build -t %s %s", logPrefix, input.ImageTag, input.ContextDir)
+			logger.Infof("%sdocker build %s-t %s %s", logPrefix, buildArgsStr, input.ImageTag, input.ContextDir)
 		}
 		if common.Dryrun(ctx) {
 			return nil
@@ -40,6 +57,12 @@ func NewDockerBuildExecutor(input NewDockerBuildExecutorInput) common.Executor {
 
 		logger.Debugf("Building image from '%v'", input.ContextDir)
 
+		buildArgs := map[string]*string{}
+		for k, v := range input.BuildArgs {
+			val := v
+			buildArgs[k] = &val
+		}
+
 		tags := []string{input.ImageTag}
 		options := types.ImageBuildOptions{
 			Tags:        tags,
@@ -47,6 +70,7 @@ func NewDockerBuildExecutor(input NewDockerBuildExecutorInput) common.Executor {
 			Platform:    input.Platform,
 			AuthConfigs: LoadDockerAuthConfigs(ctx),
 			Dockerfile:  input.Dockerfile,
+			BuildArgs:   buildArgs,
 		}
 		var buildContext io.ReadCloser
 		if input.BuildContext != nil {
