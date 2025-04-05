@@ -11,12 +11,19 @@ jobs:
     environment: promote
     steps:
       - uses: actions/checkout@v4
+        id: checkout
+        env:
+          has_promote_token: ${{ secrets.PROMOTE_TOKEN && '1' || '' }}
+        if: env.has_promote_token
         with:
           fetch-depth: 0
           ref: master
           token: ${{ secrets.PROMOTE_TOKEN }}
       - uses: fregante/setup-git-user@v2
+        if: steps.checkout.conclusion != 'skipped'
       - uses: actions/setup-go@v5
+        if: steps.checkout.conclusion != 'skipped'
         with:
           go-version-file: go.mod
       - run: make promote
+        if: steps.checkout.conclusion != 'skipped'
