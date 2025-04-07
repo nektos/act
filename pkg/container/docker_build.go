@@ -38,7 +38,7 @@ func NewDockerBuildExecutor(input NewDockerBuildExecutorInput) common.Executor {
 
 		buildArgsStr := ""
 		for k, v := range input.BuildArgs {
-			buildArgsStr += fmt.Sprintf("%s=%s ", k, redactProxyUrl(v))
+			buildArgsStr += fmt.Sprintf("--build-arg %s=%s ", k, redactProxyUrl(v))
 		}
 		if input.Platform != "" {
 			logger.Infof("%sdocker build %s-t %s --platform %s %s", logPrefix, buildArgsStr, input.ImageTag, input.Platform, input.ContextDir)
