@@ -22,7 +22,7 @@ import (
 )
 
 // redact password from the proxy url
-func redactProxyUrl(proxyUrlStr string) string {
+func redactProxyURL(proxyUrlStr string) string {
 	u, err := url.Parse(proxyUrlStr)
 	if err != nil {
 		// user has sent some dodgy value so we'll just accept it
@@ -38,7 +38,7 @@ func NewDockerBuildExecutor(input NewDockerBuildExecutorInput) common.Executor {
 
 		buildArgsStr := ""
 		for k, v := range input.BuildArgs {
-			buildArgsStr += fmt.Sprintf("--build-arg %s=%s ", k, redactProxyUrl(v))
+			buildArgsStr += fmt.Sprintf("--build-arg %s=%s ", k, redactProxyURL(v))
 		}
 		if input.Platform != "" {
 			logger.Infof("%sdocker build %s-t %s --platform %s %s", logPrefix, buildArgsStr, input.ImageTag, input.Platform, input.ContextDir)
