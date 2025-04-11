@@ -61,7 +61,7 @@ func newActionCacheReusableWorkflowExecutor(rc *RunContext, filename string, rem
 		if _, err = treader.Next(); err != nil {
 			return err
 		}
-		planner, err := model.NewSingleWorkflowPlanner(remoteReusableWorkflow.Filename, treader)
+		planner, err := model.NewSingleWorkflowPlanner(remoteReusableWorkflow.Filename, treader, rc.Config.ApplyEventFilters, rc.Config.EventPath)
 		if err != nil {
 			return err
 		}
@@ -115,7 +115,7 @@ func cloneIfRequired(rc *RunContext, remoteReusableWorkflow remoteReusableWorkfl
 
 func newReusableWorkflowExecutor(rc *RunContext, directory string, workflow string) common.Executor {
 	return func(ctx context.Context) error {
-		planner, err := model.NewWorkflowPlanner(path.Join(directory, workflow), true)
+		planner, err := model.NewWorkflowPlanner(path.Join(directory, workflow), true, rc.Config.ApplyEventFilters, rc.Config.EventPath)
 		if err != nil {
 			return err
 		}

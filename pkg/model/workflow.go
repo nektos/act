@@ -4,10 +4,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/google/go-github/v71/github"
+	"github.com/nektos/act/pkg/workflowpattern"
 
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/schema"
@@ -24,6 +28,27 @@ type Workflow struct {
 	Jobs     map[string]*Job   `yaml:"jobs"`
 	Defaults Defaults          `yaml:"defaults"`
 }
+
+type Push struct {
+	Branches       []string `yaml:"branches"`
+	BranchesIgnore []string `yaml:"branches_ignore"`
+	Paths          []string `yaml:"paths"`
+	PathsIgnore    []string `yaml:"paths_ignore"`
+	Tags           []string `yaml:"tags"`
+	TagsIgnore     []string `yaml:"tags_ignore"`
+}
+
+type PullRequest struct {
+	Branches       []string `yaml:"branches"`
+	BranchesIgnore []string `yaml:"branches_ignore"`
+	Paths          []string `yaml:"paths"`
+	PathsIgnore    []string `yaml:"paths_ignore"`
+}
+
+type ScheduleCron struct {
+	Cron string `yaml:"cron"`
+}
+type Schedule []ScheduleCron
 
 // On events for the workflow
 func (w *Workflow) On() []string {
@@ -66,6 +91,396 @@ func (w *Workflow) OnEvent(event string) interface{} {
 		return val[event]
 	}
 	return nil
+}
+
+func (w *Workflow) PushConfig() *Push {
+	switch w.RawOn.Kind {
+	case yaml.ScalarNode:
+		var val string
+		if !decodeNode(w.RawOn, &val) {
+			return nil
+		}
+
+		if val == "push" {
+			return &Push{}
+		}
+	case yaml.SequenceNode:
+		var val []string
+		if !decodeNode(w.RawOn, &val) {
+			return nil
+		}
+		for _, v := range val {
+			if v == "push" {
+				return &Push{}
+			}
+		}
+	case yaml.MappingNode:
+		var val map[string]yaml.Node
+		if !decodeNode(w.RawOn, &val) {
+			return nil
+		}
+
+		n, found := val["push"]
+		var push Push
+		if found && decodeNode(n, &push) {
+			return &push
+		}
+	default:
+		return nil
+	}
+	return nil
+}
+
+func (w *Workflow) PullRequestConfig() *PullRequest {
+	switch w.RawOn.Kind {
+	case yaml.ScalarNode:
+		var val string
+		if !decodeNode(w.RawOn, &val) {
+			return nil
+		}
+		if val == "pull_request" || val == "pull_request_target" {
+			return &PullRequest{}
+		}
+	case yaml.SequenceNode:
+		var val []string
+		if !decodeNode(w.RawOn, &val) {
+			return nil
+		}
+		for _, v := range val {
+			if v == "pull_request" || v == "pull_request_target" {
+				return &PullRequest{}
+			}
+		}
+	case yaml.MappingNode:
+		var val map[string]yaml.Node
+		if !decodeNode(w.RawOn, &val) {
+			return nil
+		}
+
+		var pullRequest PullRequest
+		n, found := val["pull_request"]
+		if found && decodeNode(n, &pullRequest) {
+			return &pullRequest
+		}
+		n, found = val["pull_request_target"]
+		if found && decodeNode(n, &pullRequest) {
+			return &pullRequest
+		}
+	default:
+		return nil
+	}
+	return nil
+}
+
+func (w *Workflow) ScheduleConfig() *Schedule {
+	switch w.RawOn.Kind {
+	case yaml.ScalarNode:
+		var val string
+		if !decodeNode(w.RawOn, &val) {
+			return nil
+		}
+		if val == "schedule" {
+			return &Schedule{}
+		}
+	case yaml.SequenceNode:
+		var val []string
+		if !decodeNode(w.RawOn, &val) {
+			return nil
+		}
+		for _, v := range val {
+			if v == "schedule" {
+				return &Schedule{}
+			}
+		}
+	case yaml.MappingNode:
+		var val map[string]yaml.Node
+		if !decodeNode(w.RawOn, &val) {
+			return nil
+		}
+
+		n, found := val["schedule"]
+		var schedule Schedule
+		if found && decodeNode(n, &schedule) {
+			return &schedule
+		}
+	default:
+		return nil
+	}
+	return nil
+}
+
+type ByteArray []byte
+
+func readFileByteArray(filePath string) (*ByteArray, error) {
+	if filePath == "" {
+		return nil, nil
+	}
+	jsonFile, err := os.Open(filePath)
+	if err != nil {
+		return nil, err
+	}
+	defer jsonFile.Close()
+	array, err := io.ReadAll(jsonFile)
+	if err != nil {
+		return nil, err
+	}
+
+	return (*ByteArray)(&array), nil
+}
+
+// we extract a number of methods to reduce the cyclomatic complexity of shouldFilterForPush()
+
+// define alias so we can use as a receiver
+type githubPushEvent github.PushEvent
+type githubPullRequestEvent github.PullRequestEvent
+
+func (byteArray ByteArray) asGithubPushEvent() (*githubPushEvent, error) {
+	event, err := github.ParseWebHook("push", byteArray)
+	if err != nil {
+		return nil, err
+	}
+	return (*githubPushEvent)(event.(*github.PushEvent)), nil
+}
+
+func (byteArray ByteArray) asGithubPullRequestEvent() (*githubPullRequestEvent, error) {
+	event, err := github.ParseWebHook("pull_request", byteArray)
+	if err != nil {
+		return nil, err
+	}
+	return (*githubPullRequestEvent)(event.(*github.PullRequestEvent)), nil
+}
+
+// return true if a workflow should be skipped because of branch
+func evaluateBranchSkip(ref string, branchFilters []string) bool {
+	branchPatterns, err := workflowpattern.CompilePatterns(branchFilters...)
+	if err != nil {
+		log.Errorf("Error parsing workflow branch patterns (%s), so we will not filter the workflow", err)
+		return false
+	}
+	return workflowpattern.Skip(branchPatterns, []string{ref}, &workflowpattern.StdOutTraceWriter{})
+}
+
+// return true if a workflow should be skipped because of branch_ignore
+func evaluateBranchFilter(ref string, branchFilters []string) bool {
+	branchPatterns, err := workflowpattern.CompilePatterns(branchFilters...)
+	if err != nil {
+		log.Errorf("Error parsing workflow branch ignore patterns (%s), so we will not filter the workflow", err)
+		return false
+	}
+	return workflowpattern.Filter(branchPatterns, []string{ref}, &workflowpattern.StdOutTraceWriter{})
+}
+
+// return true if a workflow should be skipped because of tag
+func evaluateTagSkip(ref string, tagFilters []string) bool {
+	tagPatterns, err := workflowpattern.CompilePatterns(tagFilters...)
+	if err != nil {
+		log.Errorf("Error parsing workflow tag patterns (%s), so we will not filter the workflow", err)
+		return false
+	}
+	return workflowpattern.Skip(tagPatterns, []string{ref}, &workflowpattern.StdOutTraceWriter{})
+}
+
+// return true if a workflow should be skipped because of tag_ignore
+func evaluateTagFilter(ref string, tagFilters []string) bool {
+	tagPatterns, err := workflowpattern.CompilePatterns(tagFilters...)
+	if err != nil {
+		log.Errorf("Error parsing workflow tag ignore patterns (%s), so we will not filter the workflow", err)
+		return false
+	}
+	return workflowpattern.Filter(tagPatterns, []string{ref}, &workflowpattern.StdOutTraceWriter{})
+}
+
+// return true if a workflow should be skipped because of path
+func evaluatePathSkip(pathChanges []string, pathFilters []string) bool {
+	pathPatterns, err := workflowpattern.CompilePatterns(pathFilters...)
+	if err != nil {
+		log.Errorf("Error parsing workflow path patterns (%s), so we will not filter the workflow", err)
+		return false
+	}
+	return workflowpattern.Skip(pathPatterns, pathChanges, &workflowpattern.StdOutTraceWriter{})
+}
+
+// return true if a workflow should be skipped because of path_ignore
+func evaluatePathFilter(pathChanges []string, pathFilters []string) bool {
+	pathPatterns, err := workflowpattern.CompilePatterns(pathFilters...)
+	if err != nil {
+		log.Errorf("Error parsing workflow path ignore patterns (%s), so we will not filter the workflow", err)
+		return false
+	}
+	return workflowpattern.Filter(pathPatterns, pathChanges, &workflowpattern.StdOutTraceWriter{})
+}
+
+// return a list of paths of changes as a result of commits in a push event
+func pathChangesForPush(pushEvent *githubPushEvent) []string {
+	pathChanges := make([]string, 0)
+	for _, commit := range pushEvent.Commits {
+		pathChanges = append(pathChanges, commit.Added...)
+		pathChanges = append(pathChanges, commit.Removed...)
+		pathChanges = append(pathChanges, commit.Modified...)
+	}
+	return pathChanges
+}
+
+// return a list of paths of changes as a result of commits in a PR event
+func pathChangesForPullRequest(_ *githubPullRequestEvent) []string {
+	pathChanges := make([]string, 0)
+
+	// TODO we need to decide how we want to get the list of changed files
+	// GitHub says it does a 3 dot diff between base and head (https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/about-comparing-branches-in-pull-requests)
+	//
+	// "The three-dot comparison shows the difference between the latest common commit of both branches (merge base) and the most recent version of the topic branch."
+	// We could get the 2 SHA values from githubPullRequestEvent, but we'd have to decide whether we want to:
+	//    - read from git on disk to perform the diff, perhaps from working directory or by reference to the path of the workflow files
+	//	  - clone from repo (requires credentials)
+	//	  - use the GitHub API (requires credentials)
+	//    - do something else
+	//    - do nothing
+	//
+
+	// for now, we'll just pretend there are no changes and log
+	log.Debugf("Act doesn't support filtering on path changes for PR events")
+	return pathChanges
+}
+
+// return true if a push event should be ignored because the push event does not match the workflow conditions
+func (pushEvent *githubPushEvent) shouldFilterForPush(push *Push) bool {
+	// compare the event with our push object
+	branchSkip := evaluateBranchSkip(*pushEvent.Ref, push.Branches)
+	branchIgnoreFilter := evaluateBranchFilter(*pushEvent.Ref, push.BranchesIgnore)
+	branchFiltersDefined := len(push.Branches) > 0 || len(push.BranchesIgnore) > 0
+
+	tagSkip := evaluateTagSkip(*pushEvent.Ref, push.Tags)
+	tagIgnoreFilter := evaluateTagFilter(*pushEvent.Ref, push.TagsIgnore)
+	tagFiltersDefined := len(push.Tags) > 0 || len(push.TagsIgnore) > 0
+
+	pathChanges := pathChangesForPush(pushEvent)
+
+	pathSkip := evaluatePathSkip(pathChanges, push.Paths)
+	pathIgnoreFilter := evaluatePathFilter(pathChanges, push.PathsIgnore)
+	pathFiltersDefined := len(push.Paths) > 0 || len(push.PathsIgnore) > 0
+
+	// defining both is an error, so we just accept the workflow
+	if len(push.Branches) > 0 && len(push.BranchesIgnore) > 0 {
+		log.Error("Both branch and branch_ignore filters exist which is not allowed, so we will ignore the conditions and just execute this workflow")
+		return false
+	}
+
+	if len(push.Tags) > 0 && len(push.TagsIgnore) > 0 {
+		log.Error("Both tags and tags_ignore filters exist which is not allowed, so we will ignore the conditions and just execute this workflow")
+		return false
+	}
+
+	if len(push.Paths) > 0 && len(push.PathsIgnore) > 0 {
+		log.Error("Both paths and paths_ignore filters exist which is not allowed, so we will ignore the conditions and just execute this workflow")
+		return false
+	}
+
+	// we should handle a workflow purely from the perspective of one condition if neither filter types says to skip
+	processBranch := !(branchSkip || branchIgnoreFilter)
+	processTag := !(tagSkip || tagIgnoreFilter)
+	processPaths := !(pathSkip || pathIgnoreFilter)
+
+	// if we have filters for both paths and branches defined then both need to match
+	processBranchPath := false
+	if branchFiltersDefined && pathFiltersDefined {
+		processBranchPath = processBranch && processPaths
+	} else if branchFiltersDefined {
+		processBranchPath = processBranch
+	} else if pathFiltersDefined {
+		processBranchPath = processPaths
+	}
+
+	return !(processBranchPath || (tagFiltersDefined && processTag))
+}
+
+func (pullRequestEvent *githubPullRequestEvent) shouldFilterForPullRequest(pr *PullRequest) bool {
+	// compare the event with our pr object
+	branchSkip := evaluateBranchSkip(*pullRequestEvent.PullRequest.Base.Ref, pr.Branches)
+	branchIgnoreFilter := evaluateBranchFilter(*pullRequestEvent.PullRequest.Base.Ref, pr.BranchesIgnore)
+	branchFiltersDefined := len(pr.Branches) > 0 || len(pr.BranchesIgnore) > 0
+
+	// this won't do anything, but let's have the logic for filtering anyway
+	pathChanges := pathChangesForPullRequest(pullRequestEvent)
+
+	pathSkip := evaluatePathSkip(pathChanges, pr.Paths)
+	pathIgnoreFilter := evaluatePathFilter(pathChanges, pr.PathsIgnore)
+	pathFiltersDefined := len(pr.Paths) > 0 || len(pr.PathsIgnore) > 0
+
+	// defining both is an error, so we just accept the workflow
+	if len(pr.Branches) > 0 && len(pr.BranchesIgnore) > 0 {
+		log.Error("Both branch and branch_ignore filters exist which is not allowed, so we will ignore the conditions and just execute this workflow")
+		return false
+	}
+
+	if len(pr.Paths) > 0 && len(pr.PathsIgnore) > 0 {
+		log.Error("Both paths and paths_ignore filters exist which is not allowed, so we will ignore the conditions and just execute this workflow")
+		return false
+	}
+
+	// we should handle a workflow purely from the perspective of one condition if neither filter types says to skip
+	processBranch := !(branchSkip || branchIgnoreFilter)
+	processPaths := !(pathSkip || pathIgnoreFilter)
+
+	// if we have filters for both paths and branches defined then both need to match
+	processBranchPath := false
+	if branchFiltersDefined && pathFiltersDefined {
+		processBranchPath = processBranch && processPaths
+	} else if branchFiltersDefined {
+		processBranchPath = processBranch
+	} else if pathFiltersDefined {
+		processBranchPath = processPaths
+	}
+
+	return !processBranchPath
+}
+
+func (w *Workflow) ShouldFilterForEvent(eventName string, eventPath string) bool {
+	// we know the name of the event so we can try to deserialize the event file to that type
+	byteArray, err := readFileByteArray(eventPath)
+	if err != nil {
+		log.Errorf("Error parsing event file %s (%s), so we will not filter the workflow", eventPath, err)
+		return false
+	}
+
+	switch eventName {
+	case "push":
+		push := w.PushConfig()
+		if push == nil {
+			// no push config found for the workflow, so skip
+			log.Infof("Filtering workflow %s because its triggers don't match the event type (%s)", w.Name, eventName)
+			return true
+		}
+		if byteArray != nil {
+			pushEvent, err := byteArray.asGithubPushEvent()
+			if err != nil {
+				log.Errorf("Error parsing event (%s), so we will not filter the workflow", err)
+				return false
+			}
+			return pushEvent.shouldFilterForPush(push)
+		}
+
+	case "pull_request_target":
+		fallthrough
+	case "pull_request":
+		pr := w.PullRequestConfig()
+		if pr == nil {
+			// no PR config found for the workflow, so skip
+			log.Infof("Filtering workflow %s because its triggers don't match the event type (%s)", w.Name, eventName)
+			return true
+		}
+		if byteArray != nil {
+			prEvent, err := byteArray.asGithubPullRequestEvent()
+			if err != nil {
+				log.Errorf("Error parsing event (%s), so we will not filter the workflow", err)
+				return false
+			}
+			return prEvent.shouldFilterForPullRequest(pr)
+		}
+
+	default:
+	}
+
+	return false
 }
 
 func (w *Workflow) UnmarshalYAML(node *yaml.Node) error {
