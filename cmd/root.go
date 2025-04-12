@@ -54,6 +54,9 @@ func Execute(ctx context.Context, version string) {
 }
 
 func createRootCommand(ctx context.Context, input *Input, version string) *cobra.Command {
+	customEnvVarFlag := "pass-envvars-to-docker-build"
+	customEnvVarDefault := "HTTP_PROXY,HTTPS_PROXY,NO_PROXY,http_proxy,https_proxy,no_proxy"
+
 	rootCmd := &cobra.Command{
 		Use:               "act [event name to run] [flags]\n\nIf no event name passed, will default to \"on: push\"\nIf actions handles only one event it will be used as default instead of \"on: push\"",
 		Short:             "Run GitHub actions locally by specifying the event name (e.g. `push`) or an action name directly.",
@@ -127,7 +130,10 @@ func createRootCommand(ctx context.Context, input *Input, version string) *cobra
 	rootCmd.PersistentFlags().BoolVarP(&input.useNewActionCache, "use-new-action-cache", "", false, "Enable using the new Action Cache for storing Actions locally")
 	rootCmd.PersistentFlags().StringArrayVarP(&input.localRepository, "local-repository", "", []string{}, "Replaces the specified repository and ref with a local folder (e.g. https://github.com/test/test@v0=/home/act/test or test/test@v0=/home/act/test, the latter matches any hosts or protocols)")
 	rootCmd.PersistentFlags().BoolVar(&input.listOptions, "list-options", false, "Print a json structure of compatible options")
-	rootCmd.PersistentFlags().BoolVar(&input.passProxyVarsToDockerBuild, "pass-proxy-vars-to-docker-build", false, "Pass HTTP(S)_PROXY + NO_PROXY env variables and lowercased versions as build args to build of Docker actions")
+	// do not set customEnvVarDefault as default for customEnvVarFlag so no values are passed to build if not specified by user
+	rootCmd.PersistentFlags().StringVar(&input.passEnvVarsToDockerBuild, customEnvVarFlag, "", fmt.Sprintf("A comma separated list of keys of env vars to pass as build args to build of Docker actions, e.g. %s. Use flag with no value to get these default proxy values.", customEnvVarDefault))
+	rootCmd.PersistentFlags().Lookup(customEnvVarFlag).NoOptDefVal = customEnvVarDefault
+
 	rootCmd.SetArgs(args())
 	return rootCmd
 }
@@ -636,7 +642,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			ReplaceGheActionTokenWithGithubCom: input.replaceGheActionTokenWithGithubCom,
 			Matrix:                             matrixes,
 			ContainerNetworkMode:               docker_container.NetworkMode(input.networkName),
-			PassProxyVarsToDockerBuild:         input.passProxyVarsToDockerBuild,
+			PassEnvVarsToDockerBuild:           input.passEnvVarsToDockerBuild,
 		}
 		if input.useNewActionCache || len(input.localRepository) > 0 {
 			if input.actionOfflineMode {

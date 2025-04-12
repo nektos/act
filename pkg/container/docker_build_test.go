@@ -1,12 +1,12 @@
 package container
 
 import (
-	"gotest.tools/v3/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestRedactProxyURL(t *testing.T) {
-
 	tests := []struct {
 		input    string
 		expected string

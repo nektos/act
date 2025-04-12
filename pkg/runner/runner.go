@@ -61,7 +61,7 @@ type Config struct {
 	Matrix                             map[string]map[string]bool   // Matrix config to run
 	ContainerNetworkMode               docker_container.NetworkMode // the network mode of job containers (the value of --network)
 	ActionCache                        ActionCache                  // Use a custom ActionCache Implementation
-	PassProxyVarsToDockerBuild         bool                         // Pass HTTP_PROXY, HTTPS_PROXY & NO_PROXY (and lowercased too) to build of Docker actions
+	PassEnvVarsToDockerBuild           string                       // Comma separated list of keys of env vars to pass to build of Docker actions
 }
 
 type caller struct {

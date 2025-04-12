@@ -62,7 +62,7 @@ type Input struct {
 	useNewActionCache                  bool
 	localRepository                    []string
 	listOptions                        bool
-	passProxyVarsToDockerBuild         bool
+	passEnvVarsToDockerBuild           string
 }
 
 func (i *Input) resolve(path string) string {

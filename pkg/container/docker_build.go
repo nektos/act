@@ -22,11 +22,11 @@ import (
 )
 
 // redact password from the proxy url
-func redactProxyURL(proxyUrlStr string) string {
-	u, err := url.Parse(proxyUrlStr)
+func redactProxyURL(proxyURLStr string) string {
+	u, err := url.Parse(proxyURLStr)
 	if err != nil {
 		// user has sent some dodgy value so we'll just accept it
-		return proxyUrlStr
+		return proxyURLStr
 	}
 	return u.Redacted()
 }

@@ -240,6 +240,21 @@ func removeGitIgnore(ctx context.Context, directory string) error {
 	return nil
 }
 
+func buildArgsFromCustomEnvVars(envVarKeys string) map[string]string {
+	buildArgs := map[string]string{}
+	if envVarKeys == "" {
+		return buildArgs
+	}
+	for _, key := range strings.Split(envVarKeys, ",") {
+		trimmedKey := strings.TrimSpace(key)
+		if trimmedKey == "" {
+			continue
+		}
+		buildArgs[trimmedKey] = os.Getenv(trimmedKey)
+	}
+	return buildArgs
+}
+
 // TODO: break out parts of function to reduce complexicity
 //
 //nolint:gocyclo
@@ -300,15 +315,7 @@ func execAsDocker(ctx context.Context, step actionStep, actionName, basedir, sub
 				defer buildContext.Close()
 			}
 
-			buildArgs := map[string]string{}
-			if rc.Config.PassProxyVarsToDockerBuild {
-				buildArgs["HTTP_PROXY"] = os.Getenv("HTTP_PROXY")
-				buildArgs["HTTPS_PROXY"] = os.Getenv("HTTPS_PROXY")
-				buildArgs["NO_PROXY"] = os.Getenv("NO_PROXY")
-				buildArgs["http_proxy"] = os.Getenv("http_proxy")
-				buildArgs["https_proxy"] = os.Getenv("https_proxy")
-				buildArgs["no_proxy"] = os.Getenv("no_proxy")
-			}
+			buildArgs := buildArgsFromCustomEnvVars(rc.Config.PassEnvVarsToDockerBuild)
 
 			prepImage = container.NewDockerBuildExecutor(container.NewDockerBuildExecutorInput{
 				ContextDir:   filepath.Join(basedir, contextDir),
