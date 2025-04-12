@@ -458,6 +458,20 @@ func TestPlannerPullRequestEventFiltering(t *testing.T) {
              - run: echo hi
     `
 
+	prFilterPath := `
+    name: test-job
+    on:
+       pull_request:
+           paths:
+               - '**'
+
+    jobs:
+       a-job:
+           runs-on: ubuntu-latest
+           steps:
+             - run: echo hi
+    `
+
 	tables := []WorkflowPlanFilterTest{
 		{prSimple, "", false, "PR should not be filtered"},
 		{prSimple2, "", false, "PR should not be filtered"},
@@ -468,6 +482,7 @@ func TestPlannerPullRequestEventFiltering(t *testing.T) {
 		{prDoubleFilterBranch, "filter-events/pr-opened.json", false, "No match for event but it's malformed so workflow should not be filtered"},
 		{prDoubleFilterPath, "filter-events/pr-opened.json", false, "No match for event but it's malformed so workflow should not be filtered"},
 		{prFilterIgnoreBranch, "filter-events/pr-opened.json", true, "Wildcard paths ignore so workflow should be filtered"},
+		{prFilterPath, "filter-events/pr-opened.json", false, "Wildcard paths set but unsupported filter so workflow should not be filtered"},
 	}
 
 	workdir, err := filepath.Abs("testdata")
@@ -617,6 +632,20 @@ func TestPlannerPullRequestTargetEventFiltering(t *testing.T) {
              - run: echo hi
     `
 
+	prtFilterPath := `
+    name: test-job
+    on:
+       pull_request:
+           paths:
+               - '**'
+
+    jobs:
+       a-job:
+           runs-on: ubuntu-latest
+           steps:
+             - run: echo hi
+    `
+
 	tables := []WorkflowPlanFilterTest{
 		{prtSimple, "", false, "PR should not be filtered"},
 		{prtSimple2, "", false, "PR should not be filtered"},
@@ -627,6 +656,7 @@ func TestPlannerPullRequestTargetEventFiltering(t *testing.T) {
 		{prtDoubleFilterBranch, "filter-events/pr-opened.json", false, "No match for event but it's malformed so workflow should not be filtered"},
 		{prtDoubleFilterPath, "filter-events/pr-opened.json", false, "No match for event but it's malformed so workflow should not be filtered"},
 		{prtFilterIgnoreBranch, "filter-events/pr-opened.json", true, "Wildcard paths ignore so workflow should be filtered"},
+		{prtFilterPath, "filter-events/pr-opened.json", false, "Wildcard paths set but unsupported filter so workflow should not be filtered"},
 	}
 
 	workdir, err := filepath.Abs("testdata")

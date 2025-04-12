@@ -321,27 +321,6 @@ func pathChangesForPush(pushEvent *githubPushEvent) []string {
 	return pathChanges
 }
 
-// return a list of paths of changes as a result of commits in a PR event
-func pathChangesForPullRequest(_ *githubPullRequestEvent) []string {
-	pathChanges := make([]string, 0)
-
-	// TODO we need to decide how we want to get the list of changed files
-	// GitHub says it does a 3 dot diff between base and head (https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/about-comparing-branches-in-pull-requests)
-	//
-	// "The three-dot comparison shows the difference between the latest common commit of both branches (merge base) and the most recent version of the topic branch."
-	// We could get the 2 SHA values from githubPullRequestEvent, but we'd have to decide whether we want to:
-	//    - read from git on disk to perform the diff, perhaps from working directory or by reference to the path of the workflow files
-	//	  - clone from repo (requires credentials)
-	//	  - use the GitHub API (requires credentials)
-	//    - do something else
-	//    - do nothing
-	//
-
-	// for now, we'll just pretend there are no changes and log
-	log.Debugf("Act doesn't support filtering on path changes for PR events")
-	return pathChanges
-}
-
 // return true if a push event should be ignored because the push event does not match the workflow conditions
 func (pushEvent *githubPushEvent) shouldFilterForPush(push *Push) bool {
 	// compare the event with our push object
@@ -397,14 +376,6 @@ func (pullRequestEvent *githubPullRequestEvent) shouldFilterForPullRequest(pr *P
 	// compare the event with our pr object
 	branchSkip := evaluateBranchSkip(*pullRequestEvent.PullRequest.Base.Ref, pr.Branches)
 	branchIgnoreFilter := evaluateBranchFilter(*pullRequestEvent.PullRequest.Base.Ref, pr.BranchesIgnore)
-	branchFiltersDefined := len(pr.Branches) > 0 || len(pr.BranchesIgnore) > 0
-
-	// this won't do anything, but let's have the logic for filtering anyway
-	pathChanges := pathChangesForPullRequest(pullRequestEvent)
-
-	pathSkip := evaluatePathSkip(pathChanges, pr.Paths)
-	pathIgnoreFilter := evaluatePathFilter(pathChanges, pr.PathsIgnore)
-	pathFiltersDefined := len(pr.Paths) > 0 || len(pr.PathsIgnore) > 0
 
 	// defining both is an error, so we just accept the workflow
 	if len(pr.Branches) > 0 && len(pr.BranchesIgnore) > 0 {
@@ -412,26 +383,10 @@ func (pullRequestEvent *githubPullRequestEvent) shouldFilterForPullRequest(pr *P
 		return false
 	}
 
-	if len(pr.Paths) > 0 && len(pr.PathsIgnore) > 0 {
-		log.Error("Both paths and paths_ignore filters exist which is not allowed, so we will ignore the conditions and just execute this workflow")
-		return false
-	}
-
 	// we should handle a workflow purely from the perspective of one condition if neither filter types says to skip
 	processBranch := !(branchSkip || branchIgnoreFilter)
-	processPaths := !(pathSkip || pathIgnoreFilter)
 
-	// if we have filters for both paths and branches defined then both need to match
-	processBranchPath := false
-	if branchFiltersDefined && pathFiltersDefined {
-		processBranchPath = processBranch && processPaths
-	} else if branchFiltersDefined {
-		processBranchPath = processBranch
-	} else if pathFiltersDefined {
-		processBranchPath = processPaths
-	}
-
-	return !processBranchPath
+	return !processBranch
 }
 
 func (w *Workflow) ShouldFilterForEvent(eventName string, eventPath string) bool {
