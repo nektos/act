@@ -327,10 +327,10 @@ jobs:
 }
 
 func TestReadWorkflow_Strategy(t *testing.T) {
-	w, err := NewWorkflowPlanner("testdata/strategy/push.yml", true)
+	w, err := NewWorkflowPlanner("testdata/strategy/push.yml", true, false, "")
 	assert.NoError(t, err)
 
-	p, err := w.PlanJob("strategy-only-max-parallel")
+	p, err := w.PlanJob("strategy-only-max-parallel", "")
 	assert.NoError(t, err)
 
 	assert.Equal(t, len(p.Stages), 1)
@@ -516,4 +516,385 @@ func TestReadWorkflow_WorkflowDispatchConfig(t *testing.T) {
 		Required: true,
 		Type:     "choice",
 	}, workflowDispatch.Inputs["logLevel"])
+}
+
+func TestReadWorkflow_PushConfig(t *testing.T) {
+	yaml := `
+    name: local-action-docker-url
+    `
+	workflow, err := ReadWorkflow(strings.NewReader(yaml))
+	assert.NoError(t, err, "read workflow should succeed")
+	push := workflow.PushConfig()
+	assert.Nil(t, push)
+
+	yaml = `
+    name: local-action-docker-url
+    on: pull_request
+    `
+	workflow, err = ReadWorkflow(strings.NewReader(yaml))
+	assert.NoError(t, err, "read workflow should succeed")
+	push = workflow.PushConfig()
+	assert.Nil(t, push)
+
+	yaml = `
+    name: local-action-docker-url
+    on: push
+    `
+	workflow, err = ReadWorkflow(strings.NewReader(yaml))
+	assert.NoError(t, err, "read workflow should succeed")
+	push = workflow.PushConfig()
+	assert.NotNil(t, push)
+	assert.Nil(t, push.Branches)
+	assert.Nil(t, push.BranchesIgnore)
+	assert.Nil(t, push.Paths)
+	assert.Nil(t, push.PathsIgnore)
+	assert.Nil(t, push.Tags)
+	assert.Nil(t, push.TagsIgnore)
+
+	yaml = `
+    name: local-action-docker-url
+    on: [pull_request, workflow_dispatch]
+    `
+	workflow, err = ReadWorkflow(strings.NewReader(yaml))
+	assert.NoError(t, err, "read workflow should succeed")
+	push = workflow.PushConfig()
+	assert.Nil(t, push)
+
+	yaml = `
+    name: local-action-docker-url
+    on: [push, workflow_dispatch]
+    `
+	workflow, err = ReadWorkflow(strings.NewReader(yaml))
+	assert.NoError(t, err, "read workflow should succeed")
+	push = workflow.PushConfig()
+	assert.NotNil(t, push)
+	assert.Nil(t, push.Branches)
+	assert.Nil(t, push.BranchesIgnore)
+	assert.Nil(t, push.Paths)
+	assert.Nil(t, push.PathsIgnore)
+	assert.Nil(t, push.Tags)
+	assert.Nil(t, push.TagsIgnore)
+
+	yaml = `
+    name: local-action-docker-url
+    on:
+        - push
+        - workflow_dispatch
+    `
+	workflow, err = ReadWorkflow(strings.NewReader(yaml))
+	assert.NoError(t, err, "read workflow should succeed")
+	push = workflow.PushConfig()
+	assert.NotNil(t, push)
+	assert.Nil(t, push.Branches)
+	assert.Nil(t, push.BranchesIgnore)
+	assert.Nil(t, push.Paths)
+	assert.Nil(t, push.PathsIgnore)
+	assert.Nil(t, push.Tags)
+	assert.Nil(t, push.TagsIgnore)
+
+	yaml = `
+    name: local-action-docker-url
+    on:
+        workflow_dispatch:
+        pull_request:
+    `
+	workflow, err = ReadWorkflow(strings.NewReader(yaml))
+	assert.NoError(t, err, "read workflow should succeed")
+	push = workflow.PushConfig()
+	assert.Nil(t, push)
+
+	yaml = `
+    name: local-action-docker-url
+    on:
+        push:
+            branches:
+                - foo
+                - bar
+            paths:
+                - p1
+                - p2
+            tags:
+                - t1
+                - t2
+        pull_request:
+        workflow_dispatch:
+    `
+	workflow, err = ReadWorkflow(strings.NewReader(yaml))
+	assert.NoError(t, err, "read workflow should succeed")
+	push = workflow.PushConfig()
+	assert.NotNil(t, push)
+	assert.Nil(t, push.BranchesIgnore)
+	assert.Nil(t, push.PathsIgnore)
+	assert.Nil(t, push.TagsIgnore)
+	assert.Equal(t, Push{
+		Branches: []string{"foo", "bar"},
+		Paths:    []string{"p1", "p2"},
+		Tags:     []string{"t1", "t2"},
+	}, *push)
+
+	yaml = `
+    name: local-action-docker-url
+    on:
+        push:
+            branches_ignore:
+                - foo
+                - bar
+            paths_ignore:
+                - p1
+                - p2
+            tags_ignore:
+                - t1
+                - t2
+        pull_request:
+        workflow_dispatch:
+    `
+	workflow, err = ReadWorkflow(strings.NewReader(yaml))
+	assert.NoError(t, err, "read workflow should succeed")
+	push = workflow.PushConfig()
+	assert.NotNil(t, push)
+	assert.Nil(t, push.Branches)
+	assert.Nil(t, push.Paths)
+	assert.Nil(t, push.Tags)
+	assert.Equal(t, Push{
+		BranchesIgnore: []string{"foo", "bar"},
+		PathsIgnore:    []string{"p1", "p2"},
+		TagsIgnore:     []string{"t1", "t2"},
+	}, *push)
+}
+
+func TestReadWorkflow_PullRequestConfig(t *testing.T) {
+	yaml := `
+    name: local-action-docker-url
+    `
+	workflow, err := ReadWorkflow(strings.NewReader(yaml))
+	assert.NoError(t, err, "read workflow should succeed")
+	pr := workflow.PullRequestConfig()
+	assert.Nil(t, pr)
+
+	yaml = `
+    name: local-action-docker-url
+    on: push
+    `
+	workflow, err = ReadWorkflow(strings.NewReader(yaml))
+	assert.NoError(t, err, "read workflow should succeed")
+	pr = workflow.PullRequestConfig()
+	assert.Nil(t, pr)
+
+	yaml = `
+    name: local-action-docker-url
+    on: pull_request
+    `
+	workflow, err = ReadWorkflow(strings.NewReader(yaml))
+	assert.NoError(t, err, "read workflow should succeed")
+	pr = workflow.PullRequestConfig()
+	assert.NotNil(t, pr)
+	assert.Nil(t, pr.Branches)
+	assert.Nil(t, pr.BranchesIgnore)
+	assert.Nil(t, pr.Paths)
+	assert.Nil(t, pr.PathsIgnore)
+
+	yaml = `
+    name: local-action-docker-url
+    on: [push, workflow_dispatch]
+    `
+	workflow, err = ReadWorkflow(strings.NewReader(yaml))
+	assert.NoError(t, err, "read workflow should succeed")
+	pr = workflow.PullRequestConfig()
+	assert.Nil(t, pr)
+
+	yaml = `
+    name: local-action-docker-url
+    on: [pull_request, workflow_dispatch]
+    `
+	workflow, err = ReadWorkflow(strings.NewReader(yaml))
+	assert.NoError(t, err, "read workflow should succeed")
+	pr = workflow.PullRequestConfig()
+	assert.NotNil(t, pr)
+	assert.Nil(t, pr.Branches)
+	assert.Nil(t, pr.BranchesIgnore)
+	assert.Nil(t, pr.Paths)
+	assert.Nil(t, pr.PathsIgnore)
+
+	yaml = `
+    name: local-action-docker-url
+    on:
+        - pull_request
+        - workflow_dispatch
+    `
+	workflow, err = ReadWorkflow(strings.NewReader(yaml))
+	assert.NoError(t, err, "read workflow should succeed")
+	pr = workflow.PullRequestConfig()
+	assert.NotNil(t, pr)
+	assert.Nil(t, pr.Branches)
+	assert.Nil(t, pr.BranchesIgnore)
+	assert.Nil(t, pr.Paths)
+	assert.Nil(t, pr.PathsIgnore)
+
+	yaml = `
+    name: local-action-docker-url
+    on:
+        workflow_dispatch:
+        push:
+    `
+	workflow, err = ReadWorkflow(strings.NewReader(yaml))
+	assert.NoError(t, err, "read workflow should succeed")
+	pr = workflow.PullRequestConfig()
+	assert.Nil(t, pr)
+
+	yaml = `
+    name: local-action-docker-url
+    on:
+        pull_request:
+            branches:
+                - foo
+                - bar
+            paths:
+                - p1
+                - p2
+        push:
+        workflow_dispatch:
+    `
+	workflow, err = ReadWorkflow(strings.NewReader(yaml))
+	assert.NoError(t, err, "read workflow should succeed")
+	pr = workflow.PullRequestConfig()
+	assert.NotNil(t, pr)
+	assert.Nil(t, pr.BranchesIgnore)
+	assert.Nil(t, pr.PathsIgnore)
+	assert.Equal(t, PullRequest{
+		Branches: []string{"foo", "bar"},
+		Paths:    []string{"p1", "p2"},
+	}, *pr)
+
+	yaml = `
+    name: local-action-docker-url
+    on:
+        pull_request:
+            branches_ignore:
+                - foo
+                - bar
+            paths_ignore:
+                - p1
+                - p2
+        push:
+        workflow_dispatch:
+    `
+	workflow, err = ReadWorkflow(strings.NewReader(yaml))
+	assert.NoError(t, err, "read workflow should succeed")
+	pr = workflow.PullRequestConfig()
+	assert.NotNil(t, pr)
+	assert.Nil(t, pr.Branches)
+	assert.Nil(t, pr.Paths)
+	assert.Equal(t, PullRequest{
+		BranchesIgnore: []string{"foo", "bar"},
+		PathsIgnore:    []string{"p1", "p2"},
+	}, *pr)
+}
+
+func TestReadWorkflow_ScheduleConfig(t *testing.T) {
+	yaml := `
+    name: local-action-docker-url
+    `
+	workflow, err := ReadWorkflow(strings.NewReader(yaml))
+	assert.NoError(t, err, "read workflow should succeed")
+	schedule := workflow.ScheduleConfig()
+	assert.Nil(t, schedule)
+
+	yaml = `
+    name: local-action-docker-url
+    on: push
+    `
+	workflow, err = ReadWorkflow(strings.NewReader(yaml))
+	assert.NoError(t, err, "read workflow should succeed")
+	schedule = workflow.ScheduleConfig()
+	assert.Nil(t, schedule)
+
+	yaml = `
+    name: local-action-docker-url
+    on: schedule
+    `
+	workflow, err = ReadWorkflow(strings.NewReader(yaml))
+	assert.NoError(t, err, "read workflow should succeed")
+	schedule = workflow.ScheduleConfig()
+	assert.NotNil(t, schedule)
+	assert.Equal(t, 0, len(*schedule))
+
+	yaml = `
+    name: local-action-docker-url
+    on: [push, workflow_dispatch]
+    `
+	workflow, err = ReadWorkflow(strings.NewReader(yaml))
+	assert.NoError(t, err, "read workflow should succeed")
+	schedule = workflow.ScheduleConfig()
+	assert.Nil(t, schedule)
+
+	yaml = `
+    name: local-action-docker-url
+    on: [schedule, workflow_dispatch]
+    `
+	workflow, err = ReadWorkflow(strings.NewReader(yaml))
+	assert.NoError(t, err, "read workflow should succeed")
+	schedule = workflow.ScheduleConfig()
+	assert.NotNil(t, schedule)
+	assert.Equal(t, 0, len(*schedule))
+
+	yaml = `
+    name: local-action-docker-url
+    on:
+        - schedule
+        - workflow_dispatch
+    `
+	workflow, err = ReadWorkflow(strings.NewReader(yaml))
+	assert.NoError(t, err, "read workflow should succeed")
+	schedule = workflow.ScheduleConfig()
+	assert.NotNil(t, schedule)
+	assert.Equal(t, 0, len(*schedule))
+
+	yaml = `
+    name: local-action-docker-url
+    on:
+        workflow_dispatch:
+        push:
+    `
+	workflow, err = ReadWorkflow(strings.NewReader(yaml))
+	assert.NoError(t, err, "read workflow should succeed")
+	schedule = workflow.ScheduleConfig()
+	assert.Nil(t, schedule)
+
+	yaml = `
+    name: local-action-docker-url
+    on:
+        schedule:
+            - cron: '30 5,17 * * *'
+            - cron: '45 5,17 * * *'
+        push:
+        workflow_dispatch:
+    `
+	workflow, err = ReadWorkflow(strings.NewReader(yaml))
+	assert.NoError(t, err, "read workflow should succeed")
+	schedule = workflow.ScheduleConfig()
+	assert.NotNil(t, schedule)
+	assert.Equal(t, 2, len(*schedule))
+	assert.Equal(t, Schedule{
+		ScheduleCron{Cron: "30 5,17 * * *"},
+		ScheduleCron{Cron: "45 5,17 * * *"},
+	}, *schedule)
+
+	yaml = `
+    name: local-action-docker-url
+    on:
+        schedule:
+            - cron: '30 5,17 * * *'
+            - cron: '45 5,17 * * *'
+        push:
+        workflow_dispatch:
+    `
+	workflow, err = ReadWorkflow(strings.NewReader(yaml))
+	assert.NoError(t, err, "read workflow should succeed")
+	schedule = workflow.ScheduleConfig()
+	assert.NotNil(t, schedule)
+	assert.Equal(t, 2, len(*schedule))
+	assert.Equal(t, Schedule{
+		ScheduleCron{Cron: "30 5,17 * * *"},
+		ScheduleCron{Cron: "45 5,17 * * *"},
+	}, *schedule)
 }
