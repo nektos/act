@@ -62,6 +62,8 @@ type Input struct {
 	useNewActionCache                  bool
 	localRepository                    []string
 	listOptions                        bool
+	validate                           bool
+	strict                             bool
 }
 
 func (i *Input) resolve(path string) string {
