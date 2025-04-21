@@ -605,7 +605,8 @@ func (cr *containerReference) exec(cmd []string, env map[string]string, user, wo
 		case 0:
 			return nil
 		case 127:
-			return fmt.Errorf("exitcode '%d': command not found, please refer to https://github.com/harness/nektos-act/v2/issues/107 for more information", inspectResp.ExitCode)
+			return fmt.Errorf("exitcode '%d': command not found, please refer to
+      https://github.com/nektos/act/issues/107 for more information", inspectResp.ExitCode)
 		default:
 			return fmt.Errorf("exitcode '%d': failure", inspectResp.ExitCode)
 		}
