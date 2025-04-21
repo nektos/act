@@ -19,7 +19,7 @@ import (
 	"github.com/mattn/go-isatty"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/nektos/act/pkg/common"
+	"github.com/harness/nektos-act/v2/pkg/common"
 )
 
 var (

@@ -16,9 +16,9 @@ import (
 
 	"github.com/kballard/go-shellquote"
 
-	"github.com/nektos/act/pkg/common"
-	"github.com/nektos/act/pkg/container"
-	"github.com/nektos/act/pkg/model"
+	"github.com/harness/nektos-act/v2/pkg/common"
+	"github.com/harness/nektos-act/v2/pkg/container"
+	"github.com/harness/nektos-act/v2/pkg/model"
 )
 
 type actionStep interface {
@@ -223,7 +223,7 @@ func setupActionEnv(ctx context.Context, step actionStep, _ *remoteAction) error
 	return nil
 }
 
-// https://github.com/nektos/act/issues/228#issuecomment-629709055
+// https://github.com/harness/nektos-act/v2/issues/228#issuecomment-629709055
 // files in .gitignore are not copied in a Docker container
 // this causes issues with actions that ignore other important resources
 // such as `node_modules` for example

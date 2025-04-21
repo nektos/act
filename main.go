@@ -3,8 +3,8 @@ package main
 import (
 	_ "embed"
 
-	"github.com/nektos/act/cmd"
-	"github.com/nektos/act/pkg/common"
+	"github.com/harness/nektos-act/v2/cmd"
+	"github.com/harness/nektos-act/v2/pkg/common"
 )
 
 //go:embed VERSION

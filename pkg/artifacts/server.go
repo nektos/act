@@ -15,7 +15,7 @@ import (
 
 	"github.com/julienschmidt/httprouter"
 
-	"github.com/nektos/act/pkg/common"
+	"github.com/harness/nektos-act/v2/pkg/common"
 )
 
 type FileContainerResourceURL struct {

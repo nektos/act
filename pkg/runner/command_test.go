@@ -10,8 +10,8 @@ import (
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/nektos/act/pkg/common"
-	"github.com/nektos/act/pkg/model"
+	"github.com/harness/nektos-act/v2/pkg/common"
+	"github.com/harness/nektos-act/v2/pkg/model"
 )
 
 func TestSetEnv(t *testing.T) {

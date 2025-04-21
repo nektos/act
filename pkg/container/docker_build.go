@@ -16,7 +16,7 @@ import (
 	"github.com/moby/patternmatcher"
 	"github.com/moby/patternmatcher/ignorefile"
 
-	"github.com/nektos/act/pkg/common"
+	"github.com/harness/nektos-act/v2/pkg/common"
 )
 
 // NewDockerBuildExecutor function to create a run executor for the container

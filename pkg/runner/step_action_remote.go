@@ -14,9 +14,9 @@ import (
 
 	gogit "github.com/go-git/go-git/v5"
 
-	"github.com/nektos/act/pkg/common"
-	"github.com/nektos/act/pkg/common/git"
-	"github.com/nektos/act/pkg/model"
+	"github.com/harness/nektos-act/v2/pkg/common"
+	"github.com/harness/nektos-act/v2/pkg/common/git"
+	"github.com/harness/nektos-act/v2/pkg/model"
 )
 
 type stepActionRemote struct {

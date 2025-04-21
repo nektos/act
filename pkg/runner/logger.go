@@ -9,7 +9,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/nektos/act/pkg/common"
+	"github.com/harness/nektos-act/v2/pkg/common"
 
 	"github.com/sirupsen/logrus"
 	"golang.org/x/term"
