@@ -223,7 +223,7 @@ func setupActionEnv(ctx context.Context, step actionStep, _ *remoteAction) error
 	return nil
 }
 
-// https://github.com/harness/nektos-act/v2/issues/228#issuecomment-629709055
+// https://github.com/nektos/act/issues/228#issuecomment-629709055
 // files in .gitignore are not copied in a Docker container
 // this causes issues with actions that ignore other important resources
 // such as `node_modules` for example
