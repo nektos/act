@@ -124,7 +124,7 @@ func getDockerDaemonSocketMountPath(daemonPath string) string {
 }
 
 // Returns the binds and mounts for the container, resolving paths as appropriate
-func (rc *RunContext) GetBindsAndMounts() ([]string, map[string]string) {
+func (rc *RunContext) GetBindsAndMounts(ctx context.Context) ([]string, map[string]string) {
 	name := rc.jobContainerName()
 
 	if rc.Config.ContainerDaemonSocket == "" {
@@ -170,6 +170,17 @@ func (rc *RunContext) GetBindsAndMounts() ([]string, map[string]string) {
 		binds = append(binds, fmt.Sprintf("%s:%s%s", rc.Config.Workdir, ext.ToContainerPath(rc.Config.Workdir), bindModifiers))
 	} else {
 		mounts[name] = ext.ToContainerPath(rc.Config.Workdir)
+	}
+
+	if rc.IsHostEnv(ctx) {
+		bindModifiers := ""
+		if runtime.GOOS == "darwin" {
+			bindModifiers = ":delegated"
+		}
+		if selinux.GetEnabled() {
+			bindModifiers = ":z"
+		}
+		binds = append(binds, fmt.Sprintf("%s:%s%s", rc.JobContainer.GetActPath(), ext.ToContainerPath(rc.JobContainer.GetActPath()), bindModifiers))
 	}
 
 	return binds, mounts
@@ -275,7 +286,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 		envList = append(envList, fmt.Sprintf("%s=%s", "LANG", "C.UTF-8")) // Use same locale as GitHub Actions
 
 		ext := container.LinuxContainerEnvironmentExtensions{}
-		binds, mounts := rc.GetBindsAndMounts()
+		binds, mounts := rc.GetBindsAndMounts(ctx)
 
 		// specify the network to which the container will connect when `docker create` stage. (like execute command line: docker create --network <networkName> <image>)
 		// if using service containers, will create a new network for the containers.

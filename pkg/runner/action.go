@@ -404,7 +404,7 @@ func newStepContainer(ctx context.Context, step step, image string, cmd []string
 	envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_ARCH", container.RunnerArch(ctx)))
 	envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_TEMP", "/tmp"))
 
-	binds, mounts := rc.GetBindsAndMounts()
+	binds, mounts := rc.GetBindsAndMounts(ctx)
 	networkMode := fmt.Sprintf("container:%s", rc.jobContainerName())
 	if rc.IsHostEnv(ctx) {
 		networkMode = "default"
