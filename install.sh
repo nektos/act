@@ -10,7 +10,7 @@ usage() {
 $this: download go binaries for nektos/act
 
 Usage: $this [-b bindir] [-d] [-f] [tag]
-  -b sets bindir or installation directory, Defaults to ./bin
+  -b sets bindir or installation directory, Defaults to /usr/local/bin
   -d turns on debug logging
   -f forces installation, bypassing version checks
    [tag] is a tag from
@@ -21,10 +21,10 @@ EOF
 }
 
 parse_args() {
-  #BINDIR is ./bin unless set be ENV
+  # BINDIR is /usr/local/bin unless set by ENV
   # over-ridden by flag below
 
-  BINDIR=${BINDIR:-./bin}
+  BINDIR=${BINDIR:-/usr/local/bin}
   while getopts "b:dfh?x" arg; do
     case "$arg" in
       b) BINDIR="$OPTARG" ;;
