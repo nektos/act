@@ -240,6 +240,21 @@ func removeGitIgnore(ctx context.Context, directory string) error {
 	return nil
 }
 
+func buildArgsFromCustomEnvVars(envVarKeys string) map[string]string {
+	buildArgs := map[string]string{}
+	if envVarKeys == "" {
+		return buildArgs
+	}
+	for _, key := range strings.Split(envVarKeys, ",") {
+		trimmedKey := strings.TrimSpace(key)
+		if trimmedKey == "" {
+			continue
+		}
+		buildArgs[trimmedKey] = os.Getenv(trimmedKey)
+	}
+	return buildArgs
+}
+
 // TODO: break out parts of function to reduce complexicity
 //
 //nolint:gocyclo
@@ -299,12 +314,16 @@ func execAsDocker(ctx context.Context, step actionStep, actionName, basedir, sub
 				}
 				defer buildContext.Close()
 			}
+
+			buildArgs := buildArgsFromCustomEnvVars(rc.Config.PassEnvVarsToDockerBuild)
+
 			prepImage = container.NewDockerBuildExecutor(container.NewDockerBuildExecutorInput{
 				ContextDir:   filepath.Join(basedir, contextDir),
 				Dockerfile:   fileName,
 				ImageTag:     image,
 				BuildContext: buildContext,
 				Platform:     rc.Config.ContainerArchitecture,
+				BuildArgs:    buildArgs,
 			})
 		} else {
 			logger.Debugf("image '%s' for architecture '%s' already exists", image, rc.Config.ContainerArchitecture)
