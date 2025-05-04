@@ -38,6 +38,7 @@ require (
 	dario.cat/mergo v1.0.1
 	github.com/distribution/reference v0.6.0
 	github.com/golang-jwt/jwt/v5 v5.2.2
+	github.com/google/go-github/v71 v71.0.0
 	google.golang.org/protobuf v1.36.6
 )
 
@@ -63,6 +64,7 @@ require (
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
+	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
