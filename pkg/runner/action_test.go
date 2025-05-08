@@ -230,7 +230,7 @@ func TestActionRunner(t *testing.T) {
 			actionDir := fmt.Sprintf("%s/dir", tt.step.getRunContext().ActionCacheDir())
 
 			cm := &containerMock{}
-			cm.On("CopyDir", "/var/run/act/actions/dir/", actionDir+"/", false).Return(func(ctx context.Context) error { return nil })
+			cm.On("CopyDir", "/var/run/act/actions/dir/", actionDir+"/", false).Return(func(_ context.Context) error { return nil })
 
 			envMatcher := mock.MatchedBy(func(env map[string]string) bool {
 				for k, v := range tt.expectedEnv {
