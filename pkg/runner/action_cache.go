@@ -132,23 +132,23 @@ func (c GoGitActionCache) GetTarArchive(ctx context.Context, cacheDir, sha, incl
 
 	gitPath := path.Join(c.Path, safeFilename(cacheDir)+".git")
 
-	logger.Infof("GoGitActionCache get content %s with sha %s subpath %s at %s", cacheDir, sha, includePrefix, gitPath)
+	logger.Infof("GoGitActionCache get content %s with sha %s subpath '%s' at %s", cacheDir, sha, includePrefix, gitPath)
 
 	gogitrepo, err := git.PlainOpen(gitPath)
 	if err != nil {
-		return nil, fmt.Errorf("GoGitActionCache failed to open bare git %s with sha %s subpath %s at %s: %w", cacheDir, sha, includePrefix, gitPath, err)
+		return nil, fmt.Errorf("GoGitActionCache failed to open bare git %s with sha %s subpath '%s' at %s: %w", cacheDir, sha, includePrefix, gitPath, err)
 	}
 	commit, err := gogitrepo.CommitObject(plumbing.NewHash(sha))
 	if err != nil {
-		return nil, fmt.Errorf("GoGitActionCache failed to get commit %s with sha %s subpath %s at %s: %w", cacheDir, sha, includePrefix, gitPath, err)
+		return nil, fmt.Errorf("GoGitActionCache failed to get commit %s with sha %s subpath '%s' at %s: %w", cacheDir, sha, includePrefix, gitPath, err)
 	}
 	t, err := commit.Tree()
 	if err != nil {
-		return nil, fmt.Errorf("GoGitActionCache failed to open git tree %s with sha %s subpath %s at %s: %w", cacheDir, sha, includePrefix, gitPath, err)
+		return nil, fmt.Errorf("GoGitActionCache failed to open git tree %s with sha %s subpath '%s' at %s: %w", cacheDir, sha, includePrefix, gitPath, err)
 	}
 	files, err := commit.Files()
 	if err != nil {
-		return nil, fmt.Errorf("GoGitActionCache failed to list files %s with sha %s subpath %s at %s: %w", cacheDir, sha, includePrefix, gitPath, err)
+		return nil, fmt.Errorf("GoGitActionCache failed to list files %s with sha %s subpath '%s' at %s: %w", cacheDir, sha, includePrefix, gitPath, err)
 	}
 	rpipe, wpipe := io.Pipe()
 	// Interrupt io.Copy using ctx
