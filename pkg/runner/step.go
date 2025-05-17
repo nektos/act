@@ -72,6 +72,9 @@ func processRunnerSummaryCommand(ctx context.Context, fileName string, rc *RunCo
 	if err != nil {
 		return err
 	}
+	if len(summary) == 0 {
+		return nil
+	}
 	common.Logger(ctx).WithFields(logrus.Fields{"command": "summary", "content": string(summary)}).Infof("  \u2705  Summary - %s", string(summary))
 	return nil
 }
