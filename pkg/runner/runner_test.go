@@ -318,6 +318,8 @@ func TestRunEvent(t *testing.T) {
 		{workdir, "set-env-step-env-override", "push", "", platforms, secrets},
 		{workdir, "set-env-new-env-file-per-step", "push", "", platforms, secrets},
 		{workdir, "no-panic-on-invalid-composite-action", "push", "jobs failed due to invalid action", platforms, secrets},
+		// GITHUB_STEP_SUMMARY
+		{workdir, "stepsummary", "push", "", platforms, secrets},
 
 		// services
 		{workdir, "services", "push", "", platforms, secrets},

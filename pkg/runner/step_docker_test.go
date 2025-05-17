@@ -93,6 +93,7 @@ func TestStepDockerMain(t *testing.T) {
 		return nil
 	})
 
+	cm.On("GetContainerArchive", ctx, "/var/run/act/workflow/SUMMARY.md").Return(io.NopCloser(&bytes.Buffer{}), nil)
 	cm.On("GetContainerArchive", ctx, "/var/run/act/workflow/pathcmd.txt").Return(io.NopCloser(&bytes.Buffer{}), nil)
 
 	err := sd.main()(ctx)

@@ -1,8 +1,11 @@
 package runner
 
 import (
+	"archive/tar"
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"path"
 	"strconv"
 	"strings"
@@ -48,6 +51,29 @@ func (s stepStage) String() string {
 		return "Post"
 	}
 	return "Unknown"
+}
+
+func processRunnerSummaryCommand(ctx context.Context, fileName string, rc *RunContext) error {
+	if common.Dryrun(ctx) {
+		return nil
+	}
+	pathTar, err := rc.JobContainer.GetContainerArchive(ctx, path.Join(rc.JobContainer.GetActPath(), fileName))
+	if err != nil {
+		return err
+	}
+	defer pathTar.Close()
+
+	reader := tar.NewReader(pathTar)
+	_, err = reader.Next()
+	if err != nil && err != io.EOF {
+		return err
+	}
+	summary, err := io.ReadAll(reader)
+	if err != nil {
+		return err
+	}
+	common.Logger(ctx).WithFields(logrus.Fields{"command": "summary", "content": string(summary)}).Infof("  \u2705  Summary - %s", string(summary))
+	return nil
 }
 
 func processRunnerEnvFileCommand(ctx context.Context, fileName string, rc *RunContext, setter func(context.Context, map[string]string, string)) error {
@@ -175,27 +201,13 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 			logger.WithFields(logrus.Fields{"executionTime": executionTime, "stepResult": stepResult.Outcome}).Infof("  \u274C  Failure - %s %s [%s]", stage, stepString, executionTime)
 		}
 		// Process Runner File Commands
-		orgerr := err
-		err = processRunnerEnvFileCommand(ctx, envFileCommand, rc, rc.setEnv)
-		if err != nil {
-			return err
-		}
-		err = processRunnerEnvFileCommand(ctx, stateFileCommand, rc, rc.saveState)
-		if err != nil {
-			return err
-		}
-		err = processRunnerEnvFileCommand(ctx, outputFileCommand, rc, rc.setOutput)
-		if err != nil {
-			return err
-		}
-		err = rc.UpdateExtraPath(ctx, path.Join(actPath, pathFileCommand))
-		if err != nil {
-			return err
-		}
-		if orgerr != nil {
-			return orgerr
-		}
-		return err
+		ferrors := []error{err}
+		ferrors = append(ferrors, processRunnerEnvFileCommand(ctx, envFileCommand, rc, rc.setEnv))
+		ferrors = append(ferrors, processRunnerEnvFileCommand(ctx, stateFileCommand, rc, rc.saveState))
+		ferrors = append(ferrors, processRunnerEnvFileCommand(ctx, outputFileCommand, rc, rc.setOutput))
+		ferrors = append(ferrors, processRunnerSummaryCommand(ctx, summaryFileCommand, rc))
+		ferrors = append(ferrors, rc.UpdateExtraPath(ctx, path.Join(actPath, pathFileCommand)))
+		return errors.Join(ferrors...)
 	}
 }
 
