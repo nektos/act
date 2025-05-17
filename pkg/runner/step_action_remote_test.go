@@ -196,9 +196,9 @@ func TestStepActionRemote(t *testing.T) {
 				err = sar.main()(ctx)
 			}
 
-			assert.Equal(t, tt.runError, err)
+			assert.ErrorIs(t, err, tt.runError)
 			assert.Equal(t, tt.mocks.cloned, clonedAction)
-			assert.Equal(t, tt.result, sar.RunContext.StepResults["step"])
+			assert.Equal(t, sar.RunContext.StepResults["step"], tt.result)
 
 			sarm.AssertExpectations(t)
 			cm.AssertExpectations(t)
