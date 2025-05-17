@@ -24,3 +24,4 @@ jobs:
             console.log('Summary:', summary);
             await core.summary.addRaw(summary);
             await core.summary.write();
+          github-token: none
