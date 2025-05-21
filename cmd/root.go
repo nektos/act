@@ -410,15 +410,6 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			log.Infof("Using docker host '%s', and daemon socket '%s'", ret.Host, ret.Socket)
 		}
 
-		if runtime.GOOS == "darwin" && runtime.GOARCH == "arm64" && input.containerArchitecture == "" {
-			l := log.New()
-			l.SetFormatter(&log.TextFormatter{
-				DisableQuote:     true,
-				DisableTimestamp: true,
-			})
-			l.Warnf(" \U000026A0 You are using Apple M-series chip and you have not specified container architecture, you might encounter issues while running act. If so, try running it with '--container-architecture linux/amd64'. \U000026A0 \n")
-		}
-
 		log.Debugf("Loading environment from %s", input.Envfile())
 		envs := parseEnvs(input.envs)
 		_ = readEnvs(input.Envfile(), envs)
@@ -593,6 +584,24 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			log.Warnf(deprecationWarning, "container-cap-drop", fmt.Sprintf("--cap-drop=%s", input.containerCapDrop))
 		}
 
+		// Determine container architecture
+		runtimeContainerArch := input.containerArchitecture
+		if runtimeContainerArch == "" {
+			log.Debugf("Container architecture not specified, attempting to detect host architecture.")
+			hostInfo, err := container.GetHostInfo(ctx)
+			if err != nil {
+				log.Warnf("Failed to detect host Docker info: %v. Proceeding without a default container architecture.", err)
+			} else {
+				arch := hostInfo.Architecture
+				if arch == "x86_64" {
+					arch = "amd64" // Docker uses amd64 for x86_64
+				}
+				detectedHostArch := fmt.Sprintf("%s/%s", hostInfo.OSType, arch)
+				log.Debugf("Defaulting container architecture to %s", detectedHostArch)
+				runtimeContainerArch = detectedHostArch
+			}
+		}
+
 		// run the plan
 		config := &runner.Config{
 			Actor:                              input.actor,
@@ -618,7 +627,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			Platforms:                          input.newPlatforms(),
 			Privileged:                         input.privileged,
 			UsernsMode:                         input.usernsMode,
-			ContainerArchitecture:              input.containerArchitecture,
+			ContainerArchitecture:              runtimeContainerArch,
 			ContainerDaemonSocket:              input.containerDaemonSocket,
 			ContainerOptions:                   input.containerOptions,
 			UseGitIgnore:                       input.useGitIgnore,
@@ -636,6 +645,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			Matrix:                             matrixes,
 			ContainerNetworkMode:               docker_container.NetworkMode(input.networkName),
 		}
+
 		if input.useNewActionCache || len(input.localRepository) > 0 {
 			if input.actionOfflineMode {
 				config.ActionCache = &runner.GoGitActionCacheOfflineMode{

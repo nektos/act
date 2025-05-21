@@ -21,6 +21,32 @@ Let's see it in action with a [sample repo](https://github.com/cplee/github-acti
 
 ![Demo](https://raw.githubusercontent.com/wiki/nektos/act/quickstart/act-quickstart-2.gif)
 
+## Running on Different Architectures (e.g., Apple Silicon/ARM)
+
+`act` is designed to work with Docker to run your GitHub Actions. This means it can run actions compiled for different CPU architectures.
+
+*   **Automatic Host Architecture Detection (New Default):**
+    By default, `act` now attempts to detect your host system's architecture (e.g., `linux/arm64` on an Apple Silicon M1/M2 Mac, or `linux/amd64` on a typical x86-64 Linux/Windows machine). It will then try to use this as the default architecture for the Docker containers it runs. This means for many users, especially on Apple Silicon, `act` should work out-of-the-box using native ARM containers if your workflows support them.
+
+*   **Specifying Container Architecture (`--container-architecture`):**
+    If you need to run containers for a specific architecture different from your host's default (e.g., running an `x86_64` container on an M1 Mac via Rosetta 2), you can use the `--container-architecture` flag:
+    ```bash
+    act --container-architecture linux/amd64
+    ```
+    Common values include `linux/amd64` and `linux/arm64`.
+
+*   **Persistent Configuration (`.actrc`):**
+    If you consistently need to set a specific architecture or other flags, you can add them to a `.actrc` file in your repository or home directory. For example, to always default to `linux/amd64`:
+    ```
+    --container-architecture linux/amd64
+    ```
+    (Refer to the [full act user guide](https://nektosact.com/usage/index.html#configuration-file) for more on `.actrc` files.)
+
+*   **Guidance for Apple Silicon (M1/M2) Users:**
+    With the new default behavior, the explicit terminal warning you might have seen previously about specifying `--container-architecture` is less critical. `act` will attempt to use `linux/arm64` by default. If you have workflows that require x86_64 images, you can use `--container-architecture linux/amd64`.
+
+For more detailed information on configuration and flags, please consult the [full act user guide](https://nektosact.com).
+
 # Act User Guide
 
 Please look at the [act user guide](https://nektosact.com) for more documentation.

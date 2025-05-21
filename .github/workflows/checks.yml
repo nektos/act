@@ -33,13 +33,28 @@ jobs:
           GITHUB_COMMENT_REPORTER: ${{ !env.ACT }}
 
   test-linux:
-    name: test-linux
-    runs-on: ubuntu-latest
+    name: test-linux-${{ matrix.arch }}
+    strategy:
+      matrix:
+        include:
+          - os_desc: ubuntu-latest-amd64 # Descriptive name
+            arch: amd64
+            runner_label: ubuntu-latest
+          - os_desc: ubuntu-latest-arm64 # Descriptive name
+            arch: arm64
+            runner_label: ubuntu-latest-arm64 # GitHub-provided label for ARM64 runners
+    runs-on: ${{ matrix.runner_label }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 2
       - name: Set up QEMU
+        # QEMU is generally for running foreign architecture containers/binaries.
+        # On native ARM, it's not needed for running ARM code.
+        # On native AMD64, it's for running ARM (or other arch) code.
+        # Keep it for amd64 builds in case any step *builds* for ARM and wants to test via QEMU,
+        # though current test commands run natively.
+        if: matrix.arch == 'amd64'
         uses: docker/setup-qemu-action@v3
       - uses: actions/setup-go@v5
         with:
@@ -54,8 +69,12 @@ jobs:
       - name: Run act from cli
         run: go run main.go -P ubuntu-latest=node:16-buster-slim -C ./pkg/runner/testdata/ -W ./basic/push.yml
       - name: Run act from cli without docker support
+        # This test uses -P ubuntu-latest=-self-hosted which implies using the runner's environment.
+        # This should be fine on both amd64 and arm64 native runners.
         run: go run -tags WITHOUT_DOCKER main.go -P ubuntu-latest=-self-hosted -C ./pkg/runner/testdata/ -W ./local-action-js/push.yml
       - name: Upload Codecov report
+        # Typically, coverage is reported once, usually from the primary (e.g., amd64) build.
+        if: matrix.arch == 'amd64'
         uses: codecov/codecov-action@v5
         with:
           files: coverage.txt
