@@ -249,3 +249,97 @@ func TestActionRunner(t *testing.T) {
 		})
 	}
 }
+
+func TestActionRunner_buildArgsFromCustomEnvVars(t *testing.T) {
+	table := []struct {
+		name              string
+		envVars           string
+		expectedBuildArgs map[string]string
+	}{
+		{
+			name:              "no build args passed for empty input",
+			envVars:           "",
+			expectedBuildArgs: map[string]string{},
+		},
+		{
+			name:    "default proxy vars",
+			envVars: "HTTP_PROXY,HTTPS_PROXY,NO_PROXY,http_proxy,https_proxy,no_proxy",
+			expectedBuildArgs: map[string]string{
+				"HTTP_PROXY":  "HTTP_PROXY_VAL",
+				"HTTPS_PROXY": "HTTPS_PROXY_VAL",
+				"NO_PROXY":    "NO_PROXY_VAL",
+				"http_proxy":  "http_proxy_val",
+				"https_proxy": "https_proxy_val",
+				"no_proxy":    "no_proxy_val",
+			},
+		},
+		{
+			name:    "nonexistent key is empty string",
+			envVars: "nonexistent",
+			expectedBuildArgs: map[string]string{
+				"nonexistent": "",
+			},
+		},
+		{
+			name:    "single key is ok",
+			envVars: "HTTP_PROXY",
+			expectedBuildArgs: map[string]string{
+				"HTTP_PROXY": "HTTP_PROXY_VAL",
+			},
+		},
+		{
+			name:              "comma as key returns empty",
+			envVars:           ",",
+			expectedBuildArgs: map[string]string{},
+		},
+		{
+			name:              "whitespace key returns empty",
+			envVars:           " ",
+			expectedBuildArgs: map[string]string{},
+		},
+		{
+			name:              "multiple whitespace keys returns empty",
+			envVars:           " , ",
+			expectedBuildArgs: map[string]string{},
+		},
+		{
+			name:    "embedded empty key ignored",
+			envVars: "HTTP_PROXY,,NO_PROXY",
+			expectedBuildArgs: map[string]string{
+				"HTTP_PROXY": "HTTP_PROXY_VAL",
+				"NO_PROXY":   "NO_PROXY_VAL",
+			},
+		},
+		{
+			name:    "embedded whitespace key ignored",
+			envVars: "HTTP_PROXY, ,NO_PROXY",
+			expectedBuildArgs: map[string]string{
+				"HTTP_PROXY": "HTTP_PROXY_VAL",
+				"NO_PROXY":   "NO_PROXY_VAL",
+			},
+		},
+		{
+			name:    "whitespace around key is ignored",
+			envVars: "HTTP_PROXY , HTTPS_PROXY , NO_PROXY",
+			expectedBuildArgs: map[string]string{
+				"HTTP_PROXY":  "HTTP_PROXY_VAL",
+				"HTTPS_PROXY": "HTTPS_PROXY_VAL",
+				"NO_PROXY":    "NO_PROXY_VAL",
+			},
+		},
+	}
+
+	for _, tt := range table {
+		t.Setenv("HTTP_PROXY", "HTTP_PROXY_VAL")
+		t.Setenv("HTTPS_PROXY", "HTTPS_PROXY_VAL")
+		t.Setenv("NO_PROXY", "NO_PROXY_VAL")
+		t.Setenv("http_proxy", "http_proxy_val")
+		t.Setenv("https_proxy", "https_proxy_val")
+		t.Setenv("no_proxy", "no_proxy_val")
+		t.Setenv("nonexistent", "")
+		t.Run(tt.name, func(t *testing.T) {
+			buildArgs := buildArgsFromCustomEnvVars(tt.envVars)
+			assert.Equal(t, tt.expectedBuildArgs, buildArgs)
+		})
+	}
+}

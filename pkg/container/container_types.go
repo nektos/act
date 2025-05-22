@@ -64,6 +64,7 @@ type NewDockerBuildExecutorInput struct {
 	BuildContext io.Reader
 	ImageTag     string
 	Platform     string
+	BuildArgs    map[string]string
 }
 
 // NewDockerPullExecutorInput the input for the NewDockerPullExecutor function
