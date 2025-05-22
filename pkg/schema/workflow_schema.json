@@ -1306,6 +1306,10 @@
             "type": "permission-level-any",
             "description": "Issues and related comments, assignees, labels, and milestones."
           },
+          "models": {
+            "type": "permission-level-any",
+            "description": "Generate AI inference responses with GitHub Models."
+          },
           "packages": {
             "type": "permission-level-any",
             "description": "Packages published to the GitHub Package Platform."
