@@ -80,6 +80,20 @@ func (w *Workflow) UnmarshalYAML(node *yaml.Node) error {
 	return node.Decode((*WorkflowDefault)(w))
 }
 
+type WorkflowStrict Workflow
+
+func (w *WorkflowStrict) UnmarshalYAML(node *yaml.Node) error {
+	// Validate the schema before deserializing it into our model
+	if err := (&schema.Node{
+		Definition: "workflow-root-strict",
+		Schema:     schema.GetWorkflowSchema(),
+	}).UnmarshalYAML(node); err != nil {
+		return errors.Join(err, fmt.Errorf("Actions YAML Strict Schema Validation Error detected:\nFor more information, see: https://nektosact.com/usage/schema.html"))
+	}
+	type WorkflowDefault Workflow
+	return node.Decode((*WorkflowDefault)(w))
+}
+
 type WorkflowDispatchInput struct {
 	Description string   `yaml:"description"`
 	Required    bool     `yaml:"required"`
@@ -711,7 +725,12 @@ func (s *Step) Type() StepType {
 }
 
 // ReadWorkflow returns a list of jobs for a given workflow file reader
-func ReadWorkflow(in io.Reader) (*Workflow, error) {
+func ReadWorkflow(in io.Reader, strict bool) (*Workflow, error) {
+	if strict {
+		w := new(WorkflowStrict)
+		err := yaml.NewDecoder(in).Decode(w)
+		return (*Workflow)(w), err
+	}
 	w := new(Workflow)
 	err := yaml.NewDecoder(in).Decode(w)
 	return w, err
