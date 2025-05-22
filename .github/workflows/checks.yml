@@ -21,10 +21,10 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - uses: golangci/golangci-lint-action@v6.5.0
+      - uses: golangci/golangci-lint-action@v7.0.0
         with:
           version: v1.64.8
-      - uses: megalinter/megalinter/flavors/go@v8.4.2
+      - uses: megalinter/megalinter/flavors/go@v8.6.0
         env:
           DEFAULT_BRANCH: master
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
