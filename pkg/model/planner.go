@@ -16,9 +16,11 @@ import (
 // WorkflowPlanner contains methods for creating plans
 type WorkflowPlanner interface {
 	PlanEvent(eventName string) (*Plan, error)
-	PlanJob(jobName string) (*Plan, error)
+	PlanJob(jobName string, eventName string) (*Plan, error)
 	PlanAll() (*Plan, error)
 	GetEvents() []string
+	ShouldApplyEventFilters() bool
+	EventPath() string
 }
 
 // Plan contains a list of stages to run in series
@@ -56,7 +58,7 @@ type WorkflowFiles struct {
 }
 
 // NewWorkflowPlanner will load a specific workflow, all workflows from a directory or all workflows from a directory and its subdirectories
-func NewWorkflowPlanner(path string, noWorkflowRecurse bool) (WorkflowPlanner, error) {
+func NewWorkflowPlanner(path string, noWorkflowRecurse bool, applyEventFilters bool, eventPath string) (WorkflowPlanner, error) {
 	path, err := filepath.Abs(path)
 	if err != nil {
 		return nil, err
@@ -153,11 +155,12 @@ func NewWorkflowPlanner(path string, noWorkflowRecurse bool) (WorkflowPlanner, e
 			_ = f.Close()
 		}
 	}
-
+	wp.shouldApplyEventFilters = applyEventFilters
+	wp.eventPath = eventPath
 	return wp, nil
 }
 
-func NewSingleWorkflowPlanner(name string, f io.Reader) (WorkflowPlanner, error) {
+func NewSingleWorkflowPlanner(name string, f io.Reader, applyEventFilters bool, eventPath string) (WorkflowPlanner, error) {
 	wp := new(workflowPlanner)
 
 	log.Debugf("Reading workflow %s", name)
@@ -179,7 +182,8 @@ func NewSingleWorkflowPlanner(name string, f io.Reader) (WorkflowPlanner, error)
 	}
 
 	wp.workflows = append(wp.workflows, workflow)
-
+	wp.shouldApplyEventFilters = applyEventFilters
+	wp.eventPath = eventPath
 	return wp, nil
 }
 
@@ -194,7 +198,9 @@ func validateJobName(workflow *Workflow) error {
 }
 
 type workflowPlanner struct {
-	workflows []*Workflow
+	workflows               []*Workflow
+	shouldApplyEventFilters bool
+	eventPath               string
 }
 
 // PlanEvent builds a new list of runs to execute in parallel for an event name
@@ -207,20 +213,39 @@ func (wp *workflowPlanner) PlanEvent(eventName string) (*Plan, error) {
 	var lastErr error
 
 	for _, w := range wp.workflows {
-		events := w.On()
-		if len(events) == 0 {
-			log.Debugf("no events found for workflow: %s", w.File)
-			continue
-		}
+		// the user might want the legacy behaviour so we do this in two sections
+		if wp.ShouldApplyEventFilters() {
+			// user has explicitly opted in to maybe not having a workflow run because of the event filters
+			if w.ShouldFilterForEvent(eventName, wp.EventPath()) {
+				log.Debugf("Skipping workflow %s because workflow does not have an event filter that matches this event", w.Name)
+				continue
+			}
 
-		for _, e := range events {
-			if e == eventName {
-				stages, err := createStages(w, w.GetJobIDs()...)
-				if err != nil {
-					log.Warn(err)
-					lastErr = err
-				} else {
-					plan.mergeStages(stages)
+			stages, err := createStages(w, w.GetJobIDs()...)
+			if err != nil {
+				log.Warn(err)
+				lastErr = err
+			} else {
+				plan.mergeStages(stages)
+			}
+		} else {
+			// the user wants the legacy behaviour which is that if there is a matching on event then we execute it
+			// even if the filters for branch/tag/path don't match
+			events := w.On()
+			if len(events) == 0 {
+				log.Debugf("no events found for workflow: %s", w.File)
+				continue
+			}
+
+			for _, e := range events {
+				if e == eventName {
+					stages, err := createStages(w, w.GetJobIDs()...)
+					if err != nil {
+						log.Warn(err)
+						lastErr = err
+					} else {
+						plan.mergeStages(stages)
+					}
 				}
 			}
 		}
@@ -229,7 +254,7 @@ func (wp *workflowPlanner) PlanEvent(eventName string) (*Plan, error) {
 }
 
 // PlanJob builds a new run to execute in parallel for a job name
-func (wp *workflowPlanner) PlanJob(jobName string) (*Plan, error) {
+func (wp *workflowPlanner) PlanJob(jobName string, eventName string) (*Plan, error) {
 	plan := new(Plan)
 	if len(wp.workflows) == 0 {
 		log.Debugf("no jobs found for workflow: %s", jobName)
@@ -237,6 +262,10 @@ func (wp *workflowPlanner) PlanJob(jobName string) (*Plan, error) {
 	var lastErr error
 
 	for _, w := range wp.workflows {
+		if wp.ShouldApplyEventFilters() && w.ShouldFilterForEvent(eventName, wp.EventPath()) {
+			log.Debugf("Skipping workflow %s because workflow does not have an event filter that matches this event", w.Name)
+			continue
+		}
 		stages, err := createStages(w, jobName)
 		if err != nil {
 			log.Warn(err)
@@ -298,6 +327,14 @@ func (wp *workflowPlanner) GetEvents() []string {
 	})
 
 	return events
+}
+
+func (wp *workflowPlanner) ShouldApplyEventFilters() bool {
+	return wp.shouldApplyEventFilters
+}
+
+func (wp *workflowPlanner) EventPath() string {
+	return wp.eventPath
 }
 
 // MaxRunNameLen determines the max name length of all jobs
