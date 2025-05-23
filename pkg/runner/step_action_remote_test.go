@@ -187,6 +187,7 @@ func TestStepActionRemote(t *testing.T) {
 					return nil
 				})
 
+				cm.On("GetContainerArchive", ctx, "/var/run/act/workflow/SUMMARY.md").Return(io.NopCloser(&bytes.Buffer{}), nil)
 				cm.On("GetContainerArchive", ctx, "/var/run/act/workflow/pathcmd.txt").Return(io.NopCloser(&bytes.Buffer{}), nil)
 			}
 
@@ -195,9 +196,9 @@ func TestStepActionRemote(t *testing.T) {
 				err = sar.main()(ctx)
 			}
 
-			assert.Equal(t, tt.runError, err)
+			assert.ErrorIs(t, err, tt.runError)
 			assert.Equal(t, tt.mocks.cloned, clonedAction)
-			assert.Equal(t, tt.result, sar.RunContext.StepResults["step"])
+			assert.Equal(t, sar.RunContext.StepResults["step"], tt.result)
 
 			sarm.AssertExpectations(t)
 			cm.AssertExpectations(t)
@@ -599,6 +600,7 @@ func TestStepActionRemotePost(t *testing.T) {
 					return nil
 				})
 
+				cm.On("GetContainerArchive", ctx, "/var/run/act/workflow/SUMMARY.md").Return(io.NopCloser(&bytes.Buffer{}), nil)
 				cm.On("GetContainerArchive", ctx, "/var/run/act/workflow/pathcmd.txt").Return(io.NopCloser(&bytes.Buffer{}), nil)
 			}
 

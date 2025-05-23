@@ -74,6 +74,7 @@ func TestStepRun(t *testing.T) {
 
 	ctx := context.Background()
 
+	cm.On("GetContainerArchive", ctx, "/var/run/act/workflow/SUMMARY.md").Return(io.NopCloser(&bytes.Buffer{}), nil)
 	cm.On("GetContainerArchive", ctx, "/var/run/act/workflow/pathcmd.txt").Return(io.NopCloser(&bytes.Buffer{}), nil)
 
 	err := sr.main()(ctx)
