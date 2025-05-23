@@ -45,7 +45,7 @@ func readActionImpl(ctx context.Context, step *model.Step, actionDir string, act
 	allErrors := []error{}
 	addError := func(fileName string, err error) {
 		if err != nil {
-			allErrors = append(allErrors, fmt.Errorf("failed to read '%s' from action '%s' with path '%s' of step %w", fileName, step.String(), actionPath, err))
+			allErrors = append(allErrors, fmt.Errorf("failed to read '%s' from action '%s' with path '%s' of step: %w", fileName, step.String(), actionPath, err))
 		} else {
 			// One successful read, clear error state
 			allErrors = nil

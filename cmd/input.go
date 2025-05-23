@@ -62,6 +62,7 @@ type Input struct {
 	useNewActionCache                  bool
 	localRepository                    []string
 	listOptions                        bool
+	concurrentJobs                     int
 }
 
 func (i *Input) resolve(path string) string {
