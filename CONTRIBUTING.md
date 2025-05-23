@@ -9,9 +9,9 @@ Help wanted! We'd love your contributions to Act. Please review the following gu
 
 ## <a id="questions"></a> Have a Question?
 
-Please don't open a GitHub issue for questions about how to use `act`, as the goal is to use issues for managing bugs and feature requests. Issues that are related to general support will be closed and redirected to our gitter room.
+Please don't open a GitHub issue for questions about how to use `act`, as the goal is to use issues for managing bugs and feature requests. Issues that are related to general support will be closed and redirected to [discussions](https://github.com/nektos/act/discussions).
 
-For all support related questions, please ask the question in our gitter room: [nektos/act](https://gitter.im/nektos/act).
+For all support related questions, please [open a discussion post](https://github.com/nektos/act/discussions/new/choose).
 
 ## <a id="bugs"></a> Found a Bug?
 
