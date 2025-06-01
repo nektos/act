@@ -61,6 +61,20 @@ type Config struct {
 	Matrix                             map[string]map[string]bool   // Matrix config to run
 	ContainerNetworkMode               docker_container.NetworkMode // the network mode of job containers (the value of --network)
 	ActionCache                        ActionCache                  // Use a custom ActionCache Implementation
+	ConcurrentJobs                     int                          // Number of max concurrent jobs
+}
+
+func (config *Config) GetConcurrentJobs() int {
+	if config.ConcurrentJobs >= 1 {
+		return config.ConcurrentJobs
+	}
+
+	ncpu := runtime.NumCPU()
+	log.Debugf("Detected CPUs: %d", ncpu)
+	if ncpu > 1 {
+		return ncpu
+	}
+	return 1
 }
 
 type caller struct {
@@ -195,12 +209,9 @@ func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 				}
 				pipeline = append(pipeline, common.NewParallelExecutor(maxParallel, stageExecutor...))
 			}
-			ncpu := runtime.NumCPU()
-			if 1 > ncpu {
-				ncpu = 1
-			}
-			log.Debugf("Detected CPUs: %d", ncpu)
-			return common.NewParallelExecutor(ncpu, pipeline...)(ctx)
+
+			log.Debugf("PlanExecutor concurrency: %d", runner.config.GetConcurrentJobs())
+			return common.NewParallelExecutor(runner.config.GetConcurrentJobs(), pipeline...)(ctx)
 		})
 	}
 
