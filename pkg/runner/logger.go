@@ -144,6 +144,10 @@ func withStepLogger(ctx context.Context, stepID string, stepName string, stageNa
 type entryProcessor func(entry *logrus.Entry) *logrus.Entry
 
 func valueMasker(insecureSecrets bool, secrets map[string]string) entryProcessor {
+	ssecrets := []string{}
+	for _, v := range secrets {
+		ssecrets = append(ssecrets, v)
+	}
 	return func(entry *logrus.Entry) *logrus.Entry {
 		if insecureSecrets {
 			return entry
@@ -151,7 +155,7 @@ func valueMasker(insecureSecrets bool, secrets map[string]string) entryProcessor
 
 		masks := Masks(entry.Context)
 
-		for _, v := range secrets {
+		for _, v := range ssecrets {
 			if v != "" {
 				entry.Message = strings.ReplaceAll(entry.Message, v, "***")
 			}
