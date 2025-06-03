@@ -523,6 +523,7 @@ func (rc *RunContext) UpdateExtraPath(ctx context.Context, githubEnvPath string)
 		return err
 	}
 	s := bufio.NewScanner(reader)
+	s.Buffer(nil, 1024*1024*1024) // increase buffer to 1GB to avoid scanner buffer overflow
 	firstLine := true
 	for s.Scan() {
 		line := s.Text()
@@ -537,7 +538,7 @@ func (rc *RunContext) UpdateExtraPath(ctx context.Context, githubEnvPath string)
 			rc.addPath(ctx, line)
 		}
 	}
-	return nil
+	return s.Err()
 }
 
 // stopJobContainer removes the job container (if it exists) and its volume (if it exists)
