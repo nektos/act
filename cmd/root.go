@@ -286,6 +286,7 @@ func readArgsFile(file string, split bool) []string {
 		}
 	}()
 	scanner := bufio.NewScanner(f)
+	scanner.Buffer(nil, 1024*1024*1024) // increase buffer to 1GB to avoid scanner buffer overflow
 	for scanner.Scan() {
 		arg := os.ExpandEnv(strings.TrimSpace(scanner.Text()))
 
