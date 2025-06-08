@@ -390,8 +390,6 @@ func (j *Job) Matrix() map[string][]interface{} {
 
 // GetMatrixes returns the matrix cross product
 // It skips includes and hard fails excludes for non-existing keys
-//
-//nolint:gocyclo
 func (j *Job) GetMatrixes() ([]map[string]interface{}, error) {
 	matrixes := make([]map[string]interface{}, 0)
 	if j.Strategy != nil {
@@ -406,31 +404,11 @@ func (j *Job) GetMatrixes() ([]map[string]interface{}, error) {
 				case []interface{}:
 					for _, i := range t {
 						i := i.(map[string]interface{})
-						extraInclude := true
-						for k := range i {
-							if _, ok := m[k]; ok {
-								includes = append(includes, i)
-								extraInclude = false
-								break
-							}
-						}
-						if extraInclude {
-							extraIncludes = append(extraIncludes, i)
-						}
+						includes = append(includes, i)
 					}
 				case interface{}:
 					v := v.(map[string]interface{})
-					extraInclude := true
-					for k := range v {
-						if _, ok := m[k]; ok {
-							includes = append(includes, v)
-							extraInclude = false
-							break
-						}
-					}
-					if extraInclude {
-						extraIncludes = append(extraIncludes, v)
-					}
+					includes = append(includes, v)
 				}
 			}
 			delete(m, "include")
