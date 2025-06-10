@@ -6,8 +6,8 @@ import (
 	"context"
 	"fmt"
 
+	cerrdefs "github.com/containerd/errdefs"
 	"github.com/docker/docker/api/types/image"
-	"github.com/docker/docker/client"
 	"github.com/nektos/act/pkg/common"
 )
 
@@ -35,7 +35,7 @@ func ImageExistsLocally(ctx context.Context, imageName string, platform string) 
 	defer cli.Close()
 
 	inspectImage, err := cli.ImageInspect(ctx, imageName)
-	if client.IsErrNotFound(err) {
+	if cerrdefs.IsNotFound(err) {
 		return false, nil
 	} else if err != nil {
 		return false, err
@@ -58,7 +58,7 @@ func RemoveImage(ctx context.Context, imageName string, force bool, pruneChildre
 	defer cli.Close()
 
 	inspectImage, err := cli.ImageInspect(ctx, imageName)
-	if client.IsErrNotFound(err) {
+	if cerrdefs.IsNotFound(err) {
 		return false, nil
 	} else if err != nil {
 		return false, err
