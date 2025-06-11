@@ -66,6 +66,8 @@ func createRootCommand(ctx context.Context, input *Input, version string) *cobra
 	}
 
 	rootCmd.Flags().BoolP("watch", "w", false, "watch the contents of the local repo and run when files change")
+	rootCmd.Flags().BoolVar(&input.validate, "validate", false, "validate workflows")
+	rootCmd.Flags().BoolVar(&input.strict, "strict", false, "use strict workflow schema")
 	rootCmd.Flags().BoolP("list", "l", false, "list workflows")
 	rootCmd.Flags().BoolP("graph", "g", false, "draw workflows")
 	rootCmd.Flags().StringP("job", "j", "", "run a specific job ID")
@@ -446,7 +448,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 		matrixes := parseMatrix(input.matrix)
 		log.Debugf("Evaluated matrix inclusions: %v", matrixes)
 
-		planner, err := model.NewWorkflowPlanner(input.WorkflowsPath(), input.noWorkflowRecurse)
+		planner, err := model.NewWorkflowPlanner(input.WorkflowsPath(), input.noWorkflowRecurse, input.strict)
 		if err != nil {
 			return err
 		}
@@ -459,6 +461,11 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 		// check if we should just list the workflows
 		list, err := cmd.Flags().GetBool("list")
 		if err != nil {
+			return err
+		}
+
+		// check if we should just validate the workflows
+		if input.validate {
 			return err
 		}
 
