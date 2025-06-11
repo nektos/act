@@ -129,6 +129,7 @@ func createRootCommand(ctx context.Context, input *Input, version string) *cobra
 	rootCmd.PersistentFlags().BoolVarP(&input.useNewActionCache, "use-new-action-cache", "", false, "Enable using the new Action Cache for storing Actions locally")
 	rootCmd.PersistentFlags().StringArrayVarP(&input.localRepository, "local-repository", "", []string{}, "Replaces the specified repository and ref with a local folder (e.g. https://github.com/test/test@v0=/home/act/test or test/test@v0=/home/act/test, the latter matches any hosts or protocols)")
 	rootCmd.PersistentFlags().BoolVar(&input.listOptions, "list-options", false, "Print a json structure of compatible options")
+	rootCmd.PersistentFlags().IntVar(&input.concurrentJobs, "concurrent-jobs", 0, "Maximum number of concurrent jobs to run. Default is the number of CPUs available.")
 	rootCmd.SetArgs(args())
 	return rootCmd
 }
@@ -287,6 +288,7 @@ func readArgsFile(file string, split bool) []string {
 		}
 	}()
 	scanner := bufio.NewScanner(f)
+	scanner.Buffer(nil, 1024*1024*1024) // increase buffer to 1GB to avoid scanner buffer overflow
 	for scanner.Scan() {
 		arg := os.ExpandEnv(strings.TrimSpace(scanner.Text()))
 
@@ -393,6 +395,8 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 		}
 
 		if ok, _ := cmd.Flags().GetBool("bug-report"); ok {
+			ctx, cancel := common.EarlyCancelContext(ctx)
+			defer cancel()
 			return bugReport(ctx, cmd.Version)
 		}
 		if ok, _ := cmd.Flags().GetBool("man-page"); ok {
@@ -432,6 +436,8 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 		_ = readEnvsEx(input.Secretfile(), secrets, true)
 
 		if _, hasGitHubToken := secrets["GITHUB_TOKEN"]; !hasGitHubToken {
+			ctx, cancel := common.EarlyCancelContext(ctx)
+			defer cancel()
 			secrets["GITHUB_TOKEN"], _ = gh.GetToken(ctx, "")
 		}
 
@@ -638,6 +644,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			ReplaceGheActionTokenWithGithubCom: input.replaceGheActionTokenWithGithubCom,
 			Matrix:                             matrixes,
 			ContainerNetworkMode:               docker_container.NetworkMode(input.networkName),
+			ConcurrentJobs:                     input.concurrentJobs,
 		}
 		if input.useNewActionCache || len(input.localRepository) > 0 {
 			if input.actionOfflineMode {
@@ -779,10 +786,13 @@ func watchAndRun(ctx context.Context, fn common.Executor) error {
 		return err
 	}
 
+	earlyCancelCtx, cancel := common.EarlyCancelContext(ctx)
+	defer cancel()
+
 	for folderWatcher.IsRunning() {
 		log.Debugf("Watching %s for changes", dir)
 		select {
-		case <-ctx.Done():
+		case <-earlyCancelCtx.Done():
 			return nil
 		case changes := <-folderWatcher.ChangeDetails():
 			log.Debugf("%s", changes.String())

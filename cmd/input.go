@@ -64,6 +64,7 @@ type Input struct {
 	listOptions                        bool
 	validate                           bool
 	strict                             bool
+	concurrentJobs                     int
 }
 
 func (i *Input) resolve(path string) string {

@@ -1,0 +1,27 @@
+name: Step Summary Example
+
+on: [push]
+
+jobs:
+  create_summary:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # GITHUB_STEP_SUMMARY test
+      - name: Create Step Summary
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const summary = `
+            ## Workflow Summary
+            - **Repository**: ${context.repo.owner}/${context.repo.repo}
+            - **Branch**: ${context.ref}
+            - **Commit SHA**: ${context.sha}
+            - **Event**: ${context.eventName}
+            `;
+            console.log('Summary:', summary);
+            await core.summary.addRaw(summary);
+            await core.summary.write();
+          github-token: none

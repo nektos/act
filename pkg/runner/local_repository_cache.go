@@ -45,7 +45,7 @@ func (l *LocalRepositoryCache) GetTarArchive(ctx context.Context, cacheDir, sha,
 	logger := common.Logger(ctx)
 	// sha is mapped to ref in fetch if there is a local override
 	if dest, ok := l.CacheDirCache[fmt.Sprintf("%s@%s", cacheDir, sha)]; ok {
-		logger.Infof("LocalRepositoryCache read cachedir %s with ref %s and subpath %s from %s", cacheDir, sha, includePrefix, dest)
+		logger.Infof("LocalRepositoryCache read cachedir %s with ref %s and subpath '%s' from %s", cacheDir, sha, includePrefix, dest)
 		srcPath := filepath.Join(dest, includePrefix)
 		buf := &bytes.Buffer{}
 		tw := tar.NewWriter(buf)
@@ -95,6 +95,6 @@ func (l *LocalRepositoryCache) GetTarArchive(ctx context.Context, cacheDir, sha,
 		}
 		return io.NopCloser(buf), nil
 	}
-	logger.Infof("LocalRepositoryCache not matched cachedir %s with Ref %s and subpath %s", cacheDir, sha, includePrefix)
+	logger.Infof("LocalRepositoryCache not matched cachedir %s with Ref %s and subpath '%s'", cacheDir, sha, includePrefix)
 	return l.Parent.GetTarArchive(ctx, cacheDir, sha, includePrefix)
 }

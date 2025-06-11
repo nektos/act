@@ -1,8 +1,11 @@
 package runner
 
 import (
+	"archive/tar"
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"path"
 	"strconv"
 	"strings"
@@ -50,6 +53,32 @@ func (s stepStage) String() string {
 	return "Unknown"
 }
 
+func processRunnerSummaryCommand(ctx context.Context, fileName string, rc *RunContext) error {
+	if common.Dryrun(ctx) {
+		return nil
+	}
+	pathTar, err := rc.JobContainer.GetContainerArchive(ctx, path.Join(rc.JobContainer.GetActPath(), fileName))
+	if err != nil {
+		return err
+	}
+	defer pathTar.Close()
+
+	reader := tar.NewReader(pathTar)
+	_, err = reader.Next()
+	if err != nil && err != io.EOF {
+		return err
+	}
+	summary, err := io.ReadAll(reader)
+	if err != nil {
+		return err
+	}
+	if len(summary) == 0 {
+		return nil
+	}
+	common.Logger(ctx).WithFields(logrus.Fields{"command": "summary", "content": string(summary)}).Infof("  \U00002699  Summary - %s", string(summary))
+	return nil
+}
+
 func processRunnerEnvFileCommand(ctx context.Context, fileName string, rc *RunContext, setter func(context.Context, map[string]string, string)) error {
 	env := map[string]string{}
 	err := rc.JobContainer.UpdateFromEnv(path.Join(rc.JobContainer.GetActPath(), fileName), &env)(ctx)
@@ -84,6 +113,9 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 		if err != nil {
 			return err
 		}
+
+		cctx := common.JobCancelContext(ctx)
+		rc.Cancelled = cctx != nil && cctx.Err() != nil
 
 		runStep, err := isStepEnabled(ctx, ifExpression, step, stage)
 		if err != nil {
@@ -140,10 +172,14 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 			Mode: 0o666,
 		})(ctx)
 
-		timeoutctx, cancelTimeOut := evaluateStepTimeout(ctx, rc.ExprEval, stepModel)
+		stepCtx, cancelStepCtx := context.WithCancel(ctx)
+		defer cancelStepCtx()
+		var cancelTimeOut context.CancelFunc
+		stepCtx, cancelTimeOut = evaluateStepTimeout(stepCtx, rc.ExprEval, stepModel)
 		defer cancelTimeOut()
+		monitorJobCancellation(ctx, stepCtx, cctx, rc, logger, ifExpression, step, stage, cancelStepCtx)
 		startTime := time.Now()
-		err = executor(timeoutctx)
+		err = executor(stepCtx)
 		executionTime := time.Since(startTime)
 
 		if err == nil {
@@ -168,27 +204,31 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 			logger.WithFields(logrus.Fields{"executionTime": executionTime, "stepResult": stepResult.Outcome}).Infof("  \u274C  Failure - %s %s [%s]", stage, stepString, executionTime)
 		}
 		// Process Runner File Commands
-		orgerr := err
-		err = processRunnerEnvFileCommand(ctx, envFileCommand, rc, rc.setEnv)
-		if err != nil {
-			return err
-		}
-		err = processRunnerEnvFileCommand(ctx, stateFileCommand, rc, rc.saveState)
-		if err != nil {
-			return err
-		}
-		err = processRunnerEnvFileCommand(ctx, outputFileCommand, rc, rc.setOutput)
-		if err != nil {
-			return err
-		}
-		err = rc.UpdateExtraPath(ctx, path.Join(actPath, pathFileCommand))
-		if err != nil {
-			return err
-		}
-		if orgerr != nil {
-			return orgerr
-		}
-		return err
+		ferrors := []error{err}
+		ferrors = append(ferrors, processRunnerEnvFileCommand(ctx, envFileCommand, rc, rc.setEnv))
+		ferrors = append(ferrors, processRunnerEnvFileCommand(ctx, stateFileCommand, rc, rc.saveState))
+		ferrors = append(ferrors, processRunnerEnvFileCommand(ctx, outputFileCommand, rc, rc.setOutput))
+		ferrors = append(ferrors, processRunnerSummaryCommand(ctx, summaryFileCommand, rc))
+		ferrors = append(ferrors, rc.UpdateExtraPath(ctx, path.Join(actPath, pathFileCommand)))
+		return errors.Join(ferrors...)
+	}
+}
+
+func monitorJobCancellation(ctx context.Context, stepCtx context.Context, jobCancellationCtx context.Context, rc *RunContext, logger logrus.FieldLogger, ifExpression string, step step, stage stepStage, cancelStepCtx context.CancelFunc) {
+	if !rc.Cancelled && jobCancellationCtx != nil {
+		go func() {
+			select {
+			case <-jobCancellationCtx.Done():
+				rc.Cancelled = true
+				logger.Infof("Reevaluate condition %v due to cancellation", ifExpression)
+				keepStepRunning, err := isStepEnabled(ctx, ifExpression, step, stage)
+				logger.Infof("Result condition keepStepRunning=%v", keepStepRunning)
+				if !keepStepRunning || err != nil {
+					cancelStepCtx()
+				}
+			case <-stepCtx.Done():
+			}
+		}()
 	}
 }
 

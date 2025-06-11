@@ -318,6 +318,8 @@ func TestRunEvent(t *testing.T) {
 		{workdir, "set-env-step-env-override", "push", "", platforms, secrets},
 		{workdir, "set-env-new-env-file-per-step", "push", "", platforms, secrets},
 		{workdir, "no-panic-on-invalid-composite-action", "push", "jobs failed due to invalid action", platforms, secrets},
+		// GITHUB_STEP_SUMMARY
+		{workdir, "stepsummary", "push", "", platforms, secrets},
 
 		// services
 		{workdir, "services", "push", "", platforms, secrets},
@@ -538,7 +540,9 @@ func TestRunEventHostEnvironment(t *testing.T) {
 			{workdir, "matrix", "push", "", platforms, secrets},
 			{workdir, "matrix-include-exclude", "push", "", platforms, secrets},
 			{workdir, "commands", "push", "", platforms, secrets},
-			{workdir, "defaults-run", "push", "", platforms, secrets},
+			// Disabled for now because this test is somewhat invalid
+			// shell sh is not necessarily bash if the job has no override
+			// {workdir, "defaults-run", "push", "", platforms, secrets},
 			{workdir, "composite-fail-with-output", "push", "", platforms, secrets},
 			{workdir, "issue-597", "push", "", platforms, secrets},
 			{workdir, "issue-598", "push", "", platforms, secrets},

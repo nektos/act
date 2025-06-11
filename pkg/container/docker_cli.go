@@ -388,7 +388,7 @@ func parse(flags *pflag.FlagSet, copts *containerOptions, serverOS string) (*con
 
 	// Can't evaluate options passed into --tmpfs until we actually mount
 	tmpfs := make(map[string]string)
-	for _, t := range copts.tmpfs.GetAll() {
+	for _, t := range copts.tmpfs.GetSlice() {
 		if arr := strings.SplitN(t, ":", 2); len(arr) > 1 {
 			tmpfs[arr[0]] = arr[1]
 		} else {
@@ -412,7 +412,7 @@ func parse(flags *pflag.FlagSet, copts *containerOptions, serverOS string) (*con
 		entrypoint = []string{""}
 	}
 
-	publishOpts := copts.publish.GetAll()
+	publishOpts := copts.publish.GetSlice()
 	var (
 		ports         map[nat.Port]struct{}
 		portBindings  map[nat.Port][]nat.PortBinding
@@ -430,7 +430,7 @@ func parse(flags *pflag.FlagSet, copts *containerOptions, serverOS string) (*con
 	}
 
 	// Merge in exposed ports to the map of published ports
-	for _, e := range copts.expose.GetAll() {
+	for _, e := range copts.expose.GetSlice() {
 		if strings.Contains(e, ":") {
 			return nil, errors.Errorf("invalid port format for --expose: %s", e)
 		}
@@ -459,7 +459,7 @@ func parse(flags *pflag.FlagSet, copts *containerOptions, serverOS string) (*con
 	// parsing flags, we haven't yet sent a _ping to the daemon to determine
 	// what operating system it is.
 	deviceMappings := []container.DeviceMapping{}
-	for _, device := range copts.devices.GetAll() {
+	for _, device := range copts.devices.GetSlice() {
 		var (
 			validated     string
 			deviceMapping container.DeviceMapping
@@ -477,13 +477,13 @@ func parse(flags *pflag.FlagSet, copts *containerOptions, serverOS string) (*con
 	}
 
 	// collect all the environment variables for the container
-	envVariables, err := opts.ReadKVEnvStrings(copts.envFile.GetAll(), copts.env.GetAll())
+	envVariables, err := opts.ReadKVEnvStrings(copts.envFile.GetSlice(), copts.env.GetSlice())
 	if err != nil {
 		return nil, err
 	}
 
 	// collect all the labels for the container
-	labels, err := opts.ReadKVStrings(copts.labelsFile.GetAll(), copts.labels.GetAll())
+	labels, err := opts.ReadKVStrings(copts.labelsFile.GetSlice(), copts.labels.GetSlice())
 	if err != nil {
 		return nil, err
 	}
@@ -513,19 +513,19 @@ func parse(flags *pflag.FlagSet, copts *containerOptions, serverOS string) (*con
 		return nil, err
 	}
 
-	loggingOpts, err := parseLoggingOpts(copts.loggingDriver, copts.loggingOpts.GetAll())
+	loggingOpts, err := parseLoggingOpts(copts.loggingDriver, copts.loggingOpts.GetSlice())
 	if err != nil {
 		return nil, err
 	}
 
-	securityOpts, err := parseSecurityOpts(copts.securityOpt.GetAll())
+	securityOpts, err := parseSecurityOpts(copts.securityOpt.GetSlice())
 	if err != nil {
 		return nil, err
 	}
 
 	securityOpts, maskedPaths, readonlyPaths := parseSystemPaths(securityOpts)
 
-	storageOpts, err := parseStorageOpts(copts.storageOpt.GetAll())
+	storageOpts, err := parseStorageOpts(copts.storageOpt.GetSlice())
 	if err != nil {
 		return nil, err
 	}
@@ -599,7 +599,7 @@ func parse(flags *pflag.FlagSet, copts *containerOptions, serverOS string) (*con
 		IOMaximumIOps:        copts.ioMaxIOps,
 		IOMaximumBandwidth:   copts.ioMaxBandwidth,
 		Ulimits:              copts.ulimits.GetList(),
-		DeviceCgroupRules:    copts.deviceCgroupRules.GetAll(),
+		DeviceCgroupRules:    copts.deviceCgroupRules.GetSlice(),
 		Devices:              deviceMappings,
 		DeviceRequests:       copts.gpus.Value(),
 	}
@@ -640,7 +640,7 @@ func parse(flags *pflag.FlagSet, copts *containerOptions, serverOS string) (*con
 		AutoRemove:      copts.autoRemove,
 		Privileged:      copts.privileged,
 		PortBindings:    portBindings,
-		Links:           copts.links.GetAll(),
+		Links:           copts.links.GetSlice(),
 		PublishAllPorts: copts.publishAll,
 		// Make sure the dns fields are never nil.
 		// New containers don't ever have those fields nil,
@@ -650,17 +650,17 @@ func parse(flags *pflag.FlagSet, copts *containerOptions, serverOS string) (*con
 		DNS:            copts.dns.GetAllOrEmpty(),
 		DNSSearch:      copts.dnsSearch.GetAllOrEmpty(),
 		DNSOptions:     copts.dnsOptions.GetAllOrEmpty(),
-		ExtraHosts:     copts.extraHosts.GetAll(),
-		VolumesFrom:    copts.volumesFrom.GetAll(),
+		ExtraHosts:     copts.extraHosts.GetSlice(),
+		VolumesFrom:    copts.volumesFrom.GetSlice(),
 		IpcMode:        container.IpcMode(copts.ipcMode),
 		NetworkMode:    container.NetworkMode(copts.netMode.NetworkMode()),
 		PidMode:        pidMode,
 		UTSMode:        utsMode,
 		UsernsMode:     usernsMode,
 		CgroupnsMode:   cgroupnsMode,
-		CapAdd:         strslice.StrSlice(copts.capAdd.GetAll()),
-		CapDrop:        strslice.StrSlice(copts.capDrop.GetAll()),
-		GroupAdd:       copts.groupAdd.GetAll(),
+		CapAdd:         strslice.StrSlice(copts.capAdd.GetSlice()),
+		CapDrop:        strslice.StrSlice(copts.capDrop.GetSlice()),
+		GroupAdd:       copts.groupAdd.GetSlice(),
 		RestartPolicy:  restartPolicy,
 		SecurityOpt:    securityOpts,
 		StorageOpt:     storageOpts,
@@ -778,11 +778,11 @@ func applyContainerOptions(n *opts.NetworkAttachmentOpts, copts *containerOption
 	}
 	if copts.aliases.Len() > 0 {
 		n.Aliases = make([]string, copts.aliases.Len())
-		copy(n.Aliases, copts.aliases.GetAll())
+		copy(n.Aliases, copts.aliases.GetSlice())
 	}
 	if copts.links.Len() > 0 {
 		n.Links = make([]string, copts.links.Len())
-		copy(n.Links, copts.links.GetAll())
+		copy(n.Links, copts.links.GetSlice())
 	}
 	if copts.ipv4Address != "" {
 		n.IPv4Address = copts.ipv4Address
@@ -794,7 +794,7 @@ func applyContainerOptions(n *opts.NetworkAttachmentOpts, copts *containerOption
 	// TODO should linkLocalIPs be added to the _first_ network only, or to _all_ networks? (should this be a per-network option as well?)
 	if copts.linkLocalIPs.Len() > 0 {
 		n.LinkLocalIPs = make([]string, copts.linkLocalIPs.Len())
-		copy(n.LinkLocalIPs, copts.linkLocalIPs.GetAll())
+		copy(n.LinkLocalIPs, copts.linkLocalIPs.GetSlice())
 	}
 	return nil
 }
