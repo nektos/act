@@ -92,7 +92,7 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 			return nil
 		}))
 
-		postExec := useStepLogger(rc, stepModel, stepStagePost, step.post())
+		postExec := useStepLogger(rc, stepModel, stepStagePost, step.post().ThenError(setJobError))
 		if postExecutor != nil {
 			// run the post executor in reverse order
 			postExecutor = postExec.Finally(postExecutor)

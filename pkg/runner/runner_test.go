@@ -376,13 +376,24 @@ func (factory *captureJobLoggerFactory) WithJobLogger() *logrus.Logger {
 	return logger
 }
 
-func TestPullFailureIsJobFailure(t *testing.T) {
+func TestPullAndPostStepFailureIsJobFailure(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}
 
-	tables := []TestJobFileInfo{
-		{workdir, "checkout", "push", "pull failure", map[string]string{"ubuntu-latest": "localhost:0000/missing:latest"}, secrets},
+	defCache := &GoGitActionCache{
+		path.Clean(path.Join(workdir, "cache")),
+	}
+
+	mockCache := &mockCache{}
+
+	tables := []struct {
+		TestJobFileInfo
+		ActionCache ActionCache
+		SetupResult string
+	}{
+		{TestJobFileInfo{workdir, "checkout", "push", "pull failure", map[string]string{"ubuntu-latest": "localhost:0000/missing:latest"}, secrets}, defCache, "failure"},
+		{TestJobFileInfo{workdir, "post-step-failure-is-job-failure", "push", "post failure", map[string]string{"ubuntu-latest": "-self-hosted"}, secrets}, mockCache, "success"},
 	}
 
 	for _, table := range tables {
@@ -397,9 +408,7 @@ func TestPullFailureIsJobFailure(t *testing.T) {
 			if _, err := os.Stat(eventFile); err == nil {
 				config.EventPath = eventFile
 			}
-			config.ActionCache = &GoGitActionCache{
-				path.Clean(path.Join(workdir, "cache")),
-			}
+			config.ActionCache = table.ActionCache
 
 			logger := logrus.New()
 			logger.SetOutput(&factory.buffer)
@@ -418,7 +427,7 @@ func TestPullFailureIsJobFailure(t *testing.T) {
 						hasJobResult = true
 					}
 					if val, ok := entry["stepResult"]; ok && !hasStepResult {
-						assert.Equal(t, "failure", val)
+						assert.Equal(t, table.SetupResult, val)
 						hasStepResult = true
 					}
 				}

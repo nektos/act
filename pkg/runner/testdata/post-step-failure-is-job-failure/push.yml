@@ -1,0 +1,9 @@
+name: basic
+on: push
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./post-step-failure-is-job-failure/post-step-failure
