@@ -404,6 +404,14 @@ func newStepContainer(ctx context.Context, step step, image string, cmd []string
 	envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_ARCH", container.RunnerArch(ctx)))
 	envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_TEMP", "/tmp"))
 
+	// Log environment variables in dryrun mode
+	if common.Dryrun(ctx) {
+		logger := common.Logger(ctx)
+		for _, envVar := range envList {
+			logger.Infof("ACT ENV: %s", envVar)
+		}
+	}
+
 	binds, mounts := rc.GetBindsAndMounts()
 	networkMode := fmt.Sprintf("container:%s", rc.jobContainerName())
 	if rc.IsHostEnv(ctx) {

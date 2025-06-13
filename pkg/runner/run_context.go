@@ -274,6 +274,18 @@ func (rc *RunContext) startJobContainer() common.Executor {
 		envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_TEMP", "/tmp"))
 		envList = append(envList, fmt.Sprintf("%s=%s", "LANG", "C.UTF-8")) // Use same locale as GitHub Actions
 
+		// Add job-level environment variables  
+		for k, v := range rc.GetEnv() {
+			envList = append(envList, fmt.Sprintf("%s=%s", k, v))
+		}
+
+		// Log environment variables in dryrun mode
+		if common.Dryrun(ctx) {
+			for _, envVar := range envList {
+				logger.Infof("ACT ENV: %s", envVar)
+			}
+		}
+
 		ext := container.LinuxContainerEnvironmentExtensions{}
 		binds, mounts := rc.GetBindsAndMounts()
 
@@ -344,6 +356,9 @@ func (rc *RunContext) startJobContainer() common.Executor {
 		}
 
 		rc.cleanUpJobContainer = func(ctx context.Context) error {
+			if common.Dryrun(ctx) {
+				return nil
+			}
 			reuseJobContainer := func(_ context.Context) bool {
 				return rc.Config.ReuseContainers
 			}
@@ -407,13 +422,13 @@ func (rc *RunContext) startJobContainer() common.Executor {
 		}
 
 		return common.NewPipelineExecutor(
-			rc.pullServicesImages(rc.Config.ForcePull),
-			rc.JobContainer.Pull(rc.Config.ForcePull),
-			rc.stopJobContainer(),
-			container.NewDockerNetworkCreateExecutor(networkName).IfBool(createAndDeleteNetwork),
-			rc.startServiceContainers(networkName),
-			rc.JobContainer.Create(rc.Config.ContainerCapAdd, rc.Config.ContainerCapDrop),
-			rc.JobContainer.Start(false),
+			rc.pullServicesImages(rc.Config.ForcePull).IfNot(common.Dryrun),
+			rc.JobContainer.Pull(rc.Config.ForcePull).IfNot(common.Dryrun),
+			rc.stopJobContainer().IfNot(common.Dryrun),
+			container.NewDockerNetworkCreateExecutor(networkName).IfBool(createAndDeleteNetwork).IfNot(common.Dryrun),
+			rc.startServiceContainers(networkName).IfNot(common.Dryrun),
+			rc.JobContainer.Create(rc.Config.ContainerCapAdd, rc.Config.ContainerCapDrop).IfNot(common.Dryrun),
+			rc.JobContainer.Start(false).IfNot(common.Dryrun),
 			rc.JobContainer.Copy(rc.JobContainer.GetActPath()+"/", &container.FileEntry{
 				Name: "workflow/event.json",
 				Mode: 0o644,
@@ -422,8 +437,8 @@ func (rc *RunContext) startJobContainer() common.Executor {
 				Name: "workflow/envs.txt",
 				Mode: 0o666,
 				Body: "",
-			}),
-			rc.waitForServiceContainers(),
+			}).IfNot(common.Dryrun),
+			rc.waitForServiceContainers().IfNot(common.Dryrun),
 		)(ctx)
 	}
 }
@@ -436,6 +451,9 @@ func (rc *RunContext) execJobContainer(cmd []string, env map[string]string, user
 
 func (rc *RunContext) InitializeNodeTool() common.Executor {
 	return func(ctx context.Context) error {
+		if common.Dryrun(ctx) {
+			return nil
+		}
 		ctx, cancel := common.EarlyCancelContext(ctx)
 		defer cancel()
 		rc.GetNodeToolFullPath(ctx)
@@ -676,6 +694,9 @@ func (rc *RunContext) stopContainer() common.Executor {
 
 func (rc *RunContext) closeContainer() common.Executor {
 	return func(ctx context.Context) error {
+		if common.Dryrun(ctx) {
+			return nil
+		}
 		if rc.JobContainer != nil {
 			return rc.JobContainer.Close()(ctx)
 		}
