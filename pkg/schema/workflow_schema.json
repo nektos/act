@@ -7,6 +7,7 @@
         "properties": {
           "on": "on",
           "name": "workflow-name",
+          "description": "string",
           "run-name": "run-name",
           "defaults": "workflow-defaults",
           "env": "workflow-env",
@@ -28,6 +29,7 @@
             "required": true
           },
           "name": "workflow-name",
+          "description": "string",
           "run-name": "run-name",
           "defaults": "workflow-defaults",
           "env": "workflow-env",
