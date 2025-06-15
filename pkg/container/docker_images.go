@@ -8,6 +8,7 @@ import (
 
 	cerrdefs "github.com/containerd/errdefs"
 	"github.com/docker/docker/api/types/image"
+	"github.com/nektos/act/pkg/common"
 )
 
 // ImageExistsLocally returns a boolean indicating if an image with the
@@ -26,9 +27,14 @@ func ImageExistsLocally(ctx context.Context, imageName string, platform string) 
 		return false, err
 	}
 
-	if platform == "" || platform == "any" || fmt.Sprintf("%s/%s", inspectImage.Os, inspectImage.Architecture) == platform {
+	imagePlatform := fmt.Sprintf("%s/%s", inspectImage.Os, inspectImage.Architecture)
+
+	if platform == "" || platform == "any" || imagePlatform == platform {
 		return true, nil
 	}
+
+	logger := common.Logger(ctx)
+	logger.Infof("image found but platform does not match: %s (image) != %s (platform)\n", imagePlatform, platform)
 
 	return false, nil
 }
