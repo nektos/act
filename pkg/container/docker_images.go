@@ -11,20 +11,6 @@ import (
 	"github.com/nektos/act/pkg/common"
 )
 
-// ImageArchitectureMatches checks if the image architecture matches the requested platform
-// and returns a boolean indicating if it does or not
-func ImageArchitectureMatches(ctx context.Context, inspectImage image.InspectResponse, platform string) bool {
-	imagePlatform := fmt.Sprintf("%s/%s", inspectImage.Os, inspectImage.Architecture)
-
-	if imagePlatform == platform {
-		return true
-	}
-
-	logger := common.Logger(ctx)
-	logger.Infof("image found but platform does not match: %s (image) != %s (platform)\n", imagePlatform, platform)
-	return false
-}
-
 // ImageExistsLocally returns a boolean indicating if an image with the
 // requested name, tag and architecture exists in the local docker image store
 func ImageExistsLocally(ctx context.Context, imageName string, platform string) (bool, error) {
@@ -41,11 +27,16 @@ func ImageExistsLocally(ctx context.Context, imageName string, platform string) 
 		return false, err
 	}
 
-	if platform == "" || platform == "any" {
+	imagePlatform := fmt.Sprintf("%s/%s", inspectImage.Os, inspectImage.Architecture)
+
+	if platform == "" || platform == "any" || imagePlatform == platform {
 		return true, nil
 	}
 
-	return ImageArchitectureMatches(ctx, inspectImage, platform), nil
+	logger := common.Logger(ctx)
+	logger.Infof("image found but platform does not match: %s (image) != %s (platform)\n", imagePlatform, platform)
+
+	return false, nil
 }
 
 // RemoveImage removes image from local store, the function is used to run different
