@@ -109,7 +109,7 @@ func (cr *containerReference) Pull(forcePull bool) common.Executor {
 				Platform:  cr.input.Platform,
 				Username:  cr.input.Username,
 				Password:  cr.input.Password,
-			}),
+			}).IfNot(common.Dryrun),
 		)
 }
 
@@ -280,6 +280,9 @@ func (cr *containerReference) connect() common.Executor {
 		if cr.cli != nil {
 			return nil
 		}
+		if common.Dryrun(ctx) {
+			return nil
+		}
 		cli, err := GetDockerClient(ctx)
 		if err != nil {
 			return err
@@ -305,6 +308,9 @@ func (cr *containerReference) Close() common.Executor {
 func (cr *containerReference) find() common.Executor {
 	return func(ctx context.Context) error {
 		if cr.id != "" {
+			return nil
+		}
+		if common.Dryrun(ctx) {
 			return nil
 		}
 		containers, err := cr.cli.ContainerList(ctx, container.ListOptions{
@@ -552,10 +558,23 @@ func (cr *containerReference) exec(cmd []string, env map[string]string, user, wo
 		}
 
 		logger.Debugf("Exec command '%s'", cmd)
+		
+		// Log the command that would be executed
+		if common.Dryrun(ctx) && len(cmd) > 0 {
+			logger.Infof("ACT RUN: %s", strings.Join(cmd, " "))
+		}
+		
 		isTerminal := term.IsTerminal(int(os.Stdout.Fd()))
 		envList := make([]string, 0)
 		for k, v := range env {
 			envList = append(envList, fmt.Sprintf("%s=%s", k, v))
+		}
+		
+		// Log environment variables that would be set
+		if common.Dryrun(ctx) && len(env) > 0 {
+			for k, v := range env {
+				logger.Infof("ACT ENV: %s=%s", k, v)
+			}
 		}
 
 		var wd string

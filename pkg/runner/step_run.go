@@ -35,6 +35,18 @@ func (sr *stepRun) main() common.Executor {
 		sr.setupShellCommandExecutor(),
 		func(ctx context.Context) error {
 			sr.getRunContext().ApplyExtraPath(ctx, &sr.env)
+			
+			// Log the command and environment in dryrun mode
+			if common.Dryrun(ctx) {
+				logger := common.Logger(ctx)
+				if len(sr.cmd) > 0 {
+					logger.Infof("ACT RUN: %s", strings.Join(sr.cmd, " "))
+				}
+				for k, v := range sr.env {
+					logger.Infof("ACT ENV: %s=%s", k, v)
+				}
+			}
+			
 			if he, ok := sr.getRunContext().JobContainer.(*container.HostEnvironment); ok && he != nil {
 				return he.ExecWithCmdLine(sr.cmd, sr.cmdline, sr.env, "", sr.WorkingDirectory)(ctx)
 			}

@@ -12,6 +12,9 @@ import (
 
 func NewDockerVolumeRemoveExecutor(volumeName string, force bool) common.Executor {
 	return func(ctx context.Context) error {
+		if common.Dryrun(ctx) {
+			return nil
+		}
 		cli, err := GetDockerClient(ctx)
 		if err != nil {
 			return err
