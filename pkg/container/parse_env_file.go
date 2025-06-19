@@ -25,6 +25,7 @@ func parseEnvFile(e Container, srcPath string, env *map[string]string) common.Ex
 			return err
 		}
 		s := bufio.NewScanner(reader)
+		s.Buffer(nil, 1024*1024*1024) // increase buffer to 1GB to avoid scanner buffer overflow
 		firstLine := true
 		for s.Scan() {
 			line := s.Text()
@@ -63,6 +64,6 @@ func parseEnvFile(e Container, srcPath string, env *map[string]string) common.Ex
 			}
 		}
 		env = &localEnv
-		return nil
+		return s.Err()
 	}
 }

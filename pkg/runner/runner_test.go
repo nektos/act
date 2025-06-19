@@ -55,7 +55,7 @@ func init() {
 }
 
 func TestNoWorkflowsFoundByPlanner(t *testing.T) {
-	planner, err := model.NewWorkflowPlanner("res", true)
+	planner, err := model.NewWorkflowPlanner("res", true, false)
 	assert.NoError(t, err)
 
 	out := log.StandardLogger().Out
@@ -75,7 +75,7 @@ func TestNoWorkflowsFoundByPlanner(t *testing.T) {
 }
 
 func TestGraphMissingEvent(t *testing.T) {
-	planner, err := model.NewWorkflowPlanner("testdata/issue-1595/no-event.yml", true)
+	planner, err := model.NewWorkflowPlanner("testdata/issue-1595/no-event.yml", true, false)
 	assert.NoError(t, err)
 
 	out := log.StandardLogger().Out
@@ -93,7 +93,7 @@ func TestGraphMissingEvent(t *testing.T) {
 }
 
 func TestGraphMissingFirst(t *testing.T) {
-	planner, err := model.NewWorkflowPlanner("testdata/issue-1595/no-first.yml", true)
+	planner, err := model.NewWorkflowPlanner("testdata/issue-1595/no-first.yml", true, false)
 	assert.NoError(t, err)
 
 	plan, err := planner.PlanEvent("push")
@@ -103,7 +103,7 @@ func TestGraphMissingFirst(t *testing.T) {
 }
 
 func TestGraphWithMissing(t *testing.T) {
-	planner, err := model.NewWorkflowPlanner("testdata/issue-1595/missing.yml", true)
+	planner, err := model.NewWorkflowPlanner("testdata/issue-1595/missing.yml", true, false)
 	assert.NoError(t, err)
 
 	out := log.StandardLogger().Out
@@ -122,7 +122,7 @@ func TestGraphWithMissing(t *testing.T) {
 func TestGraphWithSomeMissing(t *testing.T) {
 	log.SetLevel(log.DebugLevel)
 
-	planner, err := model.NewWorkflowPlanner("testdata/issue-1595/", true)
+	planner, err := model.NewWorkflowPlanner("testdata/issue-1595/", true, false)
 	assert.NoError(t, err)
 
 	out := log.StandardLogger().Out
@@ -140,7 +140,7 @@ func TestGraphWithSomeMissing(t *testing.T) {
 }
 
 func TestGraphEvent(t *testing.T) {
-	planner, err := model.NewWorkflowPlanner("testdata/basic", true)
+	planner, err := model.NewWorkflowPlanner("testdata/basic", true, false)
 	assert.NoError(t, err)
 
 	plan, err := planner.PlanEvent("push")
@@ -198,7 +198,7 @@ func (j *TestJobFileInfo) runTest(ctx context.Context, t *testing.T, cfg *Config
 	runner, err := New(runnerConfig)
 	assert.Nil(t, err, j.workflowPath)
 
-	planner, err := model.NewWorkflowPlanner(fullWorkflowPath, true)
+	planner, err := model.NewWorkflowPlanner(fullWorkflowPath, true, false)
 	if j.errorMessage != "" && err != nil {
 		assert.Error(t, err, j.errorMessage)
 	} else if assert.Nil(t, err, fullWorkflowPath) {
@@ -376,13 +376,24 @@ func (factory *captureJobLoggerFactory) WithJobLogger() *logrus.Logger {
 	return logger
 }
 
-func TestPullFailureIsJobFailure(t *testing.T) {
+func TestPullAndPostStepFailureIsJobFailure(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}
 
-	tables := []TestJobFileInfo{
-		{workdir, "checkout", "push", "pull failure", map[string]string{"ubuntu-latest": "localhost:0000/missing:latest"}, secrets},
+	defCache := &GoGitActionCache{
+		path.Clean(path.Join(workdir, "cache")),
+	}
+
+	mockCache := &mockCache{}
+
+	tables := []struct {
+		TestJobFileInfo
+		ActionCache ActionCache
+		SetupResult string
+	}{
+		{TestJobFileInfo{workdir, "checkout", "push", "pull failure", map[string]string{"ubuntu-latest": "localhost:0000/missing:latest"}, secrets}, defCache, "failure"},
+		{TestJobFileInfo{workdir, "post-step-failure-is-job-failure", "push", "post failure", map[string]string{"ubuntu-latest": "-self-hosted"}, secrets}, mockCache, "success"},
 	}
 
 	for _, table := range tables {
@@ -397,9 +408,7 @@ func TestPullFailureIsJobFailure(t *testing.T) {
 			if _, err := os.Stat(eventFile); err == nil {
 				config.EventPath = eventFile
 			}
-			config.ActionCache = &GoGitActionCache{
-				path.Clean(path.Join(workdir, "cache")),
-			}
+			config.ActionCache = table.ActionCache
 
 			logger := logrus.New()
 			logger.SetOutput(&factory.buffer)
@@ -418,7 +427,7 @@ func TestPullFailureIsJobFailure(t *testing.T) {
 						hasJobResult = true
 					}
 					if val, ok := entry["stepResult"]; ok && !hasStepResult {
-						assert.Equal(t, "failure", val)
+						assert.Equal(t, table.SetupResult, val)
 						hasStepResult = true
 					}
 				}
