@@ -39,6 +39,7 @@ func init() {
 
 	platforms = map[string]string{
 		"ubuntu-latest": baseImage,
+		"self-hosted":   "-self-hosted",
 	}
 
 	if l := os.Getenv("ACT_TEST_LOG_LEVEL"); l != "" {
@@ -330,6 +331,9 @@ func TestRunEvent(t *testing.T) {
 
 		// local remote action overrides
 		{workdir, "local-remote-action-overrides", "push", "", platforms, secrets},
+
+		// docker action on host executor
+		{workdir, "docker-action-host-env", "push", "", platforms, secrets},
 	}
 
 	for _, table := range tables {
