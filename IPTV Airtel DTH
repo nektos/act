@@ -1,0 +1,32 @@
+name: Update artl.m3u
+
+on:
+workflow_dispatch:
+schedule:
+- cron: '0 */1 * * *'
+
+jobs:
+update-file:
+runs-on: ubuntu-latest
+
+steps:  
+- name: Checkout repository  
+  uses: actions/checkout@v2  
+
+- name: Fetch file from hosting  
+  env:  
+    FILE_URL: ${{ secrets.ARTL_FILE_URL }}  
+  run: |  
+    curl -o artl.m3u $FILE_URL  
+
+- name: Commit and push changes  
+  env:  
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  
+  run: |  
+    git config --global user.name "github-actions[bot]"  
+    git config --global user.email "github-actions[bot]@users.noreply.github.com"  
+    git add artl.m3u  
+    git commit -m "Update artl.m3u file"  
+    git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}  
+    git push origin HEAD:main
+
