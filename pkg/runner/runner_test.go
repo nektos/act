@@ -25,7 +25,7 @@ import (
 )
 
 var (
-	baseImage = "node:16-buster-slim"
+	baseImage = "node:24-bookworm-slim"
 	platforms map[string]string
 	logLevel  = log.DebugLevel
 	workdir   = "testdata"
