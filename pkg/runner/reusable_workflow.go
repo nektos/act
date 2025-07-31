@@ -140,7 +140,7 @@ func NewReusableWorkflowRunner(rc *RunContext, workflowDir string) (Runner, erro
 	// Create a copy of the config to avoid modifying the original
 	configCopy := *rc.Config
 	configCopy.Workdir = workflowDir
-	
+
 	runner := &runnerImpl{
 		config:    &configCopy,
 		eventJSON: rc.EventJSON,
