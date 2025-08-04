@@ -106,7 +106,6 @@ jobs:
     runs-on: *label
     steps:
     - run: exit 0
-+
 `), &node)
 	if !assert.NoError(t, err) {
 		return
