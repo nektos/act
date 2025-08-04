@@ -90,3 +90,30 @@ jobs:
 	}).UnmarshalYAML(&node)
 	assert.NoError(t, err)
 }
+
+func TestYAMLAnchors(t *testing.T) {
+	var node yaml.Node
+	err := yaml.Unmarshal([]byte(`
+on: push
+jobs:
+  job-with-condition:
+    runs-on: &label
+      self-hosted
+    if: success() || success('joba', 'jobb') || failure() || failure('joba', 'jobb') || always() || cancelled()
+    steps: &steps
+    - run: exit 0
+  then:
+    runs-on: *label
+    steps:
+    - run: exit 0
++
+`), &node)
+	if !assert.NoError(t, err) {
+		return
+	}
+	err = (&Node{
+		Definition: "workflow-root-strict",
+		Schema:     GetWorkflowSchema(),
+	}).UnmarshalYAML(&node)
+	assert.NoError(t, err)
+}

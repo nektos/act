@@ -238,6 +238,9 @@ func (s *Node) UnmarshalYAML(node *yaml.Node) error {
 	if node != nil && node.Kind == yaml.DocumentNode {
 		return s.UnmarshalYAML(node.Content[0])
 	}
+	if node.Kind == yaml.AliasNode {
+		node = node.Alias
+	}
 	def := s.Schema.GetDefinition(s.Definition)
 	if s.Context == nil {
 		s.Context = def.Context
