@@ -861,8 +861,17 @@ func (rc *RunContext) getJobContext() *model.JobContext {
 			}
 		}
 	}
+	jobNetwork, _ := rc.networkName()
+	jobContainer := struct {
+		ID      string `json:"id"`
+		Network string `json:"network"`
+	}{
+		ID:      "",
+		Network: jobNetwork,
+	}
 	return &model.JobContext{
-		Status: jobStatus,
+		Status:    jobStatus,
+		Container: jobContainer,
 	}
 }
 
