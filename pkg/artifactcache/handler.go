@@ -106,7 +106,7 @@ func StartHandler(dir, customExternalURL string, outboundIP string, port uint16,
 
 	h.gcCache()
 
-	listener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", h.outboundIP, port))
+	listener, err := net.Listen("tcp4", fmt.Sprintf("%s:%d", h.outboundIP, port))
 	if err != nil {
 		return nil, err
 	}

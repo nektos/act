@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -602,16 +603,20 @@ func Serve(ctx context.Context, artifactPath string, addr string, port string, a
 		logger.Warn("Artifact server has no auth key; bearer requests will be rejected")
 	}
 
+	listener, err := net.Listen("tcp4", fmt.Sprintf("%s:%s", addr, port))
+	if err != nil {
+		logger.Fatal(err)
+	}
+
 	server := &http.Server{
-		Addr:              fmt.Sprintf("%s:%s", addr, port),
 		ReadHeaderTimeout: 2 * time.Second,
 		Handler:           newHandler(artifactPath, authKey),
 	}
 
 	// run server
 	go func() {
-		logger.Infof("Start server on http://%s:%s", addr, port)
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		logger.Infof("Start artifact server on http://%s:%s", addr, port)
+		if err := server.Serve(listener); err != nil && err != http.ErrServerClosed {
 			logger.Fatal(err)
 		}
 	}()
