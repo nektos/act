@@ -96,7 +96,7 @@ func StartHandler(dir, customExternalURL string, outboundIP string, port uint16,
 
 	h.gcCache()
 
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port)) // listen on all interfaces
+	listener, err := net.Listen("tcp4", fmt.Sprintf(":%d", port)) // listen on all interfaces
 	if err != nil {
 		return nil, err
 	}
@@ -106,6 +106,7 @@ func StartHandler(dir, customExternalURL string, outboundIP string, port uint16,
 		Handler:           router,
 	}
 	go func() {
+		logger.Infof("Start artifactcache server on http://0.0.0.0:%d", port)
 		if err := server.Serve(listener); err != nil && errors.Is(err, net.ErrClosed) {
 			logger.Errorf("http serve: %v", err)
 		}
