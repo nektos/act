@@ -49,7 +49,7 @@ pull_request_rules:
       queue:
 queue_rules:
   - name: default
-    queue_conditions:
+    queue_conditions: &queue_conditions
       - '#changes-requested-reviews-by=0'
       - or:
           - 'approved-reviews-by=@nektos/act-committers'
@@ -69,10 +69,5 @@ queue_rules:
       - check-success=codecov/patch
       - check-success=codecov/project
       - check-success=snapshot
-    merge_conditions:
-      - check-success=lint
-      - check-success=test-linux
-      - check-success=codecov/patch
-      - check-success=codecov/project
-      - check-success=snapshot
+    merge_conditions: *queue_conditions
     merge_method: squash

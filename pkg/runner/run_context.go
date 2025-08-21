@@ -139,6 +139,14 @@ func (rc *RunContext) GetBindsAndMounts() ([]string, map[string]string) {
 
 	ext := container.LinuxContainerEnvironmentExtensions{}
 
+	if hostEnv, ok := rc.JobContainer.(*container.HostEnvironment); ok {
+		mounts := map[string]string{}
+		// Permission issues?
+		// binds = append(binds, hostEnv.ToolCache+":/opt/hostedtoolcache")
+		binds = append(binds, hostEnv.GetActPath()+":"+ext.GetActPath())
+		binds = append(binds, hostEnv.ToContainerPath(rc.Config.Workdir)+":"+ext.ToContainerPath(rc.Config.Workdir))
+		return binds, mounts
+	}
 	mounts := map[string]string{
 		"act-toolcache": "/opt/hostedtoolcache",
 		name + "-env":   ext.GetActPath(),
