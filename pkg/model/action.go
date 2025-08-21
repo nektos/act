@@ -43,7 +43,7 @@ const (
 	ActionRunsUsingNode16 = "node16"
 	// ActionRunsUsingNode20 for running with node20
 	ActionRunsUsingNode20 = "node20"
-	// ActionRunsUsingNode20 for running with node20
+	// ActionRunsUsingNode24 for running with node24
 	ActionRunsUsingNode24 = "node24"
 	// ActionRunsUsingDocker for running with docker
 	ActionRunsUsingDocker = "docker"
