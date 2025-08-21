@@ -399,42 +399,6 @@ func (j *Job) GetMatrixes() ([]map[string]interface{}, error) {
 		j.Strategy.MaxParallel = j.Strategy.GetMaxParallel()
 
 		if m := j.Matrix(); m != nil {
-			includes := make([]map[string]interface{}, 0)
-			extraIncludes := make([]map[string]interface{}, 0)
-			for _, v := range m["include"] {
-				switch t := v.(type) {
-				case []interface{}:
-					for _, i := range t {
-						i := i.(map[string]interface{})
-						extraInclude := true
-						for k := range i {
-							if _, ok := m[k]; ok {
-								includes = append(includes, i)
-								extraInclude = false
-								break
-							}
-						}
-						if extraInclude {
-							extraIncludes = append(extraIncludes, i)
-						}
-					}
-				case interface{}:
-					v := v.(map[string]interface{})
-					extraInclude := true
-					for k := range v {
-						if _, ok := m[k]; ok {
-							includes = append(includes, v)
-							extraInclude = false
-							break
-						}
-					}
-					if extraInclude {
-						extraIncludes = append(extraIncludes, v)
-					}
-				}
-			}
-			delete(m, "include")
-
 			excludes := make([]map[string]interface{}, 0)
 			for _, e := range m["exclude"] {
 				e := e.(map[string]interface{})
@@ -449,6 +413,9 @@ func (j *Job) GetMatrixes() ([]map[string]interface{}, error) {
 			}
 			delete(m, "exclude")
 
+			tmpInclude := m["include"]
+			delete(m, "include")
+
 			matrixProduct := common.CartesianProduct(m)
 		MATRIX:
 			for _, matrix := range matrixProduct {
@@ -460,24 +427,51 @@ func (j *Job) GetMatrixes() ([]map[string]interface{}, error) {
 				}
 				matrixes = append(matrixes, matrix)
 			}
-			for _, include := range includes {
-				matched := false
-				for _, matrix := range matrixes {
-					if commonKeysMatch2(matrix, include, m) {
-						matched = true
-						log.Debugf("Adding include values '%v' to existing entry", include)
-						for k, v := range include {
-							matrix[k] = v
+			if len(matrixes) == 0 {
+				matrixes = append(matrixes, make(map[string]interface{}))
+			}
+			// FIX: https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/running-variations-of-jobs-in-a-workflow#expanding-or-adding-matrix-configurations
+			//
+			// For each object in the include list, the key:value pairs in the object will be added to each of the matrix combinations
+			// if none of the key:value pairs overwrite any of the original matrix values.
+			//
+			// If the object cannot be added to any of the matrix combinations, a new matrix combination will be created instead.
+			// Note that the original matrix values will not be overwritten, but added matrix values can be overwritten.
+			for _, v := range tmpInclude {
+				switch t := v.(type) {
+				case []interface{}:
+					for _, i := range t {
+						i := i.(map[string]interface{})
+						if commonAllOriginKeyMatch(m, i) {
+							log.Debugf("Adding include '%v'", i)
+							matrixes = append(matrixes, i)
+						} else {
+							for _, matrix := range matrixes {
+								if commonKeysMatch2(matrix, i, m) {
+									log.Debugf("Adding include values '%v' to existing entry", i)
+									for k, v := range i {
+										matrix[k] = v
+									}
+								}
+							}
+						}
+					}
+				case interface{}:
+					i := t.(map[string]interface{})
+					if commonAllOriginKeyMatch(m, i) {
+						log.Debugf("Adding include '%v'", i)
+						matrixes = append(matrixes, i)
+					} else {
+						for _, matrix := range matrixes {
+							if commonKeysMatch2(matrix, i, m) {
+								log.Debugf("Adding include values '%v' to existing entry", i)
+								for k, v := range i {
+									matrix[k] = v
+								}
+							}
 						}
 					}
 				}
-				if !matched {
-					extraIncludes = append(extraIncludes, include)
-				}
-			}
-			for _, include := range extraIncludes {
-				log.Debugf("Adding include '%v'", include)
-				matrixes = append(matrixes, include)
 			}
 			if len(matrixes) == 0 {
 				matrixes = append(matrixes, make(map[string]interface{}))
@@ -505,6 +499,15 @@ func commonKeysMatch2(a map[string]interface{}, b map[string]interface{}, m map[
 	for aKey, aVal := range a {
 		_, useKey := m[aKey]
 		if bVal, ok := b[aKey]; useKey && ok && !reflect.DeepEqual(aVal, bVal) {
+			return false
+		}
+	}
+	return true
+}
+
+func commonAllOriginKeyMatch(a map[string][]interface{}, b map[string]interface{}) bool {
+	for bKey := range b {
+		if _, ok := a[bKey]; !ok {
 			return false
 		}
 	}
