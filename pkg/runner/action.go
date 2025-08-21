@@ -408,13 +408,18 @@ func newStepContainer(ctx context.Context, step step, image string, cmd []string
 
 	binds, mounts := rc.GetBindsAndMounts()
 	networkMode := fmt.Sprintf("container:%s", rc.jobContainerName())
+	var workdir string
 	if rc.IsHostEnv(ctx) {
 		networkMode = "default"
+		ext := container.LinuxContainerEnvironmentExtensions{}
+		workdir = ext.ToContainerPath(rc.Config.Workdir)
+	} else {
+		workdir = rc.JobContainer.ToContainerPath(rc.Config.Workdir)
 	}
 	stepContainer := container.NewContainer(&container.NewContainerInput{
 		Cmd:         cmd,
 		Entrypoint:  entrypoint,
-		WorkingDir:  rc.JobContainer.ToContainerPath(rc.Config.Workdir),
+		WorkingDir:  workdir,
 		Image:       image,
 		Username:    rc.Config.Secrets["DOCKER_USERNAME"],
 		Password:    rc.Config.Secrets["DOCKER_PASSWORD"],
