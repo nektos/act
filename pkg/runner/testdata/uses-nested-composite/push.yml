@@ -1,4 +1,4 @@
-name: uses-docker-url
+name: uses-nested-composite
 on: push
 
 jobs:
