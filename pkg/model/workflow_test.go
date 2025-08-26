@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
 )
 
 func TestReadWorkflow_StringEvent(t *testing.T) {
@@ -367,10 +369,9 @@ func TestReadWorkflow_Strategy(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, matrixes,
 		[]map[string]interface{}{
-			{"datacenter": "site-c", "node-version": "14.x", "site": "staging"},
-			{"datacenter": "site-c", "node-version": "16.x", "site": "staging"},
-			{"datacenter": "site-d", "node-version": "16.x", "site": "staging"},
-			{"php-version": 5.4},
+			{"datacenter": "site-c", "node-version": "14.x", "site": "staging", "php-version": 5.4},
+			{"datacenter": "site-c", "node-version": "16.x", "site": "staging", "php-version": 5.4},
+			{"datacenter": "site-d", "node-version": "16.x", "site": "staging", "php-version": 5.4},
 			{"datacenter": "site-a", "node-version": "10.x", "site": "prod"},
 			{"datacenter": "site-b", "node-version": "12.x", "site": "dev"},
 		},
@@ -392,6 +393,32 @@ func TestReadWorkflow_Strategy(t *testing.T) {
 	)
 	assert.Equal(t, job.Strategy.MaxParallel, 2)
 	assert.Equal(t, job.Strategy.FailFast, false)
+}
+
+func TestMatrixOnlyIncludes(t *testing.T) {
+	matrix := map[string][]interface{}{
+		"include": []interface{}{
+			map[string]interface{}{"a": "1", "b": "2"},
+			map[string]interface{}{"a": "3", "b": "4"},
+		},
+	}
+	rN := yaml.Node{}
+	err := rN.Encode(matrix)
+	require.NoError(t, err, "encoding matrix should succeed")
+	job := &Job{
+		Strategy: &Strategy{
+			RawMatrix: rN,
+		},
+	}
+	assert.Equal(t, job.Matrix(), matrix)
+	matrixes, err := job.GetMatrixes()
+	require.NoError(t, err)
+	assert.Equal(t, matrixes,
+		[]map[string]interface{}{
+			{"a": "1", "b": "2"},
+			{"a": "3", "b": "4"},
+		},
+	)
 }
 
 func TestStep_ShellCommand(t *testing.T) {
