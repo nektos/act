@@ -15,16 +15,16 @@ jobs:
     name: lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - uses: golangci/golangci-lint-action@v6.5.0
+      - uses: golangci/golangci-lint-action@v8.0.0
         with:
           version: v1.64.8
-      - uses: megalinter/megalinter/flavors/go@v8.4.2
+      - uses: megalinter/megalinter/flavors/go@v8.8.0
         env:
           DEFAULT_BRANCH: master
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -36,7 +36,7 @@ jobs:
     name: test-linux
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 2
       - name: Set up QEMU
@@ -71,7 +71,7 @@ jobs:
     name: test-host-${{matrix.os}}
     runs-on: ${{matrix.os}}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 2
       - uses: actions/setup-go@v5
@@ -91,7 +91,7 @@ jobs:
     name: snapshot
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
