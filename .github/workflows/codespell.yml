@@ -19,5 +19,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Annotate locations with typos
+        uses: codespell-project/codespell-problem-matcher@v1
       - name: Codespell
         uses: codespell-project/actions-codespell@v2
