@@ -1,0 +1,458 @@
+name: Regression Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      regressionTestTool:
+        description: 'Regression test tool'
+        required: true
+        default: 'null'
+      module:
+        description: 'Module name (required for valid pipeline/test IDs)'
+        required: true
+        default: ''
+      testEnv:
+        description: 'Test environment'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  regression-test:
+    runs-on: windows-latest
+    env:
+      # Put these secrets into repo settings -> Secrets and variables -> Actions
+      ADO_ORG: ${{ secrets.ADO_ORG }}
+      ADO_PROJECT: ${{ secrets.ADO_PROJECT }}
+      SVC_PAT: ${{ secrets.SVC_PAT }}
+      PATH_RT_RESULTS: ${{ secrets.PATH_RT_RESULTS }}
+      TEST_RUN_ARTIFACT_NAME: ${{ secrets.TEST_RUN_ARTIFACT_NAME }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set variables
+        shell: pwsh
+        run: |
+          echo "REGRESSION_TEST_TOOL=${{ github.event.inputs.regressionTestTool }}" >> $GITHUB_ENV
+          echo "MODULE=${{ github.event.inputs.module }}" >> $GITHUB_ENV
+          echo "TEST_ENV=${{ github.event.inputs.testEnv }}" >> $GITHUB_ENV
+          echo "ARTIFACT_NAME=${{ github.event.inputs.module }}-${{ github.event.inputs.testEnv }}-regression" >> $GITHUB_ENV
+
+      - name: Validate Inputs and Secrets
+        if: ${{ env.REGRESSION_TEST_TOOL == 'cypress' || env.REGRESSION_TEST_TOOL == 'cucumber' }}
+        shell: pwsh
+        env:
+          ADO_ORG: ${{ secrets.ADO_ORG }}
+          ADO_PROJECT: ${{ secrets.ADO_PROJECT }}
+          SVC_PAT: ${{ secrets.SVC_PAT }}
+        run: |
+          if (-not $env:ADO_ORG) { Write-Error "Error: ADO_ORG secret is not set."; exit 1 }
+          if (-not $env:ADO_PROJECT) { Write-Error "Error: ADO_PROJECT secret is not set."; exit 1 }
+          if (-not $env:SVC_PAT) { Write-Error "Error: SVC_PAT secret is not set."; exit 1 }
+          if (-not $env:MODULE) { Write-Error "Error: module input is required and cannot be empty."; exit 1 }
+          Write-Host "All inputs and secrets validated successfully."
+
+      - name: Resolve Pipeline ID
+        id: resolve-pipeline-id
+        if: ${{ env.REGRESSION_TEST_TOOL == 'cypress' || env.REGRESSION_TEST_TOOL == 'cucumber' }}
+        shell: pwsh
+        env:
+          ADO_ORG: ${{ secrets.ADO_ORG }}
+          ADO_PROJECT: ${{ secrets.ADO_PROJECT }}
+          SVC_PAT: ${{ secrets.SVC_PAT }}
+          MODULE: ${{ env.MODULE }}
+          TEST_ENV: ${{ env.TEST_ENV }}
+        run: |
+          $organization = $env:ADO_ORG
+          $project = $env:ADO_PROJECT
+          $module = $env:MODULE
+          $testEnv = $env:TEST_ENV
+          $pat = $env:SVC_PAT
+
+          $headers = @{
+            Authorization = "Basic " + [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(":$pat"))
+            "Content-Type" = "application/json"
+          }
+
+          $definitionName = "${module}${testEnv}-regression"
+          $definitionsUrl = "https://dev.azure.com/$organization/$project/_apis/build/definitions?name=$definitionName&api-version=7.1-preview.7"
+          Write-Host "Searching for build definition by name: $definitionName"
+
+          try {
+            $defResponse = Invoke-RestMethod -Uri $definitionsUrl -Headers $headers -Method Get -ErrorAction Stop
+            if ($defResponse -and $defResponse.value -and $defResponse.value.Count -gt 0) {
+              $pipelineId = $defResponse.value[0].id.ToString()
+              Write-Host "Found pipeline ID: $pipelineId for definition: $definitionName"
+            } else {
+              # If user provided a numeric module (e.g. they passed ID instead of name)
+              if ($module -match '^\d+$') {
+                $pipelineId = $module
+                Write-Host "No definition by name; using module as numeric pipeline ID: $pipelineId"
+              } else {
+                throw "No build definition found for name '$definitionName' and module '$module' is not a numeric ID."
+              }
+            }
+
+            if (-not ($pipelineId -match '^\d+$')) {
+              throw "Resolved pipeline ID '$pipelineId' is not a valid numeric ID."
+            }
+
+            echo "PIPELINE_ID=$pipelineId" >> $GITHUB_OUTPUT
+          } catch {
+            Write-Host "Error resolving pipeline ID: $($_.Exception.Message)"
+            if ($_.Exception.Response) {
+              Write-Host "HTTP Status: $($_.Exception.Response.StatusCode)"
+            }
+            exit 1
+          }
+
+      - name: Check Last Pipeline Run
+        id: check-last-build
+        if: ${{ env.REGRESSION_TEST_TOOL == 'cypress' || env.REGRESSION_TEST_TOOL == 'cucumber' }}
+        shell: pwsh
+        env:
+          ADO_ORG: ${{ secrets.ADO_ORG }}
+          ADO_PROJECT: ${{ secrets.ADO_PROJECT }}
+          SVC_PAT: ${{ secrets.SVC_PAT }}
+        run: |
+          $organization = $env:ADO_ORG
+          $project = $env:ADO_PROJECT
+          $pipelineId = "${{ steps.resolve-pipeline-id.outputs.PIPELINE_ID }}"
+          $pat = $env:SVC_PAT
+
+          Write-Host "Pipeline ID: $pipelineId"
+
+          $headers = @{
+            Authorization = "Basic " + [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(":$pat"))
+            "Content-Type" = "application/json"
+          }
+
+          $currentTimeUTC = [System.DateTime]::UtcNow
+          $startTimeUTC = $currentTimeUTC.AddHours(-24)
+
+          $buildsUrl = "https://dev.azure.com/$organization/$project/_apis/build/builds?definitions=$pipelineId&statusFilter=completed&api-version=7.1-preview.7&queryOrder=finishTimeDescending"
+          try {
+            $response = Invoke-RestMethod -Uri $buildsUrl -Headers $headers -Method Get -ErrorAction Stop
+            if ($response -and $response.value -and $response.value.Count -gt 0) {
+              $recentBuilds = $response.value | Where-Object {
+                if ($_.finishTime) {
+                  $finish = [DateTime]::Parse($_.finishTime).ToUniversalTime()
+                  return $finish -ge $startTimeUTC
+                }
+                return $false
+              } | Sort-Object finishTime -Descending
+            } else {
+              $recentBuilds = @()
+            }
+          } catch {
+            Write-Host "Error fetching builds: $($_.Exception.Message)"
+            $recentBuilds = @()
+          }
+
+          if ($recentBuilds.Count -gt 0) {
+            $buildId = $recentBuilds[0].id.ToString()
+            Write-Host "Pipeline $pipelineId ran in the last 24 hours. Build ID: $buildId"
+            echo "BUILD_ID=$buildId" >> $GITHUB_OUTPUT
+            echo "TRIGGER_PIPELINE=false" >> $GITHUB_OUTPUT
+          } else {
+            Write-Host "Pipeline $pipelineId did NOT run in the last 24 hours."
+            echo "TRIGGER_PIPELINE=true" >> $GITHUB_OUTPUT
+          }
+
+      - name: Resolve Build Definition ID
+        id: resolve-build-id
+        if: ${{ env.REGRESSION_TEST_TOOL == 'cypress' || env.REGRESSION_TEST_TOOL == 'cucumber' }}
+        shell: pwsh
+        env:
+          ADO_ORG: ${{ secrets.ADO_ORG }}
+          ADO_PROJECT: ${{ secrets.ADO_PROJECT }}
+          SVC_PAT: ${{ secrets.SVC_PAT }}
+          MODULE: ${{ env.MODULE }}
+          TEST_ENV: ${{ env.TEST_ENV }}
+        run: |
+          $organization = $env:ADO_ORG
+          $project = $env:ADO_PROJECT
+          $module = $env:MODULE
+          $testEnv = $env:TEST_ENV
+          $pat = $env:SVC_PAT
+
+          $headers = @{
+            Authorization = "Basic " + [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(":$pat"))
+            "Content-Type" = "application/json"
+          }
+
+          $definitionName = "${module}regression-build-${testEnv}"
+          $definitionsUrl = "https://dev.azure.com/$organization/$project/_apis/build/definitions?name=$definitionName&api-version=7.1-preview.7"
+
+          try {
+            $defResponse = Invoke-RestMethod -Uri $definitionsUrl -Headers $headers -Method Get -ErrorAction Stop
+            if ($defResponse -and $defResponse.value -and $defResponse.value.Count -gt 0) {
+              $buildDefId = $defResponse.value[0].id.ToString()
+              Write-Host "Found build definition ID: $buildDefId"
+            } else {
+              if ($module -match '^\d+$') {
+                $buildDefId = $module
+                Write-Host "No definition found by name; using module as definition ID: $buildDefId"
+              } else {
+                throw "No build definition found for name '$definitionName'."
+              }
+            }
+
+            if (-not ($buildDefId -match '^\d+$')) {
+              throw "Resolved build definition ID '$buildDefId' is not numeric."
+            }
+
+            echo "BUILD_DEF_ID=$buildDefId" >> $GITHUB_OUTPUT
+          } catch {
+            Write-Host "Error resolving build definition ID: $($_.Exception.Message)"
+            exit 1
+          }
+
+      - name: Trigger a new build for regression tests (queue + wait)
+        if: ${{ (env.REGRESSION_TEST_TOOL == 'cypress' || env.REGRESSION_TEST_TOOL == 'cucumber') && steps.check-last-build.outputs.TRIGGER_PIPELINE == 'true' }}
+        id: trigger-build
+        shell: pwsh
+        env:
+          ADO_ORG: ${{ secrets.ADO_ORG }}
+          ADO_PROJECT: ${{ secrets.ADO_PROJECT }}
+          SVC_PAT: ${{ secrets.SVC_PAT }}
+        run: |
+          $organization = $env:ADO_ORG
+          $project = $env:ADO_PROJECT
+          $buildDefId = "${{ steps.resolve-build-id.outputs.BUILD_DEF_ID }}"
+          $pat = $env:SVC_PAT
+
+          $headers = @{
+            Authorization = "Basic " + [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(":$pat"))
+            "Content-Type" = "application/json"
+          }
+
+          $body = @{ definition = @{ id = [int]$buildDefId }; sourceBranch = "refs/heads/main" } | ConvertTo-Json -Depth 6
+          $queueUrl = "https://dev.azure.com/$organization/$project/_apis/build/builds?api-version=7.1-preview.7"
+
+          try {
+            $queueRes = Invoke-RestMethod -Uri $queueUrl -Headers $headers -Method Post -Body $body -ErrorAction Stop
+            $queuedBuildId = $queueRes.id.ToString()
+            Write-Host "Queued build id: $queuedBuildId"
+            echo "QUEUED_BUILD_ID=$queuedBuildId" >> $GITHUB_OUTPUT
+          } catch {
+            Write-Host "Error queueing build: $($_.Exception.Message)"
+            exit 1
+          }
+
+          # Poll for completion (timeout after 30 minutes)
+          $start = Get-Date
+          while ($true) {
+            Start-Sleep -Seconds 10
+            $checkUrl = "https://dev.azure.com/$organization/$project/_apis/build/builds/$queuedBuildId?api-version=7.1"
+            $check = Invoke-RestMethod -Uri $checkUrl -Headers $headers -Method Get
+            Write-Host "Build status: $($check.status) result: $($check.result)"
+            if ($check.status -eq 'completed' -or $check.status -eq 'canceled') {
+              echo "FINAL_BUILD_STATUS=$($check.status)" >> $GITHUB_OUTPUT
+              echo "FINAL_BUILD_RESULT=$($check.result)" >> $GITHUB_OUTPUT
+              break
+            }
+            if ((Get-Date) - $start -gt ([TimeSpan]::FromMinutes(30))) {
+              Write-Error "Timeout waiting for build to complete."
+              exit 1
+            }
+          }
+
+      - name: Download Pipeline Artifact (from ADO)
+        if: ${{ env.REGRESSION_TEST_TOOL == 'cypress' || env.REGRESSION_TEST_TOOL == 'cucumber' }}
+        id: download-artifact
+        shell: pwsh
+        env:
+          ADO_ORG: ${{ secrets.ADO_ORG }}
+          ADO_PROJECT: ${{ secrets.ADO_PROJECT }}
+          SVC_PAT: ${{ secrets.SVC_PAT }}
+          ARTIFACT_NAME: ${{ env.ARTIFACT_NAME }}
+        run: |
+          $organization = $env:ADO_ORG
+          $project = $env:ADO_PROJECT
+          $pat = $env:SVC_PAT
+          $artifactName = $env.ARTIFACT_NAME
+
+          $headers = @{
+            Authorization = "Basic " + [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(":$pat"))
+            "Content-Type" = "application/json"
+          }
+
+          # prefer queued build, otherwise use last completed build
+          $buildId = "${{ steps.trigger-build.outputs.QUEUED_BUILD_ID }}"
+          if (-not $buildId) { $buildId = "${{ steps.check-last-build.outputs.BUILD_ID }}" }
+          if (-not $buildId) { Write-Error "No build id available to download artifacts from"; exit 1 }
+
+          $artifactsUrl = "https://dev.azure.com/$organization/$project/_apis/build/builds/$buildId/artifacts?api-version=7.1-preview.7"
+          $artRes = Invoke-RestMethod -Uri $artifactsUrl -Headers $headers -Method Get -ErrorAction Stop
+          $artifact = $artRes.value | Where-Object { $_.name -eq $artifactName }
+          if (-not $artifact) { Write-Error "Artifact not found: $artifactName"; exit 1 }
+
+          $downloadUrl = $artifact.resource.downloadUrl
+          $outPath = "$PWD\$artifactName.zip"
+          Invoke-WebRequest -Uri $downloadUrl -Headers $headers -OutFile $outPath -UseBasicParsing
+          Expand-Archive -LiteralPath $outPath -DestinationPath "$PWD\artifact" -Force
+          Write-Host "Extracted artifact to $PWD\artifact"
+          echo "ARTIFACT_PATH=$PWD\artifact" >> $GITHUB_OUTPUT
+
+      - name: Check Regression Test Success Rate (Cypress)
+        id: automated-tests-cypress
+        if: ${{ env.REGRESSION_TEST_TOOL == 'cypress' }}
+        shell: pwsh
+        run: |
+          $path = "${{ steps.download-artifact.outputs.ARTIFACT_PATH }}\${{ env.PATH_RT_RESULTS }}"
+          if (-not (Test-Path -Path $path)) { Write-Error "Results path not found: $path"; echo "AUTOMATED_TESTS=false" >> $GITHUB_OUTPUT; exit 1 }
+
+          $reports = Get-ChildItem -Path $path -File -Recurse -Include "*.xml"
+          $noOfTests = 0
+          $noOfFailed = 0
+          foreach ($report in $reports) {
+            try {
+              $doc = [xml](Get-Content -Path $report.FullName)
+              $totalTests = [int]$doc.testsuites.tests
+              $failed = [int]$doc.testsuites.failures
+              $noOfTests += $totalTests
+              $noOfFailed += $failed
+            } catch {
+              Write-Host "Skipping malformed/unsupported file: $($report.FullName)"
+            }
+          }
+          if ($noOfTests -eq 0) { Write-Error "No test results found"; echo "AUTOMATED_TESTS=false" >> $GITHUB_OUTPUT; exit 1 }
+          $passed = $noOfTests - $noOfFailed
+          $passPercentage = [math]::Round(($passed / $noOfTests) * 100, 2)
+          Write-Host "Pass percentage: $passPercentage%"
+          if ($passPercentage -lt 100) { echo "AUTOMATED_TESTS=false" >> $GITHUB_OUTPUT } else { echo "AUTOMATED_TESTS=true" >> $GITHUB_OUTPUT }
+
+      - name: Check Regression Test Success Rate (Cucumber)
+        id: automated-tests-cucumber
+        if: ${{ env.REGRESSION_TEST_TOOL == 'cucumber' }}
+        shell: pwsh
+        run: |
+          $file = "${{ steps.download-artifact.outputs.ARTIFACT_PATH }}\${{ env.PATH_RT_RESULTS }}"
+          if (-not (Test-Path -Path $file)) { Write-Error "Results file not found: $file"; echo "AUTOMATED_TESTS=false" >> $GITHUB_OUTPUT; exit 1 }
+          try {
+            $doc = [xml](Get-Content -Path $file)
+            $totalTests = [int]$doc.testsuite.tests
+            $failed = [int]$doc.testsuite.failures
+          } catch {
+            Write-Error "Failed to parse results XML"; echo "AUTOMATED_TESTS=false" >> $GITHUB_OUTPUT; exit 1
+          }
+          $passed = $totalTests - $failed
+          $passPercentage = if ($totalTests -gt 0) { [math]::Round(($passed / $totalTests) * 100, 2) } else { 0 }
+          if ($passPercentage -lt 100) { echo "AUTOMATED_TESTS=false" >> $GITHUB_OUTPUT } else { echo "AUTOMATED_TESTS=true" >> $GITHUB_OUTPUT }
+
+      - name: Resolve Test Plan and Suite IDs
+        id: resolve-test-ids
+        if: ${{ env.REGRESSION_TEST_TOOL == 'cypress' || env.REGRESSION_TEST_TOOL == 'cucumber' }}
+        shell: pwsh
+        env:
+          ADO_ORG: ${{ secrets.ADO_ORG }}
+          ADO_PROJECT: ${{ secrets.ADO_PROJECT }}
+          SVC_PAT: ${{ secrets.SVC_PAT }}
+          MODULE: ${{ env.MODULE }}
+          TEST_ENV: ${{ env.TEST_ENV }}
+        run: |
+          $organization = $env:ADO_ORG
+          $project = $env:ADO_PROJECT
+          $module = $env:MODULE
+          $testEnv = $env:TEST_ENV
+          $pat = $env:SVC_PAT
+
+          $headers = @{
+            Authorization = "Basic " + [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(":$pat"))
+            "Content-Type" = "application/json"
+          }
+
+          $planName = "${module}${testEnv}-regression-manual-test-plan"
+          $plansUrl = "https://dev.azure.com/$organization/$project/_apis/testplan/plans?name=$planName&api-version=7.1-preview.1"
+          try {
+            $planResponse = Invoke-RestMethod -Uri $plansUrl -Headers $headers -Method Get -ErrorAction Stop
+            if ($planResponse -and $planResponse.value -and $planResponse.value.Count -gt 0) {
+              $planId = $planResponse.value[0].id.ToString()
+            } else {
+              if ($module -match '^\d+$') { $planId = $module } else { throw "No test plan found for $planName" }
+            }
+            echo "PLAN_ID=$planId" >> $GITHUB_OUTPUT
+          } catch { Write-Host "Error resolving plan ID: $($_.Exception.Message)"; exit 1 }
+
+          $suiteName = "${module}${testEnv}-regression-manual-test-suite"
+          $suitesUrl = "https://dev.azure.com/$organization/$project/_apis/testplan/Plans/$planId/suites?api-version=7.1-preview.1"
+          try {
+            $suiteResponse = Invoke-RestMethod -Uri $suitesUrl -Headers $headers -Method Get -ErrorAction Stop
+            $suite = $suiteResponse.value | Where-Object { $_.name -eq $suiteName }
+            if ($suite) { $suiteId = $suite.id.ToString() } else { if ($module -match '^\d+$') { $suiteId = $module } else { throw "No suite found for $suiteName" } }
+            echo "SUITE_ID=$suiteId" >> $GITHUB_OUTPUT
+          } catch { Write-Host "Error resolving suite ID: $($_.Exception.Message)"; exit 1 }
+
+      - name: Check Manual Test Case Status
+        id: manual-tests
+        if: ${{ env.REGRESSION_TEST_TOOL == 'cypress' || env.REGRESSION_TEST_TOOL == 'cucumber' }}
+        shell: pwsh
+        env:
+          ADO_ORG: ${{ secrets.ADO_ORG }}
+          ADO_PROJECT: ${{ secrets.ADO_PROJECT }}
+          SVC_PAT: ${{ secrets.SVC_PAT }}
+        run: |
+          $organization = $env:ADO_ORG
+          $project = $env:ADO_PROJECT
+          $planId = "${{ steps.resolve-test-ids.outputs.PLAN_ID }}"
+          $suiteId = "${{ steps.resolve-test-ids.outputs.SUITE_ID }}"
+          $pat = $env:SVC_PAT
+
+          $headers = @{
+            Authorization = "Basic " + [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(":$pat"))
+            "Content-Type" = "application/json"
+          }
+
+          $pointsUrl = "https://dev.azure.com/$organization/$project/_apis/test/Plans/$planId/suites/$suiteId/points?api-version=6.0"
+          try {
+            $pointsResponse = Invoke-RestMethod -Uri $pointsUrl -Headers $headers -Method Get -ErrorAction Stop
+            if ($pointsResponse -and $pointsResponse.value -and $pointsResponse.value.Count -gt 0) {
+              foreach ($point in $pointsResponse.value) {
+                Write-Host "Test Case ID: $($point.testCase.id) | Point ID: $($point.id) | Status: $($point.state)"
+              }
+            } else { Write-Host "No test points found for plan:$planId suite:$suiteId" }
+          } catch { Write-Host "Error fetching test points: $($_.Exception.Message)"; exit 1 }
+
+          $runUrl = "https://dev.azure.com/$organization/$project/_apis/test/runs?top=1&planId=$planId&includeRunDetails=true&api-version=7.1-preview.3"
+          try {
+            $runResponse = Invoke-RestMethod -Uri $runUrl -Headers $headers -Method Get -ErrorAction Stop
+            if (-not $runResponse.value -or $runResponse.value.Count -eq 0) { echo "MANUAL_TESTS=false" >> $GITHUB_OUTPUT; exit 0 }
+            $runId = $runResponse.value[0].id
+          } catch { Write-Host "Error fetching test run: $($_.Exception.Message)"; exit 1 }
+
+          $resultsUrl = "https://dev.azure.com/$organization/$project/_apis/test/Runs/$runId/results?api-version=7.1-preview.3"
+          try {
+            $resultsResponse = Invoke-RestMethod -Uri $resultsUrl -Headers $headers -Method Get -ErrorAction Stop
+            $passedOrNA = 0
+            $total = $resultsResponse.count
+            foreach ($result in $resultsResponse.value) {
+              if ($result.outcome -eq "Passed" -or $result.outcome -eq "NotApplicable") { $passedOrNA++ }
+            }
+            if ($total -eq 0) { echo "MANUAL_TESTS=false" >> $GITHUB_OUTPUT } elseif ([math]::Round(($passedOrNA / $total) * 100, 2) -eq 100) { echo "MANUAL_TESTS=true" >> $GITHUB_OUTPUT } else { echo "MANUAL_TESTS=false" >> $GITHUB_OUTPUT }
+          } catch { Write-Host "Error fetching test results: $($_.Exception.Message)"; exit 1 }
+
+      - name: Evaluate Test Results
+        if: ${{ env.REGRESSION_TEST_TOOL == 'cypress' || env.REGRESSION_TEST_TOOL == 'cucumber' }}
+        shell: pwsh
+        run: |
+          $manualTests = "${{ steps.manual-tests.outputs.MANUAL_TESTS }}"
+          $automatedTests = if ("${{ env.REGRESSION_TEST_TOOL }}" -eq "cypress") { "${{ steps.automated-tests-cypress.outputs.AUTOMATED_TESTS }}" } else { "${{ steps.automated-tests-cucumber.outputs.AUTOMATED_TESTS }}" }
+
+          if ($manualTests -eq "true" -and $automatedTests -eq "true") {
+            Write-Host "Manual and Automated tests were successful."
+          } else {
+            if ($manualTests -ne "true") { Write-Error "Manual tests were unsuccessful."; exit 1 }
+            if ($automatedTests -ne "true") { Write-Error "Automated tests were unsuccessful."; exit 1 }
+          }
+
+      - name: Fail Pipeline
+        if: ${{ env.REGRESSION_TEST_TOOL == 'null' || (env.REGRESSION_TEST_TOOL != 'cypress' && env.REGRESSION_TEST_TOOL != 'cucumber') }}
+        shell: pwsh
+        run: |
+          Write-Host "Regression configurations are not set."
+          exit 1
