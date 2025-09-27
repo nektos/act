@@ -30,6 +30,7 @@ type NewContainerInput struct {
 	NetworkAliases []string
 	ExposedPorts   nat.PortSet
 	PortBindings   nat.PortMap
+	LogOutput      bool
 }
 
 // FileEntry is a file to copy to a container
