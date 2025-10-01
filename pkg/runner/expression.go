@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"maps"
 	"path"
 	"reflect"
 	"regexp"
@@ -64,8 +65,8 @@ func (rc *RunContext) NewExpressionEvaluatorWithEnv(ctx context.Context, env map
 				result := model.WorkflowCallResult{
 					Outputs: map[string]string{},
 				}
-				for k, v := range job.Outputs {
-					result.Outputs[k] = v
+				if len(job.Outputs) != 0 {
+					result.Outputs = maps.Clone(job.Outputs)
 				}
 				workflowCallResult[jobName] = &result
 			}
