@@ -8,7 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"sort"
+	"slices"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -293,9 +293,7 @@ func (wp *workflowPlanner) GetEvents() []string {
 	}
 
 	// sort the list based on depth of dependencies
-	sort.Slice(events, func(i, j int) bool {
-		return events[i] < events[j]
-	})
+	slices.Sort(events)
 
 	return events
 }
