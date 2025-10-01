@@ -16,6 +16,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/storer"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
+	"github.com/go-git/go-git/v5/storage/memory"
 	"github.com/mattn/go-isatty"
 	log "github.com/sirupsen/logrus"
 
@@ -30,8 +31,9 @@ var (
 
 	cloneLock sync.Mutex
 
-	ErrShortRef = errors.New("short SHA references are not supported")
-	ErrNoRepo   = errors.New("unable to find git repo")
+	ErrShortRef    = errors.New("short SHA references are not supported")
+	ErrNoRepo      = errors.New("unable to find git repo")
+	ErrNoRefInRepo = errors.New("unable to find ref in git repo")
 )
 
 type Error struct {
@@ -278,7 +280,7 @@ func CloneIfRequired(ctx context.Context, refName plumbing.ReferenceName, input 
 	return r, nil
 }
 
-func gitOptions(token string) (fetchOptions git.FetchOptions, pullOptions git.PullOptions) {
+func gitOptions(token string) (fetchOptions git.FetchOptions, pullOptions git.PullOptions, listOptions git.ListOptions) {
 	fetchOptions.RefSpecs = []config.RefSpec{"refs/*:refs/*", "HEAD:refs/heads/HEAD"}
 	pullOptions.Force = true
 
@@ -289,9 +291,10 @@ func gitOptions(token string) (fetchOptions git.FetchOptions, pullOptions git.Pu
 		}
 		fetchOptions.Auth = auth
 		pullOptions.Auth = auth
+		listOptions.Auth = auth
 	}
 
-	return fetchOptions, pullOptions
+	return fetchOptions, pullOptions, listOptions
 }
 
 // NewGitCloneExecutor creates an executor to clone git repos
@@ -315,7 +318,7 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) common.Executor {
 		isOfflineMode := input.OfflineMode
 
 		// fetch latest changes
-		fetchOptions, pullOptions := gitOptions(input.Token)
+		fetchOptions, pullOptions, _ := gitOptions(input.Token)
 
 		if !isOfflineMode {
 			err = r.Fetch(&fetchOptions)
@@ -414,4 +417,34 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) common.Executor {
 		logger.Debugf("Checked out %s", input.Ref)
 		return nil
 	}
+}
+
+type GetShaForRefInRemoteInput struct {
+	URL   string
+	Ref   string
+	Token string
+}
+
+func GetShaForRefInRemote(input *GetShaForRefInRemoteInput) (string, error) {
+	if plumbing.IsHash(input.Ref) {
+		return input.Ref, nil
+	}
+
+	remote := git.NewRemote(memory.NewStorage(), &config.RemoteConfig{Name: "", URLs: []string{input.URL}})
+
+	_, _, listOptions := gitOptions(input.Token)
+
+	references, err := remote.List(&listOptions)
+
+	if err != nil {
+		return "", err
+	}
+
+	for _, reference := range references {
+		if reference.Name().Short() == input.Ref {
+			return reference.Hash().String(), err
+		}
+	}
+
+	return "", ErrNoRefInRepo
 }
