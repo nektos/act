@@ -434,6 +434,7 @@ func newStepContainer(ctx context.Context, step step, image string, cmd []string
 		UsernsMode:  rc.Config.UsernsMode,
 		Platform:    rc.Config.ContainerArchitecture,
 		Options:     rc.Config.ContainerOptions,
+		LogOutput:   rc.Config.LogOutput,
 	})
 	return stepContainer
 }
