@@ -1,3 +1,5 @@
+merge_queue:
+  max_parallel_checks: 1
 
 pull_request_rules:
   - name: warn on conflicts
@@ -49,6 +51,7 @@ pull_request_rules:
       queue:
 queue_rules:
   - name: default
+    batch_size: 1
     queue_conditions: &queue_conditions
       - '#changes-requested-reviews-by=0'
       - or:
