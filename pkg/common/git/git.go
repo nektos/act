@@ -205,10 +205,10 @@ func gitHostHTTPRegex(host string) *regexp.Regexp {
 }
 
 // gitHostSSHRegex matches [git+]ssh://[user@]host/owner/repo and
-// [user@]host:owner/repo for exactly host.
+// [user@]host:[/]owner/repo for exactly host.
 func gitHostSSHRegex(host string) *regexp.Regexp {
 	h := regexp.QuoteMeta(host)
-	return regexp.MustCompile(`^(?:(?:git\+)?ssh://(?:[^@/]+@)?` + h + `/|(?:[^@/:]+@)?` + h + `:)([^/]+)/([^/]+?)(?:\.git)?/?$`)
+	return regexp.MustCompile(`^(?:(?:git\+)?ssh://(?:[^@/]+@)?` + h + `/|(?:[^@/:]+@)?` + h + `:/?)([^/]+)/([^/]+?)(?:\.git)?/?$`)
 }
 
 func findGitSlug(url string, githubInstance string) (string, string, error) {
