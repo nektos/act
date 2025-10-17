@@ -1,3 +1,23 @@
+# feature branch
+
+The purpose of this branch is to support submodules,
+
+the use case is https://github.com/meta-introspector/time 
+that contains 2023/09/30/act  as a submodule which cannot be built.
+
+```
+### Processed [GIT] files
+- Using [git_diff v2.30.3] https://megalinter.github.io/v5/descriptors/git_git_diff
+- MegaLinter key: [GIT_GIT_DIFF]
+- Rules config: identified by [git_diff]
+--Error detail:
+fatal: not a git repository: /tmp/lint/../../../../../.git/modules/time/modules/2023/09/30/act
+
+❌ Linted [GIT] files with [git_diff]: Found 1 error(s) - (0.01s)
+[Text Reporter] Generated TEXT report: /tmp/lint/report/linters_logs/ERROR-GIT_GIT_DIFF.log
+```
+
+# original
 ![act-logo](https://raw.githubusercontent.com/wiki/nektos/act/img/logo-150.png)
 
 # Overview [![push](https://github.com/nektos/act/workflows/push/badge.svg?branch=master&event=push)](https://github.com/nektos/act/actions) [![Go Report Card](https://goreportcard.com/badge/github.com/nektos/act)](https://goreportcard.com/report/github.com/nektos/act) [![awesome-runners](https://img.shields.io/badge/listed%20on-awesome--runners-blue.svg)](https://github.com/jonico/awesome-runners)
