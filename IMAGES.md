@@ -11,6 +11,7 @@
 | Image                                 | Size                                                       |
 | ------------------------------------- | ---------------------------------------------------------- |
 | [`node:16-bullseye`][hub/_/node]      | ![`bullseye-size`][hub/_/node/16-bullseye/size]            |
+| [`node:16-bookwork-slim`][hub/_/node] | ![`micro-bookwork-size`][hub/_/node/16-bookwork-slim/size] |
 | [`node:16-bullseye-slim`][hub/_/node] | ![`micro-bullseye-size`][hub/_/node/16-bullseye-slim/size] |
 | [`node:16-buster`][hub/_/node]        | ![`buster-size`][hub/_/node/16-buster/size]                |
 | [`node:16-buster-slim`][hub/_/node]   | ![`micro-buster-size`][hub/_/node/16-buster-slim/size]     |
@@ -19,7 +20,7 @@
 
 | Image                                                        | GitHub Repository                                             |
 | ------------------------------------------------------------ | ------------------------------------------------------------- |
-| [`catthehacker/ubuntu:act-latest`][ghcr/catthehacker/ubuntu] | [`catthehacker/docker-images`][gh/catthehacker/docker_images] |
+| [`catthehacker/ubuntu:act-24.04`][ghcr/catthehacker/ubuntu]  | [`catthehacker/docker-images`][gh/catthehacker/docker_images] |
 | [`catthehacker/ubuntu:act-22.04`][ghcr/catthehacker/ubuntu]  | [`catthehacker/docker-images`][gh/catthehacker/docker_images] |
 | [`catthehacker/ubuntu:act-20.04`][ghcr/catthehacker/ubuntu]  | [`catthehacker/docker-images`][gh/catthehacker/docker_images] |
 | [`catthehacker/ubuntu:act-18.04`][ghcr/catthehacker/ubuntu]  | [`catthehacker/docker-images`][gh/catthehacker/docker_images] |
