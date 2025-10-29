@@ -45,7 +45,10 @@ type Handler struct {
 	token             string
 }
 
-func StartHandler(dir, customExternalURL string, outboundIP string, port uint16, logger logrus.FieldLogger) (*Handler, error) {
+// StartHandler starts the cache server, storing caches under dir (~/.cache/actcache when empty).
+// It listens on outboundIP and port using network, which is passed to net.Listen as tcp, tcp4 or tcp6.
+// An empty outboundIP uses the detected outbound address, and port 0 picks a free port.
+func StartHandler(dir, customExternalURL string, outboundIP string, port uint16, network string, logger logrus.FieldLogger) (*Handler, error) {
 	h := &Handler{}
 
 	if logger == nil {
@@ -106,7 +109,7 @@ func StartHandler(dir, customExternalURL string, outboundIP string, port uint16,
 
 	h.gcCache()
 
-	listener, err := net.Listen("tcp4", fmt.Sprintf("%s:%d", h.outboundIP, port))
+	listener, err := net.Listen(network, fmt.Sprintf("%s:%d", h.outboundIP, port))
 	if err != nil {
 		return nil, err
 	}

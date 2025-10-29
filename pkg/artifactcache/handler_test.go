@@ -19,9 +19,10 @@ import (
 	"go.etcd.io/bbolt"
 )
 
+// TestHandler exercises the cache API through a running server.
 func TestHandler(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "artifactcache")
-	handler, err := StartHandler(dir, "", "", 0, nil)
+	handler, err := StartHandler(dir, "", "", 0, "tcp", nil)
 	require.NoError(t, err)
 
 	base := fmt.Sprintf("%s%s", handler.ExternalURL(), apiPath)
@@ -590,7 +591,7 @@ func uploadCacheNormally(t *testing.T, base, key, version string, content []byte
 
 func TestHandler_CustomExternalURL(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "artifactcache")
-	handler, err := StartHandler(dir, "", "127.0.0.1", 0, nil)
+	handler, err := StartHandler(dir, "", "127.0.0.1", 0, "tcp", nil)
 	require.NoError(t, err)
 
 	defer func() {
@@ -622,9 +623,10 @@ func TestHandler_CustomExternalURL(t *testing.T) {
 	})
 }
 
+// TestHandler_gcCache checks garbage collection removes only the expected cache entries.
 func TestHandler_gcCache(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "artifactcache")
-	handler, err := StartHandler(dir, "", "", 0, nil)
+	handler, err := StartHandler(dir, "", "", 0, "tcp", nil)
 	require.NoError(t, err)
 
 	defer func() {
@@ -733,7 +735,7 @@ func TestHandler_gcCache(t *testing.T) {
 
 func TestHandler_UnauthorizedAccess(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "artifactcache")
-	handler, err := StartHandler(dir, "", "", 0, nil)
+	handler, err := StartHandler(dir, "", "", 0, "tcp", nil)
 	require.NoError(t, err)
 	defer handler.Close()
 
@@ -753,7 +755,7 @@ func TestHandler_UnauthorizedAccess(t *testing.T) {
 
 func TestUploadFailureDoesNotReportSuccess(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "artifactcache")
-	handler, err := StartHandler(dir, "", "127.0.0.1", 0, nil)
+	handler, err := StartHandler(dir, "", "127.0.0.1", 0, "tcp", nil)
 	require.NoError(t, err)
 	defer handler.Close()
 
@@ -797,7 +799,7 @@ func TestUploadFailureDoesNotReportSuccess(t *testing.T) {
 
 func TestHandler_BindAddress(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "artifactcache")
-	handler, err := StartHandler(dir, "", "127.0.0.1", 0, nil)
+	handler, err := StartHandler(dir, "", "127.0.0.1", 0, "tcp", nil)
 	require.NoError(t, err)
 	defer handler.Close()
 
