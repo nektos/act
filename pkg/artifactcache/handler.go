@@ -42,7 +42,7 @@ type Handler struct {
 	customExternalURL string
 }
 
-func StartHandler(dir, customExternalURL string, outboundIP string, port uint16, logger logrus.FieldLogger) (*Handler, error) {
+func StartHandler(dir, customExternalURL string, outboundIP string, port uint16, network string, logger logrus.FieldLogger) (*Handler, error) {
 	h := &Handler{}
 
 	if logger == nil {
@@ -96,7 +96,7 @@ func StartHandler(dir, customExternalURL string, outboundIP string, port uint16,
 
 	h.gcCache()
 
-	listener, err := net.Listen("tcp4", fmt.Sprintf(":%d", port)) // listen on all interfaces
+	listener, err := net.Listen(network, fmt.Sprintf(":%d", port)) // listen on all interfaces
 	if err != nil {
 		return nil, err
 	}
