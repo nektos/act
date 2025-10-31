@@ -742,8 +742,8 @@ func defaultImageSurvey(actrc string) error {
 			"-P ubuntu-20.04=catthehacker/ubuntu:act-20.04\n" +
 			"-P ubuntu-18.04=catthehacker/ubuntu:act-18.04\n"
 	case "Micro":
-		option = "-P ubuntu-latest=node:16-bookwork-slim\n" +
-			"-P ubuntu-22.04=node:16-bookwork-slim\n" +
+		option = "-P ubuntu-latest=node:16-bookworm-slim\n" +
+			"-P ubuntu-24.04=node:16-bookworm-slim\n" +
 			"-P ubuntu-22.04=node:16-bullseye-slim\n" +
 			"-P ubuntu-20.04=node:16-buster-slim\n" +
 			"-P ubuntu-18.04=node:16-buster-slim\n"

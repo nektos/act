@@ -10,8 +10,9 @@
 
 | Image                                 | Size                                                       |
 | ------------------------------------- | ---------------------------------------------------------- |
+| [`node:16-bookworm`][hub/_/node]      | ![`bookworm-size`][hub/_/node/16-bookworm/size] |
+| [`node:16-bookworm-slim`][hub/_/node] | ![`micro-bookworm-size`][hub/_/node/16-bookworm-slim/size] |
 | [`node:16-bullseye`][hub/_/node]      | ![`bullseye-size`][hub/_/node/16-bullseye/size]            |
-| [`node:16-bookwork-slim`][hub/_/node] | ![`micro-bookwork-size`][hub/_/node/16-bookwork-slim/size] |
 | [`node:16-bullseye-slim`][hub/_/node] | ![`micro-bullseye-size`][hub/_/node/16-bullseye-slim/size] |
 | [`node:16-buster`][hub/_/node]        | ![`buster-size`][hub/_/node/16-buster/size]                |
 | [`node:16-buster-slim`][hub/_/node]   | ![`micro-buster-size`][hub/_/node/16-buster-slim/size]     |
@@ -45,6 +46,8 @@ Feel free to make a pull request with your image added here
 
 [hub/_/buildpack-deps]: https://hub.docker.com/_/buildpack-deps
 [hub/_/node]: https://hub.docker.com/r/_/node
+[hub/_/node/16-bookworm/size]: https://img.shields.io/docker/image-size/_/node/16-bookworm
+[hub/_/node/16-bookworm-slim/size]: https://img.shields.io/docker/image-size/_/node/16-bookworm-slim
 [hub/_/node/16-bullseye/size]: https://img.shields.io/docker/image-size/_/node/16-bullseye
 [hub/_/node/16-bullseye-slim/size]: https://img.shields.io/docker/image-size/_/node/16-bullseye-slim
 [hub/_/node/16-buster/size]: https://img.shields.io/docker/image-size/_/node/16-buster
