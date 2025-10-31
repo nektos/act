@@ -292,6 +292,11 @@ func readArgsFile(file string, split bool) []string {
 	for scanner.Scan() {
 		arg := os.ExpandEnv(strings.TrimSpace(scanner.Text()))
 
+		// using HasPrefix to not get caught up in newline handling
+		if strings.HasPrefix(arg, "-P ubuntu-latest=catthehacker/ubuntu:act-latest") {
+			log.Warn("actrc contains outdated aliases. To regenerate it, remove the file. For details, see https://github.com/nektos/act/pull/5951.")
+		}
+
 		if strings.HasPrefix(arg, "-") && split {
 			args = append(args, regexp.MustCompile(`\s`).Split(arg, 2)...)
 		} else if !split {
