@@ -234,11 +234,13 @@ type expressionEvaluator struct {
 
 func (ee expressionEvaluator) evaluate(ctx context.Context, in string, defaultStatusCheck exprparser.DefaultStatusCheck) (interface{}, error) {
 	logger := common.Logger(ctx)
-	printableInput := regexp.MustCompile(`::add-mask::.*`).ReplaceAllString(in, "::add-mask::***")
+	addMaskRegexp := regexp.MustCompile(`::add-mask::.*`)
+	printableInput := addMaskRegexp.ReplaceAllString(in, "::add-mask::***")
 	logger.Debugf("evaluating expression '%s'", printableInput)
-	evaluated, err := ee.interpreter.Evaluate(in, defaultStatusCheck)
 
-	logger.Debugf("expression '%s' evaluated to '%t'", printableInput, evaluated)
+	evaluated, err := ee.interpreter.Evaluate(in, defaultStatusCheck)
+	printableEvaluated := addMaskRegexp.ReplaceAllString(fmt.Sprintf("%v", evaluated), "::add-mask::***")
+	logger.Debugf("expression '%s' evaluated to '%s'", printableInput, printableEvaluated)
 
 	return evaluated, err
 }
