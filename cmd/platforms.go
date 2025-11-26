@@ -13,9 +13,9 @@ func (i *Input) newPlatforms() map[string]string {
 	}
 
 	for _, p := range i.platforms {
-		pParts := strings.Split(p, "=")
-		if len(pParts) == 2 {
-			platforms[strings.ToLower(pParts[0])] = pParts[1]
+		idx := strings.LastIndex(p, "=")
+		if idx != -1 {
+			platforms[strings.ToLower(p[:idx])] = p[idx+1:]
 		}
 	}
 	return platforms
