@@ -253,6 +253,42 @@ func bugReport(ctx context.Context, version string) error {
 	return nil
 }
 
+// ipPortRe is used only by the man-page generator to sanitize printed defaults. It matches IPv4 (optionally with :port)
+var ipPortRe = regexp.MustCompile(`\b(?:\d{1,3}\.){3}\d{1,3}(?::\d+)?\b`)
+
+// Keep scope tight: only redact flags that look like address defaults.
+func looksLikeAddrFlag(name string) bool {
+	return strings.HasSuffix(name, "-addr") || strings.HasSuffix(name, "-address")
+}
+
+func sanitizeFlagSet(fs *pflag.FlagSet) {
+	// For manpage generation only: show a neutral, deterministic doc default.
+	const docAddrPlaceholder = "[auto-detected IP]"
+	if fs == nil {
+		return
+	}
+	fs.VisitAll(func(f *pflag.Flag) {
+		if !looksLikeAddrFlag(f.Name) {
+			return
+		}
+		if ipPortRe.MatchString(f.DefValue) {
+			f.DefValue = docAddrPlaceholder
+		}
+	})
+}
+
+// Sanitize this command and its subcommands for doc generation only for --man-page. This changes printed defaults, not runtime behavior.
+func sanitizeFlagDefaultsForDocs(cmd *cobra.Command) {
+	if cmd == nil {
+		return
+	}
+	sanitizeFlagSet(cmd.PersistentFlags())
+	sanitizeFlagSet(cmd.Flags())
+	for _, child := range cmd.Commands() {
+		sanitizeFlagDefaultsForDocs(child)
+	}
+}
+
 func generateManPage(cmd *cobra.Command) error {
 	header := &doc.GenManHeader{
 		Title:   "act",
@@ -260,6 +296,7 @@ func generateManPage(cmd *cobra.Command) error {
 		Source:  fmt.Sprintf("act %s", cmd.Version),
 	}
 	buf := new(bytes.Buffer)
+	sanitizeFlagDefaultsForDocs(cmd.Root())
 	cobra.CheckErr(doc.GenMan(cmd, header, buf))
 	fmt.Print(buf.String())
 	return nil
