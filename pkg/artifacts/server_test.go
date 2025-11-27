@@ -252,7 +252,7 @@ func TestArtifactFlow(t *testing.T) {
 
 	ctx := context.Background()
 
-	cancel := Serve(ctx, artifactsPath, artifactsAddr, artifactsPort)
+	cancel := Serve(ctx, artifactsPath, artifactsAddr, artifactsPort, "tcp")
 	defer cancel()
 
 	platforms := map[string]string{

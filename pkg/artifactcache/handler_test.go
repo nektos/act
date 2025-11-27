@@ -20,7 +20,7 @@ import (
 
 func TestHandler(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "artifactcache")
-	handler, err := StartHandler(dir, "", "", 0, nil)
+	handler, err := StartHandler(dir, "", "", 0, "tcp", nil)
 	require.NoError(t, err)
 
 	base := fmt.Sprintf("%s%s", handler.ExternalURL(), urlBase)
@@ -589,7 +589,7 @@ func uploadCacheNormally(t *testing.T, base, key, version string, content []byte
 
 func TestHandler_CustomExternalURL(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "artifactcache")
-	handler, err := StartHandler(dir, "", "", 0, nil)
+	handler, err := StartHandler(dir, "", "", 0, "tcp", nil)
 	require.NoError(t, err)
 
 	defer func() {
@@ -623,7 +623,7 @@ func TestHandler_CustomExternalURL(t *testing.T) {
 
 func TestHandler_gcCache(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "artifactcache")
-	handler, err := StartHandler(dir, "", "", 0, nil)
+	handler, err := StartHandler(dir, "", "", 0, "tcp", nil)
 	require.NoError(t, err)
 
 	defer func() {
