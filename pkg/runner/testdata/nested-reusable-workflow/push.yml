@@ -1,0 +1,9 @@
+name: Test Nested Reusable Workflows
+on: push
+
+jobs:
+  call-remote-workflow:
+    uses: nektos/act-test-actions/.github/workflows/nested-reusable-workflow.yml@nested-workflows
+    with:
+      message: "Hello from caller"
+    secrets: inherit
