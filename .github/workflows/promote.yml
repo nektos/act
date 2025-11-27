@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: promote
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         id: checkout
         env:
           has_promote_token: ${{ secrets.PROMOTE_TOKEN && '1' || '' }}
@@ -21,7 +21,7 @@ jobs:
           token: ${{ secrets.PROMOTE_TOKEN }}
       - uses: fregante/setup-git-user@v2
         if: steps.checkout.conclusion != 'skipped'
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         if: steps.checkout.conclusion != 'skipped'
         with:
           go-version-file: go.mod
