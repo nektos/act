@@ -585,6 +585,14 @@ func (rc *RunContext) startServiceContainers(_ string) common.Executor {
 
 func (rc *RunContext) waitForServiceContainer(c container.ExecutionsEnvironment) common.Executor {
 	return func(ctx context.Context) error {
+		logger := common.Logger(ctx)
+
+		// In dry-run mode, service containers are not actually created, so skip health checks
+		if common.Dryrun(ctx) {
+			logger.Debugf("Dry-run mode: skipping service container health check")
+			return nil
+		}
+
 		sctx, cancel := context.WithTimeout(ctx, time.Minute*5)
 		defer cancel()
 		health := container.HealthStarting
