@@ -65,6 +65,8 @@ type Input struct {
 	validate                           bool
 	strict                             bool
 	concurrentJobs                     int
+	artifactServerNetwork              string
+	cacheServerNetwork                 string
 }
 
 func (i *Input) resolve(path string) string {

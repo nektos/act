@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"os"
 	"path"
 	"testing"
 
@@ -120,6 +121,100 @@ func TestReadArgsFile(t *testing.T) {
 			}
 			args := readArgsFile(table.path, table.split)
 			assert.Equal(t, table.args, args)
+		})
+	}
+}
+
+func TestGetDefaultNetworkStack(t *testing.T) {
+	tests := []struct {
+		name     string
+		wslEnv   string
+		expected string
+	}{
+		{
+			name:     "WSL2 environment",
+			wslEnv:   "Ubuntu",
+			expected: "tcp4",
+		},
+		{
+			name:     "Non-WSL environment",
+			wslEnv:   "",
+			expected: "tcp",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Save original the value
+			oldVal, wasSet := os.LookupEnv("WSL_DISTRO_NAME")
+
+			if tt.wslEnv != "" {
+				os.Setenv("WSL_DISTRO_NAME", tt.wslEnv)
+			} else {
+				os.Unsetenv("WSL_DISTRO_NAME")
+			}
+
+			// Cleanup: restore the original state
+			t.Cleanup(func() {
+				if wasSet {
+					os.Setenv("WSL_DISTRO_NAME", oldVal)
+				} else {
+					os.Unsetenv("WSL_DISTRO_NAME")
+				}
+			})
+
+			result := getDefaultNetworkStack()
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestValidateNetworkStack(t *testing.T) {
+	tests := []struct {
+		name      string
+		network   string
+		wantError bool
+	}{
+		{
+			name:      "valid tcp",
+			network:   "tcp",
+			wantError: false,
+		},
+		{
+			name:      "valid tcp4",
+			network:   "tcp4",
+			wantError: false,
+		},
+		{
+			name:      "valid tcp6",
+			network:   "tcp6",
+			wantError: false,
+		},
+		{
+			name:      "invalid udp",
+			network:   "udp",
+			wantError: true,
+		},
+		{
+			name:      "invalid empty",
+			network:   "",
+			wantError: true,
+		},
+		{
+			name:      "invalid random",
+			network:   "invalid",
+			wantError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateNetworkStack(tt.network)
+			if tt.wantError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
 		})
 	}
 }

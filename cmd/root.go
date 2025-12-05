@@ -117,12 +117,14 @@ func createRootCommand(ctx context.Context, input *Input, version string) *cobra
 	rootCmd.PersistentFlags().StringVarP(&input.artifactServerPath, "artifact-server-path", "", "", "Defines the path where the artifact server stores uploads and retrieves downloads from. If not specified the artifact server will not start.")
 	rootCmd.PersistentFlags().StringVarP(&input.artifactServerAddr, "artifact-server-addr", "", common.GetOutboundIP().String(), "Defines the address to which the artifact server binds.")
 	rootCmd.PersistentFlags().StringVarP(&input.artifactServerPort, "artifact-server-port", "", "34567", "Defines the port where the artifact server listens.")
+	rootCmd.PersistentFlags().StringVarP(&input.artifactServerNetwork, "artifact-server-network", "", "", "Network stack to use for artifact server (tcp, tcp4, tcp6). Defaults to tcp4 on WSL2, tcp otherwise.")
 	rootCmd.PersistentFlags().BoolVarP(&input.noSkipCheckout, "no-skip-checkout", "", false, "Use actions/checkout instead of copying local files into container")
 	rootCmd.PersistentFlags().BoolVarP(&input.noCacheServer, "no-cache-server", "", false, "Disable cache server")
 	rootCmd.PersistentFlags().StringVarP(&input.cacheServerPath, "cache-server-path", "", filepath.Join(CacheHomeDir, "actcache"), "Defines the path where the cache server stores caches.")
 	rootCmd.PersistentFlags().StringVarP(&input.cacheServerExternalURL, "cache-server-external-url", "", "", "Defines the external URL for if the cache server is behind a proxy. e.g.: https://act-cache-server.example.com. Be careful that there is no trailing slash.")
 	rootCmd.PersistentFlags().StringVarP(&input.cacheServerAddr, "cache-server-addr", "", common.GetOutboundIP().String(), "Defines the address to which the cache server binds.")
 	rootCmd.PersistentFlags().Uint16VarP(&input.cacheServerPort, "cache-server-port", "", 0, "Defines the port where the artifact server listens. 0 means a randomly available port.")
+	rootCmd.PersistentFlags().StringVarP(&input.cacheServerNetwork, "cache-server-network", "", "", "Network stack to use for cache server (tcp, tcp4, tcp6). Defaults to tcp4 on WSL2, tcp otherwise.")
 	rootCmd.PersistentFlags().StringVarP(&input.actionCachePath, "action-cache-path", "", filepath.Join(CacheHomeDir, "act"), "Defines the path where the actions get cached and host workspaces created.")
 	rootCmd.PersistentFlags().BoolVarP(&input.actionOfflineMode, "action-offline-mode", "", false, "If action contents exists, it will not be fetch and pull again. If turn on this, will turn off force pull")
 	rootCmd.PersistentFlags().StringVarP(&input.networkName, "network", "", "host", "Sets a docker network name. Defaults to host.")
@@ -315,6 +317,26 @@ func cleanup(inputs *Input) func(*cobra.Command, []string) {
 	return func(_ *cobra.Command, _ []string) {
 		displayNotices(inputs)
 	}
+}
+
+func getDefaultNetworkStack() string {
+	// Check if running in WSL2
+	if _, exists := os.LookupEnv("WSL_DISTRO_NAME"); exists {
+		return "tcp4"
+	}
+	return "tcp"
+}
+
+func validateNetworkStack(network string) error {
+	validStacks := map[string]bool{
+		"tcp":  true,
+		"tcp4": true,
+		"tcp6": true,
+	}
+	if !validStacks[network] {
+		return fmt.Errorf("invalid network stack '%s': must be one of: tcp, tcp4, tcp6", network)
+	}
+	return nil
 }
 
 func parseEnvs(env []string) map[string]string {
@@ -676,13 +698,30 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			return err
 		}
 
-		cancel := artifacts.Serve(ctx, input.artifactServerPath, input.artifactServerAddr, input.artifactServerPort)
+		// Resolve and validate network stack configuration
+		artifactServerNetwork := input.artifactServerNetwork
+		if artifactServerNetwork == "" {
+			artifactServerNetwork = getDefaultNetworkStack()
+		}
+		if err := validateNetworkStack(artifactServerNetwork); err != nil {
+			return err
+		}
+
+		cacheServerNetwork := input.cacheServerNetwork
+		if cacheServerNetwork == "" {
+			cacheServerNetwork = getDefaultNetworkStack()
+		}
+		if err := validateNetworkStack(cacheServerNetwork); err != nil {
+			return err
+		}
+
+		cancel := artifacts.Serve(ctx, input.artifactServerPath, input.artifactServerAddr, input.artifactServerPort, artifactServerNetwork)
 
 		const cacheURLKey = "ACTIONS_CACHE_URL"
 		var cacheHandler *artifactcache.Handler
 		if !input.noCacheServer && envs[cacheURLKey] == "" {
 			var err error
-			cacheHandler, err = artifactcache.StartHandler(input.cacheServerPath, input.cacheServerExternalURL, input.cacheServerAddr, input.cacheServerPort, common.Logger(ctx))
+			cacheHandler, err = artifactcache.StartHandler(input.cacheServerPath, input.cacheServerExternalURL, input.cacheServerAddr, input.cacheServerPort, cacheServerNetwork, common.Logger(ctx))
 			if err != nil {
 				return err
 			}
