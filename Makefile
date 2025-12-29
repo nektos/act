@@ -5,6 +5,7 @@ MAJOR_VERSION = $(word 1, $(subst ., ,$(VERSION)))
 MINOR_VERSION = $(word 2, $(subst ., ,$(VERSION)))
 PATCH_VERSION = $(word 3, $(subst ., ,$(word 1,$(subst -, , $(VERSION)))))
 NEW_VERSION ?= $(MAJOR_VERSION).$(MINOR_VERSION).$(shell echo $$(( $(PATCH_VERSION) + 1)) )
+GOVULNCHECK_PACKAGE ?= golang.org/x/vuln/cmd/govulncheck@v1
 
 fix = false
 ifeq (true,$(fix))
@@ -116,3 +117,13 @@ snapshot:
 upgrade:
 	go get -u
 	go mod tidy
+
+# "$(shell go env GOROOT)/bin/go" allows us to use an outdated global go tool and use the build toolchain defined by the project
+# go build auto upgrades to the same toolchain version as defined in the go.mod file
+.PHONY: deps-tools
+deps-tools: ## install tool dependencies
+	"$(shell go env GOROOT)/bin/go" install $(GOVULNCHECK_PACKAGE)
+
+.PHONY: security-check
+security-check: deps-tools
+	GOEXPERIMENT= "$(shell go env GOROOT)/bin/go" run $(GOVULNCHECK_PACKAGE) -show color ./...
