@@ -101,9 +101,8 @@ c: *a
 			if tt.yamlErr {
 				assert.Error(t, err)
 				return
-			} else {
-				assert.NoError(t, err)
 			}
+			assert.NoError(t, err)
 			err = resolveAliases(&node)
 			if tt.anchorErr {
 				assert.Error(t, err)
