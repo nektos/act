@@ -69,6 +69,10 @@ func (w *Workflow) OnEvent(event string) interface{} {
 }
 
 func (w *Workflow) UnmarshalYAML(node *yaml.Node) error {
+	// Resolve yaml anchor aliases first
+	if err := resolveAliases(node); err != nil {
+		return err
+	}
 	// Validate the schema before deserializing it into our model
 	if err := (&schema.Node{
 		Definition: "workflow-root",
@@ -83,6 +87,10 @@ func (w *Workflow) UnmarshalYAML(node *yaml.Node) error {
 type WorkflowStrict Workflow
 
 func (w *WorkflowStrict) UnmarshalYAML(node *yaml.Node) error {
+	// Resolve yaml anchor aliases first
+	if err := resolveAliases(node); err != nil {
+		return err
+	}
 	// Validate the schema before deserializing it into our model
 	if err := (&schema.Node{
 		Definition: "workflow-root-strict",
