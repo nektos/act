@@ -42,6 +42,8 @@ func (rc *RunContext) NewExpressionEvaluatorWithEnv(ctx context.Context, env map
 		if job != nil && job.Strategy != nil {
 			strategy["fail-fast"] = job.Strategy.FailFast
 			strategy["max-parallel"] = job.Strategy.MaxParallel
+			strategy["job-index"] = rc.MatrixIndex
+			strategy["job-total"] = rc.MatrixCount
 		}
 
 		jobs := rc.Run.Workflow.Jobs
@@ -127,6 +129,8 @@ func (rc *RunContext) newStepExpressionEvaluator(ctx context.Context, step step,
 	if job.Strategy != nil {
 		strategy["fail-fast"] = job.Strategy.FailFast
 		strategy["max-parallel"] = job.Strategy.MaxParallel
+		strategy["job-index"] = rc.MatrixIndex
+		strategy["job-total"] = rc.MatrixCount
 	}
 
 	jobs := rc.Run.Workflow.Jobs
