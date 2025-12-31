@@ -52,6 +52,8 @@ func createRunContext(t *testing.T) *RunContext {
 			"os":  "Linux",
 			"foo": "bar",
 		},
+		MatrixIndex: 1,
+		MatrixCount: 4,
 		StepResults: map[string]*model.StepResult{
 			"idwithnothing": {
 				Conclusion: model.StepStatusSuccess,
@@ -75,6 +77,30 @@ func createRunContext(t *testing.T) *RunContext {
 				},
 			},
 		},
+	}
+}
+
+func createRunContextWithoutMatrix(t *testing.T) *RunContext {
+	return &RunContext{
+		Config: &Config{
+			Workdir: ".",
+		},
+		Env: map[string]string{
+			"key": "value",
+		},
+		Run: &model.Run{
+			JobID: "job1",
+			Workflow: &model.Workflow{
+				Name: "test-workflow",
+				Jobs: map[string]*model.Job{
+					"job1": {
+						Strategy: &model.Strategy{},
+					},
+				},
+			},
+		},
+		MatrixIndex: 0,
+		MatrixCount: 0,
 	}
 }
 
@@ -135,6 +161,9 @@ func TestEvaluateRunContext(t *testing.T) {
 		{"format('echo Hello {0}{1} ${{Te{0}st}}', github.undefined_property, 'World')", "echo Hello World ${Test}", ""},
 		{"format('{0}', '{1}', 'World')", "{1}", ""},
 		{"format('{{{0}', '{1}', 'World')", "{{1}", ""},
+		// strategy context tests
+		{"strategy.job-index", 1, ""},
+		{"strategy.job-total", 4, ""},
 	}
 
 	for _, table := range tables {
@@ -370,4 +399,72 @@ func TestRewriteSubExpressionForceFormat(t *testing.T) {
 			assertObject.Equal(table.out, out, table.in)
 		})
 	}
+}
+
+func TestStrategyContext(t *testing.T) {
+	t.Run("with matrix", func(t *testing.T) {
+		rc := createRunContext(t)
+		ee := rc.NewExpressionEvaluator(context.Background())
+
+		// Test job-index (0-based)
+		jobIndex, err := ee.evaluate(context.Background(), "strategy.job-index", exprparser.DefaultStatusCheckNone)
+		assert.NoError(t, err)
+		assert.Equal(t, 1, jobIndex)
+
+		// Test job-total
+		jobTotal, err := ee.evaluate(context.Background(), "strategy.job-total", exprparser.DefaultStatusCheckNone)
+		assert.NoError(t, err)
+		assert.Equal(t, 4, jobTotal)
+	})
+
+	t.Run("without matrix", func(t *testing.T) {
+		rc := createRunContextWithoutMatrix(t)
+		ee := rc.NewExpressionEvaluator(context.Background())
+
+		// When there's no matrix, job-index and job-total should not be set
+		jobIndex, err := ee.evaluate(context.Background(), "strategy.job-index", exprparser.DefaultStatusCheckNone)
+		assert.NoError(t, err)
+		assert.Nil(t, jobIndex)
+
+		jobTotal, err := ee.evaluate(context.Background(), "strategy.job-total", exprparser.DefaultStatusCheckNone)
+		assert.NoError(t, err)
+		assert.Nil(t, jobTotal)
+	})
+}
+
+func TestStrategyContextInStep(t *testing.T) {
+	t.Run("with matrix", func(t *testing.T) {
+		rc := createRunContext(t)
+		step := &stepRun{
+			RunContext: rc,
+		}
+		ee := rc.NewStepExpressionEvaluator(context.Background(), step)
+
+		// Test job-index (0-based)
+		jobIndex, err := ee.evaluate(context.Background(), "strategy.job-index", exprparser.DefaultStatusCheckNone)
+		assert.NoError(t, err)
+		assert.Equal(t, 1, jobIndex)
+
+		// Test job-total
+		jobTotal, err := ee.evaluate(context.Background(), "strategy.job-total", exprparser.DefaultStatusCheckNone)
+		assert.NoError(t, err)
+		assert.Equal(t, 4, jobTotal)
+	})
+
+	t.Run("without matrix", func(t *testing.T) {
+		rc := createRunContextWithoutMatrix(t)
+		step := &stepRun{
+			RunContext: rc,
+		}
+		ee := rc.NewStepExpressionEvaluator(context.Background(), step)
+
+		// When there's no matrix, job-index and job-total should not be set
+		jobIndex, err := ee.evaluate(context.Background(), "strategy.job-index", exprparser.DefaultStatusCheckNone)
+		assert.NoError(t, err)
+		assert.Nil(t, jobIndex)
+
+		jobTotal, err := ee.evaluate(context.Background(), "strategy.job-total", exprparser.DefaultStatusCheckNone)
+		assert.NoError(t, err)
+		assert.Nil(t, jobTotal)
+	})
 }
