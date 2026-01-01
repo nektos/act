@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -291,16 +292,20 @@ func Serve(ctx context.Context, artifactPath string, addr string, port string) c
 	downloads(router, artifactPath, fsys)
 	RoutesV4(router, artifactPath, fsys, fsys)
 
+	listener, err := net.Listen("tcp4", fmt.Sprintf("%s:%s", addr, port))
+	if err != nil {
+		logger.Fatal(err)
+	}
+
 	server := &http.Server{
-		Addr:              fmt.Sprintf("%s:%s", addr, port),
 		ReadHeaderTimeout: 2 * time.Second,
 		Handler:           router,
 	}
 
 	// run server
 	go func() {
-		logger.Infof("Start server on http://%s:%s", addr, port)
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		logger.Infof("Start artifact server on http://%s:%s", addr, port)
+		if err := server.Serve(listener); err != nil && err != http.ErrServerClosed {
 			logger.Fatal(err)
 		}
 	}()
