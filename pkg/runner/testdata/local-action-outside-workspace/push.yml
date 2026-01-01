@@ -1,0 +1,17 @@
+name: local-action-outside-workspace
+on: push
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - run: mkdir ../action-outside-workspace
+      - run: |
+          cat <<-ACTIONEOF > ../action-outside-workspace/action.yml
+          name: test
+          runs:
+            using: composite
+            steps:
+              - run: echo hello
+                shell: bash
+          ACTIONEOF
+      - uses: ./../action-outside-workspace
