@@ -63,6 +63,17 @@ func createRootCommand(ctx context.Context, input *Input, version string) *cobra
 		PersistentPostRun: cleanup(input),
 		Version:           version,
 		SilenceUsage:      true,
+		ValidArgsFunction: func(_cmd *cobra.Command, _args []string, _toComplete string) ([]string, cobra.ShellCompDirective) {
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		},
+	}
+
+	rootCmd.Flags().StringP("completion", "", "", "Generate shell completion script for [bash|zsh|fish|powershell]")
+	err := rootCmd.RegisterFlagCompletionFunc("completion", func(_cmd *cobra.Command, _args []string, _toComplete string) ([]string, cobra.ShellCompDirective) {
+		return []string{"bash", "zsh", "fish", "powershell"}, cobra.ShellCompDirectiveNoFileComp
+	})
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	rootCmd.Flags().BoolP("watch", "w", false, "watch the contents of the local repo and run when files change")
@@ -265,6 +276,24 @@ func generateManPage(cmd *cobra.Command) error {
 	return nil
 }
 
+func generateCompletion(cmd *cobra.Command, shell string) error {
+	if shell == "" {
+		return fmt.Errorf("shell is required (bash|zsh|fish|powershell)")
+	}
+	switch shell {
+	case "bash":
+		return cmd.Root().GenBashCompletion(os.Stdout)
+	case "zsh":
+		return cmd.Root().GenZshCompletion(os.Stdout)
+	case "fish":
+		return cmd.Root().GenFishCompletion(os.Stdout, true)
+	case "powershell":
+		return cmd.Root().GenPowerShellCompletion(os.Stdout)
+	default:
+		return fmt.Errorf("unsupported shell: %s, supported shells are: bash, zsh, fish, powershell", shell)
+	}
+}
+
 func listOptions(cmd *cobra.Command) error {
 	flags := []Flag{}
 	cmd.LocalFlags().VisitAll(func(f *pflag.Flag) {
@@ -401,6 +430,10 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 		}
 		if ok, _ := cmd.Flags().GetBool("man-page"); ok {
 			return generateManPage(cmd)
+		}
+		shell, err := cmd.Flags().GetString("completion")
+		if err == nil {
+			return generateCompletion(cmd, shell)
 		}
 		if input.listOptions {
 			return listOptions(cmd)
