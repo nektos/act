@@ -70,7 +70,9 @@ func newActionCacheReusableWorkflowExecutor(rc *RunContext, filename string, rem
 			return err
 		}
 
-		runner, err := NewReusableWorkflowRunner(rc)
+		// Use the action cache directory path for the workdir
+		workflowDir := fmt.Sprintf("%s/%s", rc.ActionCacheDir(), safeFilename(filename))
+		runner, err := NewReusableWorkflowRunner(rc, workflowDir)
 		if err != nil {
 			return err
 		}
@@ -125,7 +127,7 @@ func newReusableWorkflowExecutor(rc *RunContext, directory string, workflow stri
 			return err
 		}
 
-		runner, err := NewReusableWorkflowRunner(rc)
+		runner, err := NewReusableWorkflowRunner(rc, directory)
 		if err != nil {
 			return err
 		}
@@ -134,9 +136,13 @@ func newReusableWorkflowExecutor(rc *RunContext, directory string, workflow stri
 	}
 }
 
-func NewReusableWorkflowRunner(rc *RunContext) (Runner, error) {
+func NewReusableWorkflowRunner(rc *RunContext, workflowDir string) (Runner, error) {
+	// Create a copy of the config to avoid modifying the original
+	configCopy := *rc.Config
+	configCopy.Workdir = workflowDir
+
 	runner := &runnerImpl{
-		config:    rc.Config,
+		config:    &configCopy,
 		eventJSON: rc.EventJSON,
 		caller: &caller{
 			runContext: rc,
