@@ -170,8 +170,26 @@ func (cr *containerReference) Remove() common.Executor {
 }
 
 func (cr *containerReference) GetHealth(ctx context.Context) Health {
-	resp, err := cr.cli.ContainerInspect(ctx, cr.id)
 	logger := common.Logger(ctx)
+
+	// In dry-run mode, containers are not actually created, so return healthy status
+	if common.Dryrun(ctx) {
+		logger.Debugf("Dry-run mode: returning healthy status for container health check")
+		return HealthHealthy
+	}
+
+	// Add safety checks for nil Docker client and empty container ID
+	if cr.cli == nil {
+		logger.Errorf("Docker client is nil, cannot inspect container health")
+		return HealthUnHealthy
+	}
+
+	if cr.id == "" {
+		logger.Debugf("Container ID is empty, cannot inspect container health")
+		return HealthUnHealthy
+	}
+
+	resp, err := cr.cli.ContainerInspect(ctx, cr.id)
 	if err != nil {
 		logger.Errorf("failed to query container health %s", err)
 		return HealthUnHealthy
