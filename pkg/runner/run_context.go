@@ -33,6 +33,8 @@ type RunContext struct {
 	Name                string
 	Config              *Config
 	Matrix              map[string]interface{}
+	MatrixIndex         int // 0-based index of current matrix job
+	MatrixCount         int // total number of matrix jobs
 	Run                 *model.Run
 	EventJSON           string
 	Env                 map[string]string

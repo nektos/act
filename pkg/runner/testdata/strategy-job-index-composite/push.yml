@@ -1,0 +1,14 @@
+name: strategy-job-index-composite
+on: push
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        shard: [0, 1]
+    steps:
+      - uses: ./strategy-job-index-composite/composite_action
+        with:
+          expected_index: ${{ matrix.shard }}
+          expected_total: "2"

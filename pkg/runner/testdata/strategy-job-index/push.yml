@@ -1,0 +1,17 @@
+name: strategy-job-index
+on: push
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        shard: [0, 1, 2]
+    steps:
+      - name: verify strategy job info
+        run: |
+          echo "job-index=${{ strategy.job-index }}"
+          echo "job-total=${{ strategy.job-total }}"
+          test "${{ strategy.job-total }}" = "3"
+          test "${{ strategy.job-index }}" = "${{ matrix.shard }}"
+        shell: bash
