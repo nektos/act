@@ -100,6 +100,11 @@ type Action struct {
 }
 
 func (a *Action) UnmarshalYAML(node *yaml.Node) error {
+	// TODO enable after verifying that this runner side feature has rolled out in actions/runner
+	// // Resolve yaml anchor aliases first
+	// if err := resolveAliases(node); err != nil {
+	// 	return err
+	// }
 	// Validate the schema before deserializing it into our model
 	if err := (&schema.Node{
 		Definition: "action-root",
