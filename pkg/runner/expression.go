@@ -26,17 +26,11 @@ type ExpressionEvaluator interface {
 	Interpolate(context.Context, string) string
 }
 
-// NewExpressionEvaluator creates a new evaluator
-func (rc *RunContext) NewExpressionEvaluator(ctx context.Context) ExpressionEvaluator {
-	return rc.NewExpressionEvaluatorWithEnv(ctx, rc.GetEnv())
-}
-
-func (rc *RunContext) NewExpressionEvaluatorWithEnv(ctx context.Context, env map[string]string) ExpressionEvaluator {
-	var workflowCallResult map[string]*model.WorkflowCallResult
-
-	// todo: cleanup EvaluationEnvironment creation
+// buildNeedsAndStrategy builds the needs and strategy maps for expression evaluation
+func (rc *RunContext) buildNeedsAndStrategy() (map[string]exprparser.Needs, map[string]interface{}) {
 	using := make(map[string]exprparser.Needs)
 	strategy := make(map[string]interface{})
+
 	if rc.Run != nil {
 		job := rc.Run.Job()
 		if job != nil && job.Strategy != nil {
@@ -53,11 +47,27 @@ func (rc *RunContext) NewExpressionEvaluatorWithEnv(ctx context.Context, env map
 				Result:  jobs[needs].Result,
 			}
 		}
+	}
 
+	return using, strategy
+}
+
+// NewExpressionEvaluator creates a new evaluator
+func (rc *RunContext) NewExpressionEvaluator(ctx context.Context) ExpressionEvaluator {
+	return rc.NewExpressionEvaluatorWithEnv(ctx, rc.GetEnv())
+}
+
+func (rc *RunContext) NewExpressionEvaluatorWithEnv(ctx context.Context, env map[string]string) ExpressionEvaluator {
+	var workflowCallResult map[string]*model.WorkflowCallResult
+
+	using, strategy := rc.buildNeedsAndStrategy()
+
+	if rc.Run != nil {
 		// only setup jobs context in case of workflow_call
 		// and existing expression evaluator (this means, jobs are at
 		// least ready to run)
 		if rc.caller != nil && rc.ExprEval != nil {
+			jobs := rc.Run.Workflow.Jobs
 			workflowCallResult = map[string]*model.WorkflowCallResult{}
 
 			for jobName, job := range jobs {
@@ -121,24 +131,7 @@ func (rc *RunContext) NewStepExpressionEvaluatorExt(ctx context.Context, step st
 }
 
 func (rc *RunContext) newStepExpressionEvaluator(ctx context.Context, step step, _ *model.GithubContext, inputs map[string]interface{}) ExpressionEvaluator {
-	// todo: cleanup EvaluationEnvironment creation
-	job := rc.Run.Job()
-	strategy := make(map[string]interface{})
-	if job.Strategy != nil {
-		strategy["fail-fast"] = job.Strategy.FailFast
-		strategy["max-parallel"] = job.Strategy.MaxParallel
-	}
-
-	jobs := rc.Run.Workflow.Jobs
-	jobNeeds := rc.Run.Job().Needs()
-
-	using := make(map[string]exprparser.Needs)
-	for _, needs := range jobNeeds {
-		using[needs] = exprparser.Needs{
-			Outputs: jobs[needs].Outputs,
-			Result:  jobs[needs].Result,
-		}
-	}
+	using, strategy := rc.buildNeedsAndStrategy()
 
 	ee := &exprparser.EvaluationEnvironment{
 		Github:   step.getGithubContext(ctx),
