@@ -14,6 +14,7 @@ import (
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/plumbing/storer"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/mattn/go-isatty"
@@ -294,6 +295,72 @@ func gitOptions(token string) (fetchOptions git.FetchOptions, pullOptions git.Pu
 	return fetchOptions, pullOptions
 }
 
+// maxTagDepth is the maximum number of nested tags to resolve.
+// This prevents infinite loops from circular tag references.
+const maxTagDepth = 10
+
+// resolveTagToCommit resolves a tag reference to its final commit hash,
+// handling nested/chained annotated tags (e.g., tag -> tag -> commit).
+func resolveTagToCommit(r *git.Repository, tagName string) (*plumbing.Hash, error) {
+	tagRef, err := r.Tag(tagName)
+	if err != nil {
+		return nil, err
+	}
+
+	// Try to get the tag object (annotated tag)
+	tagObj, err := r.TagObject(tagRef.Hash())
+	if err != nil {
+		// If it's not an annotated tag, return the hash directly
+		hash := tagRef.Hash()
+		return &hash, nil
+	}
+
+	// Recursively resolve until we get a commit
+	for depth := 0; depth < maxTagDepth; depth++ {
+		switch tagObj.TargetType {
+		case plumbing.CommitObject:
+			return &tagObj.Target, nil
+		case plumbing.TagObject:
+			// Nested tag - resolve the next level
+			tagObj, err = r.TagObject(tagObj.Target)
+			if err != nil {
+				return nil, fmt.Errorf("failed to resolve nested tag: %w", err)
+			}
+		default:
+			return nil, fmt.Errorf("unsupported tag target type: %s", tagObj.TargetType)
+		}
+	}
+
+	return nil, fmt.Errorf("exceeded maximum tag depth (%d) - possible circular reference", maxTagDepth)
+}
+
+// resolveRefToCommit attempts to resolve a reference to a commit hash.
+// It first tries the standard ResolveRevision, and if that fails with
+// an unsupported object type (nested tags), it manually resolves the tag chain.
+func resolveRefToCommit(r *git.Repository, ref string, rev plumbing.Revision, isTag bool) (*plumbing.Hash, error) {
+	hash, err := r.ResolveRevision(rev)
+	if err == nil {
+		return hash, nil
+	}
+
+	// If this is a tag and we got an error, try to resolve nested tags
+	if isTag {
+		if commitHash, tagErr := resolveTagToCommit(r, ref); tagErr == nil {
+			return commitHash, nil
+		}
+	}
+
+	// Check if this might be a nested tag by trying to resolve it directly
+	if tagHash, tagErr := resolveTagToCommit(r, ref); tagErr == nil {
+		// Verify this is actually a commit
+		if _, commitErr := object.GetCommit(r.Storer, *tagHash); commitErr == nil {
+			return tagHash, nil
+		}
+	}
+
+	return nil, err
+}
+
 // NewGitCloneExecutor creates an executor to clone git repos
 //
 //nolint:gocyclo
@@ -326,11 +393,10 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) common.Executor {
 
 		var hash *plumbing.Hash
 		rev := plumbing.Revision(input.Ref)
-		if hash, err = r.ResolveRevision(rev); err != nil {
-			logger.Errorf("Unable to resolve %s: %v", input.Ref, err)
-		}
+		// First attempt to resolve - this may fail for nested tags, which is handled later
+		hash, _ = r.ResolveRevision(rev)
 
-		if hash.String() != input.Ref && len(input.Ref) >= 4 && strings.HasPrefix(hash.String(), input.Ref) {
+		if hash != nil && hash.String() != input.Ref && len(input.Ref) >= 4 && strings.HasPrefix(hash.String(), input.Ref) {
 			return &Error{
 				err:    ErrShortRef,
 				commit: hash.String(),
@@ -355,7 +421,7 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) common.Executor {
 			}
 		}
 
-		if hash, err = r.ResolveRevision(rev); err != nil {
+		if hash, err = resolveRefToCommit(r, input.Ref, rev, refType == "tag"); err != nil {
 			logger.Errorf("Unable to resolve %s: %v", input.Ref, err)
 			return err
 		}
