@@ -560,3 +560,55 @@ jobs:
 	_, err := ReadWorkflow(strings.NewReader(yaml), true)
 	assert.Error(t, err, "read workflow should succeed")
 }
+
+func TestReadWorkflow_AnchorStrict(t *testing.T) {
+	yaml := `
+on: push
+
+jobs:
+  test:
+    runs-on: &runner ubuntu-latest
+    steps:
+    - uses: &checkout actions/checkout@v5
+  test2:
+    runs-on: *runner
+    steps:
+    - uses: *checkout
+`
+
+	w, err := ReadWorkflow(strings.NewReader(yaml), true)
+	assert.NoError(t, err, "read workflow should succeed")
+
+	for _, job := range w.Jobs {
+		assert.Equal(t, []string{"ubuntu-latest"}, job.RunsOn())
+		assert.Equal(t, "actions/checkout@v5", job.Steps[0].Uses)
+	}
+}
+
+func TestReadWorkflow_Anchor(t *testing.T) {
+	yaml := `
+
+jobs:
+  test:
+    runs-on: &runner ubuntu-latest
+    steps:
+    - uses: &checkout actions/checkout@v5
+  test2: &job
+    runs-on: *runner
+    steps:
+    - uses: *checkout
+    - run: echo $TRIGGER
+      env:
+        TRIGGER: &trigger push
+  test3: *job
+on: push #*trigger
+`
+
+	w, err := ReadWorkflow(strings.NewReader(yaml), false)
+	assert.NoError(t, err, "read workflow should succeed")
+
+	for _, job := range w.Jobs {
+		assert.Equal(t, []string{"ubuntu-latest"}, job.RunsOn())
+		assert.Equal(t, "actions/checkout@v5", job.Steps[0].Uses)
+	}
+}
