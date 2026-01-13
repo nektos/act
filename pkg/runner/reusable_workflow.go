@@ -17,6 +17,22 @@ import (
 )
 
 func newLocalReusableWorkflowExecutor(rc *RunContext) common.Executor {
+	if rc.caller != nil && rc.caller.reusableWorkflow != nil {
+		localWorkflowPath := rc.Run.Job().Uses
+		workflowFilename := path.Base(localWorkflowPath)
+		reusableWorkflow := &remoteReusableWorkflow{
+			Org:      rc.caller.reusableWorkflow.Org,
+			Repo:     rc.caller.reusableWorkflow.Repo,
+			Ref:      rc.caller.reusableWorkflow.Ref,
+			URL:      rc.caller.reusableWorkflow.URL,
+			Filename: workflowFilename,
+		}
+		if rc.Config.ActionCache != nil {
+			return newActionCacheReusableWorkflowExecutor(rc, reusableWorkflow)
+		}
+		workflowDir := fmt.Sprintf("%s/%s", rc.ActionCacheDir(), safeFilename(reusableWorkflow.cacheKey()))
+		return newReusableWorkflowExecutor(rc, workflowDir, fmt.Sprintf("./.github/workflows/%s", workflowFilename))
+	}
 	return newReusableWorkflowExecutor(rc, rc.Config.Workdir, rc.Run.Job().Uses)
 }
 
@@ -31,28 +47,28 @@ func newRemoteReusableWorkflowExecutor(rc *RunContext) common.Executor {
 	// uses with safe filename makes the target directory look something like this {owner}-{repo}-.github-workflows-{filename}@{ref}
 	// instead we will just use {owner}-{repo}@{ref} as our target directory. This should also improve performance when we are using
 	// multiple reusable workflows from the same repository and ref since for each workflow we won't have to clone it again
-	filename := fmt.Sprintf("%s/%s@%s", remoteReusableWorkflow.Org, remoteReusableWorkflow.Repo, remoteReusableWorkflow.Ref)
-	workflowDir := fmt.Sprintf("%s/%s", rc.ActionCacheDir(), safeFilename(filename))
+	workflowDir := fmt.Sprintf("%s/%s", rc.ActionCacheDir(), safeFilename(remoteReusableWorkflow.cacheKey()))
 
 	if rc.Config.ActionCache != nil {
-		return newActionCacheReusableWorkflowExecutor(rc, filename, remoteReusableWorkflow)
+		return newActionCacheReusableWorkflowExecutor(rc, remoteReusableWorkflow)
 	}
 
 	return common.NewPipelineExecutor(
 		newMutexExecutor(cloneIfRequired(rc, *remoteReusableWorkflow, workflowDir)),
-		newReusableWorkflowExecutor(rc, workflowDir, fmt.Sprintf("./.github/workflows/%s", remoteReusableWorkflow.Filename)),
+		newReusableWorkflowExecutorWithRemote(rc, workflowDir, fmt.Sprintf("./.github/workflows/%s", remoteReusableWorkflow.Filename), remoteReusableWorkflow),
 	)
 }
 
-func newActionCacheReusableWorkflowExecutor(rc *RunContext, filename string, remoteReusableWorkflow *remoteReusableWorkflow) common.Executor {
+func newActionCacheReusableWorkflowExecutor(rc *RunContext, remoteReusableWorkflow *remoteReusableWorkflow) common.Executor {
 	return func(ctx context.Context) error {
 		ghctx := rc.getGithubContext(ctx)
 		remoteReusableWorkflow.URL = ghctx.ServerURL
-		sha, err := rc.Config.ActionCache.Fetch(ctx, filename, remoteReusableWorkflow.CloneURL(), remoteReusableWorkflow.Ref, ghctx.Token)
+		cacheKey := remoteReusableWorkflow.cacheKey()
+		sha, err := rc.Config.ActionCache.Fetch(ctx, cacheKey, remoteReusableWorkflow.CloneURL(), remoteReusableWorkflow.Ref, ghctx.Token)
 		if err != nil {
 			return err
 		}
-		archive, err := rc.Config.ActionCache.GetTarArchive(ctx, filename, sha, fmt.Sprintf(".github/workflows/%s", remoteReusableWorkflow.Filename))
+		archive, err := rc.Config.ActionCache.GetTarArchive(ctx, cacheKey, sha, fmt.Sprintf(".github/workflows/%s", remoteReusableWorkflow.Filename))
 		if err != nil {
 			return err
 		}
@@ -70,7 +86,7 @@ func newActionCacheReusableWorkflowExecutor(rc *RunContext, filename string, rem
 			return err
 		}
 
-		runner, err := NewReusableWorkflowRunner(rc)
+		runner, err := newReusableWorkflowRunner(rc, remoteReusableWorkflow)
 		if err != nil {
 			return err
 		}
@@ -114,6 +130,10 @@ func cloneIfRequired(rc *RunContext, remoteReusableWorkflow remoteReusableWorkfl
 }
 
 func newReusableWorkflowExecutor(rc *RunContext, directory string, workflow string) common.Executor {
+	return newReusableWorkflowExecutorWithRemote(rc, directory, workflow, nil)
+}
+
+func newReusableWorkflowExecutorWithRemote(rc *RunContext, directory string, workflow string, remoteWorkflow *remoteReusableWorkflow) common.Executor {
 	return func(ctx context.Context) error {
 		planner, err := model.NewWorkflowPlanner(path.Join(directory, workflow), true, false)
 		if err != nil {
@@ -125,7 +145,7 @@ func newReusableWorkflowExecutor(rc *RunContext, directory string, workflow stri
 			return err
 		}
 
-		runner, err := NewReusableWorkflowRunner(rc)
+		runner, err := newReusableWorkflowRunner(rc, remoteWorkflow)
 		if err != nil {
 			return err
 		}
@@ -135,11 +155,16 @@ func newReusableWorkflowExecutor(rc *RunContext, directory string, workflow stri
 }
 
 func NewReusableWorkflowRunner(rc *RunContext) (Runner, error) {
+	return newReusableWorkflowRunner(rc, nil)
+}
+
+func newReusableWorkflowRunner(rc *RunContext, remoteWorkflow *remoteReusableWorkflow) (Runner, error) {
 	runner := &runnerImpl{
 		config:    rc.Config,
 		eventJSON: rc.EventJSON,
 		caller: &caller{
-			runContext: rc,
+			runContext:       rc,
+			reusableWorkflow: remoteWorkflow,
 		},
 	}
 
@@ -156,6 +181,10 @@ type remoteReusableWorkflow struct {
 
 func (r *remoteReusableWorkflow) CloneURL() string {
 	return fmt.Sprintf("%s/%s/%s", r.URL, r.Org, r.Repo)
+}
+
+func (r *remoteReusableWorkflow) cacheKey() string {
+	return fmt.Sprintf("%s/%s@%s", r.Org, r.Repo, r.Ref)
 }
 
 func newRemoteReusableWorkflow(uses string) *remoteReusableWorkflow {
