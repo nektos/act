@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/schema"
@@ -206,10 +207,22 @@ type Job struct {
 	RawContainer   yaml.Node                 `yaml:"container"`
 	Defaults       Defaults                  `yaml:"defaults"`
 	Outputs        map[string]string         `yaml:"outputs"`
+	RawOutputs     map[string]string         // Stores original output templates for matrix jobs
 	Uses           string                    `yaml:"uses"`
 	With           map[string]interface{}    `yaml:"with"`
 	RawSecrets     yaml.Node                 `yaml:"secrets"`
 	Result         string
+	outputsMu      sync.Mutex                // Protects concurrent access to Outputs from parallel matrix jobs
+}
+
+// Lock locks the job's outputs mutex to allow safe concurrent access from parallel matrix jobs
+func (j *Job) Lock() {
+	j.outputsMu.Lock()
+}
+
+// Unlock unlocks the job's outputs mutex
+func (j *Job) Unlock() {
+	j.outputsMu.Unlock()
 }
 
 // Strategy for the job
