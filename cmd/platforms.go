@@ -18,13 +18,13 @@ func (i *Input) newPlatforms() map[string]string {
 		// = is a valid character for a runs-on definition, not for a docker image
 		// Take the last = to support runs-on definitions with = in them
 		lastEq := strings.LastIndex(p, "=")
-		if lastEq >= 0 {
+		if lastEq > 0 {
 			from := p[:lastEq]
 			to := p[lastEq+1:]
 			platforms[from] = to
 			log.Debugf("Parsed runs-on platform mapping: '%s' -> '%s'", from, to)
 		} else {
-			log.Warnf("Failed to parse platform argument (missing =) '%s'", p)
+			log.Warnf("Ignoring invalid platform argument (missing =) '%s'", p)
 		}
 	}
 	return platforms
