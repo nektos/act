@@ -42,9 +42,9 @@ func TestMatrixJobOutputsMerge(t *testing.T) {
 
 	// Create first run context (matrix.foo = v1)
 	rc1 := &RunContext{
-		Config:      &Config{},
-		Run:         plan.Stages[0].Runs[0],
-		EventJSON:   "{}",
+		Config:    &Config{},
+		Run:       plan.Stages[0].Runs[0],
+		EventJSON: "{}",
 		StepResults: map[string]*model.StepResult{
 			"step1": {
 				Outputs: map[string]string{
@@ -57,9 +57,9 @@ func TestMatrixJobOutputsMerge(t *testing.T) {
 
 	// Create second run context (matrix.foo = v2)
 	rc2 := &RunContext{
-		Config:      &Config{},
-		Run:         plan.Stages[0].Runs[0],
-		EventJSON:   "{}",
+		Config:    &Config{},
+		Run:       plan.Stages[0].Runs[0],
+		EventJSON: "{}",
 		StepResults: map[string]*model.StepResult{
 			"step1": {
 				Outputs: map[string]string{
@@ -120,9 +120,9 @@ func TestMatrixJobOutputsParallelWithDelay(t *testing.T) {
 	contexts := []*RunContext{
 		// Matrix run 1: sets v1 output
 		{
-			Config:      &Config{},
-			Run:         plan.Stages[0].Runs[0],
-			EventJSON:   "{}",
+			Config:    &Config{},
+			Run:       plan.Stages[0].Runs[0],
+			EventJSON: "{}",
 			StepResults: map[string]*model.StepResult{
 				"step1": {
 					Outputs: map[string]string{
@@ -133,9 +133,9 @@ func TestMatrixJobOutputsParallelWithDelay(t *testing.T) {
 		},
 		// Matrix run 2: sets v2 output
 		{
-			Config:      &Config{},
-			Run:         plan.Stages[0].Runs[0],
-			EventJSON:   "{}",
+			Config:    &Config{},
+			Run:       plan.Stages[0].Runs[0],
+			EventJSON: "{}",
 			StepResults: map[string]*model.StepResult{
 				"step1": {
 					Outputs: map[string]string{

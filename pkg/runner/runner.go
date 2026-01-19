@@ -180,7 +180,7 @@ func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 
 				maxParallel := 4
 				if job.Strategy != nil {
-					maxParallel = job.Strategy.MaxParallel
+					maxParallel = job.Strategy.GetMaxParallel()
 				}
 
 				if len(matrixes) < maxParallel {
@@ -204,10 +204,29 @@ func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 							return err
 						}
 
-						return executor(common.WithJobErrorContainer(WithJobLogger(ctx, rc.Run.JobID, jobName, rc.Config, &rc.Masks, matrix)))
+						jobCtx := common.WithJobErrorContainer(WithJobLogger(ctx, rc.Run.JobID, jobName, rc.Config, &rc.Masks, matrix))
+						err = executor(jobCtx)
+						if err != nil {
+							return err
+						}
+						// Return job error to enable fail-fast behavior
+						return common.JobError(jobCtx)
 					})
 				}
-				pipeline = append(pipeline, common.NewParallelExecutor(maxParallel, stageExecutor...))
+
+				// Use fail-fast executor for matrix jobs
+				matrixExecutor := common.NewFailFastParallelExecutor(maxParallel, stageExecutor...)
+
+				// Wrap with fail-fast context based on strategy
+				pipeline = append(pipeline, func(ctx context.Context) error {
+					// Inject fail-fast setting into context
+					failFast := false
+					if job.Strategy != nil {
+						failFast = job.Strategy.GetFailFast()
+					}
+					ctx = common.WithFailFast(ctx, failFast)
+					return matrixExecutor(ctx)
+				})
 			}
 
 			log.Debugf("PlanExecutor concurrency: %d", runner.config.GetConcurrentJobs())
@@ -223,6 +242,11 @@ func handleFailure(plan *model.Plan) common.Executor {
 		for _, stage := range plan.Stages {
 			for _, run := range stage.Runs {
 				if run.Job().Result == "failure" {
+					job := run.Job()
+					// Check if this was a matrix job with fail-fast
+					if job.Strategy != nil && job.Strategy.GetFailFast() {
+						return fmt.Errorf("Job '%s' failed (fail-fast enabled, remaining matrix jobs may have been cancelled)", run.String())
+					}
 					return fmt.Errorf("Job '%s' failed", run.String())
 				}
 			}

@@ -212,7 +212,7 @@ type Job struct {
 	With           map[string]interface{}    `yaml:"with"`
 	RawSecrets     yaml.Node                 `yaml:"secrets"`
 	Result         string
-	outputsMu      sync.Mutex                // Protects concurrent access to Outputs from parallel matrix jobs
+	outputsMu      sync.Mutex // Protects concurrent access to Outputs from parallel matrix jobs
 }
 
 // Lock locks the job's outputs mutex to allow safe concurrent access from parallel matrix jobs
