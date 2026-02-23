@@ -170,6 +170,10 @@ func (cr *containerReference) Remove() common.Executor {
 }
 
 func (cr *containerReference) GetHealth(ctx context.Context) Health {
+	if cr.cli == nil {
+		common.Logger(ctx).Debugf("skip health check: no docker client (dry-run)")
+		return HealthHealthy
+	}
 	resp, err := cr.cli.ContainerInspect(ctx, cr.id)
 	logger := common.Logger(ctx)
 	if err != nil {
