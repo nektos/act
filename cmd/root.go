@@ -292,6 +292,12 @@ func readArgsFile(file string, split bool) []string {
 	for scanner.Scan() {
 		arg := os.ExpandEnv(strings.TrimSpace(scanner.Text()))
 
+		if arg == "-P ubuntu-latest=catthehacker/ubuntu:full-latest" ||
+			arg == "-P ubuntu-latest=catthehacker/ubuntu:act-latest" ||
+			arg == "-P ubuntu-latest=node:16-buster-slim" {
+			log.Warn("actrc contains outdated default aliases. To regenerate it, remove the file. For details, see https://github.com/nektos/act/pull/5951.")
+		}
+
 		if strings.HasPrefix(arg, "-") && split {
 			args = append(args, regexp.MustCompile(`\s`).Split(arg, 2)...)
 		} else if !split {
@@ -730,11 +736,23 @@ func defaultImageSurvey(actrc string) error {
 	var option string
 	switch answer {
 	case "Large":
-		option = "-P ubuntu-latest=catthehacker/ubuntu:full-latest\n-P ubuntu-22.04=catthehacker/ubuntu:full-22.04\n-P ubuntu-20.04=catthehacker/ubuntu:full-20.04\n-P ubuntu-18.04=catthehacker/ubuntu:full-18.04\n"
+		option = "-P ubuntu-latest=catthehacker/ubuntu:full-24.04\n" +
+			"-P ubuntu-24.04=catthehacker/ubuntu:full-24.04\n" +
+			"-P ubuntu-22.04=catthehacker/ubuntu:full-22.04\n" +
+			"-P ubuntu-20.04=catthehacker/ubuntu:full-20.04\n" +
+			"-P ubuntu-18.04=catthehacker/ubuntu:full-18.04\n"
 	case "Medium":
-		option = "-P ubuntu-latest=catthehacker/ubuntu:act-latest\n-P ubuntu-22.04=catthehacker/ubuntu:act-22.04\n-P ubuntu-20.04=catthehacker/ubuntu:act-20.04\n-P ubuntu-18.04=catthehacker/ubuntu:act-18.04\n"
+		option = "-P ubuntu-latest=catthehacker/ubuntu:act-24.04\n" +
+			"-P ubuntu-24.04=catthehacker/ubuntu:act-24.04\n" +
+			"-P ubuntu-22.04=catthehacker/ubuntu:act-22.04\n" +
+			"-P ubuntu-20.04=catthehacker/ubuntu:act-20.04\n" +
+			"-P ubuntu-18.04=catthehacker/ubuntu:act-18.04\n"
 	case "Micro":
-		option = "-P ubuntu-latest=node:16-buster-slim\n-P ubuntu-22.04=node:16-bullseye-slim\n-P ubuntu-20.04=node:16-buster-slim\n-P ubuntu-18.04=node:16-buster-slim\n"
+		option = "-P ubuntu-latest=node:16-bookworm-slim\n" +
+			"-P ubuntu-24.04=node:16-bookworm-slim\n" +
+			"-P ubuntu-22.04=node:16-bullseye-slim\n" +
+			"-P ubuntu-20.04=node:16-buster-slim\n" +
+			"-P ubuntu-18.04=node:16-buster-slim\n"
 	}
 
 	f, err := os.Create(actrc)
