@@ -46,6 +46,8 @@ type RunContext struct {
 	ServiceContainers   []container.ExecutionsEnvironment
 	OutputMappings      map[MappableOutput]MappableOutput
 	JobName             string
+	JobIndex            int
+	JobTotal            int
 	ActionPath          string
 	Parent              *RunContext
 	Masks               []string
