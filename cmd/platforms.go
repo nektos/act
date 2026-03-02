@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"strings"
+
+	log "github.com/sirupsen/logrus"
 )
 
 func (i *Input) newPlatforms() map[string]string {
@@ -13,9 +15,16 @@ func (i *Input) newPlatforms() map[string]string {
 	}
 
 	for _, p := range i.platforms {
-		pParts := strings.Split(p, "=")
-		if len(pParts) == 2 {
-			platforms[strings.ToLower(pParts[0])] = pParts[1]
+		// = is a valid character for a runs-on definition, not for a docker image
+		// Take the last = to support runs-on definitions with = in them
+		lastEq := strings.LastIndex(p, "=")
+		if lastEq > 0 {
+			from := p[:lastEq]
+			to := p[lastEq+1:]
+			platforms[from] = to
+			log.Debugf("Parsed runs-on platform mapping: '%s' -> '%s'", from, to)
+		} else {
+			log.Warnf("Ignoring invalid platform argument (missing =) '%s'", p)
 		}
 	}
 	return platforms
