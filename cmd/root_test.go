@@ -5,6 +5,7 @@ import (
 	"path"
 	"testing"
 
+	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -122,4 +123,20 @@ func TestReadArgsFile(t *testing.T) {
 			assert.Equal(t, table.args, args)
 		})
 	}
+}
+
+func TestSanitizeFlagDefaultsForDocs(t *testing.T) {
+	root := &cobra.Command{Use: "act"}
+	child := &cobra.Command{Use: "child"}
+	root.AddCommand(child)
+	root.PersistentFlags().String("artifact-server-addr", "192.168.0.10:34567", "addr")
+	root.PersistentFlags().String("cache-server-address", "10.0.0.5", "addr")
+	child.Flags().String("custom-addr", "172.16.0.2:1234", "addr")
+	root.PersistentFlags().String("actor", "nektos/act", "user that triggered the event")
+	sanitizeFlagDefaultsForDocs(root)
+	const docAddrPlaceholder = "[auto-detected IP]"
+	assert.Equal(t, docAddrPlaceholder, root.PersistentFlags().Lookup("artifact-server-addr").DefValue)
+	assert.Equal(t, docAddrPlaceholder, root.PersistentFlags().Lookup("cache-server-address").DefValue)
+	assert.Equal(t, docAddrPlaceholder, child.Flags().Lookup("custom-addr").DefValue)
+	assert.Equal(t, "nektos/act", root.PersistentFlags().Lookup("actor").DefValue)
 }
