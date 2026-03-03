@@ -162,7 +162,7 @@ func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 					log.Debugf("Job.Strategy.MaxParallelString: %v", job.Strategy.MaxParallelString)
 					log.Debugf("Job.Strategy.RawMatrix: %v", job.Strategy.RawMatrix)
 
-					strategyRc := runner.newRunContext(ctx, run, nil)
+					strategyRc := runner.newRunContext(ctx, run, nil, 0, 0)
 					if err := strategyRc.NewExpressionEvaluator(ctx).EvaluateYamlNode(ctx, &job.Strategy.RawMatrix); err != nil {
 						log.Errorf("Error while evaluating matrix: %v", err)
 					}
@@ -188,7 +188,7 @@ func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 				}
 
 				for i, matrix := range matrixes {
-					rc := runner.newRunContext(ctx, run, matrix)
+					rc := runner.newRunContext(ctx, run, matrix, i, len(matrixes))
 					rc.JobName = rc.Name
 					if len(matrixes) > 1 {
 						rc.Name = fmt.Sprintf("%s-%d", rc.Name, i+1)
@@ -250,13 +250,15 @@ func selectMatrixes(originalMatrixes []map[string]interface{}, targetMatrixValue
 	return matrixes
 }
 
-func (runner *runnerImpl) newRunContext(ctx context.Context, run *model.Run, matrix map[string]interface{}) *RunContext {
+func (runner *runnerImpl) newRunContext(ctx context.Context, run *model.Run, matrix map[string]interface{}, matrixIndex int, matrixCount int) *RunContext {
 	rc := &RunContext{
 		Config:      runner.config,
 		Run:         run,
 		EventJSON:   runner.eventJSON,
 		StepResults: make(map[string]*model.StepResult),
 		Matrix:      matrix,
+		MatrixIndex: matrixIndex,
+		MatrixCount: matrixCount,
 		caller:      runner.caller,
 	}
 	rc.ExprEval = rc.NewExpressionEvaluator(ctx)

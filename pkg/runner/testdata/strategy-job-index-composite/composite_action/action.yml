@@ -1,0 +1,28 @@
+---
+name: "Strategy Job Index Composite"
+description: "Ensure strategy.job-index and strategy.job-total are available in composite actions"
+
+inputs:
+  expected_index:
+    description: "Expected strategy.job-index"
+    required: true
+  expected_total:
+    description: "Expected strategy.job-total"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: verify strategy job info
+      run: |
+        echo "job-index=${{ strategy.job-index }}"
+        echo "job-total=${{ strategy.job-total }}"
+        if [ "${{ inputs.expected_index }}" != "${{ strategy.job-index }}" ]; then
+          echo "expected job-index=${{ inputs.expected_index }}"
+          exit 1
+        fi
+        if [ "${{ inputs.expected_total }}" != "${{ strategy.job-total }}" ]; then
+          echo "expected job-total=${{ inputs.expected_total }}"
+          exit 1
+        fi
+      shell: bash
