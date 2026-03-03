@@ -1,0 +1,37 @@
+name: First-workflow
+#on: workflow_dispatch
+on: push
+jobs:
+  hello:
+    runs-on: ubuntu-latest
+    steps:           #steps are just commands that needs to be executed in sequence
+      - name: Hello step
+        run: |
+          echo "welcome to gha"
+          echo "command 2"
+  # build:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Build step
+  #       run: echo "A demo build"
+
+  # test:
+  #   runs-on: ubuntu-latest
+  #   needs: build
+  #   steps:
+  #     - name: Test Phase
+  #       run: echo "demo test"
+
+  # deploy:
+  #   runs-on: ubuntu-latest
+  #   needs: test
+  #   steps:
+  #     - name: deploy phase
+  #       run: echo "Deploying the app"
+
+    # hii:
+    #   needs: hello
+    #   runs-on: ubuntu-latest
+    #   steps:
+    #     - name: HII STEP
+    #       run: echo "Hii everyone"
