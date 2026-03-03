@@ -7,7 +7,7 @@ jobs:
     steps:           #steps are just commands that needs to be executed in sequence
       - name: Hello step
         run: |
-          echo "welcome to gha"
+          echo "welcome to gha "
           echo "command 2"
   # build:
   #   runs-on: ubuntu-latest
