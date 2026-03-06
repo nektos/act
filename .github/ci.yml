@@ -1,13 +1,23 @@
-name: First-workflow
+gitname: First-workflow
 #on: workflow_dispatch
-on: push
+on:
+  push:
+    branches:
+      - main
+      - dev
+      - 'release/**'
+
+  pull_request:
+    branches:
+      - main
+
 jobs:
   hello:
     runs-on: ubuntu-latest
     steps:           #steps are just commands that needs to be executed in sequence
       - name: Hello step
         run: |
-          echo "welcome to gha "
+          echo "welcome to gha"
           echo "command 2"
   # build:
   #   runs-on: ubuntu-latest
