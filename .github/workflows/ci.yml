@@ -1,4 +1,4 @@
-gitname: First-workflow
+name: First-workflow
 #on: workflow_dispatch
 on:
   push:
