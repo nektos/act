@@ -27,12 +27,12 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Winget
-        uses: vedantmgoyal2009/winget-releaser@v2
-        with:
-          identifier: nektos.act
-          installers-regex: '_Windows_\w+\.zip$'
-          token: ${{ secrets.WINGET_TOKEN }}
+            #      - name: Winget
+            #        uses: vedantmgoyal2009/winget-releaser@v2
+            #        with:
+            #          identifier: nektos.act
+            #          installers-regex: '_Windows_\w+\.zip$'
+            #          token: ${{ secrets.WINGET_TOKEN }}
       - name: Chocolatey
         uses: ./.github/actions/choco
         with:
