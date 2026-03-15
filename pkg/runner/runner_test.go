@@ -807,6 +807,49 @@ func TestRunMatrixWithUserDefinedInclusions(t *testing.T) {
 }
 
 func TestSelectMatrixes(t *testing.T) {
+	matrixWithNonScalarFields := []map[string]interface{}{
+		{
+			"os": map[string]interface{}{
+				"name":    "ubuntu-old",
+				"version": "ubuntu-18.04",
+			},
+			"node": map[string]interface{}{
+				"name":    "eight",
+				"version": "8",
+			},
+		},
+		{
+			"os": map[string]interface{}{
+				"name":    "ubuntu-old",
+				"version": "ubuntu-18.04",
+			},
+			"node": map[string]interface{}{
+				"name":    "ten",
+				"version": "10",
+			},
+		},
+		{
+			"os": map[string]interface{}{
+				"name":    "ubuntu-new",
+				"version": "ubuntu-24.04",
+			},
+			"node": map[string]interface{}{
+				"name":    "eight",
+				"version": "8",
+			},
+		},
+		{
+			"os": map[string]interface{}{
+				"name":    "ubuntu-new",
+				"version": "ubuntu-24.04",
+			},
+			"node": map[string]interface{}{
+				"name":    "ten",
+				"version": "10",
+			},
+		},
+	}
+
 	testCases := []struct {
 		name             string
 		combinations     []map[string]interface{}
@@ -845,37 +888,8 @@ func TestSelectMatrixes(t *testing.T) {
 			},
 		},
 		{
-			name: "filter specifying constraints on a single dimension",
-			combinations: []map[string]interface{}{
-				{
-					"os": map[string]interface{}{
-						"name":    "ubuntu-old",
-						"version": "ubuntu-18.04",
-					},
-					"node": 8,
-				},
-				{
-					"os": map[string]interface{}{
-						"name":    "ubuntu-old",
-						"version": "ubuntu-18.04",
-					},
-					"node": 10,
-				},
-				{
-					"os": map[string]interface{}{
-						"name":    "ubuntu-new",
-						"version": "ubuntu-24.04",
-					},
-					"node": 8,
-				},
-				{
-					"os": map[string]interface{}{
-						"name":    "ubuntu-new",
-						"version": "ubuntu-24.04",
-					},
-					"node": 10,
-				},
-			},
+			name:         "filter specifying constraints on a single dimension",
+			combinations: matrixWithNonScalarFields,
 			filter: map[string]map[string]bool{
 				"os.name": {"ubuntu-new": true},
 			},
@@ -885,14 +899,20 @@ func TestSelectMatrixes(t *testing.T) {
 						"name":    "ubuntu-new",
 						"version": "ubuntu-24.04",
 					},
-					"node": 8,
+					"node": map[string]interface{}{
+						"name":    "eight",
+						"version": "8",
+					},
 				},
 				{
 					"os": map[string]interface{}{
 						"name":    "ubuntu-new",
 						"version": "ubuntu-24.04",
 					},
-					"node": 10,
+					"node": map[string]interface{}{
+						"name":    "ten",
+						"version": "10",
+					},
 				},
 			},
 		},
@@ -943,49 +963,8 @@ func TestSelectMatrixes(t *testing.T) {
 			},
 		},
 		{
-			name: "matrix with non-scalar fields on multiple dimensions",
-			combinations: []map[string]interface{}{
-				{
-					"os": map[string]interface{}{
-						"name":    "ubuntu-old",
-						"version": "ubuntu-18.04",
-					},
-					"node": map[string]interface{}{
-						"name":    "eight",
-						"version": "8",
-					},
-				},
-				{
-					"os": map[string]interface{}{
-						"name":    "ubuntu-old",
-						"version": "ubuntu-18.04",
-					},
-					"node": map[string]interface{}{
-						"name":    "ten",
-						"version": "10",
-					},
-				},
-				{
-					"os": map[string]interface{}{
-						"name":    "ubuntu-new",
-						"version": "ubuntu-24.04",
-					},
-					"node": map[string]interface{}{
-						"name":    "eight",
-						"version": "8",
-					},
-				},
-				{
-					"os": map[string]interface{}{
-						"name":    "ubuntu-new",
-						"version": "ubuntu-24.04",
-					},
-					"node": map[string]interface{}{
-						"name":    "ten",
-						"version": "10",
-					},
-				},
-			},
+			name:         "matrix with non-scalar fields on multiple dimensions",
+			combinations: matrixWithNonScalarFields,
 			filter: map[string]map[string]bool{
 				"os.name":      {"ubuntu-new": true},
 				"node.version": {"8": true},
@@ -1002,6 +981,15 @@ func TestSelectMatrixes(t *testing.T) {
 					},
 				},
 			},
+		},
+		{
+			name:         "matrix with filter not matching any fields",
+			combinations: matrixWithNonScalarFields,
+			filter: map[string]map[string]bool{
+				"os.foo":   {"ubuntu-new": true},
+				"node.bar": {"8": true},
+			},
+			expectedMatrixes: []map[string]interface{}{},
 		},
 	}
 
