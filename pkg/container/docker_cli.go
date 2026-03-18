@@ -135,6 +135,8 @@ type containerOptions struct {
 	runtime            string
 	autoRemove         bool
 	init               bool
+	name               string
+	detach             bool
 
 	Image string
 	Args  []string
@@ -203,6 +205,11 @@ func addFlags(flags *pflag.FlagSet) *containerOptions {
 	flags.StringVarP(&copts.user, "user", "u", "", "Username or UID (format: <name|uid>[:<group|gid>])")
 	flags.StringVarP(&copts.workingDir, "workdir", "w", "", "Working directory inside the container")
 	flags.BoolVar(&copts.autoRemove, "rm", false, "Automatically remove the container when it exits")
+
+	// These flags are accepted for compatibility with docker create/run but are
+	// not used by act, which manages container names and lifecycle internally.
+	flags.StringVar(&copts.name, "name", "", "Assign a name to the container")
+	flags.BoolVarP(&copts.detach, "detach", "d", false, "Run container in background and print container ID")
 
 	// Security
 	flags.Var(&copts.capAdd, "cap-add", "Add Linux capabilities")
