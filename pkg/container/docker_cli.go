@@ -28,7 +28,6 @@ import (
 
 	"github.com/docker/cli/cli/compose/loader"
 	"github.com/docker/cli/opts"
-	"github.com/docker/docker/errdefs"
 	"github.com/docker/go-connections/nat"
 	"github.com/moby/moby/api/types/container"
 	"github.com/moby/moby/api/types/mount"
@@ -796,7 +795,7 @@ func parseNetworkOpts(copts *containerOptions) (map[string]*network.EndpointSett
 			return nil, err
 		}
 		if _, ok := endpoints[n.Target]; ok {
-			return nil, errdefs.InvalidParameter(fmt.Errorf("network %q is specified multiple times", n.Target))
+			return nil, fmt.Errorf("network %q is specified multiple times", n.Target)
 		}
 
 		// For backward compatibility: if no custom options are provided for the network,
@@ -810,7 +809,7 @@ func parseNetworkOpts(copts *containerOptions) (map[string]*network.EndpointSett
 		endpoints[n.Target] = ep
 	}
 	if hasUserDefined && hasNonUserDefined {
-		return nil, errdefs.InvalidParameter(errors.New("conflicting options: cannot attach both user-defined and non-user-defined network-modes"))
+		return nil, errors.New("conflicting options: cannot attach both user-defined and non-user-defined network-modes")
 	}
 	return endpoints, nil
 }
@@ -818,22 +817,22 @@ func parseNetworkOpts(copts *containerOptions) (map[string]*network.EndpointSett
 func applyContainerOptions(n *opts.NetworkAttachmentOpts, copts *containerOptions) error { //nolint:gocyclo
 	// TODO should we error if _any_ advanced option is used? (i.e. forbid to combine advanced notation with the "old" flags (`--network-alias`, `--link`, `--ip`, `--ip6`)?
 	if len(n.Aliases) > 0 && copts.aliases.Len() > 0 {
-		return errdefs.InvalidParameter(errors.New("conflicting options: cannot specify both --network-alias and per-network alias"))
+		return errors.New("conflicting options: cannot specify both --network-alias and per-network alias")
 	}
 	if len(n.Links) > 0 && copts.links.Len() > 0 {
-		return errdefs.InvalidParameter(errors.New("conflicting options: cannot specify both --link and per-network links"))
+		return errors.New("conflicting options: cannot specify both --link and per-network links")
 	}
 	if n.IPv4Address.IsValid() && copts.ipv4Address != nil {
-		return errdefs.InvalidParameter(errors.New("conflicting options: cannot specify both --ip and per-network IPv4 address"))
+		return errors.New("conflicting options: cannot specify both --ip and per-network IPv4 address")
 	}
 	if n.IPv6Address.IsValid() && copts.ipv6Address != nil {
-		return errdefs.InvalidParameter(errors.New("conflicting options: cannot specify both --ip6 and per-network IPv6 address"))
+		return errors.New("conflicting options: cannot specify both --ip6 and per-network IPv6 address")
 	}
 	if n.MacAddress != "" && copts.macAddress != "" {
-		return errdefs.InvalidParameter(errors.New("conflicting options: cannot specify both --mac-address and per-network MAC address"))
+		return errors.New("conflicting options: cannot specify both --mac-address and per-network MAC address")
 	}
 	if len(n.LinkLocalIPs) > 0 && copts.linkLocalIPs.Len() > 0 {
-		return errdefs.InvalidParameter(errors.New("conflicting options: cannot specify both --link-local-ip and per-network link-local IP addresses"))
+		return errors.New("conflicting options: cannot specify both --link-local-ip and per-network link-local IP addresses")
 	}
 	if copts.aliases.Len() > 0 {
 		n.Aliases = make([]string, copts.aliases.Len())
