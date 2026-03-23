@@ -30,6 +30,7 @@ Act is a tool to run GitHub Actions locally. It reads `.github/workflows/` files
 ### Core Abstraction: Executor Pattern
 
 The `Executor` type (`pkg/common/executor.go`) is a `func(ctx context.Context) error` used throughout the codebase. Executors compose via:
+
 - `.Then()`, `.Finally()`, `.OnError()` — chaining
 - `NewPipelineExecutor()` — serial execution
 - `NewParallelExecutor()` — parallel execution
