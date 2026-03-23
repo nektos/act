@@ -47,6 +47,7 @@ The `Executor` type (`pkg/common/executor.go`) is a `func(ctx context.Context) e
 ## Linting Rules
 
 Configured in `.golangci.yml`:
+
 - Use `errors` from stdlib, not `github.com/pkg/errors`
 - Use `github.com/sirupsen/logrus` (aliased as `log`), not stdlib `log`
 - Use `github.com/stretchr/testify` for tests, not `gotest.tools/v3`
