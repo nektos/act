@@ -6,9 +6,20 @@
 
 Returns an authenticated Octokit client that follows the machine [proxy settings](https://help.github.com/en/actions/hosting-your-own-runners/using-a-proxy-server-with-self-hosted-runners) and correctly sets GHES base urls. See https://octokit.github.io/rest.js for the API.
 
+**Note:** This package is ESM-only starting from v9.0.0. For CommonJS projects, use dynamic import:
 ```js
-const github = require('@actions/github');
-const core = require('@actions/core');
+async function main() {
+    const { getOctokit, context } = await import('@actions/github');
+    // ... your code here
+}
+main();
+```
+
+For bundled actions (recommended), most bundlers like esbuild, webpack, and rollup handle ESM imports automatically.
+
+```js
+import * as github from '@actions/github';
+import * as core from '@actions/core';
 
 async function run() {
     // This should be a token with access to your repository scoped in as a secret.
@@ -46,7 +57,7 @@ const result = await octokit.graphql(query, variables);
 Finally, you can get the context of the current action:
 
 ```js
-const github = require('@actions/github');
+import * as github from '@actions/github';
 
 const context = github.context;
 

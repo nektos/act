@@ -2,27 +2,27 @@
 
 'use strict'
 
-const assert = require('assert')
-const { Readable } = require('stream')
-const { RequestAbortedError, NotSupportedError, InvalidArgumentError } = require('../core/errors')
+const assert = require('node:assert')
+const { Readable } = require('node:stream')
+const { RequestAbortedError, NotSupportedError, InvalidArgumentError, AbortError } = require('../core/errors')
 const util = require('../core/util')
-const { ReadableStreamFrom, toUSVString } = require('../core/util')
-
-let Blob
+const { ReadableStreamFrom } = require('../core/util')
 
 const kConsume = Symbol('kConsume')
 const kReading = Symbol('kReading')
 const kBody = Symbol('kBody')
-const kAbort = Symbol('abort')
+const kAbort = Symbol('kAbort')
 const kContentType = Symbol('kContentType')
+const kContentLength = Symbol('kContentLength')
 
 const noop = () => {}
 
-module.exports = class BodyReadable extends Readable {
+class BodyReadable extends Readable {
   constructor ({
     resume,
     abort,
     contentType = '',
+    contentLength,
     highWaterMark = 64 * 1024 // Same as nodejs fs streams.
   }) {
     super({
@@ -37,6 +37,7 @@ module.exports = class BodyReadable extends Readable {
     this[kConsume] = null
     this[kBody] = null
     this[kContentType] = contentType
+    this[kContentLength] = contentLength
 
     // Is stream being consumed through Readable API?
     // This is an optimization so that we avoid checking
@@ -46,11 +47,6 @@ module.exports = class BodyReadable extends Readable {
   }
 
   destroy (err) {
-    if (this.destroyed) {
-      // Node < 16
-      return this
-    }
-
     if (!err && !this._readableState.endEmitted) {
       err = new RequestAbortedError()
     }
@@ -62,15 +58,18 @@ module.exports = class BodyReadable extends Readable {
     return super.destroy(err)
   }
 
-  emit (ev, ...args) {
-    if (ev === 'data') {
-      // Node < 16.7
-      this._readableState.dataEmitted = true
-    } else if (ev === 'error') {
-      // Node < 16
-      this._readableState.errorEmitted = true
+  _destroy (err, callback) {
+    // Workaround for Node "bug". If the stream is destroyed in same
+    // tick as it is created, then a user who is waiting for a
+    // promise (i.e micro tick) for installing a 'error' listener will
+    // never get a chance and will always encounter an unhandled exception.
+    if (!this[kReading]) {
+      setImmediate(() => {
+        callback(err)
+      })
+    } else {
+      callback(err)
     }
-    return super.emit(ev, ...args)
   }
 
   on (ev, ...args) {
@@ -100,7 +99,7 @@ module.exports = class BodyReadable extends Readable {
   }
 
   push (chunk) {
-    if (this[kConsume] && chunk !== null && this.readableLength === 0) {
+    if (this[kConsume] && chunk !== null) {
       consumePush(this[kConsume], chunk)
       return this[kReading] ? super.push(chunk) : true
     }
@@ -120,6 +119,11 @@ module.exports = class BodyReadable extends Readable {
   // https://fetch.spec.whatwg.org/#dom-body-blob
   async blob () {
     return consume(this, 'blob')
+  }
+
+  // https://fetch.spec.whatwg.org/#dom-body-bytes
+  async bytes () {
+    return consume(this, 'bytes')
   }
 
   // https://fetch.spec.whatwg.org/#dom-body-arraybuffer
@@ -151,37 +155,35 @@ module.exports = class BodyReadable extends Readable {
     return this[kBody]
   }
 
-  dump (opts) {
-    let limit = opts && Number.isFinite(opts.limit) ? opts.limit : 262144
-    const signal = opts && opts.signal
+  async dump (opts) {
+    let limit = Number.isFinite(opts?.limit) ? opts.limit : 128 * 1024
+    const signal = opts?.signal
 
-    if (signal) {
-      try {
-        if (typeof signal !== 'object' || !('aborted' in signal)) {
-          throw new InvalidArgumentError('signal must be an AbortSignal')
-        }
-        util.throwIfAborted(signal)
-      } catch (err) {
-        return Promise.reject(err)
+    if (signal != null && (typeof signal !== 'object' || !('aborted' in signal))) {
+      throw new InvalidArgumentError('signal must be an AbortSignal')
+    }
+
+    signal?.throwIfAborted()
+
+    if (this._readableState.closeEmitted) {
+      return null
+    }
+
+    return await new Promise((resolve, reject) => {
+      if (this[kContentLength] > limit) {
+        this.destroy(new AbortError())
       }
-    }
 
-    if (this.closed) {
-      return Promise.resolve(null)
-    }
-
-    return new Promise((resolve, reject) => {
-      const signalListenerCleanup = signal
-        ? util.addAbortListener(signal, () => {
-          this.destroy()
-        })
-        : noop
+      const onAbort = () => {
+        this.destroy(signal.reason ?? new AbortError())
+      }
+      signal?.addEventListener('abort', onAbort)
 
       this
         .on('close', function () {
-          signalListenerCleanup()
-          if (signal && signal.aborted) {
-            reject(signal.reason || Object.assign(new Error('The operation was aborted'), { name: 'AbortError' }))
+          signal?.removeEventListener('abort', onAbort)
+          if (signal?.aborted) {
+            reject(signal.reason ?? new AbortError())
           } else {
             resolve(null)
           }
@@ -210,33 +212,46 @@ function isUnusable (self) {
 }
 
 async function consume (stream, type) {
-  if (isUnusable(stream)) {
-    throw new TypeError('unusable')
-  }
-
   assert(!stream[kConsume])
 
   return new Promise((resolve, reject) => {
-    stream[kConsume] = {
-      type,
-      stream,
-      resolve,
-      reject,
-      length: 0,
-      body: []
-    }
-
-    stream
-      .on('error', function (err) {
-        consumeFinish(this[kConsume], err)
-      })
-      .on('close', function () {
-        if (this[kConsume].body !== null) {
-          consumeFinish(this[kConsume], new RequestAbortedError())
+    if (isUnusable(stream)) {
+      const rState = stream._readableState
+      if (rState.destroyed && rState.closeEmitted === false) {
+        stream
+          .on('error', err => {
+            reject(err)
+          })
+          .on('close', () => {
+            reject(new TypeError('unusable'))
+          })
+      } else {
+        reject(rState.errored ?? new TypeError('unusable'))
+      }
+    } else {
+      queueMicrotask(() => {
+        stream[kConsume] = {
+          type,
+          stream,
+          resolve,
+          reject,
+          length: 0,
+          body: []
         }
-      })
 
-    process.nextTick(consumeStart, stream[kConsume])
+        stream
+          .on('error', function (err) {
+            consumeFinish(this[kConsume], err)
+          })
+          .on('close', function () {
+            if (this[kConsume].body !== null) {
+              consumeFinish(this[kConsume], new RequestAbortedError())
+            }
+          })
+
+        consumeStart(stream[kConsume])
+      })
+    }
   })
 }
 
@@ -247,8 +262,16 @@ function consumeStart (consume) {
 
   const { _readableState: state } = consume.stream
 
-  for (const chunk of state.buffer) {
-    consumePush(consume, chunk)
+  if (state.bufferIndex) {
+    const start = state.bufferIndex
+    const end = state.buffer.length
+    for (let n = start; n < end; n++) {
+      consumePush(consume, state.buffer[n])
+    }
+  } else {
+    for (const chunk of state.buffer) {
+      consumePush(consume, chunk)
+    }
   }
 
   if (state.endEmitted) {
@@ -266,29 +289,67 @@ function consumeStart (consume) {
   }
 }
 
+/**
+ * @param {Buffer[]} chunks
+ * @param {number} length
+ */
+function chunksDecode (chunks, length) {
+  if (chunks.length === 0 || length === 0) {
+    return ''
+  }
+  const buffer = chunks.length === 1 ? chunks[0] : Buffer.concat(chunks, length)
+  const bufferLength = buffer.length
+
+  // Skip BOM.
+  const start =
+    bufferLength > 2 &&
+    buffer[0] === 0xef &&
+    buffer[1] === 0xbb &&
+    buffer[2] === 0xbf
+      ? 3
+      : 0
+  return buffer.utf8Slice(start, bufferLength)
+}
+
+/**
+ * @param {Buffer[]} chunks
+ * @param {number} length
+ * @returns {Uint8Array}
+ */
+function chunksConcat (chunks, length) {
+  if (chunks.length === 0 || length === 0) {
+    return new Uint8Array(0)
+  }
+  if (chunks.length === 1) {
+    // fast-path
+    return new Uint8Array(chunks[0])
+  }
+  const buffer = new Uint8Array(Buffer.allocUnsafeSlow(length).buffer)
+
+  let offset = 0
+  for (let i = 0; i < chunks.length; ++i) {
+    const chunk = chunks[i]
+    buffer.set(chunk, offset)
+    offset += chunk.length
+  }
+
+  return buffer
+}
+
 function consumeEnd (consume) {
   const { type, body, resolve, stream, length } = consume
 
   try {
     if (type === 'text') {
-      resolve(toUSVString(Buffer.concat(body)))
+      resolve(chunksDecode(body, length))
     } else if (type === 'json') {
-      resolve(JSON.parse(Buffer.concat(body)))
+      resolve(JSON.parse(chunksDecode(body, length)))
     } else if (type === 'arrayBuffer') {
-      const dst = new Uint8Array(length)
-
-      let pos = 0
-      for (const buf of body) {
-        dst.set(buf, pos)
-        pos += buf.byteLength
-      }
-
-      resolve(dst.buffer)
+      resolve(chunksConcat(body, length).buffer)
     } else if (type === 'blob') {
-      if (!Blob) {
-        Blob = require('buffer').Blob
-      }
       resolve(new Blob(body, { type: stream[kContentType] }))
+    } else if (type === 'bytes') {
+      resolve(chunksConcat(body, length))
     }
 
     consumeFinish(consume)
@@ -320,3 +381,5 @@ function consumeFinish (consume, err) {
   consume.length = 0
   consume.body = null
 }
+
+module.exports = { Readable: BodyReadable, chunksDecode }

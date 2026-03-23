@@ -25,6 +25,11 @@ declare class BodyReadable extends Readable {
    */
   blob(): Promise<Blob>
 
+  /** Consumes and returns the body as an Uint8Array
+   *  https://fetch.spec.whatwg.org/#dom-body-bytes
+   */
+  bytes(): Promise<Uint8Array>
+
   /** Consumes and returns the body as an ArrayBuffer
    *  https://fetch.spec.whatwg.org/#dom-body-arraybuffer
    */
@@ -44,9 +49,8 @@ declare class BodyReadable extends Readable {
    */
   readonly bodyUsed: boolean
 
-  /** Throws on node 16.6.0
-   *
-   *  If body is null, it should return null as the body
+  /** 
+   * If body is null, it should return null as the body
    *
    *  If body is not null, should return the body as a ReadableStream
    *

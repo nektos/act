@@ -1,10 +1,10 @@
 'use strict'
 
-const { InvalidArgumentError, RequestAbortedError, SocketError } = require('../core/errors')
-const { AsyncResource } = require('async_hooks')
+const { InvalidArgumentError, SocketError } = require('../core/errors')
+const { AsyncResource } = require('node:async_hooks')
 const util = require('../core/util')
 const { addSignal, removeSignal } = require('./abort-signal')
-const assert = require('assert')
+const assert = require('node:assert')
 
 class UpgradeHandler extends AsyncResource {
   constructor (opts, callback) {
@@ -34,9 +34,12 @@ class UpgradeHandler extends AsyncResource {
   }
 
   onConnect (abort, context) {
-    if (!this.callback) {
-      throw new RequestAbortedError()
+    if (this.reason) {
+      abort(this.reason)
+      return
     }
+
+    assert(this.callback)
 
     this.abort = abort
     this.context = null
@@ -47,9 +50,9 @@ class UpgradeHandler extends AsyncResource {
   }
 
   onUpgrade (statusCode, rawHeaders, socket) {
-    const { callback, opaque, context } = this
+    assert(statusCode === 101)
 
-    assert.strictEqual(statusCode, 101)
+    const { callback, opaque, context } = this
 
     removeSignal(this)
 
@@ -97,7 +100,7 @@ function upgrade (opts, callback) {
     if (typeof callback !== 'function') {
       throw err
     }
-    const opaque = opts && opts.opaque
+    const opaque = opts?.opaque
     queueMicrotask(() => callback(err, { opaque }))
   }
 }

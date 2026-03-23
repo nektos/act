@@ -12,7 +12,7 @@ declare class RetryHandler implements Dispatcher.DispatchHandlers {
 }
 
 declare namespace RetryHandler {
-  export type RetryState = { counter: number; currentTimeout: number };
+  export type RetryState = { counter: number; };
 
   export type RetryContext = {
     state: RetryState;
@@ -32,7 +32,7 @@ declare namespace RetryHandler {
       };
     },
     callback: OnRetryCallback
-  ) => number | null;
+  ) => void
 
   export interface RetryOptions {
     /**
