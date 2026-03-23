@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	cerrdefs "github.com/containerd/errdefs"
-	"github.com/docker/docker/api/types/image"
+	"github.com/moby/moby/client"
 	"github.com/nektos/act/pkg/common"
 )
 
@@ -55,7 +55,7 @@ func RemoveImage(ctx context.Context, imageName string, force bool, pruneChildre
 		return false, err
 	}
 
-	if _, err = cli.ImageRemove(ctx, inspectImage.ID, image.RemoveOptions{
+	if _, err = cli.ImageRemove(ctx, inspectImage.ID, client.ImageRemoveOptions{
 		Force:         force,
 		PruneChildren: pruneChildren,
 	}); err != nil {
