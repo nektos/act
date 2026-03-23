@@ -12,10 +12,10 @@
   "license": "ISC",
   "dependencies": {
     "@actions/core": "^1.2.6",
-    "@actions/github": "^4.0.0"
+    "@actions/github": "^6.0.1"
   },
   "devDependencies": {
-    "@vercel/ncc": "^0.24.1"
+    "@vercel/ncc": "^0.38.4"
   },
   "engines": {
     "node": ">=16"

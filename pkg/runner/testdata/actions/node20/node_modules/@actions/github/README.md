@@ -22,7 +22,7 @@ async function run() {
     // You can also pass in additional options as a second parameter to getOctokit
     // const octokit = github.getOctokit(myToken, {userAgent: "MyActionVersion1"});
 
-    const { data: pullRequest } = await octokit.pulls.get({
+    const { data: pullRequest } = await octokit.rest.pulls.get({
         owner: 'octokit',
         repo: 'rest.js',
         pull_number: 123,
@@ -50,7 +50,7 @@ const github = require('@actions/github');
 
 const context = github.context;
 
-const newIssue = await octokit.issues.create({
+const newIssue = await octokit.rest.issues.create({
   ...context.repo,
   title: 'New issue!',
   body: 'Hello Universe!'
@@ -59,18 +59,19 @@ const newIssue = await octokit.issues.create({
 
 ## Webhook payload typescript definitions
 
-The npm module `@octokit/webhooks` provides type definitions for the response payloads. You can cast the payload to these types for better type information.
+The npm module `@octokit/webhooks-definitions` provides type definitions for the response payloads. You can cast the payload to these types for better type information.
 
-First, install the npm module `npm install @octokit/webhooks`
+First, install the npm module `npm install @octokit/webhooks-definitions`
 
 Then, assert the type based on the eventName
 ```ts
 import * as core from '@actions/core'
 import * as github from '@actions/github'
-import * as Webhooks from '@octokit/webhooks'
+import {PushEvent} from '@octokit/webhooks-definitions/schema'
+
 if (github.context.eventName === 'push') {
-  const pushPayload = github.context.payload as Webhooks.WebhookPayloadPush
-  core.info(`The head commit is: ${pushPayload.head}`)
+  const pushPayload = github.context.payload as PushEvent
+  core.info(`The head commit is: ${pushPayload.head_commit}`)
 }
 ```
 
@@ -90,7 +91,7 @@ const octokit = GitHub.plugin(enterpriseServer220Admin)
 const myToken = core.getInput('myToken');
 const myOctokit = new octokit(getOctokitOptions(token))
 // Create a new user
-myOctokit.enterpriseAdmin.createUser({
+myOctokit.rest.enterpriseAdmin.createUser({
   login: "testuser",
   email: "testuser@test.com",
 });
