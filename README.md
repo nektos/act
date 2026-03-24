@@ -21,6 +21,105 @@ Let's see it in action with a [sample repo](https://github.com/cplee/github-acti
 
 ![Demo](https://raw.githubusercontent.com/wiki/nektos/act/quickstart/act-quickstart-2.gif)
 
+# Using Secrets with Act
+
+When running GitHub Actions locally, you often need to provide secrets that your workflows use. Act supports several ways to pass secrets to your workflows:
+
+## Command Line Secrets
+
+Pass secrets directly via the `-s` or `--secret` flag:
+
+```bash
+# Single secret
+act -s MY_SECRET=value
+
+# Multiple secrets
+act -s MY_SECRET=value -s ANOTHER_SECRET=another_value
+
+# Secrets with special characters (use quotes)
+act -s 'MY_SECRET=value with spaces'
+```
+
+## Secrets File
+
+For workflows that require many secrets, you can use a secrets file. By default, Act looks for a `.secrets` file in your repository root:
+
+```bash
+# Create a .secrets file
+cat > .secrets << EOF
+MY_SECRET=my_value
+API_KEY=sk-1234567890
+DATABASE_URL=postgresql://localhost/db
+EOF
+
+# Run act (automatically loads .secrets)
+act
+
+# Or specify a custom secrets file
+act --secret-file my-secrets.env
+```
+
+**Example `.secrets` file:**
+```yaml
+MY_SECRET=my_secret_value
+GITHUB_TOKEN=ghp_xxxxxxxxxxxx
+MULTILINE_SECRET: |
+  line one
+  line two
+  line three
+```
+
+> [!IMPORTANT]
+> Make sure to add `.secrets` to your `.gitignore` file to prevent accidentally committing sensitive data!
+
+## Automatic GITHUB_TOKEN
+
+Act automatically tries to use your GitHub CLI token if you have `gh` installed and authenticated:
+
+```bash
+# Check if gh is authenticated
+gh auth status
+
+# The GITHUB_TOKEN will be automatically available in your workflows
+```
+
+If you need to provide a specific token:
+
+```bash
+act -s GITHUB_TOKEN=ghp_your_token_here
+```
+
+## Example Workflow with Secrets
+
+```yaml
+name: Deploy
+on: push
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy to production
+        env:
+          API_KEY: ${{ secrets.API_KEY }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          echo "Deploying with API key..."
+          ./deploy-script.sh
+```
+
+Run it locally:
+```bash
+act -s API_KEY=your_api_key -s DATABASE_URL=your_db_url
+```
+
+## Security Best Practices
+
+- **Never commit secrets** - Always add your secrets file to `.gitignore`
+- **Use environment variables** for CI/CD, secrets files for local development
+- **Rotate tokens regularly** - Especially if you suspect they may have been exposed
+- **Use least privilege** - Only provide the secrets your workflow actually needs
+
 # Act User Guide
 
 Please look at the [act user guide](https://nektosact.com) for more documentation.
