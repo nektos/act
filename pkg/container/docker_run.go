@@ -16,21 +16,23 @@ import (
 	"strconv"
 	"strings"
 
+	"net/netip"
+
 	"dario.cat/mergo"
 	"github.com/Masterminds/semver"
 	"github.com/docker/cli/cli/connhelper"
-	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/mount"
-	"github.com/docker/docker/api/types/network"
-	"github.com/docker/docker/api/types/system"
-	"github.com/docker/docker/client"
-	"github.com/docker/docker/pkg/stdcopy"
+	"github.com/docker/go-connections/nat"
 	"github.com/go-git/go-billy/v5/helper/polyfill"
 	"github.com/go-git/go-billy/v5/osfs"
 	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
 	"github.com/joho/godotenv"
 	"github.com/kballard/go-shellquote"
+	"github.com/moby/moby/api/pkg/stdcopy"
+	"github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/mount"
+	"github.com/moby/moby/api/types/network"
+	"github.com/moby/moby/api/types/system"
+	"github.com/moby/moby/client"
 	specs "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/spf13/pflag"
 	"golang.org/x/term"
@@ -50,7 +52,7 @@ func NewContainer(input *NewContainerInput) ExecutionsEnvironment {
 // API version is 1.41 and beyond
 func supportsContainerImagePlatform(ctx context.Context, cli client.APIClient) bool {
 	logger := common.Logger(ctx)
-	ver, err := cli.ServerVersion(ctx)
+	ver, err := cli.ServerVersion(ctx, client.ServerVersionOptions{})
 	if err != nil {
 		logger.Panicf("Failed to get Docker API Version: %s", err)
 		return false
@@ -139,8 +141,8 @@ func (cr *containerReference) GetContainerArchive(ctx context.Context, srcPath s
 	if common.Dryrun(ctx) {
 		return nil, fmt.Errorf("DRYRUN is not supported in GetContainerArchive")
 	}
-	a, _, err := cr.cli.CopyFromContainer(ctx, cr.id, srcPath)
-	return a, err
+	result, err := cr.cli.CopyFromContainer(ctx, cr.id, client.CopyFromContainerOptions{SourcePath: srcPath})
+	return result.Content, err
 }
 
 func (cr *containerReference) UpdateFromEnv(srcPath string, env *map[string]string) common.Executor {
@@ -170,12 +172,13 @@ func (cr *containerReference) Remove() common.Executor {
 }
 
 func (cr *containerReference) GetHealth(ctx context.Context) Health {
-	resp, err := cr.cli.ContainerInspect(ctx, cr.id)
+	inspectResult, err := cr.cli.ContainerInspect(ctx, cr.id, client.ContainerInspectOptions{})
 	logger := common.Logger(ctx)
 	if err != nil {
 		logger.Errorf("failed to query container health %s", err)
 		return HealthUnHealthy
 	}
+	resp := inspectResult.Container
 	if resp.Config == nil || resp.Config.Healthcheck == nil || resp.State == nil || resp.State.Health == nil || len(resp.Config.Healthcheck.Test) == 1 && strings.EqualFold(resp.Config.Healthcheck.Test[0], "NONE") {
 		logger.Debugf("no container health check defined")
 		return HealthHealthy
@@ -212,7 +215,7 @@ type containerReference struct {
 	LinuxContainerEnvironmentExtensions
 }
 
-func GetDockerClient(ctx context.Context) (cli client.APIClient, err error) {
+func GetDockerClient(_ context.Context) (cli client.APIClient, err error) {
 	dockerHost := os.Getenv("DOCKER_HOST")
 
 	if strings.HasPrefix(dockerHost, "ssh://") {
@@ -222,17 +225,16 @@ func GetDockerClient(ctx context.Context) (cli client.APIClient, err error) {
 		if err != nil {
 			return nil, err
 		}
-		cli, err = client.NewClientWithOpts(
+		cli, err = client.New(
 			client.WithHost(helper.Host),
 			client.WithDialContext(helper.Dialer),
 		)
 	} else {
-		cli, err = client.NewClientWithOpts(client.FromEnv)
+		cli, err = client.New(client.FromEnv)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to docker daemon: %w", err)
 	}
-	cli.NegotiateAPIVersion(ctx)
 
 	return cli, nil
 }
@@ -245,12 +247,12 @@ func GetHostInfo(ctx context.Context) (info system.Info, err error) {
 	}
 	defer cli.Close()
 
-	info, err = cli.Info(ctx)
+	result, err := cli.Info(ctx, client.InfoOptions{})
 	if err != nil {
 		return info, err
 	}
 
-	return info, nil
+	return result.Info, nil
 }
 
 // Arch fetches values from docker info and translates architecture to
@@ -307,14 +309,14 @@ func (cr *containerReference) find() common.Executor {
 		if cr.id != "" {
 			return nil
 		}
-		containers, err := cr.cli.ContainerList(ctx, container.ListOptions{
+		result, err := cr.cli.ContainerList(ctx, client.ContainerListOptions{
 			All: true,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to list containers: %w", err)
 		}
 
-		for _, c := range containers {
+		for _, c := range result.Items {
 			for _, name := range c.Names {
 				if name[1:] == cr.input.Name {
 					cr.id = c.ID
@@ -335,7 +337,7 @@ func (cr *containerReference) remove() common.Executor {
 		}
 
 		logger := common.Logger(ctx)
-		err := cr.cli.ContainerRemove(ctx, cr.id, container.RemoveOptions{
+		_, err := cr.cli.ContainerRemove(ctx, cr.id, client.ContainerRemoveOptions{
 			RemoveVolumes: true,
 			Force:         true,
 		})
@@ -420,7 +422,7 @@ func (cr *containerReference) create(capAdd []string, capDrop []string) common.E
 			Image:        input.Image,
 			WorkingDir:   input.WorkingDir,
 			Env:          input.Env,
-			ExposedPorts: input.ExposedPorts,
+			ExposedPorts: convertPortSet(input.ExposedPorts),
 			Tty:          isTerminal,
 		}
 		logger.Debugf("Common container.Config ==> %+v", config)
@@ -464,7 +466,7 @@ func (cr *containerReference) create(capAdd []string, capDrop []string) common.E
 			NetworkMode:  container.NetworkMode(input.NetworkMode),
 			Privileged:   input.Privileged,
 			UsernsMode:   container.UsernsMode(input.UsernsMode),
-			PortBindings: input.PortBindings,
+			PortBindings: convertPortMap(input.PortBindings),
 		}
 		logger.Debugf("Common container.HostConfig ==> %+v", hostConfig)
 
@@ -488,15 +490,21 @@ func (cr *containerReference) create(capAdd []string, capDrop []string) common.E
 			}
 		}
 
-		resp, err := cr.cli.ContainerCreate(ctx, config, hostConfig, networkingConfig, platSpecs, input.Name)
+		createResult, err := cr.cli.ContainerCreate(ctx, client.ContainerCreateOptions{
+			Config:           config,
+			HostConfig:       hostConfig,
+			NetworkingConfig: networkingConfig,
+			Platform:         platSpecs,
+			Name:             input.Name,
+		})
 		if err != nil {
 			return fmt.Errorf("failed to create container: '%w'", err)
 		}
 
-		logger.Debugf("Created container name=%s id=%v from image %v (platform: %s)", input.Name, resp.ID, input.Image, input.Platform)
+		logger.Debugf("Created container name=%s id=%v from image %v (platform: %s)", input.Name, createResult.ID, input.Image, input.Platform)
 		logger.Debugf("ENV ==> %v", input.Env)
 
-		cr.id = resp.ID
+		cr.id = createResult.ID
 		return nil
 	}
 }
@@ -506,17 +514,17 @@ func (cr *containerReference) extractFromImageEnv(env *map[string]string) common
 	return func(ctx context.Context) error {
 		logger := common.Logger(ctx)
 
-		inspect, err := cr.cli.ImageInspect(ctx, cr.input.Image)
+		inspectResult, err := cr.cli.ImageInspect(ctx, cr.input.Image)
 		if err != nil {
 			logger.Error(err)
 			return fmt.Errorf("inspect image: %w", err)
 		}
 
-		if inspect.Config == nil {
+		if inspectResult.Config == nil {
 			return nil
 		}
 
-		imageEnv, err := godotenv.Unmarshal(strings.Join(inspect.Config.Env, "\n"))
+		imageEnv, err := godotenv.Unmarshal(strings.Join(inspectResult.Config.Env, "\n"))
 		if err != nil {
 			logger.Error(err)
 			return fmt.Errorf("unmarshal image env: %w", err)
@@ -570,12 +578,12 @@ func (cr *containerReference) exec(cmd []string, env map[string]string, user, wo
 		}
 		logger.Debugf("Working directory '%s'", wd)
 
-		idResp, err := cr.cli.ContainerExecCreate(ctx, cr.id, container.ExecOptions{
+		idResp, err := cr.cli.ExecCreate(ctx, cr.id, client.ExecCreateOptions{
 			User:         user,
 			Cmd:          cmd,
 			WorkingDir:   wd,
 			Env:          envList,
-			Tty:          isTerminal,
+			TTY:          isTerminal,
 			AttachStderr: true,
 			AttachStdout: true,
 		})
@@ -583,20 +591,20 @@ func (cr *containerReference) exec(cmd []string, env map[string]string, user, wo
 			return fmt.Errorf("failed to create exec: %w", err)
 		}
 
-		resp, err := cr.cli.ContainerExecAttach(ctx, idResp.ID, container.ExecStartOptions{
-			Tty: isTerminal,
+		resp, err := cr.cli.ExecAttach(ctx, idResp.ID, client.ExecAttachOptions{
+			TTY: isTerminal,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to attach to exec: %w", err)
 		}
 		defer resp.Close()
 
-		err = cr.waitForCommand(ctx, isTerminal, resp)
+		err = cr.waitForCommand(ctx, isTerminal, resp.HijackedResponse)
 		if err != nil {
 			return err
 		}
 
-		inspectResp, err := cr.cli.ContainerExecInspect(ctx, idResp.ID)
+		inspectResp, err := cr.cli.ExecInspect(ctx, idResp.ID, client.ExecInspectOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to inspect exec: %w", err)
 		}
@@ -614,7 +622,7 @@ func (cr *containerReference) exec(cmd []string, env map[string]string, user, wo
 
 func (cr *containerReference) tryReadID(opt string, cbk func(id int)) common.Executor {
 	return func(ctx context.Context) error {
-		idResp, err := cr.cli.ContainerExecCreate(ctx, cr.id, container.ExecOptions{
+		idResp, err := cr.cli.ExecCreate(ctx, cr.id, client.ExecCreateOptions{
 			Cmd:          []string{"id", opt},
 			AttachStdout: true,
 			AttachStderr: true,
@@ -623,7 +631,7 @@ func (cr *containerReference) tryReadID(opt string, cbk func(id int)) common.Exe
 			return nil
 		}
 
-		resp, err := cr.cli.ContainerExecAttach(ctx, idResp.ID, container.ExecStartOptions{})
+		resp, err := cr.cli.ExecAttach(ctx, idResp.ID, client.ExecAttachOptions{})
 		if err != nil {
 			return nil
 		}
@@ -653,7 +661,7 @@ func (cr *containerReference) tryReadGID() common.Executor {
 	return cr.tryReadID("-g", func(id int) { cr.GID = id })
 }
 
-func (cr *containerReference) waitForCommand(ctx context.Context, isTerminal bool, resp types.HijackedResponse) error {
+func (cr *containerReference) waitForCommand(ctx context.Context, isTerminal bool, resp client.HijackedResponse) error {
 	logger := common.Logger(ctx)
 
 	cmdResponse := make(chan error)
@@ -711,12 +719,12 @@ func (cr *containerReference) CopyTarStream(ctx context.Context, destPath string
 		Typeflag: tar.TypeDir,
 	})
 	tw.Close()
-	err := cr.cli.CopyToContainer(ctx, cr.id, "/", buf, container.CopyToContainerOptions{})
+	_, err := cr.cli.CopyToContainer(ctx, cr.id, client.CopyToContainerOptions{DestinationPath: "/", Content: buf})
 	if err != nil {
 		return fmt.Errorf("failed to mkdir to copy content to container: %w", err)
 	}
 	// Copy Content
-	err = cr.cli.CopyToContainer(ctx, cr.id, destPath, tarStream, container.CopyToContainerOptions{})
+	_, err = cr.cli.CopyToContainer(ctx, cr.id, client.CopyToContainerOptions{DestinationPath: destPath, Content: tarStream})
 	if err != nil {
 		return fmt.Errorf("failed to copy content to container: %w", err)
 	}
@@ -790,7 +798,7 @@ func (cr *containerReference) copyDir(dstPath string, srcPath string, useGitIgno
 		if err != nil {
 			return fmt.Errorf("failed to seek tar archive: %w", err)
 		}
-		err = cr.cli.CopyToContainer(ctx, cr.id, "/", tarFile, container.CopyToContainerOptions{})
+		_, err = cr.cli.CopyToContainer(ctx, cr.id, client.CopyToContainerOptions{DestinationPath: "/", Content: tarFile})
 		if err != nil {
 			return fmt.Errorf("failed to copy content to container: %w", err)
 		}
@@ -824,7 +832,7 @@ func (cr *containerReference) copyContent(dstPath string, files ...*FileEntry) c
 		}
 
 		logger.Debugf("Extracting content to '%s'", dstPath)
-		err := cr.cli.CopyToContainer(ctx, cr.id, dstPath, &buf, container.CopyToContainerOptions{})
+		_, err := cr.cli.CopyToContainer(ctx, cr.id, client.CopyToContainerOptions{DestinationPath: dstPath, Content: &buf})
 		if err != nil {
 			return fmt.Errorf("failed to copy content to container: %w", err)
 		}
@@ -834,7 +842,7 @@ func (cr *containerReference) copyContent(dstPath string, files ...*FileEntry) c
 
 func (cr *containerReference) attach() common.Executor {
 	return func(ctx context.Context) error {
-		out, err := cr.cli.ContainerAttach(ctx, cr.id, container.AttachOptions{
+		out, err := cr.cli.ContainerAttach(ctx, cr.id, client.ContainerAttachOptions{
 			Stream: true,
 			Stdout: true,
 			Stderr: true,
@@ -872,7 +880,7 @@ func (cr *containerReference) start() common.Executor {
 		logger := common.Logger(ctx)
 		logger.Debugf("Starting container: %v", cr.id)
 
-		if err := cr.cli.ContainerStart(ctx, cr.id, container.StartOptions{}); err != nil {
+		if _, err := cr.cli.ContainerStart(ctx, cr.id, client.ContainerStartOptions{}); err != nil {
 			return fmt.Errorf("failed to start container: %w", err)
 		}
 
@@ -884,7 +892,8 @@ func (cr *containerReference) start() common.Executor {
 func (cr *containerReference) wait() common.Executor {
 	return func(ctx context.Context) error {
 		logger := common.Logger(ctx)
-		statusCh, errCh := cr.cli.ContainerWait(ctx, cr.id, container.WaitConditionNotRunning)
+		waitResult := cr.cli.ContainerWait(ctx, cr.id, client.ContainerWaitOptions{Condition: container.WaitConditionNotRunning})
+		statusCh, errCh := waitResult.Result, waitResult.Error
 		var statusCode int64
 		select {
 		case err := <-errCh:
@@ -903,4 +912,47 @@ func (cr *containerReference) wait() common.Executor {
 
 		return fmt.Errorf("exit with `FAILURE`: %v", statusCode)
 	}
+}
+
+// convertPortSet converts a nat.PortSet to a network.PortSet
+func convertPortSet(ps nat.PortSet) network.PortSet {
+	if ps == nil {
+		return nil
+	}
+	result := make(network.PortSet, len(ps))
+	for p := range ps {
+		np, err := network.ParsePort(string(p))
+		if err == nil {
+			result[np] = struct{}{}
+		}
+	}
+	return result
+}
+
+// convertPortMap converts a nat.PortMap to a network.PortMap
+func convertPortMap(pm nat.PortMap) network.PortMap {
+	if pm == nil {
+		return nil
+	}
+	result := make(network.PortMap, len(pm))
+	for p, bindings := range pm {
+		np, err := network.ParsePort(string(p))
+		if err != nil {
+			continue
+		}
+		nbs := make([]network.PortBinding, len(bindings))
+		for i, b := range bindings {
+			nbs[i] = network.PortBinding{
+				HostIP:   netip.Addr{},
+				HostPort: b.HostPort,
+			}
+			if b.HostIP != "" {
+				if addr, err := netip.ParseAddr(b.HostIP); err == nil {
+					nbs[i].HostIP = addr
+				}
+			}
+		}
+		result[np] = nbs
+	}
+	return result
 }

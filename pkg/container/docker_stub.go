@@ -6,7 +6,7 @@ import (
 	"context"
 	"runtime"
 
-	"github.com/docker/docker/api/types/system"
+	"github.com/moby/moby/api/types/system"
 	"github.com/nektos/act/pkg/common"
 	"github.com/pkg/errors"
 )
