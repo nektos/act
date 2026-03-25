@@ -317,6 +317,24 @@ func runTestJobFile(ctx context.Context, t *testing.T, tjfi TestJobFileInfo) {
 	})
 }
 
+func TestCreateArtifactV4UnknownField(t *testing.T) {
+	assert := assert.New(t)
+
+	var memfs = fstest.MapFS(map[string]*fstest.MapFile{})
+
+	router := httprouter.New()
+	RoutesV4(router, "artifact/server/path", writeMapFS{memfs}, memfs)
+
+	// Simulate upload-artifact@v7 sending an unknown field (mime_type)
+	body := `{"workflow_run_backend_id":"1","workflow_job_run_backend_id":"2","name":"test-artifact","version":4,"mime_type":"application/zip"}`
+	req, _ := http.NewRequest("POST", "http://localhost"+path.Join(ArtifactV4RouteBase, "CreateArtifact"), strings.NewReader(body))
+	rr := httptest.NewRecorder()
+
+	router.ServeHTTP(rr, req)
+
+	assert.Equal(http.StatusOK, rr.Code, "CreateArtifact should succeed even with unknown fields like mime_type")
+}
+
 func TestMkdirFsImplSafeResolve(t *testing.T) {
 	baseDir := "/foo/bar"
 
