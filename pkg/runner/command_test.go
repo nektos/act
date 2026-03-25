@@ -18,10 +18,21 @@ func TestSetEnv(t *testing.T) {
 	a := assert.New(t)
 	ctx := context.Background()
 	rc := new(RunContext)
+	rc.Env = map[string]string{"ACTIONS_ALLOW_UNSECURE_COMMANDS": "true"}
 	handler := rc.commandHandler(ctx)
 
 	handler("::set-env name=x::valz\n")
 	a.Equal("valz", rc.Env["x"])
+}
+
+func TestSetEnvBlocked(t *testing.T) {
+	a := assert.New(t)
+	ctx := context.Background()
+	rc := new(RunContext)
+	handler := rc.commandHandler(ctx)
+
+	handler("::set-env name=x::valz\n")
+	a.Equal("", rc.Env["x"])
 }
 
 func TestSetOutput(t *testing.T) {
@@ -58,6 +69,7 @@ func TestAddpath(t *testing.T) {
 	a := assert.New(t)
 	ctx := context.Background()
 	rc := new(RunContext)
+	rc.Env = map[string]string{"ACTIONS_ALLOW_UNSECURE_COMMANDS": "true"}
 	handler := rc.commandHandler(ctx)
 
 	handler("::add-path::/zoo\n")
@@ -67,12 +79,23 @@ func TestAddpath(t *testing.T) {
 	a.Equal("/boo", rc.ExtraPath[0])
 }
 
+func TestAddPathBlocked(t *testing.T) {
+	a := assert.New(t)
+	ctx := context.Background()
+	rc := new(RunContext)
+	handler := rc.commandHandler(ctx)
+
+	handler("::add-path::/zoo\n")
+	a.Empty(rc.ExtraPath)
+}
+
 func TestStopCommands(t *testing.T) {
 	logger, hook := test.NewNullLogger()
 
 	a := assert.New(t)
 	ctx := common.WithLogger(context.Background(), logger)
 	rc := new(RunContext)
+	rc.Env = map[string]string{"ACTIONS_ALLOW_UNSECURE_COMMANDS": "true"}
 	handler := rc.commandHandler(ctx)
 
 	handler("::set-env name=x::valz\n")
@@ -96,6 +119,7 @@ func TestAddpathADO(t *testing.T) {
 	a := assert.New(t)
 	ctx := context.Background()
 	rc := new(RunContext)
+	rc.Env = map[string]string{"ACTIONS_ALLOW_UNSECURE_COMMANDS": "true"}
 	handler := rc.commandHandler(ctx)
 
 	handler("##[add-path]/zoo\n")

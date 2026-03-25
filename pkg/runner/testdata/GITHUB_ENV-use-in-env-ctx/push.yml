@@ -4,6 +4,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       MYGLOBALENV3: myglobalval3
+      ACTIONS_ALLOW_UNSECURE_COMMANDS: "true"
     steps:
     - run: |
         echo MYGLOBALENV1=myglobalval1 > $GITHUB_ENV
