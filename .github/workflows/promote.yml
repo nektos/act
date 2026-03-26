@@ -19,7 +19,7 @@ jobs:
           fetch-depth: 0
           ref: master
           token: ${{ secrets.PROMOTE_TOKEN }}
-      - uses: fregante/setup-git-user@v2.0.2
+      - uses: fregante/setup-git-user@024bc0b8e177d7e77203b48dab6fb45666854b35 # v2.0.2
         if: steps.checkout.conclusion != 'skipped'
       - uses: actions/setup-go@v6
         if: steps.checkout.conclusion != 'skipped'
