@@ -156,12 +156,7 @@
       "string": {}
     },
     "runs": {
-      "one-of": [
-        "container-runs",
-        "node-runs",
-        "composite-runs",
-        "plugin-runs"
-      ]
+      "one-of": ["container-runs", "node-runs", "composite-runs", "plugin-runs"]
     },
     "runs-strict": {
       "description": "Specifies whether this is a JavaScript action, a composite action, or a Docker container action and how the action is executed.\n\n[Documentation](https://docs.github.com/actions/creating-actions/metadata-syntax-for-github-actions#runs)",
@@ -201,18 +196,14 @@
     },
     "container-runs-env": {
       "description": "Specifies a key/value map of environment variables to set in the container environment.\n\n[Documentation](https://docs.github.com/actions/creating-actions/metadata-syntax-for-github-actions#runsenv)",
-      "context": [
-        "inputs"
-      ],
+      "context": ["inputs"],
       "mapping": {
         "loose-key-type": "non-empty-string",
         "loose-value-type": "string"
       }
     },
     "container-runs-context": {
-      "context": [
-        "inputs"
-      ],
+      "context": ["inputs"],
       "string": {}
     },
     "node-runs": {
@@ -331,10 +322,7 @@
     },
     "composite-step": {
       "description": "A step within a composite action.",
-      "one-of": [
-        "run-step",
-        "uses-step"
-      ]
+      "one-of": ["run-step", "uses-step"]
     },
     "run-step": {
       "description": "Runs a command-line program using the operating system's shell.\n\n[Documentation](https://docs.github.com/actions/creating-actions/metadata-syntax-for-github-actions#runsstepsrun)",
