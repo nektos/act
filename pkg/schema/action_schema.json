@@ -7,17 +7,52 @@
           "name": "string",
           "description": "string",
           "inputs": "inputs",
-          "runs": "runs",
-          "outputs": "outputs"
+          "outputs": "outputs",
+          "runs": "runs"
         },
         "loose-key-type": "non-empty-string",
         "loose-value-type": "any"
+      }
+    },
+    "action-root-strict": {
+      "description": "GitHub Action manifest file (action.yml/action.yaml) that defines an action's metadata, inputs, outputs, and execution configuration.\n\n[Documentation](https://docs.github.com/actions/creating-actions/metadata-syntax-for-github-actions)",
+      "mapping": {
+        "properties": {
+          "name": {
+            "type": "non-empty-string",
+            "required": true,
+            "description": "The name of your action. GitHub displays the name in the Actions tab to help visually identify actions in each job.\n\n[Documentation](https://docs.github.com/actions/creating-actions/metadata-syntax-for-github-actions#name)"
+          },
+          "description": {
+            "type": "string",
+            "required": true,
+            "description": "A short description of the action. GitHub displays this description in the Actions Marketplace.\n\n[Documentation](https://docs.github.com/actions/creating-actions/metadata-syntax-for-github-actions#description)"
+          },
+          "author": {
+            "type": "string",
+            "description": "The name of the action's author.\n\n[Documentation](https://docs.github.com/actions/creating-actions/metadata-syntax-for-github-actions#author)"
+          },
+          "inputs": "inputs-strict",
+          "outputs": "outputs",
+          "runs": {
+            "type": "runs-strict",
+            "required": true
+          },
+          "branding": "branding"
+        }
       }
     },
     "inputs": {
       "mapping": {
         "loose-key-type": "non-empty-string",
         "loose-value-type": "input"
+      }
+    },
+    "inputs-strict": {
+      "description": "Input parameters allow you to specify data that the action expects to use during runtime. GitHub stores input parameters as environment variables. Inputs ids with uppercase letters are converted to lowercase during runtime.\n\n[Documentation](https://docs.github.com/actions/creating-actions/metadata-syntax-for-github-actions#inputs)",
+      "mapping": {
+        "loose-key-type": "non-empty-string",
+        "loose-value-type": "input-strict"
       }
     },
     "input": {
@@ -29,22 +64,119 @@
         "loose-value-type": "any"
       }
     },
+    "input-strict": {
+      "description": "An input parameter for this action.",
+      "mapping": {
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "A string description of the input parameter.\n\n[Documentation](https://docs.github.com/actions/creating-actions/metadata-syntax-for-github-actions#inputsinput_iddescription)"
+          },
+          "required": {
+            "type": "boolean",
+            "description": "A boolean to indicate whether the action requires the input parameter. Set to true when the parameter is required.\n\n[Documentation](https://docs.github.com/actions/creating-actions/metadata-syntax-for-github-actions#inputsinput_idrequired)"
+          },
+          "default": {
+            "type": "input-default-context",
+            "description": "A string representing the default value. The default value is used when an input parameter isn't specified in a workflow file.\n\n[Documentation](https://docs.github.com/actions/creating-actions/metadata-syntax-for-github-actions#inputsinput_iddefault)"
+          },
+          "deprecationMessage": {
+            "type": "string",
+            "description": "A string shown to users using the deprecated input, warning them that the input is deprecated and mentioning any alternatives.\n\n[Documentation](https://docs.github.com/actions/creating-actions/metadata-syntax-for-github-actions#inputsinput_iddeprecationmessage)"
+          }
+        },
+        "loose-key-type": "non-empty-string",
+        "loose-value-type": "any"
+      }
+    },
+    "input-default-context": {
+      "description": "A string representing the default value. The default value is used when an input parameter isn't specified in a workflow file.\n\n[Documentation](https://docs.github.com/actions/creating-actions/metadata-syntax-for-github-actions#inputsinput_iddefault)",
+      "context": [
+        "github",
+        "strategy",
+        "matrix",
+        "job",
+        "runner",
+        "hashFiles(1,255)"
+      ],
+      "string": {}
+    },
     "outputs": {
+      "description": "Output parameters allow you to declare data that an action sets. Actions that run later in a workflow can use the output data set in previously run actions.\n\n[Documentation](https://docs.github.com/actions/creating-actions/metadata-syntax-for-github-actions#outputs-for-composite-actions)",
       "mapping": {
         "loose-key-type": "non-empty-string",
         "loose-value-type": "output-definition"
       }
     },
     "output-definition": {
+      "description": "An output parameter for this action.",
       "mapping": {
         "properties": {
-          "description": "string",
-          "value": "output-value"
+          "description": {
+            "type": "string",
+            "description": "A string description of the output parameter.\n\n[Documentation](https://docs.github.com/actions/creating-actions/metadata-syntax-for-github-actions#outputsoutput_iddescription)"
+          },
+          "value": {
+            "type": "output-value",
+            "description": "The value that the output parameter will be mapped to. You can set this to a string or an expression with context.\n\n[Documentation](https://docs.github.com/actions/creating-actions/metadata-syntax-for-github-actions#outputsoutput_idvalue)"
+          }
         }
       }
     },
+    "output-value": {
+      "description": "The value that the output parameter will be mapped to. You can set this to a string or an expression with context.\n\n[Documentation](https://docs.github.com/actions/creating-actions/metadata-syntax-for-github-actions#outputsoutput_idvalue)",
+      "context": [
+        "github",
+        "strategy",
+        "matrix",
+        "steps",
+        "inputs",
+        "job",
+        "runner",
+        "env"
+      ],
+      "string": {}
+    },
+    "runs-if": {
+      "description": "Condition to control when this action's pre or post script runs.",
+      "context": [
+        "runner",
+        "github",
+        "job",
+        "strategy",
+        "matrix",
+        "env",
+        "inputs",
+        "always(0,0)",
+        "success(0,0)",
+        "failure(0,0)",
+        "cancelled(0,0)",
+        "hashFiles(1,255)"
+      ],
+      "string": {}
+    },
     "runs": {
-      "one-of": ["container-runs", "node-runs", "plugin-runs", "composite-runs"]
+      "one-of": [
+        "container-runs",
+        "node-runs",
+        "composite-runs",
+        "plugin-runs"
+      ]
+    },
+    "runs-strict": {
+      "description": "Specifies whether this is a JavaScript action, a composite action, or a Docker container action and how the action is executed.\n\n[Documentation](https://docs.github.com/actions/creating-actions/metadata-syntax-for-github-actions#runs)",
+      "one-of": [
+        "container-runs-strict",
+        "node-runs-strict",
+        "composite-runs-strict"
+      ]
+    },
+    "plugin-runs": {
+      "mapping": {
+        "properties": {
+          "plugin": "non-empty-string"
+        }
+      }
     },
     "container-runs": {
       "mapping": {
@@ -62,16 +194,26 @@
       }
     },
     "container-runs-args": {
+      "description": "An array of strings that define the inputs for a Docker container. Inputs can include hardcoded strings. GitHub passes the args to the container's ENTRYPOINT when the container starts up.\n\n[Documentation](https://docs.github.com/actions/creating-actions/metadata-syntax-for-github-actions#runsargs)",
       "sequence": {
         "item-type": "container-runs-context"
       }
     },
     "container-runs-env": {
-      "context": ["inputs"],
+      "description": "Specifies a key/value map of environment variables to set in the container environment.\n\n[Documentation](https://docs.github.com/actions/creating-actions/metadata-syntax-for-github-actions#runsenv)",
+      "context": [
+        "inputs"
+      ],
       "mapping": {
         "loose-key-type": "non-empty-string",
         "loose-value-type": "string"
       }
+    },
+    "container-runs-context": {
+      "context": [
+        "inputs"
+      ],
+      "string": {}
     },
     "node-runs": {
       "mapping": {
@@ -85,13 +227,6 @@
         }
       }
     },
-    "plugin-runs": {
-      "mapping": {
-        "properties": {
-          "plugin": "non-empty-string"
-        }
-      }
-    },
     "composite-runs": {
       "mapping": {
         "properties": {
@@ -100,81 +235,173 @@
         }
       }
     },
-    "composite-steps": {
-      "sequence": {
-        "item-type": "composite-step"
-      }
-    },
-    "composite-step": {
-      "one-of": ["run-step", "uses-step"]
-    },
-    "run-step": {
+    "container-runs-strict": {
+      "description": "Configuration for Docker container actions.\n\n[Documentation](https://docs.github.com/actions/creating-actions/metadata-syntax-for-github-actions#runs)",
       "mapping": {
         "properties": {
-          "name": "string-steps-context",
-          "id": "non-empty-string",
-          "if": "step-if",
-          "run": {
-            "type": "string-steps-context",
-            "required": true
+          "using": {
+            "type": "using",
+            "required": true,
+            "description": "The runtime used to execute the action. Must be docker for Docker container actions.\n\n[Documentation](https://docs.github.com/actions/creating-actions/metadata-syntax-for-github-actions#runsusing)"
           },
-          "env": "step-env",
-          "continue-on-error": "boolean-steps-context",
-          "working-directory": "string-steps-context",
-          "shell": {
-            "type": "string-steps-context",
+          "image": {
+            "type": "non-empty-string",
+            "required": true,
+            "description": "The Docker image to use as the container to run the action. The value can be the Docker base image name, a local Dockerfile in your repository, or a public image in Docker Hub or another registry.\n\n[Documentation](https://docs.github.com/actions/creating-actions/metadata-syntax-for-github-actions#runsimage)"
+          },
+          "entrypoint": {
+            "type": "non-empty-string",
+            "description": "Overrides the Docker ENTRYPOINT in the Dockerfile, or sets it if one wasn't already specified.\n\n[Documentation](https://docs.github.com/actions/creating-actions/metadata-syntax-for-github-actions#runsentrypoint)"
+          },
+          "args": "container-runs-args",
+          "env": "container-runs-env",
+          "pre-entrypoint": {
+            "type": "non-empty-string",
+            "description": "Allows you to run a script before the entrypoint action begins.\n\n[Documentation](https://docs.github.com/actions/creating-actions/metadata-syntax-for-github-actions#runspre-entrypoint)"
+          },
+          "pre-if": {
+            "type": "runs-if",
+            "description": "Allows you to define conditions for the pre: action execution. The pre: action will only run if the conditions in pre-if are met. If not set, then pre-if defaults to always().\n\n[Documentation](https://docs.github.com/actions/creating-actions/metadata-syntax-for-github-actions#runspre-if)"
+          },
+          "post-entrypoint": {
+            "type": "non-empty-string",
+            "description": "Allows you to run a cleanup script once the runs.entrypoint action has completed.\n\n[Documentation](https://docs.github.com/actions/creating-actions/metadata-syntax-for-github-actions#runspost-entrypoint)"
+          },
+          "post-if": {
+            "type": "runs-if",
+            "description": "Allows you to define conditions for the post: action execution. The post: action will only run if the conditions in post-if are met. If not set, then post-if defaults to always().\n\n[Documentation](https://docs.github.com/actions/creating-actions/metadata-syntax-for-github-actions#runspost-if)"
+          }
+        }
+      }
+    },
+    "node-runs-strict": {
+      "description": "Configuration for JavaScript actions executed with Node.js.\n\n[Documentation](https://docs.github.com/actions/creating-actions/metadata-syntax-for-github-actions#runs)",
+      "mapping": {
+        "properties": {
+          "using": {
+            "type": "using",
+            "required": true,
+            "description": "The runtime used to execute the action. Use node20 or node24 for JavaScript actions.\n\n[Documentation](https://docs.github.com/actions/creating-actions/metadata-syntax-for-github-actions#runsusing)"
+          },
+          "main": {
+            "type": "non-empty-string",
+            "required": true,
+            "description": "The file that contains your action code. The runtime specified in using executes this file.\n\n[Documentation](https://docs.github.com/actions/creating-actions/metadata-syntax-for-github-actions#runsmain)"
+          },
+          "pre": {
+            "type": "non-empty-string",
+            "description": "Allows you to run a script at the start of a job, before the main: action begins. You can use pre: to run prerequisite setup scripts.\n\n[Documentation](https://docs.github.com/actions/creating-actions/metadata-syntax-for-github-actions#runspre)"
+          },
+          "pre-if": {
+            "type": "runs-if",
+            "description": "Allows you to define conditions for the pre: action execution. The pre: action will only run if the conditions in pre-if are met. If not set, then pre-if defaults to always().\n\n[Documentation](https://docs.github.com/actions/creating-actions/metadata-syntax-for-github-actions#runspre-if)"
+          },
+          "post": {
+            "type": "non-empty-string",
+            "description": "Allows you to run a script at the end of a job, once the main: action has completed. You can use post: to run cleanup scripts.\n\n[Documentation](https://docs.github.com/actions/creating-actions/metadata-syntax-for-github-actions#runspost)"
+          },
+          "post-if": {
+            "type": "runs-if",
+            "description": "Allows you to define conditions for the post: action execution. The post: action will only run if the conditions in post-if are met. If not set, then post-if defaults to always().\n\n[Documentation](https://docs.github.com/actions/creating-actions/metadata-syntax-for-github-actions#runspost-if)"
+          }
+        }
+      }
+    },
+    "composite-runs-strict": {
+      "description": "Configuration for composite actions that run multiple steps.\n\n[Documentation](https://docs.github.com/actions/creating-actions/metadata-syntax-for-github-actions#runs)",
+      "mapping": {
+        "properties": {
+          "using": {
+            "type": "using",
+            "required": true,
+            "description": "The runtime used to execute the action. Must be composite for composite actions.\n\n[Documentation](https://docs.github.com/actions/creating-actions/metadata-syntax-for-github-actions#runsusing)"
+          },
+          "steps": {
+            "type": "composite-steps",
             "required": true
           }
         }
       }
     },
-    "uses-step": {
+    "composite-steps": {
+      "description": "The steps that you plan to run in this action. These can be either run steps or uses steps.\n\n[Documentation](https://docs.github.com/actions/creating-actions/metadata-syntax-for-github-actions#runssteps)",
+      "sequence": {
+        "item-type": "composite-step"
+      }
+    },
+    "composite-step": {
+      "description": "A step within a composite action.",
+      "one-of": [
+        "run-step",
+        "uses-step"
+      ]
+    },
+    "run-step": {
+      "description": "Runs a command-line program using the operating system's shell.\n\n[Documentation](https://docs.github.com/actions/creating-actions/metadata-syntax-for-github-actions#runsstepsrun)",
       "mapping": {
         "properties": {
-          "name": "string-steps-context",
-          "id": "non-empty-string",
-          "if": "step-if",
-          "uses": {
-            "type": "non-empty-string",
-            "required": true
+          "name": {
+            "type": "string-steps-context",
+            "description": "A name for your step to display on GitHub.\n\n[Documentation](https://docs.github.com/actions/creating-actions/metadata-syntax-for-github-actions#runsstepsname)"
           },
-          "continue-on-error": "boolean-steps-context",
-          "with": "step-with",
-          "env": "step-env"
+          "id": {
+            "type": "non-empty-string",
+            "description": "A unique identifier for the step. You can use the id to reference the step in contexts.\n\n[Documentation](https://docs.github.com/actions/creating-actions/metadata-syntax-for-github-actions#runsstepsid)"
+          },
+          "if": {
+            "type": "step-if",
+            "description": "You can use the if conditional to prevent a step from running unless a condition is met. You can use any supported context and expression to create a conditional.\n\n[Documentation](https://docs.github.com/actions/creating-actions/metadata-syntax-for-github-actions#runsstepsif)"
+          },
+          "run": {
+            "type": "string-steps-context",
+            "required": true,
+            "description": "The command you want to run. This can be inline or a script in your action repository.\n\n[Documentation](https://docs.github.com/actions/creating-actions/metadata-syntax-for-github-actions#runsstepsrun)"
+          },
+          "shell": {
+            "type": "string-steps-context",
+            "required": true,
+            "description": "The shell where you want to run the command. Any shell supported by the runner can be used. Required if run is set.\n\n[Documentation](https://docs.github.com/actions/creating-actions/metadata-syntax-for-github-actions#runsstepsshell)"
+          },
+          "env": "step-env",
+          "continue-on-error": {
+            "type": "boolean-steps-context",
+            "description": "Prevents the action from failing when a step fails. Set to true to allow the action to pass when this step fails.\n\n[Documentation](https://docs.github.com/actions/creating-actions/metadata-syntax-for-github-actions#runsstepscontinue-on-error)"
+          },
+          "working-directory": {
+            "type": "string-steps-context",
+            "description": "Specifies the working directory where the command is run.\n\n[Documentation](https://docs.github.com/actions/creating-actions/metadata-syntax-for-github-actions#runsstepsworking-directory)"
+          }
         }
       }
     },
-    "container-runs-context": {
-      "context": ["inputs"],
-      "string": {}
-    },
-    "output-value": {
-      "context": [
-        "github",
-        "strategy",
-        "matrix",
-        "steps",
-        "inputs",
-        "job",
-        "runner",
-        "env"
-      ],
-      "string": {}
-    },
-    "input-default-context": {
-      "context": [
-        "github",
-        "strategy",
-        "matrix",
-        "job",
-        "runner",
-        "hashFiles(1,255)"
-      ],
-      "string": {}
-    },
-    "non-empty-string": {
-      "string": {
-        "require-non-empty": true
+    "uses-step": {
+      "description": "Runs another action as part of a step in your action.\n\n[Documentation](https://docs.github.com/actions/creating-actions/metadata-syntax-for-github-actions#runsstepsuses)",
+      "mapping": {
+        "properties": {
+          "name": {
+            "type": "string-steps-context",
+            "description": "A name for your step to display on GitHub.\n\n[Documentation](https://docs.github.com/actions/creating-actions/metadata-syntax-for-github-actions#runsstepsname)"
+          },
+          "id": {
+            "type": "non-empty-string",
+            "description": "A unique identifier for the step. You can use the id to reference the step in contexts.\n\n[Documentation](https://docs.github.com/actions/creating-actions/metadata-syntax-for-github-actions#runsstepsid)"
+          },
+          "if": {
+            "type": "step-if",
+            "description": "You can use the if conditional to prevent a step from running unless a condition is met. You can use any supported context and expression to create a conditional.\n\n[Documentation](https://docs.github.com/actions/creating-actions/metadata-syntax-for-github-actions#runsstepsif)"
+          },
+          "uses": {
+            "type": "non-empty-string",
+            "required": true,
+            "description": "Selects an action to run as part of a step in your action. An action is a reusable unit of code.\n\n[Documentation](https://docs.github.com/actions/creating-actions/metadata-syntax-for-github-actions#runsstepsuses)"
+          },
+          "with": "step-with",
+          "env": "step-env",
+          "continue-on-error": {
+            "type": "boolean-steps-context",
+            "description": "Prevents the action from failing when a step fails. Set to true to allow the action to pass when this step fails.\n\n[Documentation](https://docs.github.com/actions/creating-actions/metadata-syntax-for-github-actions#runsstepscontinue-on-error)"
+          }
+        }
       }
     },
     "string-steps-context": {
@@ -206,6 +433,7 @@
       "boolean": {}
     },
     "step-env": {
+      "description": "Sets variables for steps to use in the runner environment. You can also set variables for the entire action.\n\n[Documentation](https://docs.github.com/actions/creating-actions/metadata-syntax-for-github-actions#runsstepsenv)",
       "context": [
         "github",
         "inputs",
@@ -223,6 +451,7 @@
       }
     },
     "step-if": {
+      "description": "You can use the if conditional to prevent a step from running unless a condition is met. You can use any supported context and expression to create a conditional.\n\n[Documentation](https://docs.github.com/actions/creating-actions/metadata-syntax-for-github-actions#runsstepsif)",
       "context": [
         "github",
         "inputs",
@@ -241,6 +470,7 @@
       "string": {}
     },
     "step-with": {
+      "description": "A map of the input parameters defined by the action. Each input parameter is a key/value pair.\n\n[Documentation](https://docs.github.com/actions/creating-actions/metadata-syntax-for-github-actions#runsstepswith)",
       "context": [
         "github",
         "inputs",
@@ -255,6 +485,311 @@
       "mapping": {
         "loose-key-type": "non-empty-string",
         "loose-value-type": "string"
+      }
+    },
+    "branding": {
+      "description": "You can use a color and Feather icon to create a badge to personalize and distinguish your action in GitHub Marketplace.\n\n[Documentation](https://docs.github.com/actions/creating-actions/metadata-syntax-for-github-actions#branding)",
+      "mapping": {
+        "properties": {
+          "icon": {
+            "type": "branding-icon",
+            "description": "The name of the v4.28.0 Feather icon to use.\n\n[Documentation](https://docs.github.com/actions/creating-actions/metadata-syntax-for-github-actions#brandingicon)"
+          },
+          "color": {
+            "type": "branding-color",
+            "description": "The background color of the badge.\n\n[Documentation](https://docs.github.com/actions/creating-actions/metadata-syntax-for-github-actions#brandingcolor)"
+          }
+        }
+      }
+    },
+    "branding-icon": {
+      "description": "The name of the v4.28.0 Feather icon to use. Brand icons are omitted as well as: coffee, columns, divide-circle, divide-square, divide, frown, hexagon, key, meh, mouse-pointer, smile, tool, x-octagon.\n\n[Documentation](https://docs.github.com/actions/creating-actions/metadata-syntax-for-github-actions#brandingicon)",
+      "allowed-values": [
+        "activity",
+        "airplay",
+        "alert-circle",
+        "alert-octagon",
+        "alert-triangle",
+        "align-center",
+        "align-justify",
+        "align-left",
+        "align-right",
+        "anchor",
+        "aperture",
+        "archive",
+        "arrow-down-circle",
+        "arrow-down-left",
+        "arrow-down-right",
+        "arrow-down",
+        "arrow-left-circle",
+        "arrow-left",
+        "arrow-right-circle",
+        "arrow-right",
+        "arrow-up-circle",
+        "arrow-up-left",
+        "arrow-up-right",
+        "arrow-up",
+        "at-sign",
+        "award",
+        "bar-chart-2",
+        "bar-chart",
+        "battery-charging",
+        "battery",
+        "bell-off",
+        "bell",
+        "bluetooth",
+        "bold",
+        "book-open",
+        "book",
+        "bookmark",
+        "box",
+        "briefcase",
+        "calendar",
+        "camera-off",
+        "camera",
+        "cast",
+        "check-circle",
+        "check-square",
+        "check",
+        "chevron-down",
+        "chevron-left",
+        "chevron-right",
+        "chevron-up",
+        "chevrons-down",
+        "chevrons-left",
+        "chevrons-right",
+        "chevrons-up",
+        "circle",
+        "clipboard",
+        "clock",
+        "cloud-drizzle",
+        "cloud-lightning",
+        "cloud-off",
+        "cloud-rain",
+        "cloud-snow",
+        "cloud",
+        "code",
+        "command",
+        "compass",
+        "copy",
+        "corner-down-left",
+        "corner-down-right",
+        "corner-left-down",
+        "corner-left-up",
+        "corner-right-down",
+        "corner-right-up",
+        "corner-up-left",
+        "corner-up-right",
+        "cpu",
+        "credit-card",
+        "crop",
+        "crosshair",
+        "database",
+        "delete",
+        "disc",
+        "dollar-sign",
+        "download-cloud",
+        "download",
+        "droplet",
+        "edit-2",
+        "edit-3",
+        "edit",
+        "external-link",
+        "eye-off",
+        "eye",
+        "fast-forward",
+        "feather",
+        "file-minus",
+        "file-plus",
+        "file-text",
+        "file",
+        "film",
+        "filter",
+        "flag",
+        "folder-minus",
+        "folder-plus",
+        "folder",
+        "gift",
+        "git-branch",
+        "git-commit",
+        "git-merge",
+        "git-pull-request",
+        "globe",
+        "grid",
+        "hard-drive",
+        "hash",
+        "headphones",
+        "heart",
+        "help-circle",
+        "home",
+        "image",
+        "inbox",
+        "info",
+        "italic",
+        "layers",
+        "layout",
+        "life-buoy",
+        "link-2",
+        "link",
+        "list",
+        "loader",
+        "lock",
+        "log-in",
+        "log-out",
+        "mail",
+        "map-pin",
+        "map",
+        "maximize-2",
+        "maximize",
+        "menu",
+        "message-circle",
+        "message-square",
+        "mic-off",
+        "mic",
+        "minimize-2",
+        "minimize",
+        "minus-circle",
+        "minus-square",
+        "minus",
+        "monitor",
+        "moon",
+        "more-horizontal",
+        "more-vertical",
+        "move",
+        "music",
+        "navigation-2",
+        "navigation",
+        "octagon",
+        "package",
+        "paperclip",
+        "pause-circle",
+        "pause",
+        "percent",
+        "phone-call",
+        "phone-forwarded",
+        "phone-incoming",
+        "phone-missed",
+        "phone-off",
+        "phone-outgoing",
+        "phone",
+        "pie-chart",
+        "play-circle",
+        "play",
+        "plus-circle",
+        "plus-square",
+        "plus",
+        "pocket",
+        "power",
+        "printer",
+        "radio",
+        "refresh-ccw",
+        "refresh-cw",
+        "repeat",
+        "rewind",
+        "rotate-ccw",
+        "rotate-cw",
+        "rss",
+        "save",
+        "scissors",
+        "search",
+        "send",
+        "server",
+        "settings",
+        "share-2",
+        "share",
+        "shield-off",
+        "shield",
+        "shopping-bag",
+        "shopping-cart",
+        "shuffle",
+        "sidebar",
+        "skip-back",
+        "skip-forward",
+        "slash",
+        "sliders",
+        "smartphone",
+        "speaker",
+        "square",
+        "star",
+        "stop-circle",
+        "sun",
+        "sunrise",
+        "sunset",
+        "tablet",
+        "tag",
+        "target",
+        "terminal",
+        "thermometer",
+        "thumbs-down",
+        "thumbs-up",
+        "toggle-left",
+        "toggle-right",
+        "trash-2",
+        "trash",
+        "trending-down",
+        "trending-up",
+        "triangle",
+        "truck",
+        "tv",
+        "type",
+        "umbrella",
+        "underline",
+        "unlock",
+        "upload-cloud",
+        "upload",
+        "user-check",
+        "user-minus",
+        "user-plus",
+        "user-x",
+        "user",
+        "users",
+        "video-off",
+        "video",
+        "voicemail",
+        "volume-1",
+        "volume-2",
+        "volume-x",
+        "volume",
+        "watch",
+        "wifi-off",
+        "wifi",
+        "wind",
+        "x-circle",
+        "x-square",
+        "x",
+        "zap-off",
+        "zap",
+        "zoom-in",
+        "zoom-out"
+      ]
+    },
+    "branding-color": {
+      "description": "The background color of the badge.\n\n[Documentation](https://docs.github.com/actions/creating-actions/metadata-syntax-for-github-actions#brandingcolor)",
+      "allowed-values": [
+        "white",
+        "yellow",
+        "blue",
+        "green",
+        "orange",
+        "red",
+        "purple",
+        "gray-dark"
+      ]
+    },
+    "using": {
+      "description": "The runtime used to execute the action.",
+      "allowed-values": [
+        "docker",
+        "node12",
+        "node16",
+        "node20",
+        "node24",
+        "composite"
+      ]
+    },
+    "non-empty-string": {
+      "string": {
+        "require-non-empty": true
       }
     }
   }
