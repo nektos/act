@@ -11,7 +11,7 @@ import (
 	"github.com/nektos/act/pkg/common"
 )
 
-func parseEnvFile(e Container, srcPath string, env *map[string]string) common.Executor {
+func parseEnvFile(e Container, srcPath string, env *map[string]string, lenient bool) common.Executor {
 	localEnv := *env
 	return func(ctx context.Context) error {
 		envTar, err := e.GetContainerArchive(ctx, srcPath)
@@ -27,6 +27,7 @@ func parseEnvFile(e Container, srcPath string, env *map[string]string) common.Ex
 		s := bufio.NewScanner(reader)
 		s.Buffer(nil, 1024*1024*1024) // increase buffer to 1GB to avoid scanner buffer overflow
 		firstLine := true
+		var lastKey string
 		for s.Scan() {
 			line := s.Text()
 			if firstLine {
@@ -39,7 +40,8 @@ func parseEnvFile(e Container, srcPath string, env *map[string]string) common.Ex
 			singleLineEnv := strings.Index(line, "=")
 			multiLineEnv := strings.Index(line, "<<")
 			if singleLineEnv != -1 && (multiLineEnv == -1 || singleLineEnv < multiLineEnv) {
-				localEnv[line[:singleLineEnv]] = line[singleLineEnv+1:]
+				lastKey = line[:singleLineEnv]
+				localEnv[lastKey] = line[singleLineEnv+1:]
 			} else if multiLineEnv != -1 {
 				multiLineEnvContent := ""
 				multiLineEnvDelimiter := line[multiLineEnv+2:]
@@ -58,12 +60,20 @@ func parseEnvFile(e Container, srcPath string, env *map[string]string) common.Ex
 				if !delimiterFound {
 					return fmt.Errorf("invalid format delimiter '%v' not found before end of file", multiLineEnvDelimiter)
 				}
-				localEnv[line[:multiLineEnv]] = multiLineEnvContent
+				lastKey = line[:multiLineEnv]
+				localEnv[lastKey] = multiLineEnvContent
+			} else if lenient {
+				// In lenient mode, treat unrecognized lines as continuations
+				// of the previous value (bare multiline from printenv output), just like GitHub Actions.
+				if lastKey != "" {
+					localEnv[lastKey] += "\n" + line
+				}
 			} else {
 				return fmt.Errorf("invalid format '%v', expected a line with '=' or '<<'", line)
 			}
 		}
 		env = &localEnv
+
 		return s.Err()
 	}
 }

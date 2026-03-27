@@ -145,8 +145,8 @@ func (cr *containerReference) GetContainerArchive(ctx context.Context, srcPath s
 	return result.Content, err
 }
 
-func (cr *containerReference) UpdateFromEnv(srcPath string, env *map[string]string) common.Executor {
-	return parseEnvFile(cr, srcPath, env).IfNot(common.Dryrun)
+func (cr *containerReference) UpdateFromEnv(srcPath string, env *map[string]string, lenient bool) common.Executor {
+	return parseEnvFile(cr, srcPath, env, lenient).IfNot(common.Dryrun)
 }
 
 func (cr *containerReference) UpdateFromImageEnv(env *map[string]string) common.Executor {

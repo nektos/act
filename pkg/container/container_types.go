@@ -49,7 +49,7 @@ type Container interface {
 	Pull(forcePull bool) common.Executor
 	Start(attach bool) common.Executor
 	Exec(command []string, env map[string]string, user, workdir string) common.Executor
-	UpdateFromEnv(srcPath string, env *map[string]string) common.Executor
+	UpdateFromEnv(srcPath string, env *map[string]string, lenient bool) common.Executor
 	UpdateFromImageEnv(env *map[string]string) common.Executor
 	Remove() common.Executor
 	Close() common.Executor
