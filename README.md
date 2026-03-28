@@ -21,6 +21,14 @@ Let's see it in action with a [sample repo](https://github.com/cplee/github-acti
 
 ![Demo](https://raw.githubusercontent.com/wiki/nektos/act/quickstart/act-quickstart-2.gif)
 
+# Common Use Cases
+
+Looking for practical examples? Check out [COMMON_USE_CASES.md](COMMON_USE_CASES.md) for common scenarios like:
+- Running specific jobs
+- Testing pull request workflows
+- Using custom secrets
+- Debugging failed workflows
+
 # Act User Guide
 
 Please look at the [act user guide](https://nektosact.com) for more documentation.
