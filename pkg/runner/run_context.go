@@ -230,6 +230,10 @@ func (rc *RunContext) startHostEnvironment() common.Executor {
 				rc.Env[fmt.Sprintf("RUNNER_%s", strings.ToUpper(k))] = v
 			}
 		}
+		// Set AGENT_TOOLSDIRECTORY to match RUNNER_TOOL_CACHE for self-hosted mode
+		// This ensures that actions like setup-python use the correct tool cache path
+		// instead of potentially using a host system's AGENT_TOOLSDIRECTORY value
+		rc.Env["AGENT_TOOLSDIRECTORY"] = toolCache
 		for _, env := range os.Environ() {
 			if k, v, ok := strings.Cut(env, "="); ok {
 				// don't override
