@@ -34,21 +34,23 @@ func (m *mockContainer) GetContainerArchive(_ context.Context, _ string) (io.Rea
 	return io.NopCloser(&buf), nil
 }
 
-func (m *mockContainer) Create([]string, []string) common.Executor           { return nil }
-func (m *mockContainer) Copy(string, ...*FileEntry) common.Executor          { return nil }
+func (m *mockContainer) Create([]string, []string) common.Executor              { return nil }
+func (m *mockContainer) Copy(string, ...*FileEntry) common.Executor             { return nil }
 func (m *mockContainer) CopyTarStream(context.Context, string, io.Reader) error { return nil }
-func (m *mockContainer) CopyDir(string, string, bool) common.Executor       { return nil }
-func (m *mockContainer) Pull(bool) common.Executor                          { return nil }
-func (m *mockContainer) Start(bool) common.Executor                         { return nil }
+func (m *mockContainer) CopyDir(string, string, bool) common.Executor           { return nil }
+func (m *mockContainer) Pull(bool) common.Executor                              { return nil }
+func (m *mockContainer) Start(bool) common.Executor                             { return nil }
 func (m *mockContainer) Exec([]string, map[string]string, string, string) common.Executor {
 	return nil
 }
-func (m *mockContainer) UpdateFromEnv(string, *map[string]string) common.Executor    { return nil }
-func (m *mockContainer) UpdateFromImageEnv(*map[string]string) common.Executor       { return nil }
-func (m *mockContainer) Remove() common.Executor                                     { return nil }
-func (m *mockContainer) Close() common.Executor                                      { return nil }
-func (m *mockContainer) ReplaceLogWriter(io.Writer, io.Writer) (io.Writer, io.Writer) { return nil, nil }
-func (m *mockContainer) GetHealth(context.Context) Health                             { return HealthHealthy }
+func (m *mockContainer) UpdateFromEnv(string, *map[string]string) common.Executor { return nil }
+func (m *mockContainer) UpdateFromImageEnv(*map[string]string) common.Executor    { return nil }
+func (m *mockContainer) Remove() common.Executor                                  { return nil }
+func (m *mockContainer) Close() common.Executor                                   { return nil }
+func (m *mockContainer) ReplaceLogWriter(io.Writer, io.Writer) (io.Writer, io.Writer) {
+	return nil, nil
+}
+func (m *mockContainer) GetHealth(context.Context) Health { return HealthHealthy }
 
 func TestParseEnvFile(t *testing.T) {
 	tests := []struct {
