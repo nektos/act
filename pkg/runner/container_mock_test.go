@@ -40,8 +40,8 @@ func (cm *containerMock) Close() common.Executor {
 	return args.Get(0).(func(context.Context) error)
 }
 
-func (cm *containerMock) UpdateFromEnv(srcPath string, env *map[string]string, lenient bool) common.Executor {
-	args := cm.Called(srcPath, env, lenient)
+func (cm *containerMock) UpdateFromEnv(srcPath string, env *map[string]string) common.Executor {
+	args := cm.Called(srcPath, env)
 	return args.Get(0).(func(context.Context) error)
 }
 

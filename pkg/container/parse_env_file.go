@@ -11,7 +11,7 @@ import (
 	"github.com/nektos/act/pkg/common"
 )
 
-func parseEnvFile(e Container, srcPath string, env *map[string]string, lenient bool) common.Executor {
+func parseEnvFile(e Container, srcPath string, env *map[string]string) common.Executor {
 	localEnv := *env
 	return func(ctx context.Context) error {
 		envTar, err := e.GetContainerArchive(ctx, srcPath)
@@ -62,14 +62,8 @@ func parseEnvFile(e Container, srcPath string, env *map[string]string, lenient b
 				}
 				lastKey = line[:multiLineEnv]
 				localEnv[lastKey] = multiLineEnvContent
-			} else if lenient {
-				// In lenient mode, treat unrecognized lines as continuations
-				// of the previous value (bare multiline from printenv output), just like GitHub Actions.
-				if lastKey != "" {
-					localEnv[lastKey] += "\n" + line
-				}
-			} else {
-				return fmt.Errorf("invalid format '%v', expected a line with '=' or '<<'", line)
+			} else if lastKey != "" {
+				localEnv[lastKey] += "\n" + line
 			}
 		}
 		env = &localEnv

@@ -371,8 +371,8 @@ func (e *HostEnvironment) ExecWithCmdLine(command []string, cmdline string, env 
 	}
 }
 
-func (e *HostEnvironment) UpdateFromEnv(srcPath string, env *map[string]string, lenient bool) common.Executor {
-	return parseEnvFile(e, srcPath, env, lenient)
+func (e *HostEnvironment) UpdateFromEnv(srcPath string, env *map[string]string) common.Executor {
+	return parseEnvFile(e, srcPath, env)
 }
 
 func (e *HostEnvironment) Remove() common.Executor {

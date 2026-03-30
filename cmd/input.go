@@ -65,7 +65,6 @@ type Input struct {
 	validate                           bool
 	strict                             bool
 	concurrentJobs                     int
-	lenientEnvParsing                  bool
 }
 
 func (i *Input) resolve(path string) string {

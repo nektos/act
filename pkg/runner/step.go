@@ -81,7 +81,7 @@ func processRunnerSummaryCommand(ctx context.Context, fileName string, rc *RunCo
 
 func processRunnerEnvFileCommand(ctx context.Context, fileName string, rc *RunContext, setter func(context.Context, map[string]string, string)) error {
 	env := map[string]string{}
-	err := rc.JobContainer.UpdateFromEnv(path.Join(rc.JobContainer.GetActPath(), fileName), &env, rc.Config.LenientEnvParsing)(ctx)
+	err := rc.JobContainer.UpdateFromEnv(path.Join(rc.JobContainer.GetActPath(), fileName), &env)(ctx)
 	if err != nil {
 		return err
 	}
