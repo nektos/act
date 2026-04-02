@@ -29,7 +29,7 @@ import (
 	"github.com/opencontainers/selinux/go-selinux"
 )
 
-var commonIdentifier = "reusable"
+const reusableCommonIdentifier = "reusable"
 
 // RunContext contains info about current job
 type RunContext struct {
@@ -56,27 +56,34 @@ type RunContext struct {
 	caller              *caller // job calling this RunContext (reusable workflows)
 	Cancelled           bool
 	nodeToolFullPath    string
+	commonIdentifier    string
 }
 
-func init() {
-	var charset = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+func (rc *RunContext) computeCommonIdentifier() string {
+	if rc.Config.ReuseContainers {
+		// If the container is meant to be reusable, we must
+		// return a constant value to keep container names consistent
+		return reusableCommonIdentifier
+	}
 
-	// To allow multiple concurrent instances of ACT, we need to use
+	// The container is not meant to be reusable! Thus, we must
+	// create a randomized value to distinguish this RunContext's
+	// container instances from all others'
+	//
+	// To allow multiple concurrent RunContexts, we need to use
 	// a unique identifier that will differentiate all containers
 	// spawned by this instance from those spawned by others. If we
 	// don't do that, then weird conflicts will arise due to possible
 	// container name collsions. We use a secure random string of
 	// alphanumeric characters for this purpose. The string will be
-	// of the same length as the fixed-identifier used when reusable
-	// containers are desired, minus 2 characters, for consistency.
+	// of the same length as the identifier used when reusable
+	// containers are desired, plus 2 characters.
 	//
-	// The 2 character difference eliminate the chance that the random
+	// The 2 character difference eliminates the chance that the random
 	// string be the same as the "fixed" ID
-	length := len(commonIdentifier) + 2
+	var charset = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+	length := len(reusableCommonIdentifier) + 2
 
-	// This function will try to generate a secure random string. If
-	// that fails for some reason, it will use the default math/rand
-	// as its source of randomness.
 	length64 := int64(len(charset))
 	target := make([]rune, length)
 	for i := range target {
@@ -85,12 +92,20 @@ func init() {
 			// TODO: Should we log this error? How (without a lot of hoops)?
 			// If we had some sort of issue with the randomness,
 			// let's just use the PID as the "randomness"
-			commonIdentifier = fmt.Sprintf("%08X", os.Getpid())
-			return
+			return fmt.Sprintf("%08X", os.Getpid())
 		}
 		target[i] = charset[p.Int64()]
 	}
-	commonIdentifier = string(target)
+	return string(target)
+}
+
+func (rc *RunContext) getCommonIdentifier() string {
+	// If it needs to be computed, compute it!
+	// Otherwise, return the computed value
+	if rc.commonIdentifier == "" {
+		rc.commonIdentifier = rc.computeCommonIdentifier()
+	}
+	return rc.commonIdentifier
 }
 
 func (rc *RunContext) AddMask(mask string) {
@@ -128,15 +143,7 @@ func (rc *RunContext) GetEnv() map[string]string {
 }
 
 func (rc *RunContext) jobContainerName() string {
-	// Let's assume a fixed, consistent "unique identifier" for
-	// the container name. If the container is not meant to be
-	// reusable, we will try to generate a unique identifier
-	// that can replace this constant one.
-	id := "reusable"
-	if !rc.Config.ReuseContainers {
-		id = commonIdentifier
-	}
-	return createContainerName("act", id, rc.String())
+	return createContainerName("act", rc.getCommonIdentifier(), rc.String())
 }
 
 // networkName return the name of the network which will be created by `act` automatically for job,
