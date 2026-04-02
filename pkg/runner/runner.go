@@ -29,6 +29,7 @@ type Config struct {
 	EventPath                          string                       // path to JSON file to use for event.json in containers
 	DefaultBranch                      string                       // name of the main branch for this repository
 	ReuseContainers                    bool                         // reuse containers to maintain state
+	AllowConcurrentRuns                bool                         // allow running multiple act instances concurrently
 	ForcePull                          bool                         // force pulling of the image, even if already present
 	ForceRebuild                       bool                         // force rebuilding local docker image action
 	LogOutput                          bool                         // log the output from docker run
