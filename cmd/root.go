@@ -81,7 +81,7 @@ func createRootCommand(ctx context.Context, input *Input, version string) *cobra
 	rootCmd.Flags().StringArrayVarP(&input.inputs, "input", "", []string{}, "action input to make available to actions (e.g. --input myinput=foo)")
 	rootCmd.Flags().StringArrayVarP(&input.platforms, "platform", "P", []string{}, "custom image to use per platform (e.g. -P ubuntu-18.04=nektos/act-environments-ubuntu:18.04)")
 	rootCmd.Flags().BoolVarP(&input.reuseContainers, "reuse", "r", false, "don't remove container(s) on successfully completed workflow(s) to maintain state between runs")
-	rootCmd.Flags().BoolVarP(&input.uniqueContainerNames, "unique-container-names", "", false, "container names will include a (quasi-)unique (random) component to avoid conflicts with other instances of act running against the same Docker server without conflict (disabled if --reuse is present)")
+	rootCmd.Flags().BoolVarP(&input.uniqueContainerNames, "unique-container-names", "", false, "container names will include a (quasi-)unique (random) component to avoid conflicts with other instances of act running against the same Docker server (disabled if --reuse is present)")
 	rootCmd.Flags().BoolVarP(&input.bindWorkdir, "bind", "b", false, "bind working directory to container, rather than copy")
 	rootCmd.Flags().BoolVarP(&input.forcePull, "pull", "p", true, "pull docker image(s) even if already present")
 	rootCmd.Flags().BoolVarP(&input.forceRebuild, "rebuild", "", true, "rebuild local action docker image(s) even if already present")
