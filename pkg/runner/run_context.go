@@ -29,7 +29,7 @@ import (
 	"github.com/opencontainers/selinux/go-selinux"
 )
 
-var commonIdentifier = "reusable"
+var commonIdentifier = ""
 
 // RunContext contains info about current job
 type RunContext struct {
@@ -129,14 +129,13 @@ func (rc *RunContext) GetEnv() map[string]string {
 
 func (rc *RunContext) jobContainerName() string {
 	// Assume we want to use the consistent, constant identifier
-	id := "reusable"
 	if !rc.Config.ReuseContainers && rc.Config.AllowConcurrentRuns {
 		// If we're not going to reuse the containers, and we want to be
 		// able to run multiple instances of act concurrently, then we
 		// must use the instance-specific (random) identifier
-		id = commonIdentifier
+		return createContainerName("act", commonIdentifier, rc.String())
 	}
-	return createContainerName("act", id, rc.String())
+	return createContainerName("act", rc.String())
 }
 
 // networkName return the name of the network which will be created by `act` automatically for job,
