@@ -29,7 +29,7 @@ import (
 	"github.com/opencontainers/selinux/go-selinux"
 )
 
-var commonIdentifier = ""
+var uniqueIdentifier = ""
 
 // RunContext contains info about current job
 type RunContext struct {
@@ -66,31 +66,28 @@ func init() {
 	// spawned by this instance from those spawned by others. If we
 	// don't do that, then weird conflicts will arise due to possible
 	// container name collsions. We use a secure random string of
-	// alphanumeric characters for this purpose. The string will be
-	// of the same length as the fixed-identifier used when reusable
-	// containers are desired, minus 2 characters, for consistency.
+	// alphanumeric characters for this purpose.
 	//
-	// The 2 character difference eliminate the chance that the random
-	// string be the same as the "fixed" ID
-	length := len(commonIdentifier) + 2
-
+	// We don't use a UUID due to its length - we don't want too long
+	// a string ... just long enough to provide sufficient randomness
+	//
 	// This function will try to generate a secure random string. If
-	// that fails for some reason, it will use the default math/rand
-	// as its source of randomness.
+	// that fails for some reason, it will use the PID as its
+	// "unique identifier"
 	length64 := int64(len(charset))
-	target := make([]rune, length)
+	target := make([]rune, 8)
 	for i := range target {
 		p, err := rand.Int(rand.Reader, big.NewInt(length64))
 		if err != nil {
 			// TODO: Should we log this error? How (without a lot of hoops)?
 			// If we had some sort of issue with the randomness,
 			// let's just use the PID as the "randomness"
-			commonIdentifier = fmt.Sprintf("%08X", os.Getpid())
+			uniqueIdentifier = fmt.Sprintf("%08X", os.Getpid())
 			return
 		}
 		target[i] = charset[p.Int64()]
 	}
-	commonIdentifier = string(target)
+	uniqueIdentifier = string(target)
 }
 
 func (rc *RunContext) AddMask(mask string) {
@@ -129,11 +126,11 @@ func (rc *RunContext) GetEnv() map[string]string {
 
 func (rc *RunContext) jobContainerName() string {
 	// Assume we want to use the consistent, constant identifier
-	if !rc.Config.ReuseContainers && rc.Config.AllowConcurrentRuns {
+	if rc.Config.UniqueContainerNames && !rc.Config.ReuseContainers {
 		// If we're not going to reuse the containers, and we want to be
 		// able to run multiple instances of act concurrently, then we
 		// must use the instance-specific (random) identifier
-		return createContainerName("act", commonIdentifier, rc.String())
+		return createContainerName("act", uniqueIdentifier, rc.String())
 	}
 	return createContainerName("act", rc.String())
 }
