@@ -459,6 +459,34 @@ func populateEnvsFromInput(ctx context.Context, env *map[string]string, action *
 	}
 }
 
+func canonicalizePath(path string) string {
+	// The empty path is the empty path ... use "."
+	result := path
+	if result == "" {
+		result = "."
+	}
+
+	var next string
+	var err error
+
+	// make it absolute
+	if next, err = filepath.Abs(result); err != nil {
+		// If this failed there isn't much we can do ...
+		return result
+	}
+
+	// store the value
+	result = next
+
+	// try to resolve the symlinks
+	if next, err = filepath.EvalSymlinks(result); err != nil {
+		return result
+	}
+
+	// return the final outcome
+	return next
+}
+
 func getContainerActionPaths(step *model.Step, actionDir string, rc *RunContext) (string, string) {
 	actionName := ""
 	containerActionDir := "."
@@ -477,7 +505,7 @@ func getContainerActionPaths(step *model.Step, actionDir string, rc *RunContext)
 			actionName = strings.ReplaceAll(actionName, "\\", "/")
 		}
 	}
-	return actionName, containerActionDir
+	return actionName, canonicalizePath(containerActionDir)
 }
 
 func getOsSafeRelativePath(s, prefix string) string {
