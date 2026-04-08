@@ -61,3 +61,19 @@ Configured in `.golangci.yml`:
 - Table-driven tests are common in `pkg/model/` and `pkg/exprparser/`
 - Test fixtures live in `testdata/` directories alongside their packages
 - `pkg/runner/testdata/` contains extensive sample GitHub Actions workflows used as integration test fixtures
+- Runner integration tests require Docker and use `ACT_TEST_IMAGE` env var (default: `node:24-bookworm-slim`)
+- To add a new runner test case: create a workflow YAML under `pkg/runner/testdata/<scenario>/` and wire it into the table-driven test in `runner_test.go`
+
+## Build Constraints
+
+- `CGO_ENABLED=0` — no cgo dependencies allowed
+- `make pr` must pass before submitting (runs tidy, format, lint, test)
+
+## Notable Large Files
+
+These files are complex and frequently modified — read them before making changes in their area:
+
+- `cmd/root.go` — CLI setup, all flags and execution orchestration
+- `pkg/runner/action.go` — action resolution and execution
+- `pkg/runner/expression.go` — expression evaluation in workflow contexts
+- `pkg/runner/run_context.go` — job execution state management
