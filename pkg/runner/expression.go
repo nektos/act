@@ -23,6 +23,9 @@ import (
 type ExpressionEvaluator interface {
 	evaluate(context.Context, string, exprparser.DefaultStatusCheck) (interface{}, error)
 	EvaluateYamlNode(context.Context, *yaml.Node) error
+	// EvaluateYamlNodeGetResult evaluates the yaml node and returns the result without modifying the original node.
+	// This is useful when multiple goroutines need to evaluate the same shared yaml.Node concurrently.
+	EvaluateYamlNodeGetResult(context.Context, *yaml.Node) (*yaml.Node, error)
 	Interpolate(context.Context, string) string
 }
 
@@ -375,6 +378,13 @@ func (ee expressionEvaluator) EvaluateYamlNode(ctx context.Context, node *yaml.N
 		return ret.Decode(node)
 	}
 	return nil
+}
+
+// EvaluateYamlNodeGetResult evaluates the yaml node and returns the result without modifying the original node.
+// This is useful when multiple goroutines need to evaluate the same shared yaml.Node concurrently,
+// such as when evaluating matrix jobs in parallel.
+func (ee expressionEvaluator) EvaluateYamlNodeGetResult(ctx context.Context, node *yaml.Node) (*yaml.Node, error) {
+	return ee.evaluateYamlNodeInternal(ctx, node)
 }
 
 func (ee expressionEvaluator) Interpolate(ctx context.Context, in string) string {
