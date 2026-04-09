@@ -26,6 +26,21 @@ func Warningf(format string, args ...interface{}) Warning {
 	return w
 }
 
+// FailFastError wraps a context cancellation error with a more informative message
+type FailFastError struct {
+	Err error
+}
+
+// Error returns the error message
+func (e FailFastError) Error() string {
+	return "Job cancelled (fail-fast)"
+}
+
+// Unwrap allows errors.Is and errors.As to work
+func (e FailFastError) Unwrap() error {
+	return e.Err
+}
+
 // Executor define contract for the steps of a workflow
 type Executor func(ctx context.Context) error
 
@@ -127,6 +142,101 @@ func NewParallelExecutor(parallel int, executors ...Executor) Executor {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
+		return firstErr
+	}
+}
+
+// NewFailFastParallelExecutor creates a parallel executor that respects fail-fast semantics
+// When fail-fast is enabled via context, it will cancel remaining work on first error
+func NewFailFastParallelExecutor(parallel int, executors ...Executor) Executor {
+	return func(ctx context.Context) error {
+		failFast := IsFailFast(ctx)
+
+		// If fail-fast is disabled, use the standard parallel executor
+		if !failFast {
+			return NewParallelExecutor(parallel, executors...)(ctx)
+		}
+
+		// Fail-fast mode: create a cancellable context for workers
+		workCtx, cancelWork := context.WithCancel(ctx)
+		defer cancelWork()
+
+		work := make(chan Executor, len(executors))
+		errs := make(chan error, len(executors))
+
+		if 1 > parallel {
+			log.Debugf("Parallel tasks (%d) below minimum, setting to 1", parallel)
+			parallel = 1
+		}
+
+		// Start worker goroutines
+		for i := 0; i < parallel; i++ {
+			go func(work <-chan Executor, errs chan<- error) {
+				for executor := range work {
+					// Check if work context was cancelled (fail-fast triggered)
+					if workCtx.Err() != nil {
+						errs <- FailFastError{Err: workCtx.Err()}
+						continue
+					}
+					errs <- executor(workCtx)
+				}
+			}(work, errs)
+		}
+
+		// Queue work and monitor for failures
+		go func() {
+			defer close(work)
+			for i := 0; i < len(executors); i++ {
+				// Check if we should stop queuing due to failure
+				if workCtx.Err() != nil {
+					// Don't queue remaining work, but send cancelled errors for remaining executors
+					for j := i; j < len(executors); j++ {
+						errs <- FailFastError{Err: workCtx.Err()}
+					}
+					return
+				}
+				work <- executors[i]
+			}
+		}()
+
+		// Collect results and trigger fail-fast on first error
+		var firstErr error
+		var firstFailFastErr error
+		for i := 0; i < len(executors); i++ {
+			err := <-errs
+
+			if err != nil {
+				switch err.(type) {
+				case Warning:
+					// Warnings don't trigger fail-fast
+					log.Warning(err.Error())
+				case FailFastError:
+					// FailFastErrors are just cancellation notifications, not the root cause
+					// Keep the first one for returning if no real error is found
+					if firstFailFastErr == nil {
+						firstFailFastErr = err
+					}
+				default:
+					// First real error triggers fail-fast
+					if firstErr == nil {
+						firstErr = err
+						// Cancel remaining work on first real error
+						cancelWork()
+					}
+				}
+			}
+		}
+
+		// If we only have FailFastErrors (all jobs were cancelled), return that
+		if firstErr == nil && firstFailFastErr != nil {
+			firstErr = firstFailFastErr
+		}
+
+		// Check if parent context was cancelled
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+
 		return firstErr
 	}
 }

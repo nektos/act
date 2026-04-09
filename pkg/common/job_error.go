@@ -12,6 +12,26 @@ type jobCancelCtx string
 
 const JobCancelCtxVal = jobCancelCtx("job.cancel")
 
+type failFastContextKey string
+
+const FailFastContextKeyVal = failFastContextKey("job.failfast")
+
+// WithFailFast adds fail-fast configuration to the context
+func WithFailFast(ctx context.Context, failFast bool) context.Context {
+	return context.WithValue(ctx, FailFastContextKeyVal, failFast)
+}
+
+// IsFailFast returns whether fail-fast is enabled for this context
+func IsFailFast(ctx context.Context) bool {
+	val := ctx.Value(FailFastContextKeyVal)
+	if val != nil {
+		if ff, ok := val.(bool); ok {
+			return ff
+		}
+	}
+	return false
+}
+
 // JobError returns the job error for current context if any
 func JobError(ctx context.Context) error {
 	val := ctx.Value(jobErrorContextKeyVal)
