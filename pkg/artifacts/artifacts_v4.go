@@ -244,7 +244,7 @@ func (r *artifactV4Routes) parseProtbufBody(ctx *ArtifactContext, req protorefle
 		ctx.Error(http.StatusInternalServerError, "Error decode request body")
 		return false
 	}
-	err = protojson.Unmarshal(body, req)
+	err = protojson.UnmarshalOptions{DiscardUnknown: true}.Unmarshal(body, req)
 	if err != nil {
 		log.Errorf("Error decode request body: %v", err)
 		ctx.Error(http.StatusInternalServerError, "Error decode request body")
