@@ -5,18 +5,26 @@ jobs:
     runs-on: ubuntu-latest
     steps: 
     - run: env
-    - run: |
-        github:
-        ${{ tojson(github) }}
-        inputs:
-        ${{ tojson(inputs) }}
-        matrix:
-        ${{ tojson(matrix) }}
-        needs:
-        ${{ tojson(needs) }}
-        strategy:
-        ${{ tojson(strategy) }}            
-      shell: cp {0} context.txt
+    - env:
+        GITHUB_CTX: ${{ toJSON(github) }}
+        INPUTS_CTX: ${{ toJSON(inputs) }}
+        MATRIX_CTX: ${{ toJSON(matrix) }}
+        NEEDS_CTX: ${{ toJSON(needs) }}
+        STRATEGY_CTX: ${{ toJSON(strategy) }}
+      run: |
+        {
+          echo "github:"
+          echo "$GITHUB_CTX"
+          echo "inputs:"
+          echo "$INPUTS_CTX"
+          echo "matrix:"
+          echo "$MATRIX_CTX"
+          echo "needs:"
+          echo "$NEEDS_CTX"
+          echo "strategy:"
+          echo "$STRATEGY_CTX"
+        } > context.txt
+      shell: bash
     - run: echo Artifact2 > data.txt
 
     - uses: actions/upload-artifact@v4
