@@ -22,6 +22,7 @@ import (
 
 	"github.com/docker/go-connections/nat"
 	"github.com/nektos/act/pkg/common"
+	"github.com/nektos/act/pkg/common/git"
 	"github.com/nektos/act/pkg/container"
 	"github.com/nektos/act/pkg/exprparser"
 	"github.com/nektos/act/pkg/model"
@@ -30,33 +31,63 @@ import (
 
 // RunContext contains info about current job
 type RunContext struct {
-	Name                string
-	Config              *Config
-	Matrix              map[string]interface{}
-	Run                 *model.Run
-	EventJSON           string
-	Env                 map[string]string
-	GlobalEnv           map[string]string // to pass env changes of GITHUB_ENV and set-env correctly, due to dirty Env field
-	ExtraPath           []string
-	CurrentStep         string
-	StepResults         map[string]*model.StepResult
-	IntraActionState    map[string]map[string]string
-	ExprEval            ExpressionEvaluator
-	JobContainer        container.ExecutionsEnvironment
-	ServiceContainers   []container.ExecutionsEnvironment
-	OutputMappings      map[MappableOutput]MappableOutput
-	JobName             string
-	ActionPath          string
-	Parent              *RunContext
-	Masks               []string
-	cleanUpJobContainer common.Executor
-	caller              *caller // job calling this RunContext (reusable workflows)
-	Cancelled           bool
-	nodeToolFullPath    string
+	Name                 string
+	Config               *Config
+	Matrix               map[string]interface{}
+	Run                  *model.Run
+	EventJSON            string
+	Env                  map[string]string
+	GlobalEnv            map[string]string // to pass env changes of GITHUB_ENV and set-env correctly, due to dirty Env field
+	ExtraPath            []string
+	CurrentStep          string
+	StepResults          map[string]*model.StepResult
+	IntraActionState     map[string]map[string]string
+	ExprEval             ExpressionEvaluator
+	JobContainer         container.ExecutionsEnvironment
+	ServiceContainers    []container.ExecutionsEnvironment
+	OutputMappings       map[MappableOutput]MappableOutput
+	JobName              string
+	ActionPath           string
+	Parent               *RunContext
+	Masks                []string
+	cleanUpJobContainer  common.Executor
+	caller               *caller // job calling this RunContext (reusable workflows)
+	Cancelled            bool
+	nodeToolFullPath     string
+	worktreeCleanup      func()
+	reconstitutedWorkdir string
 }
 
 func (rc *RunContext) AddMask(mask string) {
 	rc.Masks = append(rc.Masks, mask)
+}
+
+// effectiveWorkdir returns the path that should be used as the HOST-side
+// working directory.  When a git worktree has been reconstituted into a
+// temporary directory that path is returned; otherwise the configured workdir
+// is returned unchanged.
+func (rc *RunContext) effectiveWorkdir() string {
+	if rc.reconstitutedWorkdir != "" {
+		return rc.reconstitutedWorkdir
+	}
+	return rc.Config.Workdir
+}
+
+// reconstitute detects whether the configured workdir is a git worktree and,
+// if so, creates a self-contained copy that can be mounted into a container.
+func (rc *RunContext) reconstitute(ctx context.Context) {
+	logger := common.Logger(ctx)
+	if rc.worktreeCleanup != nil {
+		rc.worktreeCleanup()
+		rc.worktreeCleanup = nil
+	}
+	reconstituted, wtCleanup, wtErr := git.ReconstituteWorktree(ctx, rc.Config.Workdir)
+	if wtErr != nil {
+		logger.Warnf("Failed to reconstitute worktree, using original workdir: %v", wtErr)
+	} else {
+		rc.reconstitutedWorkdir = reconstituted
+		rc.worktreeCleanup = wtCleanup
+	}
 }
 
 type MappableOutput struct {
@@ -138,13 +169,14 @@ func (rc *RunContext) GetBindsAndMounts() ([]string, map[string]string) {
 	}
 
 	ext := container.LinuxContainerEnvironmentExtensions{}
+	workdir := rc.effectiveWorkdir()
 
 	if hostEnv, ok := rc.JobContainer.(*container.HostEnvironment); ok {
 		mounts := map[string]string{}
 		// Permission issues?
 		// binds = append(binds, hostEnv.ToolCache+":/opt/hostedtoolcache")
 		binds = append(binds, hostEnv.GetActPath()+":"+ext.GetActPath())
-		binds = append(binds, hostEnv.ToContainerPath(rc.Config.Workdir)+":"+ext.ToContainerPath(rc.Config.Workdir))
+		binds = append(binds, hostEnv.ToContainerPath(workdir)+":"+ext.ToContainerPath(workdir))
 		return binds, mounts
 	}
 	mounts := map[string]string{
@@ -175,7 +207,7 @@ func (rc *RunContext) GetBindsAndMounts() ([]string, map[string]string) {
 		if selinux.GetEnabled() {
 			bindModifiers = ":z"
 		}
-		binds = append(binds, fmt.Sprintf("%s:%s%s", rc.Config.Workdir, ext.ToContainerPath(rc.Config.Workdir), bindModifiers))
+		binds = append(binds, fmt.Sprintf("%s:%s%s", workdir, ext.ToContainerPath(rc.Config.Workdir), bindModifiers))
 	} else {
 		mounts[name] = ext.ToContainerPath(rc.Config.Workdir)
 	}
@@ -212,11 +244,14 @@ func (rc *RunContext) startHostEnvironment() common.Executor {
 			return err
 		}
 		toolCache := filepath.Join(cacheDir, "tool_cache")
+
+		rc.reconstitute(ctx)
+
 		rc.JobContainer = &container.HostEnvironment{
 			Path:      path,
 			TmpDir:    runnerTmp,
 			ToolCache: toolCache,
-			Workdir:   rc.Config.Workdir,
+			Workdir:   rc.effectiveWorkdir(),
 			ActPath:   actPath,
 			CleanUp: func() {
 				os.RemoveAll(miscpath)
@@ -281,6 +316,8 @@ func (rc *RunContext) startJobContainer() common.Executor {
 		envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_ARCH", container.RunnerArch(ctx)))
 		envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_TEMP", "/tmp"))
 		envList = append(envList, fmt.Sprintf("%s=%s", "LANG", "C.UTF-8")) // Use same locale as GitHub Actions
+
+		rc.reconstitute(ctx)
 
 		ext := container.LinuxContainerEnvironmentExtensions{}
 		binds, mounts := rc.GetBindsAndMounts()
@@ -684,6 +721,10 @@ func (rc *RunContext) stopContainer() common.Executor {
 
 func (rc *RunContext) closeContainer() common.Executor {
 	return func(ctx context.Context) error {
+		if rc.worktreeCleanup != nil {
+			rc.worktreeCleanup()
+			rc.worktreeCleanup = nil
+		}
 		if rc.JobContainer != nil {
 			return rc.JobContainer.Close()(ctx)
 		}

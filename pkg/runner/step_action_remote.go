@@ -164,7 +164,15 @@ func (sar *stepActionRemote) main() common.Executor {
 				}
 				eval := sar.RunContext.NewExpressionEvaluator(ctx)
 				copyToPath := path.Join(sar.RunContext.JobContainer.ToContainerPath(sar.RunContext.Config.Workdir), eval.Interpolate(ctx, sar.Step.With["path"]))
-				return sar.RunContext.JobContainer.CopyDir(copyToPath, sar.RunContext.Config.Workdir+string(filepath.Separator)+".", sar.RunContext.Config.UseGitIgnore)(ctx)
+				// When the workdir was reconstituted from a worktree, .git is a
+				// real directory in the temp copy. If a prior run (--reuse) left
+				// .git as a file in the container volume, docker cp fails trying
+				// to create entries inside a file. Remove it first.
+				if sar.RunContext.reconstitutedWorkdir != "" {
+					containerGit := path.Join(copyToPath, ".git")
+					_ = sar.RunContext.JobContainer.Exec([]string{"rm", "-rf", containerGit}, nil, "", "")(ctx)
+				}
+				return sar.RunContext.JobContainer.CopyDir(copyToPath, sar.RunContext.effectiveWorkdir()+string(filepath.Separator)+".", sar.RunContext.Config.UseGitIgnore)(ctx)
 			}
 
 			actionDir := fmt.Sprintf("%s/%s", sar.RunContext.ActionCacheDir(), safeFilename(sar.Step.Uses))
