@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"testing"
 
+	"github.com/go-git/go-git/v5"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -202,6 +203,13 @@ func TestGitCloneExecutor(t *testing.T) {
 			URL: "https://github.com/actions/checkout",
 			Ref: "5a4ac90", // v2
 		},
+		"nested-tag": {
+			// gradle/actions@v4 is a nested annotated tag: v4 -> v4.x.x -> commit
+			// This tests that we can resolve chained/nested annotated tags
+			Err: nil,
+			URL: "https://github.com/gradle/actions",
+			Ref: "v4",
+		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			clone := NewGitCloneExecutor(NewGitCloneExecutorInput{
@@ -246,6 +254,85 @@ func gitCmd(args ...string) error {
 		return exitError
 	}
 	return nil
+}
+
+func TestResolveTagToCommit(t *testing.T) {
+	basedir := testDir(t)
+	gitConfig()
+
+	for name, tt := range map[string]struct {
+		Prepare     func(t *testing.T, dir string)
+		TagName     string
+		ExpectError bool
+	}{
+		"simple_annotated_tag": {
+			Prepare: func(t *testing.T, dir string) {
+				require.NoError(t, gitCmd("-C", dir, "commit", "--allow-empty", "-m", "initial commit"))
+				require.NoError(t, gitCmd("-C", dir, "tag", "-a", "v1.0.0", "-m", "version 1.0.0"))
+			},
+			TagName:     "v1.0.0",
+			ExpectError: false,
+		},
+		"lightweight_tag": {
+			Prepare: func(t *testing.T, dir string) {
+				require.NoError(t, gitCmd("-C", dir, "commit", "--allow-empty", "-m", "initial commit"))
+				require.NoError(t, gitCmd("-C", dir, "tag", "v1.0.0"))
+			},
+			TagName:     "v1.0.0",
+			ExpectError: false,
+		},
+		"nested_annotated_tag": {
+			Prepare: func(t *testing.T, dir string) {
+				require.NoError(t, gitCmd("-C", dir, "commit", "--allow-empty", "-m", "initial commit"))
+				// Create first annotated tag pointing to commit
+				require.NoError(t, gitCmd("-C", dir, "tag", "-a", "v1.0.0", "-m", "version 1.0.0"))
+				// Create second annotated tag pointing to the first tag
+				// This simulates the gradle/actions@v4 scenario where v4 -> v4.4.4 -> commit
+				require.NoError(t, gitCmd("-C", dir, "tag", "-a", "v1", "v1.0.0", "-m", "major version 1"))
+			},
+			TagName:     "v1",
+			ExpectError: false,
+		},
+		"triple_nested_tag": {
+			Prepare: func(t *testing.T, dir string) {
+				require.NoError(t, gitCmd("-C", dir, "commit", "--allow-empty", "-m", "initial commit"))
+				require.NoError(t, gitCmd("-C", dir, "tag", "-a", "v1.0.0", "-m", "version 1.0.0"))
+				require.NoError(t, gitCmd("-C", dir, "tag", "-a", "v1.0", "v1.0.0", "-m", "minor version"))
+				require.NoError(t, gitCmd("-C", dir, "tag", "-a", "v1", "v1.0", "-m", "major version"))
+			},
+			TagName:     "v1",
+			ExpectError: false,
+		},
+		"nonexistent_tag": {
+			Prepare: func(t *testing.T, dir string) {
+				require.NoError(t, gitCmd("-C", dir, "commit", "--allow-empty", "-m", "initial commit"))
+			},
+			TagName:     "nonexistent",
+			ExpectError: true,
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			dir := filepath.Join(basedir, name)
+			require.NoError(t, os.MkdirAll(dir, 0o755))
+			require.NoError(t, gitCmd("-C", dir, "init", "--initial-branch=master"))
+			require.NoError(t, cleanGitHooks(dir))
+			tt.Prepare(t, dir)
+
+			repo, err := git.PlainOpen(dir)
+			require.NoError(t, err)
+
+			hash, err := resolveTagToCommit(repo, tt.TagName)
+			if tt.ExpectError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.NotNil(t, hash)
+				// Verify the resolved hash is actually a commit
+				_, err := repo.CommitObject(*hash)
+				assert.NoError(t, err, "resolved hash should be a commit")
+			}
+		})
+	}
 }
 
 func TestCloneIfRequired(t *testing.T) {
