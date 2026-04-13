@@ -6,9 +6,20 @@
 
 Returns an authenticated Octokit client that follows the machine [proxy settings](https://help.github.com/en/actions/hosting-your-own-runners/using-a-proxy-server-with-self-hosted-runners) and correctly sets GHES base urls. See https://octokit.github.io/rest.js for the API.
 
+**Note:** This package is ESM-only starting from v9.0.0. For CommonJS projects, use dynamic import:
 ```js
-const github = require('@actions/github');
-const core = require('@actions/core');
+async function main() {
+    const { getOctokit, context } = await import('@actions/github');
+    // ... your code here
+}
+main();
+```
+
+For bundled actions (recommended), most bundlers like esbuild, webpack, and rollup handle ESM imports automatically.
+
+```js
+import * as github from '@actions/github';
+import * as core from '@actions/core';
 
 async function run() {
     // This should be a token with access to your repository scoped in as a secret.
@@ -22,7 +33,7 @@ async function run() {
     // You can also pass in additional options as a second parameter to getOctokit
     // const octokit = github.getOctokit(myToken, {userAgent: "MyActionVersion1"});
 
-    const { data: pullRequest } = await octokit.pulls.get({
+    const { data: pullRequest } = await octokit.rest.pulls.get({
         owner: 'octokit',
         repo: 'rest.js',
         pull_number: 123,
@@ -46,11 +57,11 @@ const result = await octokit.graphql(query, variables);
 Finally, you can get the context of the current action:
 
 ```js
-const github = require('@actions/github');
+import * as github from '@actions/github';
 
 const context = github.context;
 
-const newIssue = await octokit.issues.create({
+const newIssue = await octokit.rest.issues.create({
   ...context.repo,
   title: 'New issue!',
   body: 'Hello Universe!'
@@ -59,18 +70,19 @@ const newIssue = await octokit.issues.create({
 
 ## Webhook payload typescript definitions
 
-The npm module `@octokit/webhooks` provides type definitions for the response payloads. You can cast the payload to these types for better type information.
+The npm module `@octokit/webhooks-definitions` provides type definitions for the response payloads. You can cast the payload to these types for better type information.
 
-First, install the npm module `npm install @octokit/webhooks`
+First, install the npm module `npm install @octokit/webhooks-definitions`
 
 Then, assert the type based on the eventName
 ```ts
 import * as core from '@actions/core'
 import * as github from '@actions/github'
-import * as Webhooks from '@octokit/webhooks'
+import {PushEvent} from '@octokit/webhooks-definitions/schema'
+
 if (github.context.eventName === 'push') {
-  const pushPayload = github.context.payload as Webhooks.WebhookPayloadPush
-  core.info(`The head commit is: ${pushPayload.head}`)
+  const pushPayload = github.context.payload as PushEvent
+  core.info(`The head commit is: ${pushPayload.head_commit}`)
 }
 ```
 
@@ -90,7 +102,7 @@ const octokit = GitHub.plugin(enterpriseServer220Admin)
 const myToken = core.getInput('myToken');
 const myOctokit = new octokit(getOctokitOptions(token))
 // Create a new user
-myOctokit.enterpriseAdmin.createUser({
+myOctokit.rest.enterpriseAdmin.createUser({
   login: "testuser",
   email: "testuser@test.com",
 });

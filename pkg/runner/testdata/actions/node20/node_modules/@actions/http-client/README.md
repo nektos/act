@@ -7,7 +7,7 @@ A lightweight HTTP client optimized for building actions.
   - HTTP client with TypeScript generics and async/await/Promises
   - Typings included!
   - [Proxy support](https://help.github.com/en/actions/automating-your-workflow-with-github-actions/about-self-hosted-runners#using-a-proxy-server-with-self-hosted-runners) just works with actions and the runner
-  - Targets ES2019 (runner runs actions with node 12+).  Only supported on node 12+.
+  - Targets ES2019 (runner runs actions with node 24+).  Only supported on node 20+.
   - Basic, Bearer and PAT Support out of the box.  Extensible handlers for others.
   - Redirects supported
 
@@ -44,7 +44,7 @@ export NODE_DEBUG=http
 
 ## Node support
 
-The http-client is built using the latest LTS version of Node 12. It may work on previous node LTS versions but it's tested and officially supported on Node12+.
+The http-client is built using Node 24. It may work on previous node LTS versions but it's tested and officially supported on Node 20+.
 
 ## Support and Versioning
 

@@ -51,10 +51,18 @@ func (rc *RunContext) commandHandler(ctx context.Context) common.LineHandler {
 		defCommandLogger := logger.WithFields(logrus.Fields{"command": command, "kvPairs": kvPairs, "arg": arg, "raw": line})
 		switch command {
 		case "set-env":
+			if rc.Env["ACTIONS_ALLOW_UNSECURE_COMMANDS"] != "true" {
+				defCommandLogger.Errorf("The `set-env` command is disabled. Please upgrade to using Environment Files or opt into unsafe commands by setting the `ACTIONS_ALLOW_UNSECURE_COMMANDS` environment variable to `true`.")
+				break
+			}
 			rc.setEnv(ctx, kvPairs, arg)
 		case "set-output":
 			rc.setOutput(ctx, kvPairs, arg)
 		case "add-path":
+			if rc.Env["ACTIONS_ALLOW_UNSECURE_COMMANDS"] != "true" {
+				defCommandLogger.Errorf("The `add-path` command is disabled. Please upgrade to using Environment Files or opt into unsafe commands by setting the `ACTIONS_ALLOW_UNSECURE_COMMANDS` environment variable to `true`.")
+				break
+			}
 			rc.addPath(ctx, arg)
 		case "debug":
 			defCommandLogger.Debugf("  \U0001F4AC  %s", line)
