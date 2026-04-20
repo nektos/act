@@ -174,9 +174,9 @@ func setJobResult(ctx context.Context, info jobInfo, rc *RunContext, success boo
 		rc.caller.runContext.result(jobResult)
 	}
 
-	jobResultMessage := "succeeded"
+	jobResultMessage := "succeeded \u2705"
 	if jobResult != "success" {
-		jobResultMessage = "failed"
+		jobResultMessage = "failed \u274C"
 	}
 
 	logger.WithField("jobResult", jobResult).Infof("\U0001F3C1  Job %s", jobResultMessage)
