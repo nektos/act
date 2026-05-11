@@ -11,9 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/client"
+	"github.com/moby/moby/client"
 	"github.com/nektos/act/pkg/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -21,9 +19,9 @@ import (
 
 func TestDocker(t *testing.T) {
 	ctx := context.Background()
-	client, err := GetDockerClient(ctx)
+	cli, err := GetDockerClient(ctx)
 	assert.NoError(t, err)
-	defer client.Close()
+	defer cli.Close()
 
 	dockerBuild := NewDockerBuildExecutor(NewDockerBuildExecutorInput{
 		ContextDir: "testdata",
@@ -34,7 +32,7 @@ func TestDocker(t *testing.T) {
 	assert.NoError(t, err)
 
 	cr := &containerReference{
-		cli: client,
+		cli: cli,
 		input: &NewContainerInput{
 			Image: "envmergetest",
 		},
@@ -64,24 +62,24 @@ type mockDockerClient struct {
 	mock.Mock
 }
 
-func (m *mockDockerClient) ContainerExecCreate(ctx context.Context, id string, opts container.ExecOptions) (container.ExecCreateResponse, error) {
+func (m *mockDockerClient) ExecCreate(ctx context.Context, id string, opts client.ExecCreateOptions) (client.ExecCreateResult, error) {
 	args := m.Called(ctx, id, opts)
-	return args.Get(0).(container.ExecCreateResponse), args.Error(1)
+	return args.Get(0).(client.ExecCreateResult), args.Error(1)
 }
 
-func (m *mockDockerClient) ContainerExecAttach(ctx context.Context, id string, opts container.ExecStartOptions) (types.HijackedResponse, error) {
+func (m *mockDockerClient) ExecAttach(ctx context.Context, id string, opts client.ExecAttachOptions) (client.ExecAttachResult, error) {
 	args := m.Called(ctx, id, opts)
-	return args.Get(0).(types.HijackedResponse), args.Error(1)
+	return args.Get(0).(client.ExecAttachResult), args.Error(1)
 }
 
-func (m *mockDockerClient) ContainerExecInspect(ctx context.Context, execID string) (container.ExecInspect, error) {
-	args := m.Called(ctx, execID)
-	return args.Get(0).(container.ExecInspect), args.Error(1)
+func (m *mockDockerClient) ExecInspect(ctx context.Context, execID string, opts client.ExecInspectOptions) (client.ExecInspectResult, error) {
+	args := m.Called(ctx, execID, opts)
+	return args.Get(0).(client.ExecInspectResult), args.Error(1)
 }
 
-func (m *mockDockerClient) CopyToContainer(ctx context.Context, id string, path string, content io.Reader, options container.CopyToContainerOptions) error {
-	args := m.Called(ctx, id, path, content, options)
-	return args.Error(0)
+func (m *mockDockerClient) CopyToContainer(ctx context.Context, id string, options client.CopyToContainerOptions) (client.CopyToContainerResult, error) {
+	args := m.Called(ctx, id, options.DestinationPath, options.Content, options)
+	return client.CopyToContainerResult{}, args.Error(0)
 }
 
 type endlessReader struct {
@@ -112,16 +110,18 @@ func TestDockerExecAbort(t *testing.T) {
 	conn := &mockConn{}
 	conn.On("Write", mock.AnythingOfType("[]uint8")).Return(1, nil)
 
-	client := &mockDockerClient{}
-	client.On("ContainerExecCreate", ctx, "123", mock.AnythingOfType("container.ExecOptions")).Return(container.ExecCreateResponse{ID: "id"}, nil)
-	client.On("ContainerExecAttach", ctx, "id", mock.AnythingOfType("container.ExecStartOptions")).Return(types.HijackedResponse{
-		Conn:   conn,
-		Reader: bufio.NewReader(endlessReader{}),
+	cli := &mockDockerClient{}
+	cli.On("ExecCreate", ctx, "123", mock.AnythingOfType("client.ExecCreateOptions")).Return(client.ExecCreateResult{ID: "id"}, nil)
+	cli.On("ExecAttach", ctx, "id", mock.AnythingOfType("client.ExecAttachOptions")).Return(client.ExecAttachResult{
+		HijackedResponse: client.HijackedResponse{
+			Conn:   conn,
+			Reader: bufio.NewReader(endlessReader{}),
+		},
 	}, nil)
 
 	cr := &containerReference{
 		id:  "123",
-		cli: client,
+		cli: cli,
 		input: &NewContainerInput{
 			Image: "image",
 		},
@@ -141,7 +141,7 @@ func TestDockerExecAbort(t *testing.T) {
 	assert.ErrorIs(t, err, context.Canceled)
 
 	conn.AssertExpectations(t)
-	client.AssertExpectations(t)
+	cli.AssertExpectations(t)
 }
 
 func TestDockerExecFailure(t *testing.T) {
@@ -149,19 +149,21 @@ func TestDockerExecFailure(t *testing.T) {
 
 	conn := &mockConn{}
 
-	client := &mockDockerClient{}
-	client.On("ContainerExecCreate", ctx, "123", mock.AnythingOfType("container.ExecOptions")).Return(container.ExecCreateResponse{ID: "id"}, nil)
-	client.On("ContainerExecAttach", ctx, "id", mock.AnythingOfType("container.ExecStartOptions")).Return(types.HijackedResponse{
-		Conn:   conn,
-		Reader: bufio.NewReader(strings.NewReader("output")),
+	cli := &mockDockerClient{}
+	cli.On("ExecCreate", ctx, "123", mock.AnythingOfType("client.ExecCreateOptions")).Return(client.ExecCreateResult{ID: "id"}, nil)
+	cli.On("ExecAttach", ctx, "id", mock.AnythingOfType("client.ExecAttachOptions")).Return(client.ExecAttachResult{
+		HijackedResponse: client.HijackedResponse{
+			Conn:   conn,
+			Reader: bufio.NewReader(strings.NewReader("output")),
+		},
 	}, nil)
-	client.On("ContainerExecInspect", ctx, "id").Return(container.ExecInspect{
+	cli.On("ExecInspect", ctx, "id", mock.AnythingOfType("client.ExecInspectOptions")).Return(client.ExecInspectResult{
 		ExitCode: 1,
 	}, nil)
 
 	cr := &containerReference{
 		id:  "123",
-		cli: client,
+		cli: cli,
 		input: &NewContainerInput{
 			Image: "image",
 		},
@@ -171,7 +173,7 @@ func TestDockerExecFailure(t *testing.T) {
 	assert.Error(t, err, "exit with `FAILURE`: 1")
 
 	conn.AssertExpectations(t)
-	client.AssertExpectations(t)
+	cli.AssertExpectations(t)
 }
 
 func TestDockerCopyTarStream(t *testing.T) {
@@ -179,12 +181,12 @@ func TestDockerCopyTarStream(t *testing.T) {
 
 	conn := &mockConn{}
 
-	client := &mockDockerClient{}
-	client.On("CopyToContainer", ctx, "123", "/", mock.Anything, mock.AnythingOfType("container.CopyToContainerOptions")).Return(nil)
-	client.On("CopyToContainer", ctx, "123", "/var/run/act", mock.Anything, mock.AnythingOfType("container.CopyToContainerOptions")).Return(nil)
+	cli := &mockDockerClient{}
+	cli.On("CopyToContainer", ctx, "123", "/", mock.Anything, mock.AnythingOfType("client.CopyToContainerOptions")).Return(nil)
+	cli.On("CopyToContainer", ctx, "123", "/var/run/act", mock.Anything, mock.AnythingOfType("client.CopyToContainerOptions")).Return(nil)
 	cr := &containerReference{
 		id:  "123",
-		cli: client,
+		cli: cli,
 		input: &NewContainerInput{
 			Image: "image",
 		},
@@ -193,7 +195,7 @@ func TestDockerCopyTarStream(t *testing.T) {
 	_ = cr.CopyTarStream(ctx, "/var/run/act", &bytes.Buffer{})
 
 	conn.AssertExpectations(t)
-	client.AssertExpectations(t)
+	cli.AssertExpectations(t)
 }
 
 func TestDockerCopyTarStreamDryRun(t *testing.T) {
@@ -201,12 +203,12 @@ func TestDockerCopyTarStreamDryRun(t *testing.T) {
 
 	conn := &mockConn{}
 
-	client := &mockDockerClient{}
-	client.AssertNotCalled(t, "CopyToContainer", ctx, "123", "/", mock.Anything, mock.AnythingOfType("container.CopyToContainerOptions"))
-	client.AssertNotCalled(t, "CopyToContainer", ctx, "123", "/var/run/act", mock.Anything, mock.AnythingOfType("container.CopyToContainerOptions"))
+	cli := &mockDockerClient{}
+	cli.AssertNotCalled(t, "CopyToContainer", ctx, "123", "/", mock.Anything, mock.AnythingOfType("client.CopyToContainerOptions"))
+	cli.AssertNotCalled(t, "CopyToContainer", ctx, "123", "/var/run/act", mock.Anything, mock.AnythingOfType("client.CopyToContainerOptions"))
 	cr := &containerReference{
 		id:  "123",
-		cli: client,
+		cli: cli,
 		input: &NewContainerInput{
 			Image: "image",
 		},
@@ -215,7 +217,7 @@ func TestDockerCopyTarStreamDryRun(t *testing.T) {
 	_ = cr.CopyTarStream(ctx, "/var/run/act", &bytes.Buffer{})
 
 	conn.AssertExpectations(t)
-	client.AssertExpectations(t)
+	cli.AssertExpectations(t)
 }
 
 func TestDockerCopyTarStreamErrorInCopyFiles(t *testing.T) {
@@ -225,12 +227,12 @@ func TestDockerCopyTarStreamErrorInCopyFiles(t *testing.T) {
 
 	merr := fmt.Errorf("Failure")
 
-	client := &mockDockerClient{}
-	client.On("CopyToContainer", ctx, "123", "/", mock.Anything, mock.AnythingOfType("container.CopyToContainerOptions")).Return(merr)
-	client.On("CopyToContainer", ctx, "123", "/", mock.Anything, mock.AnythingOfType("container.CopyToContainerOptions")).Return(merr)
+	cli := &mockDockerClient{}
+	cli.On("CopyToContainer", ctx, "123", "/", mock.Anything, mock.AnythingOfType("client.CopyToContainerOptions")).Return(merr)
+	cli.On("CopyToContainer", ctx, "123", "/", mock.Anything, mock.AnythingOfType("client.CopyToContainerOptions")).Return(merr)
 	cr := &containerReference{
 		id:  "123",
-		cli: client,
+		cli: cli,
 		input: &NewContainerInput{
 			Image: "image",
 		},
@@ -240,7 +242,7 @@ func TestDockerCopyTarStreamErrorInCopyFiles(t *testing.T) {
 	assert.ErrorIs(t, err, merr)
 
 	conn.AssertExpectations(t)
-	client.AssertExpectations(t)
+	cli.AssertExpectations(t)
 }
 
 func TestDockerCopyTarStreamErrorInMkdir(t *testing.T) {
@@ -250,12 +252,12 @@ func TestDockerCopyTarStreamErrorInMkdir(t *testing.T) {
 
 	merr := fmt.Errorf("Failure")
 
-	client := &mockDockerClient{}
-	client.On("CopyToContainer", ctx, "123", "/", mock.Anything, mock.AnythingOfType("container.CopyToContainerOptions")).Return(nil)
-	client.On("CopyToContainer", ctx, "123", "/var/run/act", mock.Anything, mock.AnythingOfType("container.CopyToContainerOptions")).Return(merr)
+	cli := &mockDockerClient{}
+	cli.On("CopyToContainer", ctx, "123", "/", mock.Anything, mock.AnythingOfType("client.CopyToContainerOptions")).Return(nil)
+	cli.On("CopyToContainer", ctx, "123", "/var/run/act", mock.Anything, mock.AnythingOfType("client.CopyToContainerOptions")).Return(merr)
 	cr := &containerReference{
 		id:  "123",
-		cli: client,
+		cli: cli,
 		input: &NewContainerInput{
 			Image: "image",
 		},
@@ -265,7 +267,7 @@ func TestDockerCopyTarStreamErrorInMkdir(t *testing.T) {
 	assert.ErrorIs(t, err, merr)
 
 	conn.AssertExpectations(t)
-	client.AssertExpectations(t)
+	cli.AssertExpectations(t)
 }
 
 // Type assert containerReference implements ExecutionsEnvironment

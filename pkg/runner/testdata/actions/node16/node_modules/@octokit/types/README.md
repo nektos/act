@@ -32,7 +32,7 @@ type listUserReposParameters =
 type listUserReposResponse = Endpoints["GET /repos/{owner}/{repo}"]["response"];
 
 async function listRepos(
-  options: listUserReposParameters
+  options: listUserReposParameters,
 ): listUserReposResponse["data"] {
   // ...
 }

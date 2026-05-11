@@ -1,13 +1,13 @@
-module.exports = addHook;
+// @ts-check
 
-function addHook(state, kind, name, hook) {
-  var orig = hook;
+export function addHook(state, kind, name, hook) {
+  const orig = hook;
   if (!state.registry[name]) {
     state.registry[name] = [];
   }
 
   if (kind === "before") {
-    hook = function (method, options) {
+    hook = (method, options) => {
       return Promise.resolve()
         .then(orig.bind(null, options))
         .then(method.bind(null, options));
@@ -15,25 +15,25 @@ function addHook(state, kind, name, hook) {
   }
 
   if (kind === "after") {
-    hook = function (method, options) {
-      var result;
+    hook = (method, options) => {
+      let result;
       return Promise.resolve()
         .then(method.bind(null, options))
-        .then(function (result_) {
+        .then((result_) => {
           result = result_;
           return orig(result, options);
         })
-        .then(function () {
+        .then(() => {
           return result;
         });
     };
   }
 
   if (kind === "error") {
-    hook = function (method, options) {
+    hook = (method, options) => {
       return Promise.resolve()
         .then(method.bind(null, options))
-        .catch(function (error) {
+        .catch((error) => {
           return orig(error, options);
         });
     };

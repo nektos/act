@@ -1,12 +1,12 @@
-module.exports = removeHook;
+// @ts-check
 
-function removeHook(state, name, method) {
+export function removeHook(state, name, method) {
   if (!state.registry[name]) {
     return;
   }
 
-  var index = state.registry[name]
-    .map(function (registered) {
+  const index = state.registry[name]
+    .map((registered) => {
       return registered.orig;
     })
     .indexOf(method);

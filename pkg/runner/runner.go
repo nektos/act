@@ -7,7 +7,7 @@ import (
 	"os"
 	"runtime"
 
-	docker_container "github.com/docker/docker/api/types/container"
+	docker_container "github.com/moby/moby/api/types/container"
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/model"
 	log "github.com/sirupsen/logrus"
