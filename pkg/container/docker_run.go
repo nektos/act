@@ -710,11 +710,14 @@ func (cr *containerReference) CopyTarStream(ctx context.Context, destPath string
 	if common.Dryrun(ctx) {
 		return nil
 	}
-	// Mkdir
+	// Mkdir — strip leading "/" so the path is relative to DestinationPath="/"
+	// Without this, Docker rejects mkdirat with "path escapes from parent" when
+	// network=host maps the container's /var/run to the host's /var/run.
+	tarName := strings.TrimPrefix(destPath, "/")
 	buf := &bytes.Buffer{}
 	tw := tar.NewWriter(buf)
 	_ = tw.WriteHeader(&tar.Header{
-		Name:     destPath,
+		Name:     tarName,
 		Mode:     0o777,
 		Typeflag: tar.TypeDir,
 	})
