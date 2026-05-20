@@ -1643,6 +1643,11 @@
           "cancel-in-progress": {
             "type": "boolean",
             "description": "To cancel any currently running job or workflow in the same concurrency group, specify cancel-in-progress: true."
+          },
+          "queue": {
+            "type": "string",
+            "enum": ["single", "max"],
+            "description": "Controls how many pending runs are allowed for the concurrency group. single = at most 1 pending, max = up to 100 pending."
           }
         }
       }
