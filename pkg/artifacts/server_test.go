@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -392,4 +393,45 @@ func TestArtifactUploadBlobUnsafePath(t *testing.T) {
 
 	assert.Equal("success", response.Message)
 	assert.Equal("content", string(memfs["artifact/server/path/1/some/file"].Data))
+}
+
+func TestArtifactV4BuildArtifactURLUsesRawBase64Signature(t *testing.T) {
+	assert := assert.New(t)
+
+	route := artifactV4Routes{
+		prefix: ArtifactV4RouteBase,
+		AppURL: "localhost",
+	}
+
+	uploadURL, err := url.Parse(route.buildArtifactURL("UploadArtifact", "test-artifact", 1))
+	assert.NoError(err)
+	assert.NotContains(uploadURL.Query().Get("sig"), "=")
+}
+
+func TestArtifactV4UploadAcceptsUnpaddedBase64Signature(t *testing.T) {
+	assert := assert.New(t)
+
+	var memfs = fstest.MapFS(map[string]*fstest.MapFile{})
+	route := artifactV4Routes{
+		fs:      writeMapFS{memfs},
+		rfs:     memfs,
+		baseDir: "artifact/server/path",
+		prefix:  ArtifactV4RouteBase,
+		AppURL:  "localhost",
+	}
+
+	uploadURL, err := url.Parse(route.buildArtifactURL("UploadArtifact", "test-artifact", 1))
+	assert.NoError(err)
+	query := uploadURL.Query()
+	query.Set("sig", strings.TrimRight(query.Get("sig"), "="))
+	query.Set("comp", "block")
+	uploadURL.RawQuery = query.Encode()
+
+	req, _ := http.NewRequest("PUT", uploadURL.String(), strings.NewReader("content"))
+	rr := httptest.NewRecorder()
+
+	route.uploadArtifact(&ArtifactContext{Req: req, Resp: rr})
+
+	assert.Equal(http.StatusCreated, rr.Code)
+	assert.Equal("content", string(memfs["artifact/server/path/1/test-artifact/test-artifact.zip"].Data))
 }
