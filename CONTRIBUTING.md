@@ -25,7 +25,7 @@ All feature requests should start with [submitting an issue](#issue) documenting
 
 ### <a id="issue"></a> Create an issue
 
-Before submitting a new issue, please search the issues to make sure there isn't a similar issue doesn't already exist.
+Before submitting a new issue, please search the issues to make sure a similar issue doesn't already exist.
 
 Assuming no existing issues exist, please ensure you include required information when submitting the issue to ensure we can quickly reproduce your issue.
 
@@ -51,7 +51,7 @@ When submitting code, please make every effort to follow existing conventions an
   - You can run `make pr` to cleanup dependencies, format/lint code and run tests.
 - All dependencies must be defined in the `go.mod` file.
   - Advanced IDEs and code editors (like VSCode) will take care of that, but to be sure, run `go mod tidy` to validate dependencies.
-- For details on the approved style, check out [Effective Go](https://golang.org/doc/effective_go.html).
+- For details on the approved style, check out [Effective Go](https://go.dev/doc/effective_go).
 - Before running tests, please be aware that they are multi-architecture so for them to not fail, you need to run `docker run --privileged --rm tonistiigi/binfmt --install amd64,arm64` before ([more info available in #765](https://github.com/nektos/act/issues/765)).
 
 Also, consider the original design principles:
