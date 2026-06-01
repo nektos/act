@@ -210,8 +210,15 @@ func (r artifactV4Routes) buildSignature(endp, expires, artifactName string, tas
 func (r artifactV4Routes) buildArtifactURL(endp, artifactName string, taskID int64) string {
 	expires := time.Now().Add(60 * time.Minute).Format("2006-01-02 15:04:05.999999999 -0700 MST")
 	uploadURL := "http://" + strings.TrimSuffix(r.AppURL, "/") + strings.TrimSuffix(r.prefix, "/") +
-		"/" + endp + "?sig=" + base64.URLEncoding.EncodeToString(r.buildSignature(endp, expires, artifactName, taskID)) + "&expires=" + url.QueryEscape(expires) + "&artifactName=" + url.QueryEscape(artifactName) + "&taskID=" + fmt.Sprint(taskID)
+		"/" + endp + "?sig=" + base64.RawURLEncoding.EncodeToString(r.buildSignature(endp, expires, artifactName, taskID)) + "&expires=" + url.QueryEscape(expires) + "&artifactName=" + url.QueryEscape(artifactName) + "&taskID=" + fmt.Sprint(taskID)
 	return uploadURL
+}
+
+func decodeBase64URLSignature(sig string) ([]byte, error) {
+	if decoded, err := base64.RawURLEncoding.DecodeString(sig); err == nil {
+		return decoded, nil
+	}
+	return base64.URLEncoding.DecodeString(sig)
 }
 
 func (r artifactV4Routes) verifySignature(ctx *ArtifactContext, endp string) (int64, string, bool) {
@@ -219,7 +226,12 @@ func (r artifactV4Routes) verifySignature(ctx *ArtifactContext, endp string) (in
 	sig := ctx.Req.URL.Query().Get("sig")
 	expires := ctx.Req.URL.Query().Get("expires")
 	artifactName := ctx.Req.URL.Query().Get("artifactName")
-	dsig, _ := base64.URLEncoding.DecodeString(sig)
+	dsig, err := decodeBase64URLSignature(sig)
+	if err != nil {
+		log.Error("Error unauthorized")
+		ctx.Error(http.StatusUnauthorized, "Error unauthorized")
+		return -1, "", false
+	}
 	taskID, _ := strconv.ParseInt(rawTaskID, 10, 64)
 
 	expecedsig := r.buildSignature(endp, expires, artifactName, taskID)
