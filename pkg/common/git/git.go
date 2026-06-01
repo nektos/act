@@ -64,7 +64,7 @@ func FindGitRevision(ctx context.Context, file string) (shortSha string, sha str
 	)
 
 	if err != nil {
-		logger.WithError(err).Error("path", file, "not located inside a git repository")
+		logger.WithError(err).Errorf("path %s not located inside a git repository", file)
 		return "", "", err
 	}
 
