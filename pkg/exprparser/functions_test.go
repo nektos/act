@@ -257,6 +257,42 @@ func TestFunctionFormat(t *testing.T) {
 	}
 }
 
+func TestFunctionCase(t *testing.T) {
+	table := []struct {
+		input    string
+		expected interface{}
+		error    interface{}
+		name     string
+	}{
+		{"case(true, 'yes', 'no') }}", "yes", nil, "case-single-pred-true"},
+		{"case(false, 'yes', 'no') }}", "no", nil, "case-single-pred-false-default"},
+		{"case(false, 'a', true, 'b', 'default') }}", "b", nil, "case-second-pred-true"},
+		{"case(false, 'a', false, 'b', 'default') }}", "default", nil, "case-no-match-default"},
+		{"case(true, 'first', true, 'second', 'default') }}", "first", nil, "case-first-true-wins"},
+		{"case(1 == 1, 'eq', 'neq') }}", "eq", nil, "case-equality-predicate"},
+		{"case('' , 'empty-truthy', 'not-empty') }}", "not-empty", nil, "case-empty-string-is-falsy"},
+		{"case('x', 'truthy', 'falsy') }}", "truthy", nil, "case-non-empty-string-is-truthy"},
+		{"case(false, 'a', null) }}", nil, nil, "case-default-null"},
+		{"case(false, 1, false, 2, 3) }}", 3, nil, "case-numeric-default"},
+		{"case(false, 'a') }}", nil, "case() requires at least 3 arguments, got 2", "case-too-few-args"},
+		{"case(false, 'a', true, 'b') }}", nil, "case() requires an odd number of arguments (pairs of predicate/value plus a default), got 4", "case-even-args"},
+	}
+
+	env := &EvaluationEnvironment{}
+
+	for _, tt := range table {
+		t.Run(tt.name, func(t *testing.T) {
+			output, err := NewInterpeter(env, Config{}).Evaluate(tt.input, DefaultStatusCheckNone)
+			if tt.error != nil {
+				assert.Equal(t, tt.error, err.Error())
+			} else {
+				assert.Nil(t, err)
+				assert.Equal(t, tt.expected, output)
+			}
+		})
+	}
+}
+
 func TestMapContains(t *testing.T) {
 	env := &EvaluationEnvironment{
 		Needs: map[string]Needs{
