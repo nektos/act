@@ -21,7 +21,7 @@ jobs:
         with:
           go-version-file: go.mod
       - name: GoReleaser
-        uses: goreleaser/goreleaser-action@ec59f474b9834571250b370d4735c50f8e2d1e29 # v7
+        uses: goreleaser/goreleaser-action@5daf1e915a5f0af01ddbcd89a43b8061ff4f1a89 # v7
         with:
           version: '~> v2'
           args: release --clean
@@ -40,7 +40,7 @@ jobs:
           apiKey: ${{ secrets.CHOCO_APIKEY }}
           push: true
       - name: GitHub CLI extension
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           github-token: ${{ secrets.GH_ACT_TOKEN }}
           script: |
