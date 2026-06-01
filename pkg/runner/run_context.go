@@ -650,11 +650,36 @@ func (rc *RunContext) ActionCacheDir() string {
 // Interpolate outputs after a job is done
 func (rc *RunContext) interpolateOutputs() common.Executor {
 	return func(ctx context.Context) error {
+		job := rc.Run.Job()
 		ee := rc.NewExpressionEvaluator(ctx)
-		for k, v := range rc.Run.Job().Outputs {
+
+		// For matrix jobs, we need to safely merge outputs from parallel runs
+		job.Lock()
+		defer job.Unlock()
+
+		// Initialize RawOutputs with original templates on first run
+		if job.RawOutputs == nil && len(job.Outputs) > 0 {
+			job.RawOutputs = make(map[string]string)
+			for k, v := range job.Outputs {
+				job.RawOutputs[k] = v
+			}
+		}
+
+		// Use RawOutputs as the source for interpolation if available
+		outputTemplates := job.Outputs
+		if job.RawOutputs != nil {
+			outputTemplates = job.RawOutputs
+		}
+
+		for k, v := range outputTemplates {
 			interpolated := ee.Interpolate(ctx, v)
 			if v != interpolated {
-				rc.Run.Job().Outputs[k] = interpolated
+				currentValue := job.Outputs[k]
+				// For matrix jobs: only set non-empty values, and only if current value is empty or is the original template
+				// This allows multiple matrix runs to contribute their non-empty outputs
+				if interpolated != "" && (currentValue == "" || currentValue == v) {
+					job.Outputs[k] = interpolated
+				}
 			}
 		}
 		return nil
