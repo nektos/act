@@ -454,7 +454,9 @@ func populateEnvsFromInput(ctx context.Context, env *map[string]string, action *
 		envKey := regexp.MustCompile("[^A-Z0-9-]").ReplaceAllString(strings.ToUpper(inputID), "_")
 		envKey = fmt.Sprintf("INPUT_%s", envKey)
 		if _, ok := (*env)[envKey]; !ok {
-			(*env)[envKey] = eval.Interpolate(ctx, input.Default)
+			value := eval.Interpolate(ctx, input.Default)
+			value = strings.NewReplacer("\r", "", "\n", "", "\x00", "").Replace(value)
+			(*env)[envKey] = value
 		}
 	}
 }
