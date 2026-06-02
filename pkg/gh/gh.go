@@ -4,11 +4,16 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"errors"
 	"os/exec"
 )
 
-func GetToken(ctx context.Context, workingDirectory string) (string, error) {
+func GetToken(ctx context.Context, workingDirectory string, hostname string) (string, error) {
 	var token string
+
+	if hostname == "" {
+		return "", errors.New("hostname must not be empty")
+	}
 
 	// Locate the 'gh' executable
 	path, err := exec.LookPath("gh")
@@ -17,7 +22,7 @@ func GetToken(ctx context.Context, workingDirectory string) (string, error) {
 	}
 
 	// Command setup
-	cmd := exec.CommandContext(ctx, path, "auth", "token")
+	cmd := exec.CommandContext(ctx, path, "auth", "token", "--hostname", hostname)
 	cmd.Dir = workingDirectory
 
 	// Capture the output
