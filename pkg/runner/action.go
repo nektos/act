@@ -67,6 +67,7 @@ func readActionImpl(ctx context.Context, step *model.Step, actionDir string, act
 						Using: "docker",
 						Image: "Dockerfile",
 					},
+					ActionPath: actionPath,
 				}
 				logger.Debugf("Using synthetic action %v for Dockerfile", action)
 				return action, nil
@@ -99,6 +100,7 @@ func readActionImpl(ctx context.Context, step *model.Step, actionDir string, act
 							Using: "node12",
 							Main:  "trampoline.js",
 						},
+						ActionPath: actionPath,
 					}
 					logger.Debugf("Using synthetic action %v", action)
 					return action, nil
@@ -107,11 +109,75 @@ func readActionImpl(ctx context.Context, step *model.Step, actionDir string, act
 		}
 	}
 	if allErrors != nil {
+		baseDir := filepath.Join(actionDir, actionPath)
+		// ActionCache case: actionDir is a SHA hash, not a real directory.
+		// os.Stat/ReadDir won't work with tar-backed readers.
+		// We explicitly check and return a clear error so users know why discovery failed.
+		info, statErr := os.Stat(baseDir)
+		if statErr != nil {
+			// baseDir doesn't exist at all — likely ActionCache is enabled.
+			// Return original errors plus a clear explanation.
+			return nil, errors.Join(
+				errors.Join(allErrors...),
+				fmt.Errorf("subdir discovery failed for %q: directory not accessible (ActionCache may be enabled, which uses a tar-backed reader incompatible with filesystem discovery): %w", baseDir, statErr),
+			)
+		}
+		if info.IsDir() {
+			entries, readErr := os.ReadDir(baseDir)
+			if readErr != nil {
+				return nil, errors.Join(
+					errors.Join(allErrors...),
+					fmt.Errorf("failed to read action directory %q: %w", baseDir, readErr),
+				)
+			}
+			var discoveredFile string
+			var discoveredSubdir string
+			for _, entry := range entries {
+				if !entry.IsDir() {
+					continue
+				}
+				subdir := entry.Name()
+				actionYml := filepath.Join(baseDir, subdir, "action.yml")
+				actionYaml := filepath.Join(baseDir, subdir, "action.yaml")
+				if _, err := os.Stat(actionYml); err == nil {
+					if discoveredFile != "" {
+						return nil, fmt.Errorf("ambiguous action: found action.yml in multiple subdirectories: %q and %q (in %q)", discoveredFile, actionYml, baseDir)
+					}
+					discoveredFile = actionYml
+					discoveredSubdir = subdir
+					continue
+				}
+				if _, err := os.Stat(actionYaml); err == nil {
+					if discoveredFile != "" {
+						return nil, fmt.Errorf("ambiguous action: found action.yml in multiple subdirectories: %q and %q (in %q)", discoveredFile, actionYaml, baseDir)
+					}
+					discoveredFile = actionYaml
+					discoveredSubdir = subdir
+				}
+			}
+			if discoveredFile != "" {
+				file, openErr := os.Open(discoveredFile)
+				if openErr != nil {
+					return nil, fmt.Errorf("%s failed to open discovered action file %q (action path %q, base dir %q): %w", step.String(), discoveredFile, actionPath, baseDir, openErr)
+				}
+				defer file.Close()
+				action, readErr := model.ReadAction(file)
+				if readErr != nil {
+					return nil, fmt.Errorf("%s failed to read discovered action file %q (action path %q, base dir %q): %w", step.String(), discoveredFile, actionPath, baseDir, readErr)
+				}
+				action.ActionPath = path.Join(actionPath, discoveredSubdir)
+				logger.Debugf("Read action %v from '%s'", action, discoveredFile)
+				return action, nil
+			}
+		}
 		return nil, errors.Join(allErrors...)
 	}
 	defer closer.Close()
 
 	action, err := model.ReadAction(reader)
+	if err == nil {
+		action.ActionPath = actionPath
+	}
 	logger.Debugf("Read action %v from '%s'", action, "Unknown")
 	return action, err
 }
@@ -191,7 +257,11 @@ func runActionImpl(step actionStep, actionDir string, remoteAction *remoteAction
 				actionDir = ""
 				actionPath = containerActionDir
 			}
-			return execAsDocker(ctx, step, actionName, actionDir, actionPath, remoteAction == nil, "entrypoint")
+			dockerSubpath := actionPath
+			if remoteAction != nil && action.ActionPath != "" {
+				dockerSubpath = action.ActionPath
+			}
+			return execAsDocker(ctx, step, actionName, actionDir, dockerSubpath, remoteAction == nil, "entrypoint")
 		case x.IsComposite():
 			if err := maybeCopyToActionDir(ctx, step, actionDir, actionPath, containerActionDir); err != nil {
 				return err
@@ -567,7 +637,11 @@ func runPreStep(step actionStep) common.Executor {
 				actionDir = ""
 				actionPath = containerActionDir
 			}
-			return execAsDocker(ctx, step, actionName, actionDir, actionPath, remoteAction == nil, "pre-entrypoint")
+			dockerSubpath := actionPath
+			if remoteAction != nil && action.ActionPath != "" {
+				dockerSubpath = action.ActionPath
+			}
+			return execAsDocker(ctx, step, actionName, actionDir, dockerSubpath, remoteAction == nil, "pre-entrypoint")
 
 		case x.IsComposite():
 			if step.getCompositeSteps() == nil {
@@ -670,7 +744,11 @@ func runPostStep(step actionStep) common.Executor {
 				actionDir = ""
 				actionPath = containerActionDir
 			}
-			return execAsDocker(ctx, step, actionName, actionDir, actionPath, remoteAction == nil, "post-entrypoint")
+			dockerSubpath := actionPath
+			if remoteAction != nil && action.ActionPath != "" {
+				dockerSubpath = action.ActionPath
+			}
+			return execAsDocker(ctx, step, actionName, actionDir, dockerSubpath, remoteAction == nil, "post-entrypoint")
 
 		case x.IsComposite():
 			if err := maybeCopyToActionDir(ctx, step, actionDir, actionPath, containerActionDir); err != nil {
