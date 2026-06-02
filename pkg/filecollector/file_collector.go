@@ -145,6 +145,15 @@ func (fc *FileCollector) CollectFiles(ctx context.Context, submodulePath []strin
 		if fi.IsDir() && len(split) > 0 && split[len(split)-1] == "." {
 			return nil
 		}
+		// Skip .git entries at any level. In normal repos .git is a directory
+		// (object store); in worktrees it is a file (gitdir pointer). Neither
+		// belongs in the container copy — they are git-internal metadata.
+		if len(split) > 0 && split[len(split)-1] == ".git" {
+			if fi.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
 		var entry *index.Entry
 		if i != nil {
 			entry, err = i.Entry(strings.Join(split[len(submodulePath):], "/"))
