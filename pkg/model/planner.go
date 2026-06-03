@@ -1,6 +1,7 @@
 package model
 
 import (
+	"cmp"
 	"fmt"
 	"io"
 	"io/fs"
@@ -50,9 +51,9 @@ func (r *Run) Job() *Job {
 	return r.Workflow.GetJob(r.JobID)
 }
 
-type WorkflowFiles struct {
-	workflowDirEntry os.DirEntry
-	dirPath          string
+type WorkflowFile struct {
+	dirPath string
+	name    string
 }
 
 // NewWorkflowPlanner will load a specific workflow, all workflows from a directory or all workflows from a directory and its subdirectories
@@ -62,63 +63,37 @@ func NewWorkflowPlanner(path string, noWorkflowRecurse, strict bool) (WorkflowPl
 		return nil, err
 	}
 
-	fi, err := os.Stat(path)
-	if err != nil {
-		return nil, err
-	}
+	var workflows []WorkflowFile
 
-	var workflows []WorkflowFiles
-
-	if fi.IsDir() {
-		log.Debugf("Loading workflows from '%s'", path)
-		if noWorkflowRecurse {
-			files, err := os.ReadDir(path)
-			if err != nil {
-				return nil, err
-			}
-
-			for _, v := range files {
-				workflows = append(workflows, WorkflowFiles{
-					dirPath:          path,
-					workflowDirEntry: v,
-				})
-			}
-		} else {
-			log.Debug("Loading workflows recursively")
-			if err := filepath.Walk(path,
-				func(p string, f os.FileInfo, err error) error {
-					if err != nil {
-						return err
-					}
-
-					if !f.IsDir() {
-						log.Debugf("Found workflow '%s' in '%s'", f.Name(), p)
-						workflows = append(workflows, WorkflowFiles{
-							dirPath:          filepath.Dir(p),
-							workflowDirEntry: fs.FileInfoToDirEntry(f),
-						})
-					}
-
-					return nil
-				}); err != nil {
-				return nil, err
-			}
+	if err := filepath.WalkDir(path, func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
 		}
-	} else {
-		log.Debugf("Loading workflow '%s'", path)
-		dirname := filepath.Dir(path)
 
-		workflows = append(workflows, WorkflowFiles{
-			dirPath:          dirname,
-			workflowDirEntry: fs.FileInfoToDirEntry(fi),
+		if d.IsDir() {
+			if p != path && noWorkflowRecurse {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		log.Debugf("Found workflow '%s' in '%s'", d.Name(), p)
+
+		workflows = append(workflows, WorkflowFile{
+			dirPath: filepath.Dir(p),
+			name:    d.Name(),
 		})
+
+		return nil
+	}); err != nil {
+		return nil, err
 	}
 
 	wp := new(workflowPlanner)
 	for _, wf := range workflows {
-		ext := filepath.Ext(wf.workflowDirEntry.Name())
+		ext := filepath.Ext(wf.name)
 		if ext == ".yml" || ext == ".yaml" {
-			f, err := os.Open(filepath.Join(wf.dirPath, wf.workflowDirEntry.Name()))
+			f, err := os.Open(filepath.Join(wf.dirPath, wf.name))
 			if err != nil {
 				return nil, err
 			}
@@ -128,20 +103,18 @@ func NewWorkflowPlanner(path string, noWorkflowRecurse, strict bool) (WorkflowPl
 			if err != nil {
 				_ = f.Close()
 				if err == io.EOF {
-					return nil, fmt.Errorf("unable to read workflow '%s': file is empty: %w", wf.workflowDirEntry.Name(), err)
+					return nil, fmt.Errorf("unable to read workflow '%s': file is empty: %w", wf.name, err)
 				}
-				return nil, fmt.Errorf("workflow is not valid. '%s': %w", wf.workflowDirEntry.Name(), err)
+				return nil, fmt.Errorf("workflow is not valid. '%s': %w", wf.name, err)
 			}
 			_, err = f.Seek(0, 0)
 			if err != nil {
 				_ = f.Close()
-				return nil, fmt.Errorf("error occurring when resetting io pointer in '%s': %w", wf.workflowDirEntry.Name(), err)
+				return nil, fmt.Errorf("error occurring when resetting io pointer in '%s': %w", wf.name, err)
 			}
 
-			workflow.File = wf.workflowDirEntry.Name()
-			if workflow.Name == "" {
-				workflow.Name = wf.workflowDirEntry.Name()
-			}
+			workflow.File = wf.name
+			workflow.Name = cmp.Or(workflow.Name, wf.name)
 
 			err = validateJobName(workflow)
 			if err != nil {
