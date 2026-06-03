@@ -293,3 +293,28 @@ func (impl *interperterImpl) stepFailure() (bool, error) {
 func (impl *interperterImpl) cancelled() (bool, error) {
 	return impl.env.Job.Status == "cancelled", nil
 }
+
+func (impl *interperterImpl) caseFunc(args []reflect.Value) (interface{}, error) {
+	if len(args) < 3 {
+		return nil, fmt.Errorf("Too few parameters supplied: 'case'")
+	}
+	if len(args)%2 != 1 {
+		return nil, fmt.Errorf("Even number of parameters supplied, requires an odd number of parameters: 'case'")
+	}
+
+	returnValue := args[len(args)-1]
+	for i := 0; i < len(args)-1; i += 2 {
+		predicate, value := args[i], args[i+1]
+		if predicate.Kind() != reflect.Bool {
+			return nil, fmt.Errorf("case predicate must evaluate to a boolean value")
+		}
+		if predicate.Bool() {
+			returnValue = value
+			break
+		}
+	}
+	if returnValue.Kind() == reflect.Invalid {
+		return "", nil
+	}
+	return returnValue.Interface(), nil
+}
