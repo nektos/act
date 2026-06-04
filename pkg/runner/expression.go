@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"maps"
 	"path"
 	"reflect"
 	"regexp"
@@ -49,7 +50,7 @@ func (rc *RunContext) NewExpressionEvaluatorWithEnv(ctx context.Context, env map
 
 		for _, needs := range jobNeeds {
 			using[needs] = exprparser.Needs{
-				Outputs: jobs[needs].Outputs,
+				Outputs: maps.Clone(jobs[needs].Outputs),
 				Result:  jobs[needs].Result,
 			}
 		}
@@ -135,7 +136,7 @@ func (rc *RunContext) newStepExpressionEvaluator(ctx context.Context, step step,
 	using := make(map[string]exprparser.Needs)
 	for _, needs := range jobNeeds {
 		using[needs] = exprparser.Needs{
-			Outputs: jobs[needs].Outputs,
+			Outputs: maps.Clone(jobs[needs].Outputs),
 			Result:  jobs[needs].Result,
 		}
 	}
@@ -569,10 +570,10 @@ func setupWorkflowInputs(ctx context.Context, inputs *map[string]interface{}, rc
 func getWorkflowSecrets(ctx context.Context, rc *RunContext) map[string]string {
 	if rc.caller != nil {
 		job := rc.caller.runContext.Run.Job()
-		secrets := job.Secrets()
+		secrets := maps.Clone(job.Secrets())
 
 		if secrets == nil && job.InheritSecrets() {
-			secrets = rc.caller.runContext.Config.Secrets
+			secrets = maps.Clone(rc.caller.runContext.Config.Secrets)
 		}
 
 		if secrets == nil {
@@ -586,9 +587,9 @@ func getWorkflowSecrets(ctx context.Context, rc *RunContext) map[string]string {
 		return secrets
 	}
 
-	return rc.Config.Secrets
+	return maps.Clone(rc.Config.Secrets)
 }
 
 func getWorkflowVars(_ context.Context, rc *RunContext) map[string]string {
-	return rc.Config.Vars
+	return maps.Clone(rc.Config.Vars)
 }
