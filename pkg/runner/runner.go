@@ -78,7 +78,8 @@ func (config *Config) GetConcurrentJobs() int {
 }
 
 type caller struct {
-	runContext *RunContext
+	runContext       *RunContext
+	reusableWorkflow *remoteReusableWorkflow
 }
 
 type runnerImpl struct {
