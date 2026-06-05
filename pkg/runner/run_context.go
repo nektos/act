@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/big"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -27,6 +28,8 @@ import (
 	"github.com/nektos/act/pkg/model"
 	"github.com/opencontainers/selinux/go-selinux"
 )
+
+var uniqueIdentifier = ""
 
 // RunContext contains info about current job
 type RunContext struct {
@@ -53,6 +56,38 @@ type RunContext struct {
 	caller              *caller // job calling this RunContext (reusable workflows)
 	Cancelled           bool
 	nodeToolFullPath    string
+}
+
+func init() {
+	var charset = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+
+	// To allow multiple concurrent instances of ACT, we need to use
+	// a unique identifier that will differentiate all containers
+	// spawned by this instance from those spawned by others. If we
+	// don't do that, then weird conflicts will arise due to possible
+	// container name collsions. We use a secure random string of
+	// alphanumeric characters for this purpose.
+	//
+	// We don't use a UUID due to its length - we don't want too long
+	// a string ... just long enough to provide sufficient randomness
+	//
+	// This function will try to generate a secure random string. If
+	// that fails for some reason, it will use the PID as its
+	// "unique identifier"
+	length64 := int64(len(charset))
+	target := make([]rune, 8)
+	for i := range target {
+		p, err := rand.Int(rand.Reader, big.NewInt(length64))
+		if err != nil {
+			// TODO: Should we log this error? How (without a lot of hoops)?
+			// If we had some sort of issue with the randomness,
+			// let's just use the PID as the "randomness"
+			uniqueIdentifier = fmt.Sprintf("%08X", os.Getpid())
+			return
+		}
+		target[i] = charset[p.Int64()]
+	}
+	uniqueIdentifier = string(target)
 }
 
 func (rc *RunContext) AddMask(mask string) {
@@ -90,6 +125,13 @@ func (rc *RunContext) GetEnv() map[string]string {
 }
 
 func (rc *RunContext) jobContainerName() string {
+	// Assume we want to use the consistent, constant identifier
+	if rc.Config.UniqueContainerNames && !rc.Config.ReuseContainers {
+		// If we're not going to reuse the containers, and we want to be
+		// able to run multiple instances of act concurrently, then we
+		// must use the instance-specific (random) identifier
+		return createContainerName("act", uniqueIdentifier, rc.String())
+	}
 	return createContainerName("act", rc.String())
 }
 
