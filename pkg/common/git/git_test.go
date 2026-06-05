@@ -17,7 +17,7 @@ import (
 )
 
 func TestFindGitSlug(t *testing.T) {
-	assert := assert.New(t)
+	asserter := assert.New(t)
 
 	var slugTests = []struct {
 		url      string // input
@@ -28,6 +28,7 @@ func TestFindGitSlug(t *testing.T) {
 		{"ssh://git-codecommit.us-west-2.amazonaws.com/v1/repos/my-repo", "CodeCommit", "my-repo"},
 		{"git@github.com:nektos/act.git", "GitHub", "nektos/act"},
 		{"git@github.com:nektos/act", "GitHub", "nektos/act"},
+		{"git@github.com:/nektos/act", "GitHub", "nektos/act"},
 		{"https://github.com/nektos/act.git", "GitHub", "nektos/act"},
 		{"http://github.com/nektos/act.git", "GitHub", "nektos/act"},
 		{"https://github.com/nektos/act", "GitHub", "nektos/act"},
@@ -39,9 +40,35 @@ func TestFindGitSlug(t *testing.T) {
 	for _, tt := range slugTests {
 		provider, slug, err := findGitSlug(tt.url, "github.com")
 
-		assert.NoError(err)
-		assert.Equal(tt.provider, provider)
-		assert.Equal(tt.slug, slug)
+		asserter.NoError(err)
+		asserter.Equal(tt.provider, provider)
+		asserter.Equal(tt.slug, slug)
+	}
+
+	var enterpriseSlugTests = []struct {
+		url      string // input
+		provider string // expected result
+		slug     string // expected result
+	}{
+		{"https://git-codecommit.us-east-1.amazonaws.com/v1/repos/my-repo-name", "CodeCommit", "my-repo-name"},
+		{"ssh://git-codecommit.us-west-2.amazonaws.com/v1/repos/my-repo", "CodeCommit", "my-repo"},
+		{"git@enterprise.com:nektos/act.git", "GitHubEnterprise", "nektos/act"},
+		{"git@enterprise.com:nektos/act", "GitHubEnterprise", "nektos/act"},
+		{"git@enterprise.com:/nektos/act", "GitHubEnterprise", "nektos/act"},
+		{"https://enterprise.com/nektos/act.git", "GitHubEnterprise", "nektos/act"},
+		{"http://enterprise.com/nektos/act.git", "GitHubEnterprise", "nektos/act"},
+		{"https://enterprise.com/nektos/act", "GitHubEnterprise", "nektos/act"},
+		{"http://enterprise.com/nektos/act", "GitHubEnterprise", "nektos/act"},
+		{"git+ssh://git@enterprise.com/owner/repo.git", "GitHubEnterprise", "owner/repo"},
+		{"http://myotherrepo.com/act.git", "", "http://myotherrepo.com/act.git"},
+	}
+
+	for _, tt := range enterpriseSlugTests {
+		provider, slug, err := findGitSlug(tt.url, "enterprise.com")
+
+		asserter.NoError(err)
+		asserter.Equal(tt.provider, provider)
+		asserter.Equal(tt.slug, slug)
 	}
 }
 
@@ -74,29 +101,29 @@ func cleanGitHooks(dir string) error {
 }
 
 func TestFindGitRemoteURL(t *testing.T) {
-	assert := assert.New(t)
+	asserter := assert.New(t)
 
 	basedir := testDir(t)
 	gitConfig()
 	err := gitCmd("init", basedir)
-	assert.NoError(err)
+	asserter.NoError(err)
 	err = cleanGitHooks(basedir)
-	assert.NoError(err)
+	asserter.NoError(err)
 
 	remoteURL := "https://git-codecommit.us-east-1.amazonaws.com/v1/repos/my-repo-name"
 	err = gitCmd("-C", basedir, "remote", "add", "origin", remoteURL)
-	assert.NoError(err)
+	asserter.NoError(err)
 
 	u, err := findGitRemoteURL(context.Background(), basedir, "origin")
-	assert.NoError(err)
-	assert.Equal(remoteURL, u)
+	asserter.NoError(err)
+	asserter.Equal(remoteURL, u)
 
 	remoteURL = "git@github.com/AwesomeOwner/MyAwesomeRepo.git"
 	err = gitCmd("-C", basedir, "remote", "add", "upstream", remoteURL)
-	assert.NoError(err)
+	asserter.NoError(err)
 	u, err = findGitRemoteURL(context.Background(), basedir, "upstream")
-	assert.NoError(err)
-	assert.Equal(remoteURL, u)
+	asserter.NoError(err)
+	asserter.Equal(remoteURL, u)
 }
 
 func TestGitFindRef(t *testing.T) {
