@@ -228,7 +228,7 @@ func (sar *stepActionRemote) getCompositeRunContext(ctx context.Context) *RunCon
 	if sar.compositeRunContext == nil {
 		actionDir := fmt.Sprintf("%s/%s", sar.RunContext.ActionCacheDir(), safeFilename(sar.Step.Uses))
 		actionLocation := path.Join(actionDir, sar.remoteAction.Path)
-		_, containerActionDir := getContainerActionPaths(sar.getStepModel(), actionLocation, sar.RunContext)
+		_, containerActionDir := getContainerActionPaths(ctx, sar.getStepModel(), actionLocation, sar.RunContext)
 
 		sar.compositeRunContext = newCompositeRunContext(ctx, sar.RunContext, sar, containerActionDir)
 		sar.compositeSteps = sar.compositeRunContext.compositeExecutor(sar.action)

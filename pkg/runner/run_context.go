@@ -451,6 +451,37 @@ func (rc *RunContext) InitializeNodeTool() common.Executor {
 	}
 }
 
+func (rc *RunContext) GetCanonicalActionPath(ctx context.Context, actionPath string) string {
+	timeed, cancel := context.WithTimeout(ctx, time.Minute)
+	defer cancel()
+	path := rc.JobContainer.GetPathVariableName()
+	cenv := map[string]string{}
+	var cpath string
+	if err := rc.JobContainer.UpdateFromImageEnv(&cenv)(ctx); err == nil {
+		if p, ok := cenv[path]; ok {
+			cpath = p
+		}
+	}
+	if len(cpath) == 0 {
+		cpath = rc.JobContainer.DefaultPathVariable()
+	}
+	cenv[path] = cpath
+	hout := &bytes.Buffer{}
+	herr := &bytes.Buffer{}
+	stdout, stderr := rc.JobContainer.ReplaceLogWriter(hout, herr)
+	err := rc.execJobContainer([]string{"readlink", "-f", actionPath},
+		cenv, "", "").
+		Finally(func(context.Context) error {
+			rc.JobContainer.ReplaceLogWriter(stdout, stderr)
+			return nil
+		})(timeed)
+	rawStr := strings.Trim(hout.String(), "\r\n")
+	if err == nil && !strings.ContainsAny(rawStr, "\r\n") {
+		return rawStr
+	}
+	return actionPath
+}
+
 func (rc *RunContext) GetNodeToolFullPath(ctx context.Context) string {
 	if rc.nodeToolFullPath == "" {
 		timeed, cancel := context.WithTimeout(ctx, time.Minute)
