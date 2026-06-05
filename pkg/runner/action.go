@@ -463,31 +463,23 @@ func getContainerActionPaths(step *model.Step, actionDir string, rc *RunContext)
 	actionName := ""
 	containerActionDir := "."
 	if step.Type() != model.StepTypeUsesActionRemote {
-		actionName = getOsSafeRelativePath(actionDir, rc.Config.Workdir)
-		containerActionDir = rc.JobContainer.ToContainerPath(rc.Config.Workdir) + "/" + actionName
-		actionName = "./" + actionName
+		actionName = "./" + getOsSafeRelativePath(actionDir, rc.Config.Workdir)
+		containerActionDir = rc.JobContainer.ToContainerPath(actionDir)
 	} else if step.Type() == model.StepTypeUsesActionRemote {
 		actionName = getOsSafeRelativePath(actionDir, rc.ActionCacheDir())
 		containerActionDir = rc.JobContainer.GetActPath() + "/actions/" + actionName
 	}
-
-	if actionName == "" {
-		actionName = filepath.Base(actionDir)
-		if runtime.GOOS == "windows" {
-			actionName = strings.ReplaceAll(actionName, "\\", "/")
-		}
-	}
 	return actionName, containerActionDir
 }
 
-func getOsSafeRelativePath(s, prefix string) string {
-	actionName := strings.TrimPrefix(s, prefix)
-	if runtime.GOOS == "windows" {
-		actionName = strings.ReplaceAll(actionName, "\\", "/")
+func getOsSafeRelativePath(s, basepath string) string {
+	if relpath, err := filepath.Rel(basepath, s); err == nil {
+		if runtime.GOOS == "windows" {
+			relpath = strings.ReplaceAll(relpath, "\\", "/")
+		}
+		return relpath
 	}
-	actionName = strings.TrimPrefix(actionName, "/")
-
-	return actionName
+	return filepath.Base(s)
 }
 
 func shouldRunPreStep(step actionStep) common.Conditional {
