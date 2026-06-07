@@ -649,7 +649,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 		if input.useNewActionCache || len(input.localRepository) > 0 {
 			if input.actionOfflineMode {
 				config.ActionCache = &runner.GoGitActionCacheOfflineMode{
-					Parent: runner.GoGitActionCache{
+					Parent: &runner.GoGitActionCache{
 						Path: config.ActionCacheDir,
 					},
 				}
