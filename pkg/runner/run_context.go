@@ -807,14 +807,16 @@ func (rc *RunContext) resolveJobContainer(ctx context.Context) *model.ContainerS
 	// Same shared helper as Job.Container() -> identical decode semantics
 	// (empty-scalar -> Image:"", decode error -> OnDecodeNodeError).
 	spec := model.DecodeContainerNode(nodeCopy)
-	rc.resolvedJobContainer = &resolvedContainer{spec: spec}
+	if rc.ExprEval != nil {
+		rc.resolvedJobContainer = &resolvedContainer{spec: spec}
+	}
 	return spec
 }
 
 func (rc *RunContext) containerImage(ctx context.Context) string {
 	c := rc.resolveJobContainer(ctx)
 	if c != nil {
-		return rc.ExprEval.Interpolate(ctx, c.Image)
+		return c.Image
 	}
 
 	return ""
@@ -861,7 +863,7 @@ func (rc *RunContext) platformImage(ctx context.Context) string {
 func (rc *RunContext) options(ctx context.Context) string {
 	c := rc.resolveJobContainer(ctx)
 	if c != nil {
-		return rc.ExprEval.Interpolate(ctx, c.Options)
+		return c.Options
 	}
 
 	return rc.Config.ContainerOptions
