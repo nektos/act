@@ -1,15 +1,18 @@
 package model
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
 	"reflect"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 
 	"github.com/nektos/act/pkg/common"
+	"github.com/nektos/act/pkg/container"
 	"github.com/nektos/act/pkg/schema"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
@@ -232,21 +235,49 @@ type RunDefaults struct {
 	WorkingDirectory string `yaml:"working-directory"`
 }
 
-// GetMaxParallel sets default and returns value for `max-parallel`
+// GetMaxParallel returns the maximum number of parallel jobs based on the following rules:
+//
+// If the user has set a MaxParallelString, parse it and return that value as-is.
+//
+// Otherwise, determine the limit based on the system resources by host information.
+// It is assumed that each job requires 1GB of memory.
+// The lower value between the number of CPU cores and total memory in GB is used as the limit.
 func (s Strategy) GetMaxParallel() int {
-	// MaxParallel default value is `GitHub will maximize the number of jobs run in parallel depending on the available runners on GitHub-hosted virtual machines`
-	// So I take the liberty to hardcode default limit to 4 and this is because:
-	// 1: tl;dr: self-hosted does only 1 parallel job - https://github.com/actions/runner/issues/639#issuecomment-825212735
-	// 2: GH has 20 parallel job limit (for free tier) - https://github.com/github/docs/blob/3ae84420bd10997bb5f35f629ebb7160fe776eae/content/actions/reference/usage-limits-billing-and-administration.md?plain=1#L45
-	// 3: I want to add support for MaxParallel to act and 20! parallel jobs is a bit overkill IMHO
-	maxParallel := 4
+	// If the user has specified a value, try to parse and use it directly.
 	if s.MaxParallelString != "" {
-		var err error
-		if maxParallel, err = strconv.Atoi(s.MaxParallelString); err != nil {
+		val, err := strconv.Atoi(s.MaxParallelString)
+		if err != nil {
 			log.Errorf("Failed to parse 'max-parallel' option: %v", err)
+		} else {
+			return val
 		}
 	}
-	return maxParallel
+
+	// No user-specified value; determine system limit based on resources.
+	ctx := context.Background()
+	hostInfo, err := container.GetHostInfo(ctx)
+	if err != nil {
+		log.Errorf("Failed to retrieve host info: %v", err)
+		// Fallback to the number of CPU cores.
+		return runtime.NumCPU()
+	}
+
+	// Assume each job requires 1GB (1e9 bytes) of memory.
+	totalMemGB := int(hostInfo.MemTotal / 1e9)
+	cpuThreads := runtime.NumCPU()
+
+	// The system limit is the smaller of the CPU threads and total memory in GB.
+	sysLimit := cpuThreads
+	if totalMemGB < sysLimit {
+		sysLimit = totalMemGB
+	}
+	if sysLimit < 1 {
+		sysLimit = 1
+	}
+
+	log.Debugf("System limit for parallel jobs: %d (CPU threads: %d, Total memory: %dGB)", sysLimit, cpuThreads, totalMemGB)
+
+	return sysLimit
 }
 
 // GetFailFast sets default and returns value for `fail-fast`
