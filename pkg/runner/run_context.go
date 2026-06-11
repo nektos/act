@@ -55,7 +55,7 @@ type RunContext struct {
 	Cancelled           bool
 	nodeToolFullPath    string
 
-	resolvedJobContainer *resolvedContainer // memoized per-cell resolved container spec
+	resolvedJobContainer *resolvedContainer // memoized per-cell resolved container
 }
 
 func (rc *RunContext) AddMask(mask string) {
@@ -734,20 +734,16 @@ func (rc *RunContext) Executor() (common.Executor, error) {
 	}, nil
 }
 
-// resolvedContainer wraps the per-cell resolved container spec so that "resolved
-// to nil" (computed, no container) is distinguishable from "not yet resolved"
-// (nil *resolvedContainer pointer).
+// resolvedContainer distinguishes a memoized nil spec from a not-yet-resolved container.
 type resolvedContainer struct {
 	spec *model.ContainerSpec
 }
 
-// deepCopyYamlNode returns a recursively-cloned yaml.Node so that evaluation on
-// the copy can never read or write storage shared with other matrix cells.
 func deepCopyYamlNode(n *yaml.Node) *yaml.Node {
 	if n == nil {
 		return nil
 	}
-	cp := *n // copy scalar fields (Kind, Tag, Value, Style, line info, ...)
+	cp := *n
 	cp.Content = nil
 	if len(n.Content) > 0 {
 		cp.Content = make([]*yaml.Node, len(n.Content))
@@ -761,12 +757,9 @@ func deepCopyYamlNode(n *yaml.Node) *yaml.Node {
 	return &cp
 }
 
-// resolveJobContainer returns the per-RunContext container spec with the
-// job-level `container:` field fully evaluated against this cell's matrix/env
-// context. It deep-copies the shared RawContainer node so parallel matrix cells
-// never mutate or race on the shared *Job. The result is memoized per RunContext.
-//
-// Returns nil when the job declares no container (host execution).
+// resolveJobContainer evaluates the job container against this cell's context,
+// deep-copying RawContainer so parallel matrix cells never evaluate the shared node
+// in place. The result is memoized; nil means host execution.
 func (rc *RunContext) resolveJobContainer(ctx context.Context) *model.ContainerSpec {
 	if rc.resolvedJobContainer != nil {
 		return rc.resolvedJobContainer.spec
@@ -782,20 +775,14 @@ func (rc *RunContext) resolveJobContainer(ctx context.Context) *model.ContainerS
 		return nil
 	}
 
-	// Copy the shared node; never evaluate the shared RawContainer in place.
 	nodeCopy := deepCopyYamlNode(&job.RawContainer)
-
-	// Empty / absent container -> host execution. Preserve existing nil semantics.
 	if nodeCopy == nil || nodeCopy.Kind == 0 {
 		rc.resolvedJobContainer = &resolvedContainer{spec: nil}
 		return nil
 	}
 
-	// Type-preserving evaluation: a single `${{ matrix.container }}` scalar
-	// resolves to the actual map node; nested image/env expressions recurse.
-	// When there is no evaluator yet (e.g. a consumer reached before startJob sets
-	// ExprEval), fall back to a pure decode of the un-evaluated node, exactly
-	// reproducing the pre-resolver Job.Container() behavior.
+	// A nil ExprEval (consumer reached before startJob) falls back to a pure
+	// decode of the un-evaluated node, matching Job.Container().
 	if rc.ExprEval != nil {
 		if err := rc.ExprEval.EvaluateYamlNode(ctx, nodeCopy); err != nil {
 			common.Logger(ctx).Errorf("Error while evaluating container: %v", err)
@@ -804,8 +791,6 @@ func (rc *RunContext) resolveJobContainer(ctx context.Context) *model.ContainerS
 		}
 	}
 
-	// Same shared helper as Job.Container() -> identical decode semantics
-	// (empty-scalar -> Image:"", decode error -> OnDecodeNodeError).
 	spec := model.DecodeContainerNode(nodeCopy)
 	if rc.ExprEval != nil {
 		rc.resolvedJobContainer = &resolvedContainer{spec: spec}

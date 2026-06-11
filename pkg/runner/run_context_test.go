@@ -796,17 +796,8 @@ func TestResolveJobContainer(t *testing.T) {
 	})
 
 	t.Run("absent container -> host fallback (empty image, no Object leak)", func(t *testing.T) {
-		// matrix has no `container` key; the `${{ matrix.container }}` scalar is
-		// undefined. Observed-and-pinned current behavior (verified against
-		// expressionEvaluator.evaluateScalarYamlNode + EvaluateYamlNode, 2026-06-11):
-		// the expression evaluates to the null/undefined value, ret.Encode produces an
-		// empty scalar node, and DecodeContainerNode decodes that to
-		// &ContainerSpec{Image: ""} (NOT nil) -- identical to Job.Container() on an
-		// empty scalar. EvaluateYamlNode does NOT error, so the Errorf branch does NOT
-		// fire. The key host-fallback guarantee is that Image == "" (so containerImage
-		// falls through to runsOnImage) and the literal "Object" never appears. Pinning
-		// this exact branch makes a future evaluator change (e.g. one that errors or
-		// emits "Object") fail loudly.
+		// An undefined `${{ matrix.container }}` resolves to an empty scalar, which
+		// decodes to &ContainerSpec{Image: ""} (NOT nil) without erroring.
 		var buf bytes.Buffer
 		prev := log.StandardLogger().Out
 		log.SetOutput(&buf)
@@ -834,11 +825,6 @@ func TestResolveJobContainer(t *testing.T) {
 	})
 
 	t.Run("nil ExprEval -> pure decode, no panic (back-compat)", func(t *testing.T) {
-		// Some RunContexts (e.g. the GetBindsAndMounts volume-mount unit harness, and
-		// any consumer reached before startJob sets ExprEval) have a nil ExprEval. The
-		// pre-resolver job.Container() decode path required no evaluator, so the resolver
-		// MUST preserve that: with no evaluator, fall back to a pure decode of the
-		// un-evaluated node (identical to Job.Container()) instead of dereferencing nil.
 		job := &model.Job{}
 		assert.NoError(t, job.RawContainer.Encode(map[string][]string{"volumes": {"/volume"}}))
 		rc := &RunContext{
@@ -848,7 +834,6 @@ func TestResolveJobContainer(t *testing.T) {
 				Workflow: &model.Workflow{Name: "w", Jobs: map[string]*model.Job{"job1": job}},
 			},
 		}
-		// ExprEval deliberately left nil.
 		spec := rc.resolveJobContainer(ctx)
 		assert.Equal(t, &model.ContainerSpec{Volumes: []string{"/volume"}}, spec)
 	})
