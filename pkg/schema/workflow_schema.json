@@ -1659,6 +1659,10 @@
             "type": "job-environment-name",
             "required": true
           },
+          "deployment": {
+            "type": "boolean",
+            "description": "When set to false, disables deployment creation for the environment."
+          },
           "url": {
             "type": "string-runner-context-no-secrets",
             "description": "The environment URL, which maps to `environment_url` in the deployments API."
