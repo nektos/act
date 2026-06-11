@@ -337,6 +337,81 @@ func TestRunContext_GetBindsAndMounts(t *testing.T) {
 	})
 }
 
+func TestRunContextOptions(t *testing.T) {
+	ctx := context.Background()
+
+	// newRC builds a RunContext for a single job with the given encoded
+	// container map (nil => no container block) and CLI container-options
+	// flag, with an initialized expression evaluator and a populated env.
+	// Only rc.Env is set: GetEnv() returns rc.Env verbatim when non-nil and
+	// only consults Config.Env when rc.Env == nil, so setting Config.Env here
+	// would be dead code.
+	newRC := func(t *testing.T, container map[string]string, cliOptions string) *RunContext {
+		t.Helper()
+		job := &model.Job{}
+		if container != nil {
+			assert.NoError(t, job.RawContainer.Encode(container))
+		}
+		rc := &RunContext{
+			Name: "TestRCName",
+			Run: &model.Run{
+				JobID: "job1",
+				Workflow: &model.Workflow{
+					Name: "TestWorkflowName",
+					Jobs: map[string]*model.Job{"job1": job},
+				},
+			},
+			Config: &Config{
+				ContainerOptions: cliOptions,
+			},
+			Env: map[string]string{"OPT": "--cpus=2"},
+		}
+		rc.ExprEval = rc.NewExpressionEvaluator(ctx)
+		return rc
+	}
+
+	t.Run("merge_cli_last", func(t *testing.T) {
+		// case (a): container block with non-empty YAML options + CLI flag set.
+		// Exact equality locks the full merged output: YAML first, CLI last, single space.
+		rc := newRC(t, map[string]string{"image": "node:16", "options": "--cpus=1"}, "--privileged")
+		assert.Equal(t, "--cpus=1 --privileged", rc.options(ctx))
+	})
+
+	t.Run("bug_case_empty_yaml_options", func(t *testing.T) {
+		// case (b): container block, no YAML options, CLI flag set => returns CLI exactly (no leading space).
+		rc := newRC(t, map[string]string{"image": "node:16"}, "--privileged --security-opt seccomp=unconfined")
+		assert.Equal(t, "--privileged --security-opt seccomp=unconfined", rc.options(ctx))
+	})
+
+	t.Run("no_container_block", func(t *testing.T) {
+		// case (c): no container block, CLI flag set => returns CLI (else branch, unchanged).
+		rc := newRC(t, nil, "--privileged")
+		assert.Equal(t, "--privileged", rc.options(ctx))
+	})
+
+	t.Run("no_cli_flag_no_regression", func(t *testing.T) {
+		// case (d): CLI flag unset, non-empty YAML options => YAML exactly, no trailing space.
+		rc := newRC(t, map[string]string{"image": "node:16", "options": "--cpus=1"}, "")
+		assert.Equal(t, "--cpus=1", rc.options(ctx))
+	})
+
+	t.Run("interpolation", func(t *testing.T) {
+		// case (e): YAML options contains a ${{ }} expression referencing a populated env value.
+		// Green-mirage guard: exact equality locks the RESOLVED value (--cpus=2) merged
+		// with the CLI flag last, single space — not merely the absence of "${{".
+		rc := newRC(t, map[string]string{"image": "node:16", "options": "${{ env.OPT }}"}, "--privileged")
+		assert.Equal(t, "--cpus=2 --privileged", rc.options(ctx))
+	})
+
+	t.Run("multi_token", func(t *testing.T) {
+		// case (f): multiple YAML tokens + multiple CLI tokens. Locks separator
+		// handling across tokens: YAML tokens preserved, CLI tokens appended last,
+		// joined by a single space with no doubling or trailing space.
+		rc := newRC(t, map[string]string{"image": "node:16", "options": "--cpus=1 --memory=2g"}, "--privileged --rm")
+		assert.Equal(t, "--cpus=1 --memory=2g --privileged --rm", rc.options(ctx))
+	})
+}
+
 func TestGetGitHubContext(t *testing.T) {
 	log.SetLevel(log.DebugLevel)
 
