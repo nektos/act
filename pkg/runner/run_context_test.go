@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -8,6 +9,7 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -270,7 +272,7 @@ func TestRunContext_GetBindsAndMounts(t *testing.T) {
 					config := testcase.rc.Config
 					config.Workdir = testcase.name
 					config.BindWorkdir = bindWorkDir
-					gotbind, gotmount := rctemplate.GetBindsAndMounts()
+					gotbind, gotmount := rctemplate.GetBindsAndMounts(context.Background())
 
 					// Name binds/mounts are either/or
 					if config.BindWorkdir {
@@ -322,7 +324,7 @@ func TestRunContext_GetBindsAndMounts(t *testing.T) {
 				rc.Run.JobID = "job1"
 				rc.Run.Workflow.Jobs = map[string]*model.Job{"job1": job}
 
-				gotbind, gotmount := rc.GetBindsAndMounts()
+				gotbind, gotmount := rc.GetBindsAndMounts(context.Background())
 
 				if len(testcase.wantbind) > 0 {
 					assert.Contains(t, gotbind, testcase.wantbind)
@@ -725,4 +727,156 @@ func TestSetRuntimeVariablesWithRunID(t *testing.T) {
 	scp, ok := claims["scp"]
 	assert.True(t, ok, "scp claim exists")
 	assert.Equal(t, "Actions.Results:45:45", scp, "contains expected scp claim")
+}
+
+func newContainerRC(ctx context.Context, t *testing.T, rawContainer interface{}, matrix map[string]interface{}) *RunContext {
+	t.Helper()
+	job := &model.Job{}
+	if rawContainer != nil {
+		if err := job.RawContainer.Encode(rawContainer); err != nil {
+			assert.NoError(t, err)
+			t.FailNow()
+		}
+	}
+	rc := &RunContext{
+		Config: &Config{Workdir: "."},
+		Run: &model.Run{
+			JobID: "job1",
+			Workflow: &model.Workflow{
+				Name: "test-workflow",
+				Jobs: map[string]*model.Job{"job1": job},
+			},
+		},
+		Matrix: matrix,
+	}
+	rc.ExprEval = rc.NewExpressionEvaluator(ctx)
+	return rc
+}
+
+func TestResolveJobContainer(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("distinct images across cells (leak guard)", func(t *testing.T) {
+		job := &model.Job{}
+		assert.NoError(t, job.RawContainer.Encode("${{ matrix.container }}"))
+		wf := &model.Workflow{Name: "w", Jobs: map[string]*model.Job{"job1": job}}
+		mk := func(image string) *RunContext {
+			rc := &RunContext{
+				Config: &Config{Workdir: "."},
+				Run:    &model.Run{JobID: "job1", Workflow: wf},
+				Matrix: map[string]interface{}{"container": map[string]interface{}{"image": image}},
+			}
+			rc.ExprEval = rc.NewExpressionEvaluator(ctx)
+			return rc
+		}
+		rcA, rcB := mk("img-a"), mk("img-b")
+		specA := rcA.resolveJobContainer(ctx)
+		specB := rcB.resolveJobContainer(ctx)
+		assert.NotNil(t, specA)
+		assert.NotNil(t, specB)
+		assert.Equal(t, "img-a", specA.Image)
+		assert.Equal(t, "img-b", specB.Image)
+	})
+
+	t.Run("sibling-field preservation", func(t *testing.T) {
+		rc := newContainerRC(ctx, t, "${{ matrix.container }}", map[string]interface{}{
+			"container": map[string]interface{}{
+				"image":   "x",
+				"options": "--cpus 2",
+				"env":     map[string]interface{}{"FOO": "bar"},
+				"ports":   []interface{}{"8080"},
+			},
+		})
+		spec := rc.resolveJobContainer(ctx)
+		assert.NotNil(t, spec)
+		assert.Equal(t, "x", spec.Image)
+		assert.Equal(t, "--cpus 2", spec.Options)
+		assert.Equal(t, "bar", spec.Env["FOO"])
+		assert.Equal(t, []string{"8080"}, spec.Ports)
+	})
+
+	t.Run("absent container -> host fallback (empty image, no Object leak)", func(t *testing.T) {
+		// matrix has no `container` key; the `${{ matrix.container }}` scalar is
+		// undefined. Observed-and-pinned current behavior (verified against
+		// expressionEvaluator.evaluateScalarYamlNode + EvaluateYamlNode, 2026-06-11):
+		// the expression evaluates to the null/undefined value, ret.Encode produces an
+		// empty scalar node, and DecodeContainerNode decodes that to
+		// &ContainerSpec{Image: ""} (NOT nil) -- identical to Job.Container() on an
+		// empty scalar. EvaluateYamlNode does NOT error, so the Errorf branch does NOT
+		// fire. The key host-fallback guarantee is that Image == "" (so containerImage
+		// falls through to runsOnImage) and the literal "Object" never appears. Pinning
+		// this exact branch makes a future evaluator change (e.g. one that errors or
+		// emits "Object") fail loudly.
+		var buf bytes.Buffer
+		prev := log.StandardLogger().Out
+		log.SetOutput(&buf)
+		defer log.SetOutput(prev)
+
+		rc := newContainerRC(ctx, t, "${{ matrix.container }}", map[string]interface{}{"unused": "1"})
+		spec := rc.resolveJobContainer(ctx)
+		assert.Equal(t, &model.ContainerSpec{Image: ""}, spec)
+		assert.NotContains(t, buf.String(), "Error while evaluating container")
+	})
+
+	t.Run("plain string unchanged (back-compat)", func(t *testing.T) {
+		rc := newContainerRC(ctx, t, "ghcr.io/foo/bar:tag", nil)
+		spec := rc.resolveJobContainer(ctx)
+		assert.NotNil(t, spec)
+		assert.Equal(t, "ghcr.io/foo/bar:tag", spec.Image)
+	})
+
+	t.Run("nested expr in map (recursive eval)", func(t *testing.T) {
+		rc := newContainerRC(ctx, t, map[string]interface{}{"image": "alpine:${{ matrix.tag }}"},
+			map[string]interface{}{"tag": "3.19"})
+		spec := rc.resolveJobContainer(ctx)
+		assert.NotNil(t, spec)
+		assert.Equal(t, "alpine:3.19", spec.Image)
+	})
+
+	t.Run("nil ExprEval -> pure decode, no panic (back-compat)", func(t *testing.T) {
+		// Some RunContexts (e.g. the GetBindsAndMounts volume-mount unit harness, and
+		// any consumer reached before startJob sets ExprEval) have a nil ExprEval. The
+		// pre-resolver job.Container() decode path required no evaluator, so the resolver
+		// MUST preserve that: with no evaluator, fall back to a pure decode of the
+		// un-evaluated node (identical to Job.Container()) instead of dereferencing nil.
+		job := &model.Job{}
+		assert.NoError(t, job.RawContainer.Encode(map[string][]string{"volumes": {"/volume"}}))
+		rc := &RunContext{
+			Config: &Config{Workdir: "."},
+			Run: &model.Run{
+				JobID:    "job1",
+				Workflow: &model.Workflow{Name: "w", Jobs: map[string]*model.Job{"job1": job}},
+			},
+		}
+		// ExprEval deliberately left nil.
+		spec := rc.resolveJobContainer(ctx)
+		assert.Equal(t, &model.ContainerSpec{Volumes: []string{"/volume"}}, spec)
+	})
+}
+
+func TestResolveJobContainer_ParallelCellsNoLeak(t *testing.T) {
+	job := &model.Job{}
+	assert.NoError(t, job.RawContainer.Encode("${{ matrix.container }}"))
+	wf := &model.Workflow{Name: "w", Jobs: map[string]*model.Job{"job1": job}}
+
+	mk := func(image string) *RunContext {
+		rc := &RunContext{
+			Config: &Config{Workdir: "."},
+			Run:    &model.Run{JobID: "job1", Workflow: wf},
+			Matrix: map[string]interface{}{"container": map[string]interface{}{"image": image}},
+		}
+		rc.ExprEval = rc.NewExpressionEvaluator(context.Background())
+		return rc
+	}
+	rcA, rcB := mk("img-a"), mk("img-b")
+
+	var wg sync.WaitGroup
+	var gotA, gotB string
+	wg.Add(2)
+	go func() { defer wg.Done(); gotA = rcA.resolveJobContainer(context.Background()).Image }()
+	go func() { defer wg.Done(); gotB = rcB.resolveJobContainer(context.Background()).Image }()
+	wg.Wait()
+
+	assert.Equal(t, "img-a", gotA)
+	assert.Equal(t, "img-b", gotB)
 }
