@@ -745,7 +745,7 @@ type resolvedContainer struct {
 // the copy can never read or write storage shared with other matrix cells.
 func deepCopyYamlNode(n *yaml.Node) *yaml.Node {
 	if n == nil {
-		return &yaml.Node{}
+		return nil
 	}
 	cp := *n // copy scalar fields (Kind, Tag, Value, Style, line info, ...)
 	cp.Content = nil
@@ -772,13 +772,21 @@ func (rc *RunContext) resolveJobContainer(ctx context.Context) *model.ContainerS
 		return rc.resolvedJobContainer.spec
 	}
 
+	if rc.Run == nil {
+		rc.resolvedJobContainer = &resolvedContainer{spec: nil}
+		return nil
+	}
 	job := rc.Run.Job()
+	if job == nil {
+		rc.resolvedJobContainer = &resolvedContainer{spec: nil}
+		return nil
+	}
 
 	// Copy the shared node; never evaluate the shared RawContainer in place.
 	nodeCopy := deepCopyYamlNode(&job.RawContainer)
 
 	// Empty / absent container -> host execution. Preserve existing nil semantics.
-	if nodeCopy.Kind == 0 {
+	if nodeCopy == nil || nodeCopy.Kind == 0 {
 		rc.resolvedJobContainer = &resolvedContainer{spec: nil}
 		return nil
 	}
