@@ -784,7 +784,8 @@ func (rc *RunContext) options(ctx context.Context) string {
 	job := rc.Run.Job()
 	c := job.Container()
 	if c != nil {
-		return rc.ExprEval.Interpolate(ctx, c.Options)
+		// Merge job container options with the CLI --container-options flag; the CLI value is appended last so docker's single flag parse lets it win scalar conflicts (repeatable flags accumulate).
+		return strings.TrimSpace(rc.ExprEval.Interpolate(ctx, c.Options) + " " + rc.Config.ContainerOptions)
 	}
 
 	return rc.Config.ContainerOptions
