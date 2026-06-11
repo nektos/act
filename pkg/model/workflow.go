@@ -289,22 +289,30 @@ func (j *Job) Secrets() map[string]string {
 	return val
 }
 
-// Container details for the job
-func (j *Job) Container() *ContainerSpec {
+// DecodeContainerNode decodes a job-level container yaml node into a ContainerSpec
+func DecodeContainerNode(node *yaml.Node) *ContainerSpec {
+	if node == nil {
+		return nil
+	}
 	var val *ContainerSpec
-	switch j.RawContainer.Kind {
+	switch node.Kind {
 	case yaml.ScalarNode:
 		val = new(ContainerSpec)
-		if !decodeNode(j.RawContainer, &val.Image) {
+		if !decodeNode(*node, &val.Image) {
 			return nil
 		}
 	case yaml.MappingNode:
 		val = new(ContainerSpec)
-		if !decodeNode(j.RawContainer, val) {
+		if !decodeNode(*node, val) {
 			return nil
 		}
 	}
 	return val
+}
+
+// Container details for the job
+func (j *Job) Container() *ContainerSpec {
+	return DecodeContainerNode(&j.RawContainer)
 }
 
 // Needs list for Job
