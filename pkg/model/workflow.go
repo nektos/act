@@ -289,22 +289,39 @@ func (j *Job) Secrets() map[string]string {
 	return val
 }
 
-// Container details for the job
-func (j *Job) Container() *ContainerSpec {
+// DecodeContainerNode decodes a job-level `container:` yaml node into a
+// ContainerSpec, replicating the exact scalar-vs-mapping semantics historically
+// embedded in Job.Container(). It is exported so the runner's per-RunContext
+// resolver can decode an *evaluated* node with byte-identical behavior.
+//
+//   - Scalar node (including empty scalar ""): returns &ContainerSpec{Image: <decoded>};
+//     an empty scalar yields &ContainerSpec{Image: ""} (NOT nil). A decode *error*
+//     routes through OnDecodeNodeError (fatal by default) and returns nil.
+//   - Mapping node: full struct decode; decode error -> OnDecodeNodeError -> nil.
+//   - nil / zero (Kind == 0) node: returns nil (host execution).
+func DecodeContainerNode(node *yaml.Node) *ContainerSpec {
+	if node == nil {
+		return nil
+	}
 	var val *ContainerSpec
-	switch j.RawContainer.Kind {
+	switch node.Kind {
 	case yaml.ScalarNode:
 		val = new(ContainerSpec)
-		if !decodeNode(j.RawContainer, &val.Image) {
+		if !decodeNode(*node, &val.Image) {
 			return nil
 		}
 	case yaml.MappingNode:
 		val = new(ContainerSpec)
-		if !decodeNode(j.RawContainer, val) {
+		if !decodeNode(*node, val) {
 			return nil
 		}
 	}
 	return val
+}
+
+// Container details for the job
+func (j *Job) Container() *ContainerSpec {
+	return DecodeContainerNode(&j.RawContainer)
 }
 
 // Needs list for Job
