@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -315,6 +316,62 @@ func runTestJobFile(ctx context.Context, t *testing.T, tjfi TestJobFileInfo) {
 
 		fmt.Println("::endgroup::")
 	})
+}
+
+func TestCreateArtifactV4IgnoresUnknownFields(t *testing.T) {
+	assert := assert.New(t)
+
+	var memfs = fstest.MapFS(map[string]*fstest.MapFile{})
+
+	router := httprouter.New()
+	RoutesV4(router, "artifact/server/path", writeMapFS{memfs}, memfs)
+
+	// `mime_type` is sent by @actions/upload-artifact v7+ but isn't part of
+	// act's vendored protobuf. The server must ignore it instead of failing
+	// the upload with `unknown field "mime_type"`.
+	body := `{"workflow_run_backend_id":"1","workflow_job_run_backend_id":"1","name":"test","version":4,"mime_type":"application/zip"}`
+	req, _ := http.NewRequest("POST", "http://localhost"+path.Join(ArtifactV4RouteBase, "CreateArtifact"), strings.NewReader(body))
+	rr := httptest.NewRecorder()
+
+	router.ServeHTTP(rr, req)
+
+	assert.Equal(http.StatusOK, rr.Code)
+
+	response := CreateArtifactResponse{}
+	err := json.Unmarshal(rr.Body.Bytes(), &response)
+	assert.Nil(err)
+	assert.True(response.Ok)
+}
+
+func TestUploadArtifactV4AcceptsUnpaddedSignature(t *testing.T) {
+	assert := assert.New(t)
+
+	var memfs = fstest.MapFS(map[string]*fstest.MapFile{})
+
+	router := httprouter.New()
+	RoutesV4(router, "artifact/server/path", writeMapFS{memfs}, memfs)
+
+	// Build a genuine signed upload URL the same way the server does. The HMAC
+	// secret and inputs match what the router's verifySignature recomputes, so a
+	// well-formed request authorizes regardless of AppURL.
+	signer := artifactV4Routes{prefix: ArtifactV4RouteBase, AppURL: "localhost"}
+	signedURL := signer.buildArtifactURL("UploadArtifact", "test", 1)
+
+	// The Azure storage SDK in @actions/upload-artifact v7+ strips the `=`
+	// base64 padding from the `sig` query value when it re-serializes the URL.
+	// Reproduce that and confirm the server still authorizes the block upload.
+	parsed, err := url.Parse(signedURL)
+	assert.Nil(err)
+	q := parsed.Query()
+	q.Set("sig", strings.TrimRight(q.Get("sig"), "="))
+	q.Set("comp", "block")
+	parsed.RawQuery = q.Encode()
+
+	uploadReq, _ := http.NewRequest("PUT", parsed.String(), strings.NewReader("content"))
+	uploadRR := httptest.NewRecorder()
+	router.ServeHTTP(uploadRR, uploadReq)
+
+	assert.Equal(http.StatusCreated, uploadRR.Code)
 }
 
 func TestMkdirFsImplSafeResolve(t *testing.T) {
