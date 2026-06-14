@@ -190,6 +190,8 @@ func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 				for i, matrix := range matrixes {
 					rc := runner.newRunContext(ctx, run, matrix)
 					rc.JobName = rc.Name
+					rc.JobIndex = i
+					rc.JobTotal = len(matrixes)
 					if len(matrixes) > 1 {
 						rc.Name = fmt.Sprintf("%s-%d", rc.Name, i+1)
 					}
