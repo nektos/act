@@ -862,6 +862,7 @@ func (cr *containerReference) attach() common.Executor {
 			errWriter = os.Stderr
 		}
 		go func() {
+			defer out.Close()
 			if !isTerminal || os.Getenv("NORAW") != "" {
 				_, err = stdcopy.StdCopy(outWriter, errWriter, out.Reader)
 			} else {
