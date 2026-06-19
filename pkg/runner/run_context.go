@@ -978,6 +978,16 @@ func (rc *RunContext) getGithubContext(ctx context.Context) *model.GithubContext
 		ghc.GraphQLURL = rc.Config.Env["GITHUB_GRAPHQL_URL"]
 	}
 
+	// Populate permissions from job (preferred) or workflow level declaration (only mappings)
+	job := rc.Run.Job()
+	if job != nil {
+		if p := job.Permissions(); p != nil {
+			ghc.Permissions = p
+		} else if wp := rc.Run.Workflow.Permissions(); wp != nil {
+			ghc.Permissions = wp
+		}
+	}
+
 	return ghc
 }
 

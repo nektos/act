@@ -17,12 +17,13 @@ import (
 
 // Workflow is the structure of the files in .github/workflows
 type Workflow struct {
-	File     string
-	Name     string            `yaml:"name"`
-	RawOn    yaml.Node         `yaml:"on"`
-	Env      map[string]string `yaml:"env"`
-	Jobs     map[string]*Job   `yaml:"jobs"`
-	Defaults Defaults          `yaml:"defaults"`
+	File           string
+	Name           string            `yaml:"name"`
+	RawOn          yaml.Node         `yaml:"on"`
+	Env            map[string]string `yaml:"env"`
+	RawPermissions yaml.Node         `yaml:"permissions"`
+	Jobs           map[string]*Job   `yaml:"jobs"`
+	Defaults       Defaults          `yaml:"defaults"`
 }
 
 // On events for the workflow
@@ -209,6 +210,7 @@ type Job struct {
 	Uses           string                    `yaml:"uses"`
 	With           map[string]interface{}    `yaml:"with"`
 	RawSecrets     yaml.Node                 `yaml:"secrets"`
+	RawPermissions yaml.Node                 `yaml:"permissions"`
 	Result         string
 }
 
@@ -286,6 +288,19 @@ func (j *Job) Secrets() map[string]string {
 		return nil
 	}
 
+	return val
+}
+
+// Permissions returns the permissions as a map if declared as a mapping for the job,
+// otherwise nil (e.g. unset or using read-all/write-all shorthand).
+func (j *Job) Permissions() map[string]string {
+	if j.RawPermissions.Kind != yaml.MappingNode {
+		return nil
+	}
+	var val map[string]string
+	if !decodeNode(j.RawPermissions, &val) {
+		return nil
+	}
 	return val
 }
 
@@ -745,6 +760,19 @@ func (w *Workflow) GetJobIDs() []string {
 		ids = append(ids, id)
 	}
 	return ids
+}
+
+// Permissions returns the permissions as a map if declared as a mapping (e.g. contents: read),
+// otherwise nil (e.g. when using read-all / write-all shorthand or unset).
+func (w *Workflow) Permissions() map[string]string {
+	if w.RawPermissions.Kind != yaml.MappingNode {
+		return nil
+	}
+	var val map[string]string
+	if !decodeNode(w.RawPermissions, &val) {
+		return nil
+	}
+	return val
 }
 
 var OnDecodeNodeError = func(node yaml.Node, out interface{}, err error) {
