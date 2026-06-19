@@ -1,6 +1,7 @@
 package model
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 
@@ -611,4 +612,72 @@ on: push #*trigger
 		assert.Equal(t, []string{"ubuntu-latest"}, job.RunsOn())
 		assert.Equal(t, "actions/checkout@v5", job.Steps[0].Uses)
 	}
+}
+
+func TestReadWorkflow_Permissions_CodeQuality(t *testing.T) {
+	// This test ensures that workflows using modern permissions (including
+	// code-quality, as used by GitHub Code Quality / coverage uploads) do not
+	// cause act to refuse to run the workflow due to schema validation errors.
+	// See: https://docs.github.com/en/code-security/how-tos/maintain-quality-code/set-up-code-coverage
+	yaml := `
+name: Code Coverage Example
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+  code-quality: write
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      code-quality: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Upload coverage
+        uses: actions/upload-code-coverage@v1
+        with:
+          file: coverage.xml
+          language: Go
+`
+
+	for _, strict := range []bool{false, true} {
+		t.Run("strict="+strconv.FormatBool(strict), func(t *testing.T) {
+			w, err := ReadWorkflow(strings.NewReader(yaml), strict)
+			require.NoError(t, err, "ReadWorkflow must not refuse on code-quality permission (strict=%v)", strict)
+
+			// Workflow-level
+			assert.Equal(t, map[string]string{
+				"contents":     "read",
+				"code-quality": "write",
+			}, w.Permissions())
+
+			// Job-level
+			j := w.GetJob("test")
+			require.NotNil(t, j)
+			assert.Equal(t, map[string]string{
+				"contents":     "read",
+				"code-quality": "write",
+			}, j.Permissions())
+		})
+	}
+}
+
+func TestReadWorkflow_Permissions_Shorthand(t *testing.T) {
+	yaml := `
+on: push
+permissions: read-all
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo ok
+`
+	w, err := ReadWorkflow(strings.NewReader(yaml), true)
+	assert.NoError(t, err)
+	// Shorthand is stored in the raw node; the helper returns nil for non-mapping form
+	assert.Nil(t, w.Permissions())
 }
