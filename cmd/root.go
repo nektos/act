@@ -138,8 +138,17 @@ func createRootCommand(ctx context.Context, input *Input, version string) *cobra
 func configLocations() []string {
 	configFileName := ".actrc"
 
-	homePath := filepath.Join(UserHomeDir, configFileName)
 	invocationPath := filepath.Join(".", configFileName)
+
+	// Env var used to override the default config dir for portable installation without touching system directories
+	if configDir, exists := os.LookupEnv("ACT_CONFIG_HOME"); exists {
+		if configDir, err := filepath.Abs(configDir); err == nil {
+			configPath := filepath.Join(configDir, configFileName)
+			return []string{configPath, invocationPath}
+		}
+	}
+
+	homePath := filepath.Join(UserHomeDir, configFileName)
 
 	// Though named xdg, adrg's lib support macOS and Windows config paths as well
 	// It also takes cares of creating the parent folder so we don't need to bother later
@@ -735,6 +744,12 @@ func defaultImageSurvey(actrc string) error {
 		option = "-P ubuntu-latest=catthehacker/ubuntu:act-latest\n-P ubuntu-22.04=catthehacker/ubuntu:act-22.04\n-P ubuntu-20.04=catthehacker/ubuntu:act-20.04\n-P ubuntu-18.04=catthehacker/ubuntu:act-18.04\n"
 	case "Micro":
 		option = "-P ubuntu-latest=node:16-buster-slim\n-P ubuntu-22.04=node:16-bullseye-slim\n-P ubuntu-20.04=node:16-buster-slim\n-P ubuntu-18.04=node:16-buster-slim\n"
+	}
+
+	// Ensure parent directory exists
+	err = os.MkdirAll(filepath.Dir(actrc), 0o755)
+	if err != nil {
+		return err
 	}
 
 	f, err := os.Create(actrc)
