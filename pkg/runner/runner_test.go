@@ -805,3 +805,227 @@ func TestRunMatrixWithUserDefinedInclusions(t *testing.T) {
 
 	tjfi.runTest(context.Background(), t, &Config{Matrix: matrix})
 }
+
+func TestSelectMatrixes(t *testing.T) {
+	matrixWithNonScalarFields := []map[string]interface{}{
+		{
+			"os": map[string]interface{}{
+				"name":    "ubuntu-old",
+				"version": "ubuntu-18.04",
+			},
+			"node": map[string]interface{}{
+				"name":    "eight",
+				"version": "8",
+			},
+		},
+		{
+			"os": map[string]interface{}{
+				"name":    "ubuntu-old",
+				"version": "ubuntu-18.04",
+			},
+			"node": map[string]interface{}{
+				"name":    "ten",
+				"version": "10",
+			},
+		},
+		{
+			"os": map[string]interface{}{
+				"name":    "ubuntu-new",
+				"version": "ubuntu-24.04",
+			},
+			"node": map[string]interface{}{
+				"name":    "eight",
+				"version": "8",
+			},
+		},
+		{
+			"os": map[string]interface{}{
+				"name":    "ubuntu-new",
+				"version": "ubuntu-24.04",
+			},
+			"node": map[string]interface{}{
+				"name":    "ten",
+				"version": "10",
+			},
+		},
+	}
+
+	testCases := []struct {
+		name             string
+		combinations     []map[string]interface{}
+		filter           map[string]map[string]bool
+		expectedMatrixes []map[string]interface{}
+	}{
+		{
+			name: "matrix with scalar fields",
+			combinations: []map[string]interface{}{
+				{
+					"os":   "ubuntu-18.04",
+					"node": 8,
+				},
+				{
+					"os":   "ubuntu-18.04",
+					"node": 10,
+				},
+				{
+					"os":   "ubuntu-24.04",
+					"node": 8,
+				},
+				{
+					"os":   "ubuntu-24.04",
+					"node": 10,
+				},
+			},
+			filter: map[string]map[string]bool{
+				"os":   {"ubuntu-24.04": true},
+				"node": {"8": true},
+			},
+			expectedMatrixes: []map[string]interface{}{
+				{
+					"os":   "ubuntu-24.04",
+					"node": 8,
+				},
+			},
+		},
+		{
+			name:         "filter specifying constraints on a single dimension",
+			combinations: matrixWithNonScalarFields,
+			filter: map[string]map[string]bool{
+				"os.name": {"ubuntu-new": true},
+			},
+			expectedMatrixes: []map[string]interface{}{
+				{
+					"os": map[string]interface{}{
+						"name":    "ubuntu-new",
+						"version": "ubuntu-24.04",
+					},
+					"node": map[string]interface{}{
+						"name":    "eight",
+						"version": "8",
+					},
+				},
+				{
+					"os": map[string]interface{}{
+						"name":    "ubuntu-new",
+						"version": "ubuntu-24.04",
+					},
+					"node": map[string]interface{}{
+						"name":    "ten",
+						"version": "10",
+					},
+				},
+			},
+		},
+		{
+			name: "matrix with non-scalar fields on a single dimension",
+			combinations: []map[string]interface{}{
+				{
+					"os": map[string]interface{}{
+						"name":    "ubuntu-old",
+						"version": "ubuntu-18.04",
+					},
+					"node": 8,
+				},
+				{
+					"os": map[string]interface{}{
+						"name":    "ubuntu-old",
+						"version": "ubuntu-18.04",
+					},
+					"node": 10,
+				},
+				{
+					"os": map[string]interface{}{
+						"name":    "ubuntu-new",
+						"version": "ubuntu-24.04",
+					},
+					"node": 8,
+				},
+				{
+					"os": map[string]interface{}{
+						"name":    "ubuntu-new",
+						"version": "ubuntu-24.04",
+					},
+					"node": 10,
+				},
+			},
+			filter: map[string]map[string]bool{
+				"os.name": {"ubuntu-new": true},
+				"node":    {"8": true},
+			},
+			expectedMatrixes: []map[string]interface{}{
+				{
+					"os": map[string]interface{}{
+						"name":    "ubuntu-new",
+						"version": "ubuntu-24.04",
+					},
+					"node": 8,
+				},
+			},
+		},
+		{
+			name:         "matrix with non-scalar fields on multiple dimensions",
+			combinations: matrixWithNonScalarFields,
+			filter: map[string]map[string]bool{
+				"os.name":      {"ubuntu-new": true},
+				"node.version": {"8": true},
+			},
+			expectedMatrixes: []map[string]interface{}{
+				{
+					"os": map[string]interface{}{
+						"name":    "ubuntu-new",
+						"version": "ubuntu-24.04",
+					},
+					"node": map[string]interface{}{
+						"name":    "eight",
+						"version": "8",
+					},
+				},
+			},
+		},
+		{
+			name:         "matrix with filter not matching any fields",
+			combinations: matrixWithNonScalarFields,
+			filter: map[string]map[string]bool{
+				"os.foo":   {"ubuntu-new": true},
+				"node.bar": {"8": true},
+			},
+			expectedMatrixes: []map[string]interface{}{},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			res := selectMatrixes(tc.combinations, tc.filter)
+
+			compareExpectedMatrixes(t, res, tc.expectedMatrixes)
+		})
+	}
+}
+
+func compareExpectedMatrixes(t *testing.T, got, want []map[string]interface{}) {
+	fail := func() {
+		t.Fatalf("expected matrix\n\t%v\n\tgot\n\t%v", want, got)
+	}
+
+	if len(got) != len(want) {
+		fail()
+	}
+
+	for idxWant, mapWant := range want {
+		for keyWant, valueWant := range mapWant {
+			mapGot := got[idxWant] // assumes that both map slices are sorted the same way.
+			if len(mapWant) != len(mapGot) {
+				fail()
+			}
+
+			if _, ok := mapGot[keyWant]; !ok {
+				fail()
+			}
+
+			valueGot := mapGot[keyWant]
+			if fmt.Sprintf("%v", valueGot) != fmt.Sprintf("%v", valueWant) {
+				fail()
+			}
+		}
+	}
+}

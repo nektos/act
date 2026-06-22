@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"strings"
 
 	docker_container "github.com/moby/moby/api/types/container"
 	"github.com/nektos/act/pkg/common"
@@ -231,23 +232,89 @@ func handleFailure(plan *model.Plan) common.Executor {
 	}
 }
 
-func selectMatrixes(originalMatrixes []map[string]interface{}, targetMatrixValues map[string]map[string]bool) []map[string]interface{} {
+func selectMatrixes(combinations []map[string]interface{}, filter map[string]map[string]bool) []map[string]interface{} {
 	matrixes := make([]map[string]interface{}, 0)
-	for _, original := range originalMatrixes {
-		flag := true
-		for key, val := range original {
-			if allowedVals, ok := targetMatrixValues[key]; ok {
-				valToString := fmt.Sprintf("%v", val)
-				if _, ok := allowedVals[valToString]; !ok {
-					flag = false
+
+	fieldsFilter := []map[string]interface{}{}
+	for k, v := range filter {
+		fieldsFilter = append(fieldsFilter, unflattenMatrixKey(k, v))
+	}
+
+	for _, combination := range combinations {
+		allowedFields := 0
+		for key, val := range combination {
+			if isAllowed(fieldsFilter, key, val) {
+				allowedFields++
+			}
+		}
+		if allowedFields == len(fieldsFilter) {
+			// The combination matches all fields specified by the filter.
+			matrixes = append(matrixes, combination)
+		}
+	}
+
+	return matrixes
+}
+
+// isAllowed returns a boolean indicating whether the field with key k and
+// value v is an allowed key/value combination as per the specified allowed
+// matrix fields.
+func isAllowed(allowed []map[string]interface{}, k string, v interface{}) bool {
+	for _, allowedForField := range allowed {
+		allowedVals, fieldInFilter := allowedForField[k]
+		if !fieldInFilter {
+			continue
+		}
+
+		valToBool, isScalar := allowedVals.(map[string]bool)
+		if isScalar {
+			for value, isOK := range valToBool {
+				if value == v || fmt.Sprintf("%v", value) == fmt.Sprintf("%v", v) {
+					return isOK
+				}
+			}
+		} else {
+			originalValuesMap, ok := v.(map[string]interface{})
+			if !ok {
+				log.Infof("Wrong combination map format (not a map[string]interface{}): %#v. This should not happen.", v)
+			}
+
+			allowedMap, ok := allowedVals.(map[string]interface{})
+			if !ok {
+				log.Info("Wrong allowed map format. This should not happen.")
+			}
+
+			allowedMapSlice := []map[string]interface{}{allowedMap}
+
+			for ok, ov := range originalValuesMap {
+				if isAllowed(allowedMapSlice, ok, ov) {
+					return true
 				}
 			}
 		}
-		if flag {
-			matrixes = append(matrixes, original)
-		}
 	}
-	return matrixes
+
+	return false
+}
+
+// unflattenMatrixKey transforms a matrix field in YAML path form, e.g.
+// `foo.bar.baz:true` into nested maps closer to the structure of available
+// matrix combinations, e.g. `{foo:{bar:{baz:true}}}`.
+func unflattenMatrixKey(path string, v map[string]bool) map[string]interface{} {
+	pathElts := strings.Split(path, ".")
+
+	switch len(pathElts) {
+	case 0: // Should never happen, as the `Split` separator is non-empty.
+		log.Error("Empty path to allowed matrix filter")
+
+		return map[string]interface{}{}
+	case 1:
+		return map[string]interface{}{pathElts[0]: v}
+	default:
+		subPath := strings.TrimPrefix(path, fmt.Sprintf("%s.", pathElts[0]))
+
+		return map[string]interface{}{pathElts[0]: unflattenMatrixKey(subPath, v)}
+	}
 }
 
 func (runner *runnerImpl) newRunContext(ctx context.Context, run *model.Run, matrix map[string]interface{}) *RunContext {
