@@ -9,6 +9,7 @@ import (
 	"os"
 	"path"
 	"regexp"
+	"strings"
 	"sync"
 
 	"github.com/nektos/act/pkg/common"
@@ -17,13 +18,16 @@ import (
 )
 
 func newLocalReusableWorkflowExecutor(rc *RunContext) common.Executor {
+	if calledByRemoteReusableWorkflow(rc) {
+		return newRemoteReusableWorkflowExecutor(rc)
+	}
 	return newReusableWorkflowExecutor(rc, rc.Config.Workdir, rc.Run.Job().Uses)
 }
 
 func newRemoteReusableWorkflowExecutor(rc *RunContext) common.Executor {
 	uses := rc.Run.Job().Uses
 
-	remoteReusableWorkflow := newRemoteReusableWorkflow(uses)
+	remoteReusableWorkflow := newRemoteReusableWorkflow(rc)
 	if remoteReusableWorkflow == nil {
 		return common.NewErrorExecutor(fmt.Errorf("expected format {owner}/{repo}/.github/workflows/{filename}@{ref}. Actual '%s' Input string was not in a correct format", uses))
 	}
@@ -158,10 +162,22 @@ func (r *remoteReusableWorkflow) CloneURL() string {
 	return fmt.Sprintf("%s/%s/%s", r.URL, r.Org, r.Repo)
 }
 
-func newRemoteReusableWorkflow(uses string) *remoteReusableWorkflow {
+func newRemoteReusableWorkflow(rc *RunContext) *remoteReusableWorkflow {
 	// GitHub docs:
 	// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_iduses
 	r := regexp.MustCompile(`^([^/]+)/([^/]+)/.github/workflows/([^@]+)@(.*)$`)
+	uses := rc.Run.Job().Uses
+	typ, _ := rc.Run.Job().Type()
+
+	if rc.caller != nil && typ == model.JobTypeReusableWorkflowLocal {
+		// If the job is a local reusable workflow, we need to find the remote path from the caller context
+		callerWorkflow := newRemoteReusableWorkflow(rc.caller.runContext)
+		if callerWorkflow != nil {
+			callerWorkflow.Filename = strings.TrimPrefix(rc.Run.Job().Uses, "./.github/workflows/")
+		}
+		return callerWorkflow
+	}
+
 	matches := r.FindStringSubmatch(uses)
 	if len(matches) != 5 {
 		return nil
@@ -173,4 +189,15 @@ func newRemoteReusableWorkflow(uses string) *remoteReusableWorkflow {
 		Ref:      matches[4],
 		URL:      "https://github.com",
 	}
+}
+
+func calledByRemoteReusableWorkflow(rc *RunContext) bool {
+	typ, _ := rc.Run.Job().Type()
+	if rc.caller == nil && typ != model.JobTypeReusableWorkflowRemote {
+		return false
+	}
+	if typ == model.JobTypeReusableWorkflowLocal {
+		return calledByRemoteReusableWorkflow(rc.caller.runContext)
+	}
+	return true
 }

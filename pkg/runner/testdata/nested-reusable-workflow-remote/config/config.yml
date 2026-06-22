@@ -1,0 +1,2 @@
+local-repositories:
+  nektos/act-test-actions@main: testdata
