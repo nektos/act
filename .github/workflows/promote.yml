@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: promote
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         id: checkout
         env:
           has_promote_token: ${{ secrets.PROMOTE_TOKEN && '1' || '' }}
