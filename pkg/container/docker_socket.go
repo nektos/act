@@ -1,6 +1,7 @@
 package container
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -19,10 +20,62 @@ var CommonSocketLocations = []string{
 	"$HOME/.docker/run/docker.sock",
 }
 
+func getPodmanSocet() (string, bool) {
+	// Podman uses api compatible with Docker v1.40 API,
+	// so no further modifications are needed.
+	// It is worth noting that correct communication with podman over socket depends
+	// on systemd, which may cause compatibility problems with some distributions
+
+	// After install you have to do: systemctl --user enable --now podman.socket
+	/* https://docs.podman.io/en/latest/markdown/podman-system-service.1.html
+		The systemd unit files that declares the Podman API service for users are
+	   		/usr/lib/systemd/user/podman.service
+	    	/usr/lib/systemd/user/podman.socket
+
+	     In the file podman.socket the path of the listening Unix socket is defined by
+	     	ListenStream=%t/podman/podman.sock
+		The path contains the systemd specifier %t which systemd expands to the value of the
+		environment variable XDG_RUNTIME_DIR (see systemd specifiers in the systemd.unit(5) man page
+	*/
+
+	const (
+		DEFAULT_PODMAN_PATH   = "/usr/lib/systemd/user/podman.socket"
+		DEFAULT_PODMAN_PREFIX = "ListenStream="
+		DEFULT_SYSTEMD_ENV    = "XDG_RUNTIME_DIR"
+		DEFULT_SOCET_PREIFX   = "unix://"
+	)
+
+	f, err := os.Open(DEFAULT_PODMAN_PATH)
+	if err != nil {
+		return "", false
+	}
+	input := bufio.NewScanner(f)
+
+	if input.Err() != nil {
+		return "", false
+	}
+
+	for input.Scan() {
+		line := input.Text()
+		if strings.HasPrefix(line, DEFAULT_PODMAN_PREFIX) {
+			if env, ok := os.LookupEnv(DEFULT_SYSTEMD_ENV); ok {
+				// e.g line = "ListenStream=%t/podman/podman.sock"
+				// line[len(DEFAULT_PODMAN_PREFIX)+len("%t"):] =/podman/podman.sock
+				return DEFULT_SOCET_PREIFX + env + line[len(DEFAULT_PODMAN_PREFIX)+len("%t"):], true
+			}
+		}
+	}
+
+	return "", false
+}
+
 // returns socket URI or false if not found any
 func socketLocation() (string, bool) {
 	if dockerHost, exists := os.LookupEnv("DOCKER_HOST"); exists {
 		return dockerHost, true
+	}
+	if podmanHost, exist := getPodmanSocet(); exist {
+		return podmanHost, exist
 	}
 
 	for _, p := range CommonSocketLocations {
