@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -124,6 +125,56 @@ func TestHandler(t *testing.T) {
 		resp, err := http.DefaultClient.Do(req)
 		require.NoError(t, err)
 		assert.Equal(t, 400, resp.StatusCode)
+	})
+
+	// Regression for missing return after storage.Write failure (#6131):
+	// must respond 500 once and not call useCache / second 200.
+	t.Run("upload write failure returns 500 once", func(t *testing.T) {
+		key := strings.ToLower(t.Name())
+		version := "c19da02a2bd7e77277f1ac29ab45c09b7d46a4ee758284e26bb3045ad11d9d20"
+		var id uint64
+		content := make([]byte, 100)
+		_, err := rand.Read(content)
+		require.NoError(t, err)
+		{
+			body, err := json.Marshal(&Request{
+				Key:     key,
+				Version: version,
+				Size:    100,
+			})
+			require.NoError(t, err)
+			resp, err := http.Post(fmt.Sprintf("%s/caches", base), "application/json", bytes.NewReader(body))
+			require.NoError(t, err)
+			assert.Equal(t, 200, resp.StatusCode)
+			got := struct {
+				CacheID uint64 `json:"cacheId"`
+			}{}
+			require.NoError(t, json.NewDecoder(resp.Body).Decode(&got))
+			id = got.CacheID
+			_ = resp.Body.Close()
+		}
+
+		// Force storage.Write to fail: rootDir must not be a usable directory.
+		badRoot := filepath.Join(t.TempDir(), "not-a-dir")
+		require.NoError(t, os.WriteFile(badRoot, []byte("x"), 0o644))
+		handler.storage.rootDir = badRoot
+
+		req, err := http.NewRequest(http.MethodPatch,
+			fmt.Sprintf("%s/caches/%d", base, id), bytes.NewReader(content))
+		require.NoError(t, err)
+		req.Header.Set("Content-Type", "application/octet-stream")
+		req.Header.Set("Content-Range", "bytes 0-99/*")
+		resp, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		assert.Equal(t, 500, resp.StatusCode)
+
+		body, err := io.ReadAll(resp.Body)
+		require.NoError(t, err)
+		_ = resp.Body.Close()
+		// Single JSON object only (no concatenated second body from a second WriteHeader).
+		var payload map[string]any
+		require.NoError(t, json.Unmarshal(body, &payload), "body=%q", string(body))
+		assert.Contains(t, payload, "error")
 	})
 
 	t.Run("upload without reserve", func(t *testing.T) {
