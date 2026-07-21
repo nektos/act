@@ -90,3 +90,50 @@ jobs:
 	}).UnmarshalYAML(&node)
 	assert.NoError(t, err)
 }
+
+func TestEnvironmentDeploymentFalse(t *testing.T) {
+	var node yaml.Node
+	err := yaml.Unmarshal([]byte(`
+on: push
+jobs:
+  example:
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      deployment: false
+    steps:
+    - run: echo "Hello"
+`), &node)
+	if !assert.NoError(t, err) {
+		return
+	}
+	err = (&Node{
+		Definition: "workflow-root-strict",
+		Schema:     GetWorkflowSchema(),
+	}).UnmarshalYAML(&node)
+	assert.NoError(t, err)
+}
+
+func TestEnvironmentDeploymentTrue(t *testing.T) {
+	var node yaml.Node
+	err := yaml.Unmarshal([]byte(`
+on: push
+jobs:
+  example:
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      deployment: true
+      url: https://example.com
+    steps:
+    - run: echo "Hello"
+`), &node)
+	if !assert.NoError(t, err) {
+		return
+	}
+	err = (&Node{
+		Definition: "workflow-root-strict",
+		Schema:     GetWorkflowSchema(),
+	}).UnmarshalYAML(&node)
+	assert.NoError(t, err)
+}
