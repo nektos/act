@@ -93,7 +93,7 @@ func (impl *interperterImpl) format(str reflect.Value, replaceValue ...reflect.V
 
 			case '}':
 				index, err := strconv.ParseInt(replacementIndex, 10, 32)
-				if err != nil {
+				if err != nil || index < 0 {
 					return "", fmt.Errorf("The following format string is invalid: '%s'", input)
 				}
 
