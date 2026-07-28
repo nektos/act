@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/filecollector"
@@ -20,6 +21,7 @@ type LocalRepositoryCache struct {
 	Parent            ActionCache
 	LocalRepositories map[string]string
 	CacheDirCache     map[string]string
+	cacheDirMu        sync.RWMutex
 }
 
 func (l *LocalRepositoryCache) Fetch(ctx context.Context, cacheDir, url, ref, token string) (string, error) {
@@ -27,13 +29,17 @@ func (l *LocalRepositoryCache) Fetch(ctx context.Context, cacheDir, url, ref, to
 	logger.Debugf("LocalRepositoryCache fetch %s with ref %s", url, ref)
 	if dest, ok := l.LocalRepositories[fmt.Sprintf("%s@%s", url, ref)]; ok {
 		logger.Infof("LocalRepositoryCache matched %s with ref %s to %s", url, ref, dest)
+		l.cacheDirMu.Lock()
 		l.CacheDirCache[fmt.Sprintf("%s@%s", cacheDir, ref)] = dest
+		l.cacheDirMu.Unlock()
 		return ref, nil
 	}
 	if purl, err := goURL.Parse(url); err == nil {
 		if dest, ok := l.LocalRepositories[fmt.Sprintf("%s@%s", strings.TrimPrefix(purl.Path, "/"), ref)]; ok {
 			logger.Infof("LocalRepositoryCache matched %s with ref %s to %s", url, ref, dest)
+			l.cacheDirMu.Lock()
 			l.CacheDirCache[fmt.Sprintf("%s@%s", cacheDir, ref)] = dest
+			l.cacheDirMu.Unlock()
 			return ref, nil
 		}
 	}
@@ -44,7 +50,10 @@ func (l *LocalRepositoryCache) Fetch(ctx context.Context, cacheDir, url, ref, to
 func (l *LocalRepositoryCache) GetTarArchive(ctx context.Context, cacheDir, sha, includePrefix string) (io.ReadCloser, error) {
 	logger := common.Logger(ctx)
 	// sha is mapped to ref in fetch if there is a local override
-	if dest, ok := l.CacheDirCache[fmt.Sprintf("%s@%s", cacheDir, sha)]; ok {
+	l.cacheDirMu.RLock()
+	dest, ok := l.CacheDirCache[fmt.Sprintf("%s@%s", cacheDir, sha)]
+	l.cacheDirMu.RUnlock()
+	if ok {
 		logger.Infof("LocalRepositoryCache read cachedir %s with ref %s and subpath '%s' from %s", cacheDir, sha, includePrefix, dest)
 		srcPath := filepath.Join(dest, includePrefix)
 		buf := &bytes.Buffer{}
