@@ -36,6 +36,14 @@ func TestListOptions(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestNewPlatformsSupportsEqualsInRunnerLabels(t *testing.T) {
+	platforms := (&Input{
+		platforms: []string{"runner-size=large=node:16-bullseye-slim"},
+	}).newPlatforms()
+
+	assert.Equal(t, "node:16-bullseye-slim", platforms["runner-size=large"])
+}
+
 func TestRun(t *testing.T) {
 	rootCmd := createRootCommand(context.Background(), &Input{}, "")
 	err := newRunCommand(context.Background(), &Input{
