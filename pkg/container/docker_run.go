@@ -172,6 +172,9 @@ func (cr *containerReference) Remove() common.Executor {
 }
 
 func (cr *containerReference) GetHealth(ctx context.Context) Health {
+	if common.Dryrun(ctx) {
+		return HealthHealthy
+	}
 	inspectResult, err := cr.cli.ContainerInspect(ctx, cr.id, client.ContainerInspectOptions{})
 	logger := common.Logger(ctx)
 	if err != nil {

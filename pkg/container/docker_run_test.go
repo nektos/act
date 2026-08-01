@@ -270,5 +270,29 @@ func TestDockerCopyTarStreamErrorInMkdir(t *testing.T) {
 	cli.AssertExpectations(t)
 }
 
+// TestDockerGetHealthDryrun is a regression test for
+// https://github.com/nektos/act/issues/2607: GetHealth used to call
+// cr.cli.ContainerInspect unconditionally, even in dry-run mode, where
+// cr.cli is never set (connect() is only ever invoked from pipelines that
+// are gated with .IfNot(common.Dryrun)). Since waitForServiceContainer
+// calls GetHealth directly, any workflow with `services` panicked on a nil
+// cr.cli as soon as a dry run reached that point.
+func TestDockerGetHealthDryrun(t *testing.T) {
+	ctx := common.WithDryrun(context.Background(), true)
+
+	// cli is intentionally left nil, matching dry-run's real state.
+	cr := &containerReference{
+		id: "123",
+		input: &NewContainerInput{
+			Image: "image",
+		},
+	}
+
+	assert.NotPanics(t, func() {
+		health := cr.GetHealth(ctx)
+		assert.Equal(t, HealthHealthy, health)
+	})
+}
+
 // Type assert containerReference implements ExecutionsEnvironment
 var _ ExecutionsEnvironment = &containerReference{}
