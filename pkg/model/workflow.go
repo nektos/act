@@ -17,12 +17,43 @@ import (
 
 // Workflow is the structure of the files in .github/workflows
 type Workflow struct {
-	File     string
-	Name     string            `yaml:"name"`
-	RawOn    yaml.Node         `yaml:"on"`
-	Env      map[string]string `yaml:"env"`
-	Jobs     map[string]*Job   `yaml:"jobs"`
-	Defaults Defaults          `yaml:"defaults"`
+	File           string
+	Name           string            `yaml:"name"`
+	RawOn          yaml.Node         `yaml:"on"`
+	Env            map[string]string `yaml:"env"`
+	Jobs           map[string]*Job   `yaml:"jobs"`
+	Defaults       Defaults          `yaml:"defaults"`
+	RawConcurrency yaml.Node         `yaml:"concurrency"`
+}
+
+// Concurrency for a workflow or job. Group and CancelInProgress may contain
+// expressions that have to be evaluated before use.
+type Concurrency struct {
+	Group            string `yaml:"group"`
+	CancelInProgress string `yaml:"cancel-in-progress"`
+}
+
+// Concurrency returns the workflow level concurrency settings or nil if none are defined
+func (w *Workflow) Concurrency() *Concurrency {
+	return parseConcurrency(w.RawConcurrency)
+}
+
+func parseConcurrency(node yaml.Node) *Concurrency {
+	switch node.Kind {
+	case yaml.ScalarNode:
+		var group string
+		if !decodeNode(node, &group) || group == "" {
+			return nil
+		}
+		return &Concurrency{Group: group}
+	case yaml.MappingNode:
+		var concurrency Concurrency
+		if !decodeNode(node, &concurrency) || concurrency.Group == "" {
+			return nil
+		}
+		return &concurrency
+	}
+	return nil
 }
 
 // On events for the workflow
@@ -209,7 +240,13 @@ type Job struct {
 	Uses           string                    `yaml:"uses"`
 	With           map[string]interface{}    `yaml:"with"`
 	RawSecrets     yaml.Node                 `yaml:"secrets"`
+	RawConcurrency yaml.Node                 `yaml:"concurrency"`
 	Result         string
+}
+
+// Concurrency returns the job level concurrency settings or nil if none are defined
+func (j *Job) Concurrency() *Concurrency {
+	return parseConcurrency(j.RawConcurrency)
 }
 
 // Strategy for the job

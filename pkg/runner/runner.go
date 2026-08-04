@@ -62,6 +62,8 @@ type Config struct {
 	ContainerNetworkMode               docker_container.NetworkMode // the network mode of job containers (the value of --network)
 	ActionCache                        ActionCache                  // Use a custom ActionCache Implementation
 	ConcurrentJobs                     int                          // Number of max concurrent jobs
+
+	concurrencyManager *concurrencyManager // serializes jobs sharing a `concurrency` group, shared with reusable workflow runners
 }
 
 func (config *Config) GetConcurrentJobs() int {
@@ -121,6 +123,18 @@ func (runner *runnerImpl) configure() (Runner, error) {
 // NewPlanExecutor ...
 func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 	maxJobNameLen := 0
+
+	// every workflow in the plan is one workflow run sharing a single owner
+	// identity for its workflow level `concurrency` group, so its own jobs
+	// can run in parallel while jobs of other runs in the same group cannot
+	concurrency := runner.config.concurrency()
+	workflowConcurrencyOwners := make(map[*model.Workflow]string)
+	workflowConcurrencyOwner := func(w *model.Workflow) string {
+		if _, ok := workflowConcurrencyOwners[w]; !ok {
+			workflowConcurrencyOwners[w] = concurrency.newOwner("workflow")
+		}
+		return workflowConcurrencyOwners[w]
+	}
 
 	stagePipeline := make([]common.Executor, 0)
 	log.Debugf("Plan Stages: %v", plan.Stages)
@@ -190,6 +204,8 @@ func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 				for i, matrix := range matrixes {
 					rc := runner.newRunContext(ctx, run, matrix)
 					rc.JobName = rc.Name
+					rc.workflowConcurrencyOwner = workflowConcurrencyOwner(run.Workflow)
+					rc.jobConcurrencyOwner = concurrency.newOwner("job")
 					if len(matrixes) > 1 {
 						rc.Name = fmt.Sprintf("%s-%d", rc.Name, i+1)
 					}

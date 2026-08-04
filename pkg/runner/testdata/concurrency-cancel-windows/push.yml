@@ -1,0 +1,20 @@
+name: concurrency-cancel
+on: push
+defaults:
+  run:
+    shell: powershell
+jobs:
+  first:
+    runs-on: self-hosted
+    concurrency:
+      group: act-test-cancel
+      cancel-in-progress: true
+    steps:
+      - run: Start-Sleep -Seconds 5
+  second:
+    runs-on: self-hosted
+    concurrency:
+      group: act-test-cancel
+      cancel-in-progress: ${{ true }}
+    steps:
+      - run: Start-Sleep -Seconds 5

@@ -53,6 +53,11 @@ type RunContext struct {
 	caller              *caller // job calling this RunContext (reusable workflows)
 	Cancelled           bool
 	nodeToolFullPath    string
+
+	// owner identities used for the workflow and job level `concurrency`
+	// groups, assigned by the plan executor
+	workflowConcurrencyOwner string
+	jobConcurrencyOwner      string
 }
 
 func (rc *RunContext) AddMask(mask string) {
@@ -725,7 +730,9 @@ func (rc *RunContext) Executor() (common.Executor, error) {
 			return err
 		}
 		if res {
-			return executor(ctx)
+			// only jobs that actually run take part in concurrency groups,
+			// skipped jobs must not cancel or delay running jobs
+			return rc.withConcurrency(executor)(ctx)
 		}
 		return nil
 	}, nil

@@ -136,6 +136,55 @@ jobs:
 	assert.Contains(t, workflow.Jobs["test2"].Container().Env["foo"], "bar")
 }
 
+func TestReadWorkflow_Concurrency(t *testing.T) {
+	yaml := `
+name: concurrency
+on: push
+
+concurrency:
+  group: workflow-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scalar:
+    runs-on: ubuntu-latest
+    concurrency: job-group
+    steps:
+    - run: echo
+  mapping:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: job-group-${{ github.event_name }}
+      cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+    steps:
+    - run: echo
+  none:
+    runs-on: ubuntu-latest
+    steps:
+    - run: echo
+`
+
+	workflow, err := ReadWorkflow(strings.NewReader(yaml), false)
+	assert.NoError(t, err, "read workflow should succeed")
+
+	concurrency := workflow.Concurrency()
+	require.NotNil(t, concurrency)
+	assert.Equal(t, "workflow-${{ github.ref }}", concurrency.Group)
+	assert.Equal(t, "true", concurrency.CancelInProgress)
+
+	concurrency = workflow.GetJob("scalar").Concurrency()
+	require.NotNil(t, concurrency)
+	assert.Equal(t, "job-group", concurrency.Group)
+	assert.Equal(t, "", concurrency.CancelInProgress)
+
+	concurrency = workflow.GetJob("mapping").Concurrency()
+	require.NotNil(t, concurrency)
+	assert.Equal(t, "job-group-${{ github.event_name }}", concurrency.Group)
+	assert.Equal(t, "${{ github.ref != 'refs/heads/main' }}", concurrency.CancelInProgress)
+
+	assert.Nil(t, workflow.GetJob("none").Concurrency())
+}
+
 func TestReadWorkflow_ObjectContainer(t *testing.T) {
 	yaml := `
 name: local-action-docker-url
