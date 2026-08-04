@@ -15,6 +15,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 
 	"net/netip"
 
@@ -197,6 +198,9 @@ func (cr *containerReference) GetHealth(ctx context.Context) Health {
 }
 
 func (cr *containerReference) ReplaceLogWriter(stdout io.Writer, stderr io.Writer) (io.Writer, io.Writer) {
+	cr.logWriterMutex.Lock()
+	defer cr.logWriterMutex.Unlock()
+
 	out := cr.input.Stdout
 	err := cr.input.Stderr
 
@@ -206,12 +210,30 @@ func (cr *containerReference) ReplaceLogWriter(stdout io.Writer, stderr io.Write
 	return out, err
 }
 
+// getLogWriters returns the current log writers, they are replaced per step
+// and read concurrently by steps running in the background
+func (cr *containerReference) getLogWriters() (io.Writer, io.Writer) {
+	cr.logWriterMutex.Lock()
+	defer cr.logWriterMutex.Unlock()
+
+	outWriter := io.Writer(os.Stdout)
+	if cr.input.Stdout != nil {
+		outWriter = cr.input.Stdout
+	}
+	errWriter := io.Writer(os.Stderr)
+	if cr.input.Stderr != nil {
+		errWriter = cr.input.Stderr
+	}
+	return outWriter, errWriter
+}
+
 type containerReference struct {
-	cli   client.APIClient
-	id    string
-	input *NewContainerInput
-	UID   int
-	GID   int
+	cli            client.APIClient
+	id             string
+	input          *NewContainerInput
+	UID            int
+	GID            int
+	logWriterMutex sync.Mutex
 	LinuxContainerEnvironmentExtensions
 }
 
@@ -666,17 +688,8 @@ func (cr *containerReference) waitForCommand(ctx context.Context, isTerminal boo
 
 	cmdResponse := make(chan error)
 
+	outWriter, errWriter := cr.getLogWriters()
 	go func() {
-		var outWriter io.Writer
-		outWriter = cr.input.Stdout
-		if outWriter == nil {
-			outWriter = os.Stdout
-		}
-		errWriter := cr.input.Stderr
-		if errWriter == nil {
-			errWriter = os.Stderr
-		}
-
 		var err error
 		if !isTerminal || os.Getenv("NORAW") != "" {
 			_, err = stdcopy.StdCopy(outWriter, errWriter, resp.Reader)
@@ -852,15 +865,7 @@ func (cr *containerReference) attach() common.Executor {
 		}
 		isTerminal := term.IsTerminal(int(os.Stdout.Fd()))
 
-		var outWriter io.Writer
-		outWriter = cr.input.Stdout
-		if outWriter == nil {
-			outWriter = os.Stdout
-		}
-		errWriter := cr.input.Stderr
-		if errWriter == nil {
-			errWriter = os.Stderr
-		}
+		outWriter, errWriter := cr.getLogWriters()
 		go func() {
 			if !isTerminal || os.Getenv("NORAW") != "" {
 				_, err = stdcopy.StdCopy(outWriter, errWriter, out.Reader)

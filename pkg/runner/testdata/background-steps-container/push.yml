@@ -1,0 +1,28 @@
+name: background-steps-container
+on: push
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Background step
+        id: bg
+        run: |
+          echo "value=from-background" >> "$GITHUB_OUTPUT"
+          sleep 1
+          touch /tmp/bg-done
+        background: true
+      - run: echo main work
+      - wait: bg
+      - name: Outputs are available after the wait
+        run: |
+          [ "${{ steps.bg.outputs.value }}" = "from-background" ]
+          [ -f /tmp/bg-done ]
+      - parallel:
+          - run: sleep 1 && echo a
+          - run: sleep 1 && echo b
+      - name: Long running monitor
+        id: monitor
+        run: sleep 60
+        background: true
+      - cancel: monitor
+      - wait-all:

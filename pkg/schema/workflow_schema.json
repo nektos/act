@@ -1710,7 +1710,7 @@
       }
     },
     "steps-item": {
-      "one-of": ["run-step", "regular-step"]
+      "one-of": ["run-step", "regular-step", "wait-step", "wait-all-step", "cancel-step", "parallel-step"]
     },
     "run-step": {
       "mapping": {
@@ -1727,7 +1727,8 @@
           "continue-on-error": "step-continue-on-error",
           "env": "step-env",
           "working-directory": "string-steps-context",
-          "shell": "shell"
+          "shell": "shell",
+          "background": "step-background"
         }
       }
     },
@@ -1744,9 +1745,87 @@
             "required": true
           },
           "with": "step-with",
-          "env": "step-env"
+          "env": "step-env",
+          "background": "step-background"
         }
       }
+    },
+    "step-background": {
+      "description": "Runs the step asynchronously so the job continues to the next step without waiting for it to finish. Use `wait`, `wait-all` or `cancel` steps to synchronize with or stop background steps. A maximum of 10 background steps run concurrently, additional background steps queue until a slot becomes available.",
+      "boolean": {}
+    },
+    "wait-step": {
+      "description": "Pauses the job until one or more background steps complete. Provide a single step id as a string or multiple ids as an array. After a `wait` step completes, the outputs of the referenced background steps become available to subsequent steps. A `wait` step always runs and does not support the `if` conditional.",
+      "mapping": {
+        "properties": {
+          "name": "step-name",
+          "id": "step-id",
+          "continue-on-error": "step-continue-on-error",
+          "wait": {
+            "type": "wait-targets",
+            "required": true
+          }
+        }
+      }
+    },
+    "wait-targets": {
+      "one-of": ["non-empty-string", "wait-targets-sequence"]
+    },
+    "wait-targets-sequence": {
+      "sequence": {
+        "item-type": "non-empty-string"
+      }
+    },
+    "wait-all-step": {
+      "description": "Pauses the job until all active background steps complete. A `wait-all` step always runs and does not support the `if` conditional.",
+      "mapping": {
+        "properties": {
+          "name": "step-name",
+          "id": "step-id",
+          "continue-on-error": "step-continue-on-error",
+          "wait-all": {
+            "type": "wait-all-value",
+            "required": true
+          }
+        }
+      }
+    },
+    "wait-all-value": {
+      "one-of": ["null", "boolean"]
+    },
+    "cancel-step": {
+      "description": "Gracefully terminates a running background step referenced by its id. A `cancel` step always runs and does not support the `if` conditional.",
+      "mapping": {
+        "properties": {
+          "name": "step-name",
+          "id": "step-id",
+          "cancel": {
+            "type": "non-empty-string",
+            "required": true
+          }
+        }
+      }
+    },
+    "parallel-step": {
+      "description": "Runs a group of steps in parallel: every step in the group runs as a background step, with an implicit `wait` at the end. Each step in the group is subject to the same 10-step concurrency limit as other background steps. You cannot use `parallel` inside a composite action.",
+      "mapping": {
+        "properties": {
+          "name": "step-name",
+          "id": "step-id",
+          "parallel": {
+            "type": "parallel-steps",
+            "required": true
+          }
+        }
+      }
+    },
+    "parallel-steps": {
+      "sequence": {
+        "item-type": "parallel-steps-item"
+      }
+    },
+    "parallel-steps-item": {
+      "one-of": ["run-step", "regular-step"]
     },
     "step-uses": {
       "description": "Selects an action to run as part of a step in your job. An action is a reusable unit of code. You can use an action defined in the same repository as the workflow, a public repository, or in a published Docker container image.",

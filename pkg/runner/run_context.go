@@ -18,6 +18,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/docker/go-connections/nat"
@@ -58,9 +59,43 @@ type RunContext struct {
 	// groups, assigned by the plan executor
 	workflowConcurrencyOwner string
 	jobConcurrencyOwner      string
+
+	// stepStateMu serializes mutations of the shared job state (StepResults,
+	// Env, ExtraPath, ...) between steps running concurrently because of
+	// `background: true`
+	stepStateMu sync.Mutex
+
+	// currentStepMu guards CurrentStep, which is also read while steps run
+	// concurrently in the background
+	currentStepMu sync.RWMutex
+}
+
+func (rc *RunContext) setCurrentStep(stepID string) {
+	rc.currentStepMu.Lock()
+	defer rc.currentStepMu.Unlock()
+	rc.CurrentStep = stepID
+}
+
+func (rc *RunContext) currentStep() string {
+	rc.currentStepMu.RLock()
+	defer rc.currentStepMu.RUnlock()
+	return rc.CurrentStep
+}
+
+// stepStateLock returns the mutex guarding the shared job state. Composite
+// action steps share the lock of their root RunContext since they mutate
+// state of their parents.
+func (rc *RunContext) stepStateLock() *sync.Mutex {
+	root := rc
+	for root.Parent != nil {
+		root = root.Parent
+	}
+	return &root.stepStateMu
 }
 
 func (rc *RunContext) AddMask(mask string) {
+	masksMutex.Lock()
+	defer masksMutex.Unlock()
 	rc.Masks = append(rc.Masks, mask)
 }
 
@@ -90,7 +125,9 @@ func (rc *RunContext) GetEnv() map[string]string {
 			}
 		}
 	}
-	rc.Env["ACT"] = "true"
+	if rc.Env["ACT"] != "true" {
+		rc.Env["ACT"] = "true"
+	}
 	return rc.Env
 }
 
@@ -895,7 +932,7 @@ func (rc *RunContext) getGithubContext(ctx context.Context) *model.GithubContext
 		RunNumber:        rc.Config.Env["GITHUB_RUN_NUMBER"],
 		Actor:            rc.Config.Actor,
 		EventName:        rc.Config.EventName,
-		Action:           rc.CurrentStep,
+		Action:           rc.currentStep(),
 		Token:            rc.Config.Token,
 		Job:              rc.Run.JobID,
 		ActionPath:       rc.ActionPath,

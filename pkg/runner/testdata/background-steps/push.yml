@@ -1,0 +1,58 @@
+name: background-steps
+on: push
+defaults:
+  run:
+    shell: bash
+jobs:
+  background-wait:
+    runs-on: self-hosted
+    steps:
+      - name: Start background service
+        id: service
+        run: |
+          echo "value=from-background" >> "$GITHUB_OUTPUT"
+          touch "$MARKER_DIR/service-start"
+          sleep 2
+          touch "$MARKER_DIR/service-end"
+        background: true
+      - name: Work while the service runs
+        run: touch "$MARKER_DIR/work-start"
+      - name: Wait for the service
+        wait: service
+      - name: Outputs of the service are available after the wait
+        run: |
+          [ "${{ steps.service.outputs.value }}" = "from-background" ]
+          [ -f "$MARKER_DIR/service-end" ]
+  parallel-group:
+    runs-on: self-hosted
+    steps:
+      - parallel:
+          - name: Build a
+            id: build-a
+            run: |
+              touch "$MARKER_DIR/a-start"
+              sleep 2
+              touch "$MARKER_DIR/a-end"
+          - name: Build b
+            id: build-b
+            run: |
+              touch "$MARKER_DIR/b-start"
+              sleep 2
+              touch "$MARKER_DIR/b-end"
+      - name: Runs after the whole group
+        run: touch "$MARKER_DIR/after-parallel"
+  cancel-and-wait-all:
+    runs-on: self-hosted
+    steps:
+      - name: Long running monitor
+        id: monitor
+        run: sleep 60
+        background: true
+      - name: Quick background work
+        id: quick
+        run: touch "$MARKER_DIR/quick-done"
+        background: true
+      - name: Stop the monitor
+        cancel: monitor
+      - name: Wait for the rest
+        wait-all:
