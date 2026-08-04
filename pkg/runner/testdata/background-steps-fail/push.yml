@@ -25,3 +25,30 @@ jobs:
         continue-on-error: true
       - name: Does not fail the job
         wait: failing
+  duplicate-id:
+    runs-on: self-hosted
+    steps:
+      - id: dup
+        run: echo one
+        background: true
+      - id: dup
+        run: echo two
+        background: true
+      - wait: dup
+  cancel-after-failure:
+    runs-on: self-hosted
+    steps:
+      - name: Fails in the background
+        id: failing
+        run: |
+          touch "$MARKER_DIR/cancel-after-failure-done"
+          exit 1
+        background: true
+      - name: Wait until the background step has finished
+        run: |
+          until [ -f "$MARKER_DIR/cancel-after-failure-done" ]; do sleep 0.2; done
+          sleep 1
+      - name: Cancelling a finished step must not hide its failure
+        cancel: failing
+      - name: The job fails here
+        wait: failing

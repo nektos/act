@@ -51,6 +51,13 @@ func newCompositeRunContext(ctx context.Context, parent *RunContext, step action
 	configCopy := *(parent.Config)
 	configCopy.Secrets = nil
 
+	// snapshot the parent state that may be mutated by steps running
+	// concurrently in the background
+	lock := parent.stepStateLock()
+	lock.Lock()
+	extraPath := append([]string{}, parent.ExtraPath...)
+	lock.Unlock()
+
 	// create a run context for the composite action to run in
 	compositerc := &RunContext{
 		Name:    parent.Name,
@@ -70,9 +77,10 @@ func newCompositeRunContext(ctx context.Context, parent *RunContext, step action
 		ActionPath:       actionPath,
 		Env:              env,
 		GlobalEnv:        parent.GlobalEnv,
-		Masks:            parent.Masks,
-		ExtraPath:        parent.ExtraPath,
+		Masks:            parent.masksSnapshot(),
+		ExtraPath:        extraPath,
 		Parent:           parent,
+		parentStepID:     step.getStepModel().ID,
 		EventJSON:        parent.EventJSON,
 		nodeToolFullPath: parent.nodeToolFullPath,
 	}
@@ -105,7 +113,7 @@ func execAsComposite(step actionStep) common.Executor {
 			outputs[outputName] = eval.Interpolate(ctx, output.Value)
 		}
 
-		for _, mask := range compositeRC.Masks {
+		for _, mask := range compositeRC.masksSnapshot() {
 			rc.AddMask(mask)
 		}
 
@@ -120,7 +128,23 @@ func execAsComposite(step actionStep) common.Executor {
 			}, value)
 		}
 
-		rc.ExtraPath = compositeRC.ExtraPath
+		// merge the PATH additions of the composite action into the current
+		// extra path instead of overwriting it, other steps may have added
+		// entries while the composite action ran
+		mergedPath := append([]string{}, compositeRC.ExtraPath...)
+		for _, entry := range rc.ExtraPath {
+			exists := false
+			for _, merged := range mergedPath {
+				if merged == entry {
+					exists = true
+					break
+				}
+			}
+			if !exists {
+				mergedPath = append(mergedPath, entry)
+			}
+		}
+		rc.ExtraPath = mergedPath
 		// compositeRC.Env is dirty, contains INPUT_ and merged step env, only rely on compositeRC.GlobalEnv
 		mergeIntoMap := mergeIntoMapCaseSensitive
 		if rc.JobContainer.IsEnvironmentCaseInsensitive() {

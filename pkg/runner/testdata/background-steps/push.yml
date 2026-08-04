@@ -12,7 +12,8 @@ jobs:
         run: |
           echo "value=from-background" >> "$GITHUB_OUTPUT"
           touch "$MARKER_DIR/service-start"
-          sleep 2
+          for i in $(seq 1 300); do [ -f "$MARKER_DIR/work-start" ] && break; sleep 0.2; done
+          [ -f "$MARKER_DIR/work-start" ]
           touch "$MARKER_DIR/service-end"
         background: true
       - name: Work while the service runs
@@ -31,13 +32,15 @@ jobs:
             id: build-a
             run: |
               touch "$MARKER_DIR/a-start"
-              sleep 2
+              for i in $(seq 1 300); do [ -f "$MARKER_DIR/b-start" ] && break; sleep 0.2; done
+              [ -f "$MARKER_DIR/b-start" ]
               touch "$MARKER_DIR/a-end"
           - name: Build b
             id: build-b
             run: |
               touch "$MARKER_DIR/b-start"
-              sleep 2
+              for i in $(seq 1 300); do [ -f "$MARKER_DIR/a-start" ] && break; sleep 0.2; done
+              [ -f "$MARKER_DIR/a-start" ]
               touch "$MARKER_DIR/b-end"
       - name: Runs after the whole group
         run: touch "$MARKER_DIR/after-parallel"
@@ -56,3 +59,7 @@ jobs:
         cancel: monitor
       - name: Wait for the rest
         wait-all:
+  only-control:
+    runs-on: self-hosted
+    steps:
+      - wait-all:

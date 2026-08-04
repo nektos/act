@@ -112,13 +112,17 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 		ifExpression := step.getIfExpression(ctx, stage)
 		rc.setCurrentStep(stepModel.ID)
 
+		dataLock := rc.stateDataLock()
+
 		stepResult := &model.StepResult{
 			Outcome:    model.StepStatusSuccess,
 			Conclusion: model.StepStatusSuccess,
 			Outputs:    make(map[string]string),
 		}
 		if stage == stepStageMain {
+			dataLock.Lock()
 			rc.StepResults[stepModel.ID] = stepResult
+			dataLock.Unlock()
 		}
 
 		err := setupEnv(ctx, step)
@@ -128,19 +132,25 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 		}
 
 		cctx := common.JobCancelContext(ctx)
+		dataLock.Lock()
 		rc.Cancelled = cctx != nil && cctx.Err() != nil
+		dataLock.Unlock()
 
 		runStep, err := isStepEnabled(ctx, ifExpression, step, stage)
 		if err != nil {
+			dataLock.Lock()
 			stepResult.Conclusion = model.StepStatusFailure
 			stepResult.Outcome = model.StepStatusFailure
+			dataLock.Unlock()
 			lock.Unlock()
 			return err
 		}
 
 		if !runStep {
+			dataLock.Lock()
 			stepResult.Conclusion = model.StepStatusSkipped
 			stepResult.Outcome = model.StepStatusSkipped
+			dataLock.Unlock()
 			logger.WithField("stepResult", stepResult.Outcome).Debugf("Skipping step '%s' due to '%s'", stepModel, ifExpression)
 			lock.Unlock()
 			return nil
@@ -208,14 +218,19 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 		if err == nil {
 			logger.WithFields(logrus.Fields{"executionTime": executionTime, "stepResult": stepResult.Outcome}).Infof("  \u2705  Success - %s %s [%s]", stage, stepString, executionTime)
 		} else {
+			dataLock.Lock()
 			stepResult.Outcome = model.StepStatusFailure
+			dataLock.Unlock()
 
 			continueOnError, parseErr := isContinueOnError(ctx, stepModel.RawContinueOnError, step, stage)
 			if parseErr != nil {
+				dataLock.Lock()
 				stepResult.Conclusion = model.StepStatusFailure
+				dataLock.Unlock()
 				return parseErr
 			}
 
+			dataLock.Lock()
 			if continueOnError {
 				logger.Infof("Failed but continue next step")
 				err = nil
@@ -223,6 +238,7 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 			} else {
 				stepResult.Conclusion = model.StepStatusFailure
 			}
+			dataLock.Unlock()
 
 			logger.WithFields(logrus.Fields{"executionTime": executionTime, "stepResult": stepResult.Outcome}).Infof("  \u274C  Failure - %s %s [%s]", stage, stepString, executionTime)
 		}
@@ -249,7 +265,10 @@ func monitorJobCancellation(ctx context.Context, stepCtx context.Context, jobCan
 			case <-jobCancellationCtx.Done():
 				lock := rc.stepStateLock()
 				lock.Lock()
+				dataLock := rc.stateDataLock()
+				dataLock.Lock()
 				rc.Cancelled = true
+				dataLock.Unlock()
 				logger.Infof("Reevaluate condition %v due to cancellation", ifExpression)
 				keepStepRunning, err := isStepEnabled(ctx, ifExpression, step, stage)
 				lock.Unlock()

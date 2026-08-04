@@ -55,10 +55,13 @@ type RunContext struct {
 	Cancelled           bool
 	nodeToolFullPath    string
 
-	// owner identities used for the workflow and job level `concurrency`
-	// groups, assigned by the plan executor
-	workflowConcurrencyOwner string
-	jobConcurrencyOwner      string
+	// runState tracks the cancellation of the workflow run this job belongs
+	// to, assigned by the plan executor
+	runState *workflowRunState
+
+	// parentStepID is the id of the action step a composite RunContext was
+	// created for, it is stable while the mutable CurrentStep is not
+	parentStepID string
 
 	// stepStateMu serializes mutations of the shared job state (StepResults,
 	// Env, ExtraPath, ...) between steps running concurrently because of
@@ -68,6 +71,55 @@ type RunContext struct {
 	// currentStepMu guards CurrentStep, which is also read while steps run
 	// concurrently in the background
 	currentStepMu sync.RWMutex
+
+	// stateDataMu guards the shared maps and slices themselves (Env,
+	// StepResults, ExtraPath, IntraActionState): expression evaluators
+	// snapshot them under a read lock while running steps mutate them under
+	// the write lock, so a step executing concurrently in the background
+	// never observes a map mid-write
+	stateDataMu sync.RWMutex
+}
+
+// stateDataLock returns the mutex guarding the shared data structures.
+// Composite action steps share the lock of their root RunContext.
+func (rc *RunContext) stateDataLock() *sync.RWMutex {
+	root := rc
+	for root.Parent != nil {
+		root = root.Parent
+	}
+	return &root.stateDataMu
+}
+
+// envSnapshot returns a copy of the job env for expression evaluation, safe
+// to read while other steps concurrently change the env
+func (rc *RunContext) envSnapshot() map[string]string {
+	lock := rc.stateDataLock()
+	lock.Lock()
+	defer lock.Unlock()
+	env := rc.getEnvLocked()
+	snapshot := make(map[string]string, len(env))
+	for k, v := range env {
+		snapshot[k] = v
+	}
+	return snapshot
+}
+
+// stepsSnapshot returns a copy of the step results for expression
+// evaluation, safe to read while other steps concurrently record results
+func (rc *RunContext) stepsSnapshot() map[string]*model.StepResult {
+	lock := rc.stateDataLock()
+	lock.RLock()
+	defer lock.RUnlock()
+	snapshot := make(map[string]*model.StepResult, len(rc.StepResults))
+	for id, result := range rc.StepResults {
+		copied := *result
+		copied.Outputs = make(map[string]string, len(result.Outputs))
+		for k, v := range result.Outputs {
+			copied.Outputs[k] = v
+		}
+		snapshot[id] = &copied
+	}
+	return snapshot
 }
 
 func (rc *RunContext) setCurrentStep(stepID string) {
@@ -99,6 +151,14 @@ func (rc *RunContext) AddMask(mask string) {
 	rc.Masks = append(rc.Masks, mask)
 }
 
+// masksSnapshot returns a copy of the current masks, the slice is appended
+// to by running steps and must not be read without the mutex
+func (rc *RunContext) masksSnapshot() []string {
+	masksMutex.RLock()
+	defer masksMutex.RUnlock()
+	return append([]string{}, rc.Masks...)
+}
+
 type MappableOutput struct {
 	StepID     string
 	OutputName string
@@ -116,6 +176,13 @@ func (rc *RunContext) String() string {
 
 // GetEnv returns the env for the context
 func (rc *RunContext) GetEnv() map[string]string {
+	lock := rc.stateDataLock()
+	lock.Lock()
+	defer lock.Unlock()
+	return rc.getEnvLocked()
+}
+
+func (rc *RunContext) getEnvLocked() map[string]string {
 	if rc.Env == nil {
 		rc.Env = map[string]string{}
 		if rc.Run != nil && rc.Run.Workflow != nil && rc.Config != nil {
@@ -529,7 +596,15 @@ func (rc *RunContext) GetNodeToolFullPath(ctx context.Context) string {
 }
 
 func (rc *RunContext) ApplyExtraPath(ctx context.Context, env *map[string]string) {
-	if len(rc.ExtraPath) > 0 {
+	lock := rc.stateDataLock()
+	lock.RLock()
+	extraPath := append([]string{}, rc.ExtraPath...)
+	lock.RUnlock()
+	rc.applyExtraPathSnapshot(ctx, extraPath, env)
+}
+
+func (rc *RunContext) applyExtraPathSnapshot(ctx context.Context, extraPath []string, env *map[string]string) {
+	if len(extraPath) > 0 {
 		path := rc.JobContainer.GetPathVariableName()
 		if rc.JobContainer.IsEnvironmentCaseInsensitive() {
 			// On windows system Path and PATH could also be in the map
@@ -553,7 +628,7 @@ func (rc *RunContext) ApplyExtraPath(ctx context.Context, env *map[string]string
 			}
 			(*env)[path] = cpath
 		}
-		(*env)[path] = rc.JobContainer.JoinPathVariable(append(rc.ExtraPath, (*env)[path])...)
+		(*env)[path] = rc.JobContainer.JoinPathVariable(append(extraPath, (*env)[path])...)
 	}
 }
 
@@ -902,6 +977,9 @@ func trimToLen(s string, l int) string {
 }
 
 func (rc *RunContext) getJobContext() *model.JobContext {
+	lock := rc.stateDataLock()
+	lock.RLock()
+	defer lock.RUnlock()
 	jobStatus := "success"
 	if rc.Cancelled {
 		jobStatus = "cancelled"
@@ -924,6 +1002,11 @@ func (rc *RunContext) getStepsContext() map[string]*model.StepResult {
 
 func (rc *RunContext) getGithubContext(ctx context.Context) *model.GithubContext {
 	logger := common.Logger(ctx)
+	lock := rc.stateDataLock()
+	lock.RLock()
+	actionRepository := rc.Env["GITHUB_ACTION_REPOSITORY"]
+	actionRef := rc.Env["GITHUB_ACTION_REF"]
+	lock.RUnlock()
 	ghc := &model.GithubContext{
 		Event:            make(map[string]interface{}),
 		Workflow:         rc.Run.Workflow.Name,
@@ -936,8 +1019,8 @@ func (rc *RunContext) getGithubContext(ctx context.Context) *model.GithubContext
 		Token:            rc.Config.Token,
 		Job:              rc.Run.JobID,
 		ActionPath:       rc.ActionPath,
-		ActionRepository: rc.Env["GITHUB_ACTION_REPOSITORY"],
-		ActionRef:        rc.Env["GITHUB_ACTION_REF"],
+		ActionRepository: actionRepository,
+		ActionRef:        actionRef,
 		RepositoryOwner:  rc.Config.Env["GITHUB_REPOSITORY_OWNER"],
 		RetentionDays:    rc.Config.Env["GITHUB_RETENTION_DAYS"],
 		RunnerPerflog:    rc.Config.Env["RUNNER_PERFLOG"],

@@ -689,6 +689,9 @@ func (cr *containerReference) waitForCommand(ctx context.Context, isTerminal boo
 	cmdResponse := make(chan error)
 
 	outWriter, errWriter := cr.getLogWriters()
+	if ctxOut, ctxErr, ok := LogWriters(ctx); ok {
+		outWriter, errWriter = ctxOut, ctxErr
+	}
 	go func() {
 		var err error
 		if !isTerminal || os.Getenv("NORAW") != "" {

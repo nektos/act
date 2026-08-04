@@ -12,7 +12,8 @@ jobs:
         run: |
           Add-Content -Path $env:GITHUB_OUTPUT -Value "value=from-background"
           New-Item -ItemType File -Path "$env:MARKER_DIR/service-start" | Out-Null
-          Start-Sleep -Seconds 2
+          $deadline = (Get-Date).AddSeconds(60)
+          while (-not (Test-Path "$env:MARKER_DIR/work-start")) { if ((Get-Date) -gt $deadline) { exit 1 }; Start-Sleep -Milliseconds 200 }
           New-Item -ItemType File -Path "$env:MARKER_DIR/service-end" | Out-Null
         background: true
       - name: Work while the service runs
@@ -31,13 +32,15 @@ jobs:
             id: build-a
             run: |
               New-Item -ItemType File -Path "$env:MARKER_DIR/a-start" | Out-Null
-              Start-Sleep -Seconds 2
+              $deadline = (Get-Date).AddSeconds(60)
+              while (-not (Test-Path "$env:MARKER_DIR/b-start")) { if ((Get-Date) -gt $deadline) { exit 1 }; Start-Sleep -Milliseconds 200 }
               New-Item -ItemType File -Path "$env:MARKER_DIR/a-end" | Out-Null
           - name: Build b
             id: build-b
             run: |
               New-Item -ItemType File -Path "$env:MARKER_DIR/b-start" | Out-Null
-              Start-Sleep -Seconds 2
+              $deadline = (Get-Date).AddSeconds(60)
+              while (-not (Test-Path "$env:MARKER_DIR/a-start")) { if ((Get-Date) -gt $deadline) { exit 1 }; Start-Sleep -Milliseconds 200 }
               New-Item -ItemType File -Path "$env:MARKER_DIR/b-end" | Out-Null
       - name: Runs after the whole group
         run: New-Item -ItemType File -Path "$env:MARKER_DIR/after-parallel" | Out-Null
@@ -56,3 +59,7 @@ jobs:
         cancel: monitor
       - name: Wait for the rest
         wait-all:
+  only-control:
+    runs-on: self-hosted
+    steps:
+      - wait-all:

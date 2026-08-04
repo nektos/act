@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"sync"
 	"testing"
 	"time"
 
@@ -16,88 +15,84 @@ import (
 	"github.com/nektos/act/pkg/model"
 )
 
-func TestConcurrencyManagerSerializesDifferentOwners(t *testing.T) {
+func TestConcurrencyManagerSerializes(t *testing.T) {
 	manager := newConcurrencyManager()
 	ctx := context.Background()
+	spec := concurrencySpec{group: "group"}
 
-	var mu sync.Mutex
-	active := 0
-	maxActive := 0
-
-	var wg sync.WaitGroup
-	for i := 0; i < 5; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			release, err := manager.acquire(ctx, func() {}, concurrencySpec{group: "group", owner: manager.newOwner("job")})
-			assert.NoError(t, err)
-			defer release()
-
-			mu.Lock()
-			active++
-			if active > maxActive {
-				maxActive = active
-			}
-			mu.Unlock()
-
-			time.Sleep(10 * time.Millisecond)
-
-			mu.Lock()
-			active--
-			mu.Unlock()
-		}()
-	}
-	wg.Wait()
-
-	assert.Equal(t, 1, maxActive, "only one job of a concurrency group may run at a time")
-}
-
-func TestConcurrencyManagerSharedOwnerDoesNotBlock(t *testing.T) {
-	manager := newConcurrencyManager()
-	ctx := context.Background()
-	spec := concurrencySpec{group: "group", owner: "workflow-1"}
-
-	releaseFirst, err := manager.acquire(ctx, func() {}, spec)
+	releaseFirst, err := manager.acquire(ctx, nil, spec, func() {})
 	require.NoError(t, err)
-	defer releaseFirst()
 
-	// jobs of the same workflow run share the workflow level group and must
-	// not wait for each other
-	done := make(chan struct{})
+	acquired := make(chan struct{})
 	go func() {
-		defer close(done)
-		releaseSecond, err := manager.acquire(ctx, func() {}, spec)
+		defer close(acquired)
+		releaseSecond, err := manager.acquire(ctx, nil, spec, func() {})
 		assert.NoError(t, err)
 		releaseSecond()
 	}()
 
 	select {
-	case <-done:
+	case <-acquired:
+		t.Fatal("the second request must wait until the group is released")
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	releaseFirst()
+
+	select {
+	case <-acquired:
 	case <-time.After(5 * time.Second):
-		t.Fatal("job sharing the owner of the group holder should not wait")
+		t.Fatal("the pending request must be promoted when the group is released")
 	}
 }
 
-func TestConcurrencyManagerDifferentGroupsDoNotBlock(t *testing.T) {
+func TestConcurrencyManagerSupersedesPending(t *testing.T) {
 	manager := newConcurrencyManager()
 	ctx := context.Background()
+	spec := concurrencySpec{group: "group"}
 
-	releaseFirst, err := manager.acquire(ctx, func() {}, concurrencySpec{group: "group-1", owner: "job-1"})
+	releaseFirst, err := manager.acquire(ctx, nil, spec, func() {})
 	require.NoError(t, err)
-	defer releaseFirst()
 
-	done := make(chan struct{})
+	superseded := make(chan error, 1)
 	go func() {
-		defer close(done)
-		releaseSecond, err := manager.acquire(ctx, func() {}, concurrencySpec{group: "group-2", owner: "job-2"})
-		assert.NoError(t, err)
-		releaseSecond()
+		_, err := manager.acquire(ctx, nil, spec, func() {})
+		superseded <- err
 	}()
 
+	// make sure the second request is pending before the third arrives
+	require.Eventually(t, func() bool {
+		manager.mu.Lock()
+		defer manager.mu.Unlock()
+		return manager.groups["group"].pending != nil
+	}, 5*time.Second, 10*time.Millisecond)
+
+	third := make(chan error, 1)
+	releases := make(chan func(), 1)
+	go func() {
+		release, err := manager.acquire(ctx, nil, spec, func() {})
+		if release != nil {
+			releases <- release
+		}
+		third <- err
+	}()
+
+	// the second (previously pending) request is cancelled by the third
 	select {
-	case <-done:
+	case err := <-superseded:
+		assert.ErrorIs(t, err, errCancelledByConcurrencyGroup)
 	case <-time.After(5 * time.Second):
-		t.Fatal("jobs in different concurrency groups should not wait for each other")
+		t.Fatal("the pending request must be superseded by a newer request")
+	}
+
+	releaseFirst()
+
+	select {
+	case err := <-third:
+		assert.NoError(t, err, "the newest request must acquire the group")
+		(<-releases)()
+	case <-time.After(5 * time.Second):
+		t.Fatal("the newest request must acquire the group after the release")
 	}
 }
 
@@ -105,74 +100,80 @@ func TestConcurrencyManagerCancelInProgress(t *testing.T) {
 	manager := newConcurrencyManager()
 	ctx := context.Background()
 
-	firstOwner := manager.newOwner("workflow")
 	cancelled := make(chan struct{})
-	releaseFirst, err := manager.acquire(ctx, func() { close(cancelled) }, concurrencySpec{group: "group", owner: firstOwner})
+	releaseFirst, err := manager.acquire(ctx, nil, concurrencySpec{group: "group"}, func() { close(cancelled) })
 	require.NoError(t, err)
 
-	// the cancelled job releases the group once it stopped running
+	// the cancelled holder releases the group once it stopped running
 	go func() {
 		<-cancelled
 		releaseFirst()
 	}()
 
-	release, err := manager.acquire(ctx, func() {}, concurrencySpec{group: "group", owner: manager.newOwner("workflow"), cancelInProgress: true})
+	release, err := manager.acquire(ctx, nil, concurrencySpec{group: "group", cancelInProgress: true}, func() {})
 	assert.NoError(t, err)
 	release()
 
 	select {
 	case <-cancelled:
 	default:
-		t.Fatal("the job holding the group should have been cancelled")
+		t.Fatal("the holder must have been cancelled by cancel-in-progress")
+	}
+}
+
+func TestConcurrencyManagerCancelCtxAbortsWaiting(t *testing.T) {
+	manager := newConcurrencyManager()
+	ctx := context.Background()
+	spec := concurrencySpec{group: "group"}
+
+	release, err := manager.acquire(ctx, nil, spec, func() {})
+	require.NoError(t, err)
+	defer release()
+
+	// the waiting request is cancelled itself (e.g. by cancel-in-progress
+	// of the job while it waits) and must stop waiting
+	cancelCtx, cancel := context.WithCancel(context.Background())
+	waited := make(chan error, 1)
+	go func() {
+		_, err := manager.acquire(ctx, cancelCtx, spec, func() {})
+		waited <- err
+	}()
+
+	require.Eventually(t, func() bool {
+		manager.mu.Lock()
+		defer manager.mu.Unlock()
+		return manager.groups["group"].pending != nil
+	}, 5*time.Second, 10*time.Millisecond)
+
+	cancel()
+
+	select {
+	case err := <-waited:
+		assert.ErrorIs(t, err, errCancelledByConcurrencyGroup)
+	case <-time.After(5 * time.Second):
+		t.Fatal("a cancelled waiter must stop waiting for the group")
 	}
 
-	// remaining jobs of the cancelled owner are cancelled instead of run
-	_, err = manager.acquire(ctx, func() {}, concurrencySpec{group: "another-group", owner: firstOwner})
-	assert.ErrorIs(t, err, errCancelledByConcurrencyGroup)
+	// the aborted waiter is no longer pending
+	require.Eventually(t, func() bool {
+		manager.mu.Lock()
+		defer manager.mu.Unlock()
+		return manager.groups["group"].pending == nil
+	}, 5*time.Second, 10*time.Millisecond)
 }
 
 func TestConcurrencyManagerContextCancelledWhileWaiting(t *testing.T) {
 	manager := newConcurrencyManager()
+	spec := concurrencySpec{group: "group"}
 
-	release, err := manager.acquire(context.Background(), func() {}, concurrencySpec{group: "group", owner: "job-1"})
+	release, err := manager.acquire(context.Background(), nil, spec, func() {})
 	require.NoError(t, err)
 	defer release()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
-	_, err = manager.acquire(ctx, func() {}, concurrencySpec{group: "group", owner: "job-2"})
+	_, err = manager.acquire(ctx, nil, spec, func() {})
 	assert.ErrorIs(t, err, context.DeadlineExceeded)
-}
-
-func TestConcurrencyManagerReleasesAcquiredGroupsOnError(t *testing.T) {
-	manager := newConcurrencyManager()
-
-	release, err := manager.acquire(context.Background(), func() {}, concurrencySpec{group: "group-2", owner: "job-1"})
-	require.NoError(t, err)
-	defer release()
-
-	// requesting group-1 and group-2 acquires group-1 first, then fails on
-	// the held group-2 and must release group-1 again
-	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
-	defer cancel()
-	_, err = manager.acquire(ctx, func() {},
-		concurrencySpec{group: "group-1", owner: "job-2"},
-		concurrencySpec{group: "group-2", owner: "job-2"})
-	require.ErrorIs(t, err, context.DeadlineExceeded)
-
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		releaseAgain, err := manager.acquire(context.Background(), func() {}, concurrencySpec{group: "group-1", owner: "job-3"})
-		assert.NoError(t, err)
-		releaseAgain()
-	}()
-
-	select {
-	case <-done:
-	case <-time.After(5 * time.Second):
-		t.Fatal("group-1 should have been released after the failed acquisition")
-	}
 }
 
 func runConcurrencyWorkflow(t *testing.T, workflowPath string, markerDir string) *model.Plan {
@@ -261,8 +262,9 @@ func TestRunConcurrencyGroupSerializesWorkflows(t *testing.T) {
 	markerDir := filepath.ToSlash(t.TempDir())
 	plan := runConcurrencyWorkflow(t, concurrencyTestWorkflow("concurrency-workflow-group"), markerDir)
 
-	// jobs of the same workflow run share the workflow level group and may
-	// run in parallel, but jobs of different workflow runs must not overlap
+	// jobs of the same workflow run may run in parallel (the run holds the
+	// group, not the individual jobs), but jobs of different workflow runs
+	// sharing the group must not overlap
 	for _, w1 := range []string{"w1-a", "w1-b"} {
 		for _, w2 := range []string{"w2-a", "w2-b"} {
 			assertIntervalsDisjoint(t, markerInterval(t, markerDir, w1), markerInterval(t, markerDir, w2))
@@ -299,4 +301,67 @@ func TestRunConcurrencyCancelInProgress(t *testing.T) {
 		}
 	}
 	assert.GreaterOrEqual(t, successes, 1, "at least one job must have succeeded: %v", results)
+}
+
+func TestRunConcurrencySupersedesPending(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	markerDir := filepath.ToSlash(t.TempDir())
+	plan := runConcurrencyWorkflow(t, concurrencyTestWorkflow("concurrency-supersede"), markerDir)
+
+	ran := make([]jobInterval, 0, 3)
+	cancelled := 0
+	for _, stage := range plan.Stages {
+		for _, run := range stage.Runs {
+			result := run.Job().Result
+			assert.Contains(t, []string{"success", "cancelled"}, result, "job %s must either succeed or be cancelled", run.String())
+			switch result {
+			case "success":
+				ran = append(ran, markerInterval(t, markerDir, run.Workflow.Name))
+			case "cancelled":
+				cancelled++
+				assert.NoFileExists(t, filepath.Join(markerDir, run.Workflow.Name+"-start"), "a superseded run must not have executed")
+			}
+		}
+	}
+
+	// GitHub keeps at most one pending run per group: with three runs
+	// entering the group at once, at most one is superseded (a run may
+	// arrive only after another one already finished, so all three running
+	// is possible, but at least two always run)
+	assert.GreaterOrEqual(t, len(ran), 2, "at least two runs must have executed")
+	assert.LessOrEqual(t, cancelled, 1, "at most one run can be superseded")
+	for i := 0; i < len(ran); i++ {
+		for j := i + 1; j < len(ran); j++ {
+			assertIntervalsDisjoint(t, ran[i], ran[j])
+		}
+	}
+}
+
+func TestRunConcurrencyReusableWorkflowSharedGroup(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	// the caller holds the group while the called workflow declares the same
+	// group: the called workflow must run instead of deadlocking on its own
+	// caller
+	type result struct{ plan *model.Plan }
+	done := make(chan result, 1)
+	go func() {
+		done <- result{runConcurrencyWorkflow(t, concurrencyTestWorkflow("concurrency-reusable"), "")}
+	}()
+
+	select {
+	case res := <-done:
+		for _, stage := range res.plan.Stages {
+			for _, run := range stage.Runs {
+				assert.Equal(t, "success", run.Job().Result, "job %s should have succeeded", run.String())
+			}
+		}
+	case <-time.After(120 * time.Second):
+		t.Fatal("the run deadlocked: the called workflow waits for the concurrency group its caller holds")
+	}
 }

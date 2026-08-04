@@ -138,7 +138,7 @@ func TestRunBackgroundStepFailure(t *testing.T) {
 	}
 
 	plan, err := runBackgroundStepsWorkflow(t, backgroundStepsWorkflowName("background-steps-fail"), filepath.ToSlash(t.TempDir()))
-	assert.ErrorContains(t, err, "Job 'fail-at-wait' failed")
+	assert.ErrorContains(t, err, "' failed")
 
 	results := map[string]string{}
 	for _, stage := range plan.Stages {
@@ -148,4 +148,6 @@ func TestRunBackgroundStepFailure(t *testing.T) {
 	}
 	assert.Equal(t, "failure", results["fail-at-wait"], "a failing background step must fail the job at the wait step")
 	assert.Equal(t, "success", results["continue-on-error"], "continue-on-error on a background step must swallow its failure")
+	assert.Equal(t, "failure", results["duplicate-id"], "duplicate background step ids must fail the job instead of hiding a step")
+	assert.Equal(t, "failure", results["cancel-after-failure"], "cancelling an already failed background step must not hide its failure from a later wait")
 }

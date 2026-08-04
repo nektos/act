@@ -307,6 +307,9 @@ func (e *HostEnvironment) exec(ctx context.Context, command []string, cmdline st
 		wd = e.Path
 	}
 	stdout := e.getStdOut()
+	if ctxStdout, _, ok := LogWriters(ctx); ok {
+		stdout = ctxStdout
+	}
 	f, err := lookupPathHost(command[0], env, stdout)
 	if err != nil {
 		return err

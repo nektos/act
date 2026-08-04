@@ -1,0 +1,15 @@
+name: sw2
+on: push
+concurrency:
+  group: act-test-supersede
+defaults:
+  run:
+    shell: powershell
+jobs:
+  a:
+    runs-on: self-hosted
+    steps:
+      - run: |
+          New-Item -ItemType File -Path "$env:MARKER_DIR/sw2-start" | Out-Null
+          Start-Sleep -Seconds 2
+          New-Item -ItemType File -Path "$env:MARKER_DIR/sw2-end" | Out-Null

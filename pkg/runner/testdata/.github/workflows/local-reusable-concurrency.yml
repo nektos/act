@@ -1,0 +1,12 @@
+name: reusable-concurrency
+on: workflow_call
+concurrency:
+  group: act-test-reusable-group
+defaults:
+  run:
+    shell: bash
+jobs:
+  called:
+    runs-on: self-hosted
+    steps:
+      - run: echo called

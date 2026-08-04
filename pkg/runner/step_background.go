@@ -21,14 +21,24 @@ const maxConcurrentBackgroundSteps = 10
 
 // backgroundStep tracks one running background step of a job
 type backgroundStep struct {
-	id     string
-	done   chan struct{}
-	cancel context.CancelFunc
+	id      string
+	started chan struct{}
+	done    chan struct{}
+	cancel  context.CancelFunc
 
 	mu        sync.Mutex
 	err       error
 	cancelled bool
 	collected bool
+}
+
+func (bs *backgroundStep) queued() bool {
+	select {
+	case <-bs.started:
+		return false
+	default:
+		return true
+	}
 }
 
 // markCancelled gracefully terminates the step, a deliberately cancelled
@@ -99,11 +109,16 @@ func (r *backgroundStepRegistry) all() []*backgroundStep {
 // launch starts executor asynchronously as a background step and returns as
 // soon as it is registered, the step waits for one of the limited background
 // slots before it runs
-func (r *backgroundStepRegistry) launch(ctx context.Context, id string, executor common.Executor) {
+func (r *backgroundStepRegistry) launch(ctx context.Context, id string, executor common.Executor) error {
 	stepCtx, cancel := context.WithCancel(ctx)
-	bs := &backgroundStep{id: id, done: make(chan struct{}), cancel: cancel}
+	bs := &backgroundStep{id: id, started: make(chan struct{}), done: make(chan struct{}), cancel: cancel}
 
 	r.mu.Lock()
+	if _, exists := r.steps[id]; exists {
+		r.mu.Unlock()
+		cancel()
+		return fmt.Errorf("background step id '%s' is not unique, wait and cancel steps could not tell the steps apart", id)
+	}
 	r.steps[id] = bs
 	r.order = append(r.order, bs)
 	r.mu.Unlock()
@@ -113,13 +128,20 @@ func (r *backgroundStepRegistry) launch(ctx context.Context, id string, executor
 		defer cancel()
 		select {
 		case r.slots <- struct{}{}:
-		case <-stepCtx.Done():
-			bs.setError(stepCtx.Err())
-			return
+		default:
+			common.Logger(ctx).Infof("Background step '%s' is queued, at most %d background steps run concurrently", id, maxConcurrentBackgroundSteps)
+			select {
+			case r.slots <- struct{}{}:
+			case <-stepCtx.Done():
+				bs.setError(stepCtx.Err())
+				return
+			}
 		}
+		close(bs.started)
 		defer func() { <-r.slots }()
 		bs.setError(executor(stepCtx))
 	}()
+	return nil
 }
 
 func (r *backgroundStepRegistry) waitFor(ctx context.Context, bs *backgroundStep) error {
@@ -204,7 +226,9 @@ func newMainStepExecutor(rc *RunContext, registry *backgroundStepRegistry, stepM
 		stepName := stepModel.String()
 		return func(ctx context.Context) error {
 			common.Logger(ctx).Infof("⏩ Starting background step '%s'", stepName)
-			registry.launch(ctx, stepID, backgroundExec)
+			if err := registry.launch(ctx, stepID, backgroundExec); err != nil {
+				_ = setJobError(ctx, err)
+			}
 			return nil
 		}
 	}
@@ -245,8 +269,11 @@ func newBackgroundControlExecutor(rc *RunContext, registry *backgroundStepRegist
 			Outputs:    make(map[string]string),
 		}
 		lock := rc.stepStateLock()
+		dataLock := rc.stateDataLock()
 		lock.Lock()
+		dataLock.Lock()
 		rc.StepResults[stepModel.ID] = stepResult
+		dataLock.Unlock()
 		lock.Unlock()
 
 		logger.Infof("⭐ Run %s", stepModel.String())
@@ -268,10 +295,14 @@ func newBackgroundControlExecutor(rc *RunContext, registry *backgroundStepRegist
 			return nil
 		}
 
+		dataLock.Lock()
 		stepResult.Outcome = model.StepStatusFailure
+		dataLock.Unlock()
 		continueOnError, parseErr := evalStepContinueOnError(ctx, rc, stepModel)
 		if parseErr != nil {
+			dataLock.Lock()
 			stepResult.Conclusion = model.StepStatusFailure
+			dataLock.Unlock()
 			return parseErr
 		}
 		if continueOnError {
@@ -279,7 +310,9 @@ func newBackgroundControlExecutor(rc *RunContext, registry *backgroundStepRegist
 			logger.WithField("stepResult", stepResult.Outcome).Infof("  ❌  Failure - %s", stepModel.String())
 			return nil
 		}
+		dataLock.Lock()
 		stepResult.Conclusion = model.StepStatusFailure
+		dataLock.Unlock()
 		logger.WithField("stepResult", stepResult.Outcome).Infof("  ❌  Failure - %s", stepModel.String())
 		return err
 	}
@@ -296,6 +329,9 @@ func runWaitStep(ctx context.Context, registry *backgroundStepRegistry, stepMode
 		if bs == nil {
 			errs = append(errs, fmt.Errorf("'%s' is not a background step", id))
 			continue
+		}
+		if bs.queued() {
+			common.Logger(ctx).Warnf("Background step '%s' has not started yet, it is queued until one of the %d background slots is free", id, maxConcurrentBackgroundSteps)
 		}
 		common.Logger(ctx).Infof("⏸  Waiting for background step '%s'", id)
 		if err := registry.waitFor(ctx, bs); err != nil {
@@ -320,6 +356,12 @@ func runCancelStep(ctx context.Context, registry *backgroundStepRegistry, stepMo
 	bs := registry.get(stepModel.Cancel)
 	if bs == nil {
 		return fmt.Errorf("'%s' is not a background step", stepModel.Cancel)
+	}
+	if !bs.running() {
+		// cancelling a step that already finished must not suppress a
+		// failure it recorded, a later wait still reports it
+		common.Logger(ctx).Infof("Background step '%s' already finished, nothing to cancel", bs.id)
+		return nil
 	}
 	common.Logger(ctx).Infof("\U0001F6D1  Cancelling background step '%s'", bs.id)
 	bs.markCancelled()

@@ -26,9 +26,11 @@ type ExpressionEvaluator interface {
 	Interpolate(context.Context, string) string
 }
 
-// NewExpressionEvaluator creates a new evaluator
+// NewExpressionEvaluator creates a new evaluator. The evaluator operates on
+// a snapshot of the job env and step results taken at creation time, so it
+// can be used while steps running concurrently in the background mutate them.
 func (rc *RunContext) NewExpressionEvaluator(ctx context.Context) ExpressionEvaluator {
-	return rc.NewExpressionEvaluatorWithEnv(ctx, rc.GetEnv())
+	return rc.NewExpressionEvaluatorWithEnv(ctx, rc.envSnapshot())
 }
 
 func (rc *RunContext) NewExpressionEvaluatorWithEnv(ctx context.Context, env map[string]string) ExpressionEvaluator {
@@ -82,7 +84,7 @@ func (rc *RunContext) NewExpressionEvaluatorWithEnv(ctx context.Context, env map
 		Jobs:   &workflowCallResult,
 		// todo: should be unavailable
 		// but required to interpolate/evaluate the step outputs on the job
-		Steps:     rc.getStepsContext(),
+		Steps:     rc.stepsSnapshot(),
 		Secrets:   getWorkflowSecrets(ctx, rc),
 		Vars:      getWorkflowVars(ctx, rc),
 		Strategy:  strategy,
@@ -144,7 +146,7 @@ func (rc *RunContext) newStepExpressionEvaluator(ctx context.Context, step step,
 		Github:   step.getGithubContext(ctx),
 		Env:      *step.getEnv(),
 		Job:      rc.getJobContext(),
-		Steps:    rc.getStepsContext(),
+		Steps:    rc.stepsSnapshot(),
 		Secrets:  getWorkflowSecrets(ctx, rc),
 		Vars:     getWorkflowVars(ctx, rc),
 		Strategy: strategy,

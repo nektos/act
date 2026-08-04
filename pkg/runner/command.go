@@ -110,6 +110,9 @@ func (rc *RunContext) stepCommandHandler(ctx context.Context, stepID string) com
 func (rc *RunContext) setEnv(ctx context.Context, kvPairs map[string]string, arg string) {
 	name := kvPairs["name"]
 	common.Logger(ctx).WithFields(logrus.Fields{"command": "set-env", "name": name, "arg": arg}).Infof("  \U00002699  ::set-env:: %s=%s", name, arg)
+	dataLock := rc.stateDataLock()
+	dataLock.Lock()
+	defer dataLock.Unlock()
 	if rc.Env == nil {
 		rc.Env = make(map[string]string)
 	}
@@ -128,6 +131,9 @@ func (rc *RunContext) setEnv(ctx context.Context, kvPairs map[string]string, arg
 }
 func (rc *RunContext) setOutputForStep(ctx context.Context, stepID string, kvPairs map[string]string, arg string) {
 	logger := common.Logger(ctx)
+	dataLock := rc.stateDataLock()
+	dataLock.Lock()
+	defer dataLock.Unlock()
 	outputName := kvPairs["name"]
 	if outputMapping, ok := rc.OutputMappings[MappableOutput{StepID: stepID, OutputName: outputName}]; ok {
 		stepID = outputMapping.StepID
@@ -145,6 +151,9 @@ func (rc *RunContext) setOutputForStep(ctx context.Context, stepID string, kvPai
 }
 func (rc *RunContext) addPath(ctx context.Context, arg string) {
 	common.Logger(ctx).WithFields(logrus.Fields{"command": "add-path", "arg": arg}).Infof("  \U00002699  ::add-path:: %s", arg)
+	dataLock := rc.stateDataLock()
+	dataLock.Lock()
+	defer dataLock.Unlock()
 	extraPath := []string{arg}
 	for _, v := range rc.ExtraPath {
 		if v != arg {
@@ -197,6 +206,9 @@ func unescapeKvPairs(kvPairs map[string]string) map[string]string {
 }
 
 func (rc *RunContext) saveStateForStep(_ context.Context, stepID string, kvPairs map[string]string, arg string) {
+	dataLock := rc.stateDataLock()
+	dataLock.Lock()
+	defer dataLock.Unlock()
 	if stepID != "" {
 		if rc.IntraActionState == nil {
 			rc.IntraActionState = map[string]map[string]string{}

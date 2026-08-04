@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/nektos/act/pkg/common"
+	"github.com/nektos/act/pkg/container"
 	"github.com/nektos/act/pkg/model"
 )
 
@@ -102,6 +103,12 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 		} else {
 			postExecutor = postExec
 		}
+	}
+
+	if postExecutor == nil {
+		// a job may consist only of wait/wait-all/cancel steps, which have
+		// no post stage
+		postExecutor = common.NewPipelineExecutor()
 	}
 
 	var stopContainerExecutor common.Executor = func(ctx context.Context) error {
@@ -215,8 +222,10 @@ func useStepLogger(rc *RunContext, stepModel *model.Step, stage stepStage, execu
 			return true
 		})
 
-		oldout, olderr := rc.JobContainer.ReplaceLogWriter(logWriter, logWriter)
-		defer rc.JobContainer.ReplaceLogWriter(oldout, olderr)
+		// the writers travel with the context instead of being swapped in
+		// the execution environment's single global writer slot, so steps
+		// running concurrently each capture their own output
+		ctx = container.WithLogWriters(ctx, logWriter, logWriter)
 
 		return executor(ctx)
 	}

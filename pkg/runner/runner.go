@@ -3,6 +3,7 @@ package runner
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"runtime"
@@ -120,118 +121,219 @@ func (runner *runnerImpl) configure() (Runner, error) {
 	return runner, nil
 }
 
-// NewPlanExecutor ...
+// NewPlanExecutor executes a plan as one independent "workflow run" per
+// workflow: every workflow runs its own stages serially while different
+// workflows run in parallel, so a workflow run can hold its workflow level
+// `concurrency` group from its first to its last job and jobs of other
+// workflows are not stage barriers for each other. The total number of
+// concurrently executing jobs is limited by GetConcurrentJobs.
 func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
-	maxJobNameLen := 0
+	maxJobNameLen := new(int)
 
-	// every workflow in the plan is one workflow run sharing a single owner
-	// identity for its workflow level `concurrency` group, so its own jobs
-	// can run in parallel while jobs of other runs in the same group cannot
-	concurrency := runner.config.concurrency()
-	workflowConcurrencyOwners := make(map[*model.Workflow]string)
-	workflowConcurrencyOwner := func(w *model.Workflow) string {
-		if _, ok := workflowConcurrencyOwners[w]; !ok {
-			workflowConcurrencyOwners[w] = concurrency.newOwner("workflow")
-		}
-		return workflowConcurrencyOwners[w]
-	}
-
-	stagePipeline := make([]common.Executor, 0)
 	log.Debugf("Plan Stages: %v", plan.Stages)
 
+	// the global stage index is the dependency depth; `needs` only references
+	// jobs of the same workflow, so per workflow the non-empty depths in
+	// order preserve the dependency order
+	workflowStages := make(map[*model.Workflow][][]*model.Run)
+	lastStageIndex := make(map[*model.Workflow]int)
+	workflows := make([]*model.Workflow, 0)
 	for i := range plan.Stages {
-		stage := plan.Stages[i]
-		stagePipeline = append(stagePipeline, func(ctx context.Context) error {
-			pipeline := make([]common.Executor, 0)
-			for _, run := range stage.Runs {
-				log.Debugf("Stages Runs: %v", stage.Runs)
-				stageExecutor := make([]common.Executor, 0)
-				job := run.Job()
-				log.Debugf("Job.Name: %v", job.Name)
-				log.Debugf("Job.RawNeeds: %v", job.RawNeeds)
-				log.Debugf("Job.RawRunsOn: %v", job.RawRunsOn)
-				log.Debugf("Job.Env: %v", job.Env)
-				log.Debugf("Job.If: %v", job.If)
-				for step := range job.Steps {
-					if nil != job.Steps[step] {
-						log.Debugf("Job.Steps: %v", job.Steps[step].String())
-					}
-				}
-				log.Debugf("Job.TimeoutMinutes: %v", job.TimeoutMinutes)
-				log.Debugf("Job.Services: %v", job.Services)
-				log.Debugf("Job.Strategy: %v", job.Strategy)
-				log.Debugf("Job.RawContainer: %v", job.RawContainer)
-				log.Debugf("Job.Defaults.Run.Shell: %v", job.Defaults.Run.Shell)
-				log.Debugf("Job.Defaults.Run.WorkingDirectory: %v", job.Defaults.Run.WorkingDirectory)
-				log.Debugf("Job.Outputs: %v", job.Outputs)
-				log.Debugf("Job.Uses: %v", job.Uses)
-				log.Debugf("Job.With: %v", job.With)
-				// log.Debugf("Job.RawSecrets: %v", job.RawSecrets)
-				log.Debugf("Job.Result: %v", job.Result)
-
-				if job.Strategy != nil {
-					log.Debugf("Job.Strategy.FailFast: %v", job.Strategy.FailFast)
-					log.Debugf("Job.Strategy.MaxParallel: %v", job.Strategy.MaxParallel)
-					log.Debugf("Job.Strategy.FailFastString: %v", job.Strategy.FailFastString)
-					log.Debugf("Job.Strategy.MaxParallelString: %v", job.Strategy.MaxParallelString)
-					log.Debugf("Job.Strategy.RawMatrix: %v", job.Strategy.RawMatrix)
-
-					strategyRc := runner.newRunContext(ctx, run, nil)
-					if err := strategyRc.NewExpressionEvaluator(ctx).EvaluateYamlNode(ctx, &job.Strategy.RawMatrix); err != nil {
-						log.Errorf("Error while evaluating matrix: %v", err)
-					}
-				}
-
-				var matrixes []map[string]interface{}
-				if m, err := job.GetMatrixes(); err != nil {
-					log.Errorf("Error while get job's matrix: %v", err)
-				} else {
-					log.Debugf("Job Matrices: %v", m)
-					log.Debugf("Runner Matrices: %v", runner.config.Matrix)
-					matrixes = selectMatrixes(m, runner.config.Matrix)
-				}
-				log.Debugf("Final matrix after applying user inclusions '%v'", matrixes)
-
-				maxParallel := 4
-				if job.Strategy != nil {
-					maxParallel = job.Strategy.MaxParallel
-				}
-
-				if len(matrixes) < maxParallel {
-					maxParallel = len(matrixes)
-				}
-
-				for i, matrix := range matrixes {
-					rc := runner.newRunContext(ctx, run, matrix)
-					rc.JobName = rc.Name
-					rc.workflowConcurrencyOwner = workflowConcurrencyOwner(run.Workflow)
-					rc.jobConcurrencyOwner = concurrency.newOwner("job")
-					if len(matrixes) > 1 {
-						rc.Name = fmt.Sprintf("%s-%d", rc.Name, i+1)
-					}
-					if len(rc.String()) > maxJobNameLen {
-						maxJobNameLen = len(rc.String())
-					}
-					stageExecutor = append(stageExecutor, func(ctx context.Context) error {
-						jobName := fmt.Sprintf("%-*s", maxJobNameLen, rc.String())
-						executor, err := rc.Executor()
-
-						if err != nil {
-							return err
-						}
-
-						return executor(common.WithJobErrorContainer(WithJobLogger(ctx, rc.Run.JobID, jobName, rc.Config, &rc.Masks, matrix)))
-					})
-				}
-				pipeline = append(pipeline, common.NewParallelExecutor(maxParallel, stageExecutor...))
+		for _, run := range plan.Stages[i].Runs {
+			workflow := run.Workflow
+			stages, seen := workflowStages[workflow]
+			if !seen {
+				workflows = append(workflows, workflow)
 			}
-
-			log.Debugf("PlanExecutor concurrency: %d", runner.config.GetConcurrentJobs())
-			return common.NewParallelExecutor(runner.config.GetConcurrentJobs(), pipeline...)(ctx)
-		})
+			if !seen || lastStageIndex[workflow] != i {
+				stages = append(stages, []*model.Run{})
+				lastStageIndex[workflow] = i
+			}
+			stages[len(stages)-1] = append(stages[len(stages)-1], run)
+			workflowStages[workflow] = stages
+		}
 	}
 
-	return common.NewPipelineExecutor(stagePipeline...).Then(handleFailure(plan))
+	jobSlots := make(chan struct{}, runner.config.GetConcurrentJobs())
+	log.Debugf("PlanExecutor concurrency: %d", runner.config.GetConcurrentJobs())
+
+	runExecutors := make([]common.Executor, 0, len(workflows))
+	for _, workflow := range workflows {
+		runExecutors = append(runExecutors, runner.newWorkflowRunExecutor(workflow, workflowStages[workflow], jobSlots, maxJobNameLen))
+	}
+
+	return common.NewParallelExecutor(len(runExecutors), runExecutors...).Then(handleFailure(plan))
+}
+
+// newWorkflowRunExecutor runs the stages of one workflow serially. If the
+// workflow declares a `concurrency` group, the whole run holds the group
+// from its first to its last job; a run superseded while pending, or
+// cancelled by another run's cancel-in-progress, finishes with all its jobs
+// marked 'cancelled' without failing the plan.
+func (runner *runnerImpl) newWorkflowRunExecutor(workflow *model.Workflow, stages [][]*model.Run, jobSlots chan struct{}, maxJobNameLen *int) common.Executor {
+	return func(ctx context.Context) error {
+		logger := common.Logger(ctx)
+		runState := newWorkflowRunState()
+		defer runState.complete()
+
+		if spec, ok := runner.workflowConcurrencySpec(ctx, stages); ok {
+			if heldConcurrencyGroups(ctx)[spec.group] {
+				// a calling workflow already holds this group, acquiring it
+				// again would deadlock on our own caller
+				logger.Debugf("Concurrency group '%s' is already held by a calling workflow", spec.group)
+			} else {
+				release, err := runner.config.concurrency().acquire(ctx, nil, spec, runState.cancelRun)
+				if err != nil {
+					if errors.Is(err, errCancelledByConcurrencyGroup) && ctx.Err() == nil {
+						logger.Infof("\U0001F6AB  Workflow run '%s' was superseded in concurrency group '%s' and is cancelled", workflow.Name, spec.group)
+						markRunCancelled(stages)
+						return nil
+					}
+					return err
+				}
+				defer release()
+				ctx = withHeldConcurrencyGroup(ctx, spec.group)
+			}
+		}
+
+		var firstErr error
+		for _, stageRuns := range stages {
+			if err := runner.newStageExecutor(stageRuns, runState, jobSlots, maxJobNameLen)(ctx); err != nil {
+				firstErr = err
+				break
+			}
+		}
+		runState.complete()
+		if runState.cancelled.Load() && ctx.Err() == nil {
+			// a run cancelled by cancel-in-progress of another run does not
+			// fail the plan, its jobs carry the result 'cancelled'
+			return nil
+		}
+		return firstErr
+	}
+}
+
+// workflowConcurrencySpec evaluates the workflow level `concurrency`
+// settings; only the github, inputs and vars contexts are available
+func (runner *runnerImpl) workflowConcurrencySpec(ctx context.Context, stages [][]*model.Run) (concurrencySpec, bool) {
+	var firstRun *model.Run
+	for _, stageRuns := range stages {
+		if len(stageRuns) > 0 {
+			firstRun = stageRuns[0]
+			break
+		}
+	}
+	if firstRun == nil || firstRun.Workflow.Concurrency() == nil {
+		return concurrencySpec{}, false
+	}
+	rc := runner.newRunContext(ctx, firstRun, nil)
+	return evaluateConcurrency(ctx, rc.NewExpressionEvaluator(ctx), firstRun.Workflow.Concurrency())
+}
+
+func markRunCancelled(stages [][]*model.Run) {
+	for _, stageRuns := range stages {
+		for _, run := range stageRuns {
+			run.Job().Result = "cancelled"
+		}
+	}
+}
+
+func (runner *runnerImpl) newStageExecutor(stageRuns []*model.Run, runState *workflowRunState, jobSlots chan struct{}, maxJobNameLen *int) common.Executor {
+	return func(ctx context.Context) error {
+		pipeline := make([]common.Executor, 0)
+		for _, run := range stageRuns {
+			log.Debugf("Stages Runs: %v", stageRuns)
+			stageExecutor := make([]common.Executor, 0)
+			job := run.Job()
+			log.Debugf("Job.Name: %v", job.Name)
+			log.Debugf("Job.RawNeeds: %v", job.RawNeeds)
+			log.Debugf("Job.RawRunsOn: %v", job.RawRunsOn)
+			log.Debugf("Job.Env: %v", job.Env)
+			log.Debugf("Job.If: %v", job.If)
+			for step := range job.Steps {
+				if nil != job.Steps[step] {
+					log.Debugf("Job.Steps: %v", job.Steps[step].String())
+				}
+			}
+			log.Debugf("Job.TimeoutMinutes: %v", job.TimeoutMinutes)
+			log.Debugf("Job.Services: %v", job.Services)
+			log.Debugf("Job.Strategy: %v", job.Strategy)
+			log.Debugf("Job.RawContainer: %v", job.RawContainer)
+			log.Debugf("Job.Defaults.Run.Shell: %v", job.Defaults.Run.Shell)
+			log.Debugf("Job.Defaults.Run.WorkingDirectory: %v", job.Defaults.Run.WorkingDirectory)
+			log.Debugf("Job.Outputs: %v", job.Outputs)
+			log.Debugf("Job.Uses: %v", job.Uses)
+			log.Debugf("Job.With: %v", job.With)
+			// log.Debugf("Job.RawSecrets: %v", job.RawSecrets)
+			log.Debugf("Job.Result: %v", job.Result)
+
+			if job.Strategy != nil {
+				log.Debugf("Job.Strategy.FailFast: %v", job.Strategy.FailFast)
+				log.Debugf("Job.Strategy.MaxParallel: %v", job.Strategy.MaxParallel)
+				log.Debugf("Job.Strategy.FailFastString: %v", job.Strategy.FailFastString)
+				log.Debugf("Job.Strategy.MaxParallelString: %v", job.Strategy.MaxParallelString)
+				log.Debugf("Job.Strategy.RawMatrix: %v", job.Strategy.RawMatrix)
+
+				strategyRc := runner.newRunContext(ctx, run, nil)
+				if err := strategyRc.NewExpressionEvaluator(ctx).EvaluateYamlNode(ctx, &job.Strategy.RawMatrix); err != nil {
+					log.Errorf("Error while evaluating matrix: %v", err)
+				}
+			}
+
+			var matrixes []map[string]interface{}
+			if m, err := job.GetMatrixes(); err != nil {
+				log.Errorf("Error while get job's matrix: %v", err)
+			} else {
+				log.Debugf("Job Matrices: %v", m)
+				log.Debugf("Runner Matrices: %v", runner.config.Matrix)
+				matrixes = selectMatrixes(m, runner.config.Matrix)
+			}
+			log.Debugf("Final matrix after applying user inclusions '%v'", matrixes)
+
+			maxParallel := 4
+			if job.Strategy != nil {
+				maxParallel = job.Strategy.MaxParallel
+			}
+
+			if len(matrixes) < maxParallel {
+				maxParallel = len(matrixes)
+			}
+
+			for i, matrix := range matrixes {
+				rc := runner.newRunContext(ctx, run, matrix)
+				rc.JobName = rc.Name
+				rc.runState = runState
+				if len(matrixes) > 1 {
+					rc.Name = fmt.Sprintf("%s-%d", rc.Name, i+1)
+				}
+				if len(rc.String()) > *maxJobNameLen {
+					*maxJobNameLen = len(rc.String())
+				}
+				stageExecutor = append(stageExecutor, func(ctx context.Context) error {
+					jobName := fmt.Sprintf("%-*s", *maxJobNameLen, rc.String())
+					executor, err := rc.Executor()
+
+					if err != nil {
+						return err
+					}
+
+					// limit the number of concurrently executing jobs
+					// across all workflow runs
+					select {
+					case jobSlots <- struct{}{}:
+					case <-ctx.Done():
+						return ctx.Err()
+					}
+					defer func() { <-jobSlots }()
+
+					return executor(common.WithJobErrorContainer(WithJobLogger(ctx, rc.Run.JobID, jobName, rc.Config, &rc.Masks, matrix)))
+				})
+			}
+			pipeline = append(pipeline, common.NewParallelExecutor(maxParallel, stageExecutor...))
+		}
+
+		return common.NewParallelExecutor(len(pipeline), pipeline...)(ctx)
+	}
 }
 
 func handleFailure(plan *model.Plan) common.Executor {

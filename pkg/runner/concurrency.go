@@ -3,8 +3,6 @@ package runner
 import (
 	"context"
 	"errors"
-	"fmt"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -14,148 +12,127 @@ import (
 	"github.com/nektos/act/pkg/model"
 )
 
-// errCancelledByConcurrencyGroup is returned by acquire when the owner of the
-// request was cancelled by another job entering one of its concurrency groups
-// with cancel-in-progress enabled.
-var errCancelledByConcurrencyGroup = errors.New("cancelled by another job in the same concurrency group")
+// errCancelledByConcurrencyGroup is returned by acquire when the request was
+// cancelled instead of run: either it was superseded by a newer request in
+// the same group (GitHub cancels the previously pending run) or the job/run
+// itself was cancelled while waiting.
+var errCancelledByConcurrencyGroup = errors.New("cancelled by the concurrency group")
 
-// concurrencySpec describes a single concurrency group requirement of a job.
-// Jobs sharing the same owner may hold the group at the same time. This lets
-// all jobs of one workflow run share the workflow level concurrency group,
-// while job level groups use a unique owner per job so they serialize.
+// concurrencySpec is an evaluated `concurrency` configuration
 type concurrencySpec struct {
 	group            string
-	owner            string
 	cancelInProgress bool
 }
 
-type concurrencyGroup struct {
-	owner string
-	// holders maps an id per acquisition to the cancel function of the
-	// holding job, so cancel-in-progress can cancel all current holders
-	holders map[int64]context.CancelFunc
-	// released is closed (and the group dropped) once the last holder
-	// releases the group, waking up all waiting jobs
-	released chan struct{}
+// concurrencyWaiter represents one workflow run or job holding or waiting
+// for a concurrency group
+type concurrencyWaiter struct {
+	// cancelSelf gracefully cancels the holder when a new request arrives
+	// with cancel-in-progress
+	cancelSelf func()
+	// promoted is closed when the waiter becomes the holder of the group
+	promoted chan struct{}
+	// superseded is closed when a newer pending request replaces this one,
+	// the superseded request is cancelled without having run
+	superseded chan struct{}
 }
 
-// concurrencyManager serializes jobs that share a concurrency group. A single
-// instance is shared between a runner and all reusable workflow runners
-// spawned from it, so called workflows take part in the same groups.
+type concurrencyGroup struct {
+	holder  *concurrencyWaiter
+	pending *concurrencyWaiter
+}
+
+// concurrencyManager implements GitHub's concurrency group queueing: one
+// holder runs at a time, at most one request is pending and a newer request
+// supersedes (cancels) the previously pending one. A single instance is
+// shared between a runner and all reusable workflow runners spawned from it.
 type concurrencyManager struct {
-	mu        sync.Mutex
-	holderSeq int64
-	ownerSeq  atomic.Int64
-	groups    map[string]*concurrencyGroup
-	// cancelledOwners records owners that were cancelled via
-	// cancel-in-progress; their remaining jobs are cancelled instead of run,
-	// approximating GitHub cancelling the whole workflow run
-	cancelledOwners map[string]bool
+	mu     sync.Mutex
+	groups map[string]*concurrencyGroup
 }
 
 func newConcurrencyManager() *concurrencyManager {
-	return &concurrencyManager{
-		groups:          map[string]*concurrencyGroup{},
-		cancelledOwners: map[string]bool{},
-	}
+	return &concurrencyManager{groups: map[string]*concurrencyGroup{}}
 }
 
-// newOwner returns a new unique owner identity for a workflow run or a job
-func (m *concurrencyManager) newOwner(kind string) string {
-	return fmt.Sprintf("%s-%d", kind, m.ownerSeq.Add(1))
-}
-
-// acquire blocks until all requested groups are held by the calling job and
-// returns a function releasing them again. cancelSelf is invoked if another
-// job cancels this one via cancel-in-progress.
-func (m *concurrencyManager) acquire(ctx context.Context, cancelSelf context.CancelFunc, specs ...concurrencySpec) (func(), error) {
-	ordered := make([]concurrencySpec, len(specs))
-	copy(ordered, specs)
-	// acquire groups in a stable order to avoid deadlocks between jobs
-	// requesting the same groups in a different order
-	sort.Slice(ordered, func(i, j int) bool { return ordered[i].group < ordered[j].group })
-
-	releases := make([]func(), 0, len(ordered))
-	releaseAll := func() {
-		for i := len(releases) - 1; i >= 0; i-- {
-			releases[i]()
-		}
-	}
-
-	for _, spec := range ordered {
-		release, err := m.acquireGroup(ctx, spec, cancelSelf)
-		if err != nil {
-			releaseAll()
-			return nil, err
-		}
-		releases = append(releases, release)
-	}
-	return releaseAll, nil
-}
-
-func (m *concurrencyManager) acquireGroup(ctx context.Context, spec concurrencySpec, cancelSelf context.CancelFunc) (func(), error) {
+// acquire blocks until the group is free and returns a function releasing it
+// again. cancelSelf is invoked if a later request cancels this one via
+// cancel-in-progress while it holds the group. cancelCtx (optional) aborts
+// waiting when the requester itself is cancelled.
+func (m *concurrencyManager) acquire(ctx context.Context, cancelCtx context.Context, spec concurrencySpec, cancelSelf func()) (func(), error) {
 	logger := common.Logger(ctx)
-	waiting := false
+	me := &concurrencyWaiter{
+		cancelSelf: cancelSelf,
+		promoted:   make(chan struct{}),
+		superseded: make(chan struct{}),
+	}
+
 	m.mu.Lock()
-	for {
-		if m.cancelledOwners[spec.owner] {
-			m.mu.Unlock()
-			return nil, errCancelledByConcurrencyGroup
-		}
-		group := m.groups[spec.group]
-		if group == nil {
-			group = &concurrencyGroup{
-				holders:  map[int64]context.CancelFunc{},
-				released: make(chan struct{}),
-			}
-			m.groups[spec.group] = group
-		}
-		if len(group.holders) == 0 || group.owner == spec.owner {
-			group.owner = spec.owner
-			m.holderSeq++
-			id := m.holderSeq
-			group.holders[id] = cancelSelf
-			m.mu.Unlock()
-			if waiting {
-				logger.Infof("Acquired concurrency group '%s'", spec.group)
-			}
-			return func() { m.release(spec.group, id) }, nil
-		}
-		if spec.cancelInProgress {
-			// mark the current owner as cancelled and cancel all its jobs
-			// holding the group; the group is re-acquired once they release it
-			m.cancelledOwners[group.owner] = true
-			logger.Infof("Cancelling in-progress jobs in concurrency group '%s'", spec.group)
-			for _, cancel := range group.holders {
-				cancel()
-			}
-		}
-		if !waiting {
-			logger.Infof("Waiting for concurrency group '%s'", spec.group)
-			waiting = true
-		}
-		released := group.released
+	group := m.groups[spec.group]
+	if group == nil {
+		group = &concurrencyGroup{}
+		m.groups[spec.group] = group
+	}
+	if group.holder == nil {
+		group.holder = me
 		m.mu.Unlock()
-		select {
-		case <-released:
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		}
-		m.mu.Lock()
+		return func() { m.release(spec.group, me) }, nil
+	}
+	if spec.cancelInProgress && group.holder.cancelSelf != nil {
+		logger.Infof("Cancelling the run in progress in concurrency group '%s'", spec.group)
+		group.holder.cancelSelf()
+	}
+	if group.pending != nil {
+		// GitHub keeps at most one pending run per group: the previously
+		// pending run is cancelled and replaced by the newer request
+		logger.Infof("Superseding the run pending in concurrency group '%s'", spec.group)
+		close(group.pending.superseded)
+	}
+	group.pending = me
+	m.mu.Unlock()
+
+	logger.Infof("Waiting for concurrency group '%s'", spec.group)
+
+	var cancelDone <-chan struct{}
+	if cancelCtx != nil {
+		cancelDone = cancelCtx.Done()
+	}
+	select {
+	case <-me.promoted:
+		logger.Infof("Acquired concurrency group '%s'", spec.group)
+		return func() { m.release(spec.group, me) }, nil
+	case <-me.superseded:
+		return nil, errCancelledByConcurrencyGroup
+	case <-cancelDone:
+		m.removePending(spec.group, me)
+		return nil, errCancelledByConcurrencyGroup
+	case <-ctx.Done():
+		m.removePending(spec.group, me)
+		return nil, ctx.Err()
 	}
 }
 
-func (m *concurrencyManager) release(groupName string, id int64) {
+func (m *concurrencyManager) release(groupName string, me *concurrencyWaiter) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	group := m.groups[groupName]
-	if group == nil {
+	if group == nil || group.holder != me {
 		return
 	}
-	delete(group.holders, id)
-	if len(group.holders) == 0 {
-		delete(m.groups, groupName)
-		close(group.released)
+	if group.pending != nil {
+		group.holder = group.pending
+		group.pending = nil
+		close(group.holder.promoted)
+		return
+	}
+	delete(m.groups, groupName)
+}
+
+func (m *concurrencyManager) removePending(groupName string, me *concurrencyWaiter) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if group := m.groups[groupName]; group != nil && group.pending == me {
+		group.pending = nil
 	}
 }
 
@@ -172,26 +149,56 @@ func (config *Config) concurrency() *concurrencyManager {
 
 var concurrencyInitMu sync.Mutex
 
-// concurrencySpecs evaluates the workflow and job level concurrency groups
-// that apply to this job
-func (rc *RunContext) concurrencySpecs(ctx context.Context) []concurrencySpec {
-	specs := make([]concurrencySpec, 0, 2)
-	ee := rc.NewExpressionEvaluator(ctx)
-	if spec, ok := evaluateConcurrency(ctx, ee, rc.Run.Job().Concurrency(), rc.jobConcurrencyOwner); ok {
-		specs = append(specs, spec)
+// heldConcurrencyGroupsKey carries the set of concurrency groups already held
+// by the current workflow run or its callers, so jobs and called reusable
+// workflows do not deadlock waiting for a group their own caller holds
+type heldConcurrencyGroupsKey struct{}
+
+func withHeldConcurrencyGroup(ctx context.Context, group string) context.Context {
+	held := map[string]bool{group: true}
+	for g := range heldConcurrencyGroups(ctx) {
+		held[g] = true
 	}
-	if spec, ok := evaluateConcurrency(ctx, ee, rc.Run.Workflow.Concurrency(), rc.workflowConcurrencyOwner); ok {
-		// if the job level group has the same name the job would wait for a
-		// group it already holds, so only keep the stricter job level spec
-		if len(specs) == 0 || specs[0].group != spec.group {
-			specs = append(specs, spec)
-		}
-	}
-	return specs
+	return context.WithValue(ctx, heldConcurrencyGroupsKey{}, held)
 }
 
-func evaluateConcurrency(ctx context.Context, ee ExpressionEvaluator, concurrency *model.Concurrency, owner string) (concurrencySpec, bool) {
-	if concurrency == nil || owner == "" {
+func heldConcurrencyGroups(ctx context.Context) map[string]bool {
+	if held, ok := ctx.Value(heldConcurrencyGroupsKey{}).(map[string]bool); ok {
+		return held
+	}
+	return nil
+}
+
+// workflowRunState tracks the cancellation of one workflow run, used both for
+// cancel-in-progress of workflow level concurrency groups and to skip jobs of
+// a cancelled run that have not started yet
+type workflowRunState struct {
+	cancelled  atomic.Bool
+	completed  atomic.Bool
+	cancelCh   chan struct{}
+	cancelOnce sync.Once
+}
+
+func newWorkflowRunState() *workflowRunState {
+	return &workflowRunState{cancelCh: make(chan struct{})}
+}
+
+// cancelRun gracefully cancels all jobs of the run, it has no effect once
+// the run completed
+func (s *workflowRunState) cancelRun() {
+	if s.completed.Load() {
+		return
+	}
+	s.cancelled.Store(true)
+	s.cancelOnce.Do(func() { close(s.cancelCh) })
+}
+
+func (s *workflowRunState) complete() {
+	s.completed.Store(true)
+}
+
+func evaluateConcurrency(ctx context.Context, ee ExpressionEvaluator, concurrency *model.Concurrency) (concurrencySpec, bool) {
+	if concurrency == nil {
 		return concurrencySpec{}, false
 	}
 	group := strings.TrimSpace(ee.Interpolate(ctx, concurrency.Group))
@@ -207,60 +214,119 @@ func evaluateConcurrency(ctx context.Context, ee ExpressionEvaluator, concurrenc
 			cancelInProgress = false
 		}
 	}
-	return concurrencySpec{group: group, owner: owner, cancelInProgress: cancelInProgress}, true
+	return concurrencySpec{group: group, cancelInProgress: cancelInProgress}, true
 }
 
-// withConcurrency wraps a job executor so it holds the concurrency groups of
-// the job while running. Jobs cancelled by cancel-in-progress of another job
-// finish with result 'cancelled' without failing the plan.
+// withConcurrency wraps a job executor so it takes part in the cancellation
+// of its workflow run and holds the job level concurrency group of the job
+// while running. Jobs cancelled by their group or their run finish with
+// result 'cancelled' without failing the plan.
 func (rc *RunContext) withConcurrency(executor common.Executor) common.Executor {
 	return func(ctx context.Context) error {
-		specs := rc.concurrencySpecs(ctx)
-		if len(specs) == 0 {
+		logger := common.Logger(ctx)
+		runState := rc.runState
+
+		// jobs of a cancelled run that have not started yet are cancelled
+		if runState != nil && runState.cancelled.Load() && ctx.Err() == nil {
+			logger.WithField("jobResult", "cancelled").Infof("\U0001F6AB  Job '%s' was cancelled because its workflow run was cancelled", rc.Name)
+			rc.cancelledResult()
+			return nil
+		}
+
+		spec, hasSpec := evaluateConcurrency(ctx, rc.NewExpressionEvaluator(ctx), rc.Run.Job().Concurrency())
+		if hasSpec && heldConcurrencyGroups(ctx)[spec.group] {
+			// the group is already held by this run or a calling workflow,
+			// acquiring it again would deadlock on our own caller
+			logger.Debugf("Concurrency group '%s' is already held by this workflow run or its caller", spec.group)
+			hasSpec = false
+		}
+
+		if !hasSpec && runState == nil {
 			return executor(ctx)
 		}
 
-		logger := common.Logger(ctx)
-
-		// gracefully cancel this job when either the surrounding cancel
-		// context (Ctrl+C) or cancel-in-progress of another job fires
-		jobCancelCtx, cancelJob := context.WithCancel(context.Background())
+		jobCancelCtx, cancelJob := rc.newJobCancelContext(ctx, runState)
 		defer cancelJob()
-		if parent := common.JobCancelContext(ctx); parent != nil {
-			go func() {
-				select {
-				case <-parent.Done():
-					cancelJob()
-				case <-jobCancelCtx.Done():
-				}
-			}()
-		}
 
 		var cancelledByGroup atomic.Bool
+		var jobCompleted atomic.Bool
 		cancelSelf := func() {
+			if jobCompleted.Load() {
+				return
+			}
 			cancelledByGroup.Store(true)
 			cancelJob()
 		}
 
-		release, err := rc.Config.concurrency().acquire(ctx, cancelSelf, specs...)
-		if err != nil {
-			if errors.Is(err, errCancelledByConcurrencyGroup) && ctx.Err() == nil {
-				logger.WithField("jobResult", "cancelled").Infof("\U0001F6AB  Job '%s' was cancelled by concurrency group before it started", rc.Name)
-				rc.cancelledResult()
-				return nil
+		if hasSpec {
+			release, err := rc.Config.concurrency().acquire(ctx, jobCancelCtx, spec, cancelSelf)
+			if err != nil {
+				if errors.Is(err, errCancelledByConcurrencyGroup) && ctx.Err() == nil {
+					logger.WithField("jobResult", "cancelled").Infof("\U0001F6AB  Job '%s' was cancelled by concurrency group '%s' before it started", rc.Name, spec.group)
+					rc.cancelledResult()
+					return nil
+				}
+				return err
 			}
-			return err
+			defer release()
+			ctx = withHeldConcurrencyGroup(ctx, spec.group)
 		}
-		defer release()
 
-		err = executor(common.WithJobCancelContext(ctx, jobCancelCtx))
-		if cancelledByGroup.Load() && ctx.Err() == nil {
-			logger.WithField("jobResult", "cancelled").Infof("\U0001F6AB  Job '%s' was cancelled by a concurrency group with cancel-in-progress", rc.Name)
-			rc.cancelledResult()
+		err := executor(common.WithJobCancelContext(ctx, jobCancelCtx))
+		jobCompleted.Store(true)
+		if rc.handleCancelledJob(ctx, cancelledByGroup.Load(), spec.group) {
 			return nil
 		}
 		return err
 	}
+}
+
+// newJobCancelContext returns a context that gracefully cancels this job
+// when the surrounding cancel context (Ctrl+C), the cancellation of its
+// workflow run, or cancel-in-progress of another job fires. It deliberately
+// does not inherit from ctx: cancelling it signals the job to stop
+// gracefully instead of aborting it.
+func (rc *RunContext) newJobCancelContext(ctx context.Context, runState *workflowRunState) (context.Context, context.CancelFunc) {
+	jobCancelCtx, cancelJob := context.WithCancel(context.Background())
+	var parentDone <-chan struct{}
+	if parent := common.JobCancelContext(ctx); parent != nil {
+		parentDone = parent.Done()
+	}
+	var runCancelled <-chan struct{}
+	if runState != nil {
+		runCancelled = runState.cancelCh
+	}
+	go func() {
+		select {
+		case <-parentDone:
+			cancelJob()
+		case <-runCancelled:
+			cancelJob()
+		case <-jobCancelCtx.Done():
+		}
+	}()
+	return jobCancelCtx, cancelJob
+}
+
+// handleCancelledJob marks the job result 'cancelled' if the job was
+// cancelled by its concurrency group or its workflow run (not by the outer
+// context) and reports whether it did so
+func (rc *RunContext) handleCancelledJob(ctx context.Context, cancelledByGroup bool, group string) bool {
+	if ctx.Err() != nil {
+		return false
+	}
+	logger := common.Logger(ctx)
+	if cancelledByGroup {
+		logger.WithField("jobResult", "cancelled").Infof("\U0001F6AB  Job '%s' was cancelled by concurrency group '%s' with cancel-in-progress", rc.Name, group)
+		rc.cancelledResult()
+		return true
+	}
+	if rc.runState != nil && rc.runState.cancelled.Load() {
+		logger.WithField("jobResult", "cancelled").Infof("\U0001F6AB  Job '%s' was cancelled because its workflow run was cancelled", rc.Name)
+		rc.cancelledResult()
+		return true
+	}
+	return false
 }
 
 func (rc *RunContext) cancelledResult() {
