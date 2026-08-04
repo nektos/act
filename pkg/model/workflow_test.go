@@ -185,6 +185,67 @@ jobs:
 	assert.Nil(t, workflow.GetJob("none").Concurrency())
 }
 
+func TestReadWorkflow_ConcurrencyQueue(t *testing.T) {
+	yaml := `
+name: concurrency-queue
+on: push
+
+concurrency:
+  group: workflow-group
+  queue: max
+
+jobs:
+  queued:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: job-group
+      queue: single
+    steps:
+    - run: echo
+  defaulted:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: other-group
+    steps:
+    - run: echo
+`
+
+	workflow, err := ReadWorkflow(strings.NewReader(yaml), false)
+	assert.NoError(t, err, "read workflow should succeed")
+
+	concurrency := workflow.Concurrency()
+	require.NotNil(t, concurrency)
+	assert.Equal(t, "max", concurrency.Queue)
+
+	concurrency = workflow.GetJob("queued").Concurrency()
+	require.NotNil(t, concurrency)
+	assert.Equal(t, "single", concurrency.Queue)
+
+	concurrency = workflow.GetJob("defaulted").Concurrency()
+	require.NotNil(t, concurrency)
+	assert.Equal(t, "", concurrency.Queue, "queue defaults to single and is left empty when not set")
+}
+
+func TestReadWorkflow_ConcurrencyQueueInvalid(t *testing.T) {
+	yaml := `
+name: concurrency-queue-invalid
+on: push
+
+concurrency:
+  group: g
+  queue: enormous
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - run: echo
+`
+
+	_, err := ReadWorkflow(strings.NewReader(yaml), false)
+	assert.ErrorContains(t, err, "Expected one of single,max got enormous")
+}
+
 func TestReadWorkflow_BackgroundSteps(t *testing.T) {
 	yaml := `
 name: background-steps

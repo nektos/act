@@ -122,7 +122,10 @@ func TestRunBackgroundSteps(t *testing.T) {
 	aEnd := markerModTime(t, markerDir, "a-end")
 	bStart := markerModTime(t, markerDir, "b-start")
 	bEnd := markerModTime(t, markerDir, "b-end")
-	assert.True(t, aStart.Before(bEnd) && bStart.Before(aEnd),
+	// the fixtures rendezvous on each other's start marker, so overlap is
+	// guaranteed by construction; the timestamps only have to be consistent
+	// with it, which allows equality at coarse filesystem granularity
+	assert.True(t, !aStart.After(bEnd) && !bStart.After(aEnd),
 		"steps of a parallel group must run concurrently (a: %v - %v, b: %v - %v)", aStart, aEnd, bStart, bEnd)
 	afterParallel := markerModTime(t, markerDir, "after-parallel")
 	assert.False(t, afterParallel.Before(aEnd), "the step after a parallel group must run after all steps of the group")

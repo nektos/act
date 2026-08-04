@@ -3,7 +3,6 @@ package runner
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"runtime"
@@ -176,16 +175,20 @@ func (runner *runnerImpl) newWorkflowRunExecutor(workflow *model.Workflow, stage
 		runState := newWorkflowRunState()
 		defer runState.complete()
 
-		if spec, ok := runner.workflowConcurrencySpec(ctx, stages); ok {
-			if heldConcurrencyGroups(ctx)[spec.group] {
+		spec, ok, err := runner.workflowConcurrencySpec(ctx, stages)
+		if err != nil {
+			return err
+		}
+		if ok {
+			if isConcurrencyGroupHeld(ctx, spec.group) {
 				// a calling workflow already holds this group, acquiring it
 				// again would deadlock on our own caller
 				logger.Debugf("Concurrency group '%s' is already held by a calling workflow", spec.group)
 			} else {
 				release, err := runner.config.concurrency().acquire(ctx, nil, spec, runState.cancelRun)
 				if err != nil {
-					if errors.Is(err, errCancelledByConcurrencyGroup) && ctx.Err() == nil {
-						logger.Infof("\U0001F6AB  Workflow run '%s' was superseded in concurrency group '%s' and is cancelled", workflow.Name, spec.group)
+					if isConcurrencyCancellation(err) && ctx.Err() == nil {
+						logger.Infof("\U0001F6AB  Workflow run '%s' was cancelled by concurrency group '%s' before it started", workflow.Name, spec.group)
 						markRunCancelled(stages)
 						return nil
 					}
@@ -215,7 +218,7 @@ func (runner *runnerImpl) newWorkflowRunExecutor(workflow *model.Workflow, stage
 
 // workflowConcurrencySpec evaluates the workflow level `concurrency`
 // settings; only the github, inputs and vars contexts are available
-func (runner *runnerImpl) workflowConcurrencySpec(ctx context.Context, stages [][]*model.Run) (concurrencySpec, bool) {
+func (runner *runnerImpl) workflowConcurrencySpec(ctx context.Context, stages [][]*model.Run) (concurrencySpec, bool, error) {
 	var firstRun *model.Run
 	for _, stageRuns := range stages {
 		if len(stageRuns) > 0 {
@@ -224,7 +227,7 @@ func (runner *runnerImpl) workflowConcurrencySpec(ctx context.Context, stages []
 		}
 	}
 	if firstRun == nil || firstRun.Workflow.Concurrency() == nil {
-		return concurrencySpec{}, false
+		return concurrencySpec{}, false, nil
 	}
 	rc := runner.newRunContext(ctx, firstRun, nil)
 	return evaluateConcurrency(ctx, rc.NewExpressionEvaluator(ctx), firstRun.Workflow.Concurrency())
@@ -303,6 +306,7 @@ func (runner *runnerImpl) newStageExecutor(stageRuns []*model.Run, runState *wor
 				rc := runner.newRunContext(ctx, run, matrix)
 				rc.JobName = rc.Name
 				rc.runState = runState
+				rc.jobSlots = jobSlots
 				if len(matrixes) > 1 {
 					rc.Name = fmt.Sprintf("%s-%d", rc.Name, i+1)
 				}
@@ -317,15 +321,9 @@ func (runner *runnerImpl) newStageExecutor(stageRuns []*model.Run, runState *wor
 						return err
 					}
 
-					// limit the number of concurrently executing jobs
-					// across all workflow runs
-					select {
-					case jobSlots <- struct{}{}:
-					case <-ctx.Done():
-						return ctx.Err()
-					}
-					defer func() { <-jobSlots }()
-
+					// the job slot limiting how many jobs run at once is
+					// taken inside the executor, after the job acquired its
+					// concurrency group, so queued jobs do not occupy slots
 					return executor(common.WithJobErrorContainer(WithJobLogger(ctx, rc.Run.JobID, jobName, rc.Config, &rc.Masks, matrix)))
 				})
 			}

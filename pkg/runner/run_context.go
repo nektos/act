@@ -59,6 +59,11 @@ type RunContext struct {
 	// to, assigned by the plan executor
 	runState *workflowRunState
 
+	// jobSlots limits how many jobs execute at the same time across all
+	// workflow runs (--concurrent-jobs). A slot is only held while the job
+	// actually runs, never while it waits for a concurrency group.
+	jobSlots chan struct{}
+
 	// parentStepID is the id of the action step a composite RunContext was
 	// created for, it is stable while the mutable CurrentStep is not
 	parentStepID string

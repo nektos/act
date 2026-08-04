@@ -1,0 +1,16 @@
+name: qw3
+on: push
+concurrency:
+  group: ACT-TEST-QUEUE-MAX
+  queue: max
+defaults:
+  run:
+    shell: bash
+jobs:
+  a:
+    runs-on: self-hosted
+    steps:
+      - run: |
+          touch "$MARKER_DIR/qw3-start"
+          sleep 2
+          touch "$MARKER_DIR/qw3-end"

@@ -1,0 +1,16 @@
+name: qw2
+on: push
+concurrency:
+  group: act-test-queue-max
+  queue: max
+defaults:
+  run:
+    shell: powershell
+jobs:
+  a:
+    runs-on: self-hosted
+    steps:
+      - run: |
+          New-Item -ItemType File -Path "$env:MARKER_DIR/qw2-start" | Out-Null
+          Start-Sleep -Seconds 2
+          New-Item -ItemType File -Path "$env:MARKER_DIR/qw2-end" | Out-Null
