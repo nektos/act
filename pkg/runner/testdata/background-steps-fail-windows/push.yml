@@ -1,0 +1,27 @@
+name: background-steps-fail
+on: push
+defaults:
+  run:
+    shell: powershell
+jobs:
+  fail-at-wait:
+    runs-on: self-hosted
+    steps:
+      - name: Failing background step
+        id: failing
+        run: exit 1
+        background: true
+      - name: Still runs before the failure surfaces
+        run: echo ok
+      - name: The job fails here
+        wait: failing
+  continue-on-error:
+    runs-on: self-hosted
+    steps:
+      - name: Failing background step with continue-on-error
+        id: failing
+        run: exit 1
+        background: true
+        continue-on-error: true
+      - name: Does not fail the job
+        wait: failing

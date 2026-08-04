@@ -100,13 +100,26 @@ func execAsComposite(step actionStep) common.Executor {
 
 		// Map outputs from composite RunContext to job RunContext
 		eval := compositeRC.NewExpressionEvaluator(ctx)
+		outputs := make(map[string]string, len(action.Outputs))
 		for outputName, output := range action.Outputs {
-			rc.setOutput(ctx, map[string]string{
-				"name": outputName,
-			}, eval.Interpolate(ctx, output.Value))
+			outputs[outputName] = eval.Interpolate(ctx, output.Value)
 		}
 
-		rc.Masks = append(rc.Masks, compositeRC.Masks...)
+		for _, mask := range compositeRC.Masks {
+			rc.AddMask(mask)
+		}
+
+		stepID := step.getStepModel().ID
+		lock := rc.stepStateLock()
+		lock.Lock()
+		defer lock.Unlock()
+
+		for outputName, value := range outputs {
+			rc.setOutputForStep(ctx, stepID, map[string]string{
+				"name": outputName,
+			}, value)
+		}
+
 		rc.ExtraPath = compositeRC.ExtraPath
 		// compositeRC.Env is dirty, contains INPUT_ and merged step env, only rely on compositeRC.GlobalEnv
 		mergeIntoMap := mergeIntoMapCaseSensitive
