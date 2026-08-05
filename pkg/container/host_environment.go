@@ -13,6 +13,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/go-git/go-billy/v5/helper/polyfill"
@@ -33,6 +35,16 @@ type HostEnvironment struct {
 	ActPath   string
 	CleanUp   func()
 	StdOut    io.Writer
+
+	// stdoutMutex guards StdOut, which is replaced while a command may
+	// already be running and reading it
+	stdoutMutex sync.Mutex
+}
+
+func (e *HostEnvironment) getStdOut() io.Writer {
+	e.stdoutMutex.Lock()
+	defer e.stdoutMutex.Unlock()
+	return e.StdOut
 }
 
 func (e *HostEnvironment) Create(_ []string, _ []string) common.Executor {
@@ -181,13 +193,15 @@ func (e *HostEnvironment) Start(_ bool) common.Executor {
 }
 
 type ptyWriter struct {
-	Out       io.Writer
-	AutoStop  bool
+	Out io.Writer
+	// AutoStop is set on the executing goroutine after copyPtyOutput has
+	// already started reading it
+	AutoStop  atomic.Bool
 	dirtyLine bool
 }
 
 func (w *ptyWriter) Write(buf []byte) (int, error) {
-	if w.AutoStop && len(buf) > 0 && buf[len(buf)-1] == 4 {
+	if w.AutoStop.Load() && len(buf) > 0 && buf[len(buf)-1] == 4 {
 		n, err := w.Out.Write(buf[:len(buf)-1])
 		if err != nil {
 			return n, err
@@ -294,7 +308,8 @@ func (e *HostEnvironment) exec(ctx context.Context, command []string, cmdline st
 	} else {
 		wd = e.Path
 	}
-	f, err := lookupPathHost(command[0], env, e.StdOut)
+	stdout := e.getStdOut()
+	f, err := lookupPathHost(command[0], env, stdout)
 	if err != nil {
 		return err
 	}
@@ -302,9 +317,9 @@ func (e *HostEnvironment) exec(ctx context.Context, command []string, cmdline st
 	cmd.Path = f
 	cmd.Args = command
 	cmd.Stdin = nil
-	cmd.Stdout = e.StdOut
+	cmd.Stdout = stdout
 	cmd.Env = envList
-	cmd.Stderr = e.StdOut
+	cmd.Stderr = stdout
 	cmd.Dir = wd
 	cmd.SysProcAttr = getSysProcAttr(cmdline, false)
 	var ppty *os.File
@@ -324,7 +339,7 @@ func (e *HostEnvironment) exec(ctx context.Context, command []string, cmdline st
 			common.Logger(ctx).Debugf("Failed to setup Pty %v\n", err.Error())
 		}
 	}
-	writer := &ptyWriter{Out: e.StdOut}
+	writer := &ptyWriter{Out: stdout}
 	logctx, finishLog := context.WithCancel(context.Background())
 	if ppty != nil {
 		go copyPtyOutput(writer, ppty, finishLog)
@@ -339,7 +354,7 @@ func (e *HostEnvironment) exec(ctx context.Context, command []string, cmdline st
 		return err
 	}
 	if tty != nil {
-		writer.AutoStop = true
+		writer.AutoStop.Store(true)
 		if _, err := tty.Write([]byte("\x04")); err != nil {
 			common.Logger(ctx).Debug("Failed to write EOT")
 		}
@@ -460,6 +475,8 @@ func (e *HostEnvironment) GetHealth(_ context.Context) Health {
 }
 
 func (e *HostEnvironment) ReplaceLogWriter(stdout io.Writer, _ io.Writer) (io.Writer, io.Writer) {
+	e.stdoutMutex.Lock()
+	defer e.stdoutMutex.Unlock()
 	org := e.StdOut
 	e.StdOut = stdout
 	return org, org

@@ -56,7 +56,17 @@ type RunContext struct {
 }
 
 func (rc *RunContext) AddMask(mask string) {
+	masksMutex.Lock()
+	defer masksMutex.Unlock()
 	rc.Masks = append(rc.Masks, mask)
+}
+
+// masksSnapshot returns a copy of the current masks; the slice is appended to
+// by running steps and must not be read without the mutex
+func (rc *RunContext) masksSnapshot() []string {
+	masksMutex.RLock()
+	defer masksMutex.RUnlock()
+	return append([]string{}, rc.Masks...)
 }
 
 type MappableOutput struct {
