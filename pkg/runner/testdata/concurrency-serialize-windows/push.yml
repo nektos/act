@@ -1,0 +1,23 @@
+name: concurrency-serialize
+on: push
+defaults:
+  run:
+    shell: powershell
+jobs:
+  first:
+    runs-on: self-hosted
+    concurrency:
+      group: act-test-serialize-${{ github.event_name }}
+    steps:
+      - run: |
+          New-Item -ItemType File -Path "$env:MARKER_DIR/first-start" | Out-Null
+          Start-Sleep -Seconds 2
+          New-Item -ItemType File -Path "$env:MARKER_DIR/first-end" | Out-Null
+  second:
+    runs-on: self-hosted
+    concurrency: act-test-serialize-push
+    steps:
+      - run: |
+          New-Item -ItemType File -Path "$env:MARKER_DIR/second-start" | Out-Null
+          Start-Sleep -Seconds 2
+          New-Item -ItemType File -Path "$env:MARKER_DIR/second-end" | Out-Null

@@ -1,0 +1,20 @@
+name: concurrency-cancel
+on: push
+defaults:
+  run:
+    shell: bash
+jobs:
+  first:
+    runs-on: self-hosted
+    concurrency:
+      group: act-test-cancel
+      cancel-in-progress: true
+    steps:
+      - run: sleep 5
+  second:
+    runs-on: self-hosted
+    concurrency:
+      group: act-test-cancel
+      cancel-in-progress: ${{ true }}
+    steps:
+      - run: sleep 5

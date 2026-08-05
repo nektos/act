@@ -1,0 +1,23 @@
+name: concurrency-serialize
+on: push
+defaults:
+  run:
+    shell: bash
+jobs:
+  first:
+    runs-on: self-hosted
+    concurrency:
+      group: act-test-serialize-${{ github.event_name }}
+    steps:
+      - run: |
+          touch "$MARKER_DIR/first-start"
+          sleep 2
+          touch "$MARKER_DIR/first-end"
+  second:
+    runs-on: self-hosted
+    concurrency: act-test-serialize-push
+    steps:
+      - run: |
+          touch "$MARKER_DIR/second-start"
+          sleep 2
+          touch "$MARKER_DIR/second-end"

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/nektos/act/pkg/common"
+	"github.com/nektos/act/pkg/container"
 	"github.com/nektos/act/pkg/model"
 )
 
@@ -33,11 +34,16 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 		return nil
 	})
 
-	infoSteps := info.steps()
+	infoSteps, expandErr := expandParallelStepGroups(info.steps())
+	if expandErr != nil {
+		return common.NewErrorExecutor(expandErr)
+	}
 
 	if len(infoSteps) == 0 {
 		return common.NewDebugExecutor("No steps found")
 	}
+
+	backgroundSteps := newBackgroundStepRegistry()
 
 	preSteps = append(preSteps, func(ctx context.Context) error {
 		// Have to be skipped for some Tests
@@ -73,6 +79,13 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 			stepModel.ID = fmt.Sprintf("%d", i)
 		}
 
+		if stepModel.IsBackgroundControl() {
+			// wait, wait-all and cancel steps always run, they are not
+			// skipped when a previous step failed and have no pre/post stage
+			steps = append(steps, newControlStepExecutor(rc, backgroundSteps, stepModel, setJobError))
+			continue
+		}
+
 		step, err := sf.newStep(stepModel, rc)
 
 		if err != nil {
@@ -81,16 +94,7 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 
 		preSteps = append(preSteps, useStepLogger(rc, stepModel, stepStagePre, step.pre().ThenError(setJobError)))
 
-		stepExec := step.main()
-		steps = append(steps, useStepLogger(rc, stepModel, stepStageMain, func(ctx context.Context) error {
-			err := stepExec(ctx)
-			if err != nil {
-				_ = setJobError(ctx, err)
-			} else if ctx.Err() != nil {
-				_ = setJobError(ctx, ctx.Err())
-			}
-			return nil
-		}))
+		steps = append(steps, newMainStepExecutor(rc, backgroundSteps, stepModel, step.main(), setJobError))
 
 		postExec := useStepLogger(rc, stepModel, stepStagePost, step.post().ThenError(setJobError))
 		if postExecutor != nil {
@@ -99,6 +103,12 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 		} else {
 			postExecutor = postExec
 		}
+	}
+
+	if postExecutor == nil {
+		// a job may consist only of wait/wait-all/cancel steps, which have
+		// no post stage
+		postExecutor = common.NewPipelineExecutor()
 	}
 
 	var stopContainerExecutor common.Executor = func(ctx context.Context) error {
@@ -135,6 +145,7 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 				Then(common.NewFieldExecutor("stepResult", model.StepStatusSuccess, common.NewInfoExecutor("  \u2705  Success - Set up job"))).
 				ThenError(setJobError).OnError(common.NewFieldExecutor("stepResult", model.StepStatusFailure, common.NewInfoExecutor("  \u274C  Failure - Set up job"))))),
 		common.NewPipelineExecutor(pipeline...).
+			Finally(backgroundSteps.cancelRemaining()).
 			Finally(func(ctx context.Context) error { //nolint:contextcheck
 				var cancel context.CancelFunc
 				if ctx.Err() == context.Canceled {
@@ -202,7 +213,7 @@ func useStepLogger(rc *RunContext, stepModel *model.Step, stage stepStage, execu
 		ctx = withStepLogger(ctx, stepModel.ID, rc.ExprEval.Interpolate(ctx, stepModel.String()), stage.String())
 
 		rawLogger := common.Logger(ctx).WithField("raw_output", true)
-		logWriter := common.NewLineWriter(rc.commandHandler(ctx), func(s string) bool {
+		logWriter := common.NewLineWriter(rc.stepCommandHandler(ctx, stepModel.ID), func(s string) bool {
 			if rc.Config.LogOutput {
 				rawLogger.Infof("%s", s)
 			} else {
@@ -211,8 +222,10 @@ func useStepLogger(rc *RunContext, stepModel *model.Step, stage stepStage, execu
 			return true
 		})
 
-		oldout, olderr := rc.JobContainer.ReplaceLogWriter(logWriter, logWriter)
-		defer rc.JobContainer.ReplaceLogWriter(oldout, olderr)
+		// the writers travel with the context instead of being swapped in
+		// the execution environment's single global writer slot, so steps
+		// running concurrently each capture their own output
+		ctx = container.WithLogWriters(ctx, logWriter, logWriter)
 
 		return executor(ctx)
 	}
