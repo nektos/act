@@ -583,13 +583,10 @@ func (rc *RunContext) GetNodeToolFullPath(ctx context.Context) string {
 		cenv[path] = cpath
 		hout := &bytes.Buffer{}
 		herr := &bytes.Buffer{}
-		stdout, stderr := rc.JobContainer.ReplaceLogWriter(hout, herr)
+		// capture the output on the context, which the execution
+		// environments prefer over their global writer slot
 		err := rc.execJobContainer([]string{"node", "--no-warnings", "-e", "console.log(process.execPath)"},
-			cenv, "", "").
-			Finally(func(context.Context) error {
-				rc.JobContainer.ReplaceLogWriter(stdout, stderr)
-				return nil
-			})(timeed)
+			cenv, "", "")(container.WithLogWriters(timeed, hout, herr))
 		rawStr := strings.Trim(hout.String(), "\r\n")
 		if err == nil && !strings.ContainsAny(rawStr, "\r\n") {
 			rc.nodeToolFullPath = rawStr

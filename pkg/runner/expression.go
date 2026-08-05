@@ -202,18 +202,15 @@ func getHashFilesFunction(ctx context.Context, rc *RunContext) func(v []reflect.
 				env["followSymbolicLinks"] = "true"
 			}
 
-			stdout, stderr := rc.JobContainer.ReplaceLogWriter(hout, herr)
+			// capture the output of the helper on the context, which the
+			// execution environments prefer over their global writer slot
 			_ = rc.JobContainer.Copy(rc.JobContainer.GetActPath(), &container.FileEntry{
 				Name: name,
 				Mode: 0o644,
 				Body: hashfiles,
 			}).
 				Then(rc.execJobContainer([]string{rc.GetNodeToolFullPath(ctx), path.Join(rc.JobContainer.GetActPath(), name)},
-					env, "", "")).
-				Finally(func(context.Context) error {
-					rc.JobContainer.ReplaceLogWriter(stdout, stderr)
-					return nil
-				})(timeed)
+					env, "", ""))(container.WithLogWriters(timeed, hout, herr))
 			output := hout.String() + "\n" + herr.String()
 			guard := "__OUTPUT__"
 			outstart := strings.Index(output, guard)

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/nektos/act/pkg/common"
+	"github.com/nektos/act/pkg/container"
 	"github.com/nektos/act/pkg/model"
 )
 
@@ -249,8 +250,11 @@ func (rc *RunContext) newCompositeCommandExecutor(executor common.Executor) comm
 			return true
 		})
 
-		oldout, olderr := rc.JobContainer.ReplaceLogWriter(logWriter, logWriter)
-		defer rc.JobContainer.ReplaceLogWriter(oldout, olderr)
+		// the handler is published on the context, which the execution
+		// environments prefer over their global writer slot; a step running
+		// this composite action has its own writers on the context and they
+		// must not swallow the commands of the composite's inner steps
+		ctx = container.WithLogWriters(ctx, logWriter, logWriter)
 
 		return executor(ctx)
 	}
