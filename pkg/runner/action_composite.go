@@ -70,7 +70,7 @@ func newCompositeRunContext(ctx context.Context, parent *RunContext, step action
 		ActionPath:       actionPath,
 		Env:              env,
 		GlobalEnv:        parent.GlobalEnv,
-		Masks:            parent.Masks,
+		Masks:            parent.masksSnapshot(),
 		ExtraPath:        parent.ExtraPath,
 		Parent:           parent,
 		EventJSON:        parent.EventJSON,
@@ -106,7 +106,9 @@ func execAsComposite(step actionStep) common.Executor {
 			}, eval.Interpolate(ctx, output.Value))
 		}
 
-		rc.Masks = append(rc.Masks, compositeRC.Masks...)
+		for _, mask := range compositeRC.masksSnapshot() {
+			rc.AddMask(mask)
+		}
 		rc.ExtraPath = compositeRC.ExtraPath
 		// compositeRC.Env is dirty, contains INPUT_ and merged step env, only rely on compositeRC.GlobalEnv
 		mergeIntoMap := mergeIntoMapCaseSensitive
