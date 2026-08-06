@@ -3,11 +3,20 @@ package runner
 import (
 	"context"
 	"io"
+	"strings"
 
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/container"
 	"github.com/stretchr/testify/mock"
 )
+
+// matchCmdFile matches a runner file command path regardless of the unique
+// per step execution directory it now lives in
+func matchCmdFile(name string) interface{} {
+	return mock.MatchedBy(func(path string) bool {
+		return strings.HasPrefix(path, "/var/run/act/workflow/") && strings.HasSuffix(path, "/"+name)
+	})
+}
 
 type containerMock struct {
 	mock.Mock

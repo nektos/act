@@ -53,6 +53,10 @@ type RunContext struct {
 	caller              *caller // job calling this RunContext (reusable workflows)
 	Cancelled           bool
 	nodeToolFullPath    string
+
+	// parentStepID is the id of the action step a composite RunContext was
+	// created for. It is stable, unlike the mutable CurrentStep.
+	parentStepID string
 }
 
 func (rc *RunContext) AddMask(mask string) {
