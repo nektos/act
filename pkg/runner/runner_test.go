@@ -285,6 +285,7 @@ func TestRunEvent(t *testing.T) {
 		{workdir, "workdir", "push", "", platforms, secrets},
 		{workdir, "defaults-run", "push", "", platforms, secrets},
 		{workdir, "composite-fail-with-output", "push", "", platforms, secrets},
+		{workdir, "composite-undeclared-outputs", "push", "", platforms, secrets},
 		{workdir, "issue-597", "push", "", platforms, secrets},
 		{workdir, "issue-598", "push", "", platforms, secrets},
 		{workdir, "if-env-act", "push", "", platforms, secrets},
@@ -557,6 +558,7 @@ func TestRunEventHostEnvironment(t *testing.T) {
 			// shell sh is not necessarily bash if the job has no override
 			// {workdir, "defaults-run", "push", "", platforms, secrets},
 			{workdir, "composite-fail-with-output", "push", "", platforms, secrets},
+			{workdir, "composite-undeclared-outputs", "push", "", platforms, secrets},
 			{workdir, "issue-597", "push", "", platforms, secrets},
 			{workdir, "issue-598", "push", "", platforms, secrets},
 			{workdir, "if-env-act", "push", "", platforms, secrets},
