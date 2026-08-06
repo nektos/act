@@ -7,6 +7,10 @@ description: Run GitHub Actions workflows locally with the act CLI. Use when the
 
 act runs the jobs in `.github/workflows/` inside Docker containers that imitate GitHub's hosted runners. Docker must be running. `act --help` is the authoritative flag reference — this file carries only the workflow and the gotchas `--help` does not confess.
 
+## Install
+
+If `act` is not on the PATH, install it with the system package manager when one carries it (`brew install act`, `winget install nektos.act`, `choco install act-cli`), else with the official script: `curl --proto '=https' --tlsv1.2 -sSfL https://raw.githubusercontent.com/nektos/act/master/install.sh | bash` — it installs to `./bin` by default; pass `-b <dir>` (e.g. `-b ~/.local/bin`) to choose a directory already on the PATH. As a fallback with a Go toolchain: `go install github.com/nektos/act@latest`. Verify with `act --version`.
+
 ## Workflow
 
 1. **Scout before running.** `act -l` lists every job with its workflow file and trigger event. `act -n` (dry run) validates the workflows without creating containers. Know what will run before you run it.
