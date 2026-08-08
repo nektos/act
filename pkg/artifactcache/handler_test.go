@@ -759,3 +759,113 @@ func TestHandler_BindAddress(t *testing.T) {
 	addr := handler.listener.Addr().String()
 	assert.True(t, strings.HasPrefix(addr, "127.0.0.1:"))
 }
+
+// TestHandler_UploadCommitRace is a regression test for
+// https://github.com/nektos/act/issues/6012: upload and commit for the same
+// cache entry both close their database handle before touching storage, with
+// nothing serializing the two. A commit could finalize the cache -- and, on
+// cleanup, delete its temporary chunk directory -- while a concurrent upload
+// was still writing into it, corrupting or silently dropping the uploaded
+// bytes.
+//
+// The window between upload's completeness check and its storage write is a
+// handful of nanoseconds, far too narrow to hit reliably by chance. Instead
+// this uses testHookUploadLocked to force the exact interleaving every time:
+// it pauses upload right after it has verified the cache is not yet complete
+// and is holding the cache's lock, starts a concurrent commit, confirms
+// commit cannot finish while upload still holds the lock, then releases
+// upload and checks the committed artifact is exactly what was uploaded.
+func TestHandler_UploadCommitRace(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "artifactcache")
+	handler, err := StartHandler(dir, "", "", 0, nil)
+	require.NoError(t, err)
+	defer handler.Close()
+
+	base := fmt.Sprintf("%s%s", handler.ExternalURL(), apiPath)
+
+	key := strings.ToLower(t.Name())
+	version := "c19da02a2bd7e77277f1ac29ab45c09b7d46a4ee758284e26bb3045ad11d9d20"
+	content := bytes.Repeat([]byte{0x42}, 8192)
+
+	var id uint64
+	{
+		body, err := json.Marshal(&Request{Key: key, Version: version, Size: int64(len(content))})
+		require.NoError(t, err)
+		resp, err := http.Post(fmt.Sprintf("%s/caches", base), "application/json", bytes.NewReader(body))
+		require.NoError(t, err)
+		got := struct {
+			CacheID uint64 `json:"cacheId"`
+		}{}
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(&got))
+		resp.Body.Close()
+		id = got.CacheID
+		require.NotZero(t, id)
+	}
+
+	uploadLocked := make(chan struct{})
+	releaseUpload := make(chan struct{})
+	original := testHookUploadLocked
+	testHookUploadLocked = func() {
+		close(uploadLocked)
+		<-releaseUpload
+	}
+	defer func() { testHookUploadLocked = original }()
+
+	uploadDone := make(chan *http.Response, 1)
+	go func() {
+		req, err := http.NewRequest(http.MethodPatch,
+			fmt.Sprintf("%s/caches/%d", base, id), bytes.NewReader(content))
+		if !assert.NoError(t, err) {
+			uploadDone <- nil
+			return
+		}
+		req.Header.Set("Content-Type", "application/octet-stream")
+		req.Header.Set("Content-Range", fmt.Sprintf("bytes 0-%d/*", len(content)-1))
+		resp, err := http.DefaultClient.Do(req)
+		assert.NoError(t, err)
+		uploadDone <- resp
+	}()
+
+	select {
+	case <-uploadLocked:
+	case <-time.After(5 * time.Second):
+		t.Fatal("upload never reached testHookUploadLocked")
+	}
+
+	commitDone := make(chan *http.Response, 1)
+	go func() {
+		resp, err := http.Post(fmt.Sprintf("%s/caches/%d", base, id), "", nil)
+		assert.NoError(t, err)
+		commitDone <- resp
+	}()
+
+	// commit must not be able to finalize the cache while upload is still
+	// mid-write and holding the lock -- this is exactly the window in which
+	// the pre-fix code let commit's cleanup delete the temp chunk upload was
+	// still writing to.
+	select {
+	case <-commitDone:
+		t.Fatal("commit finished while upload still held the cache lock")
+	case <-time.After(200 * time.Millisecond):
+	}
+
+	close(releaseUpload)
+
+	uploadResp := <-uploadDone
+	require.NotNil(t, uploadResp)
+	defer uploadResp.Body.Close()
+	assert.Equal(t, 200, uploadResp.StatusCode)
+
+	commitResp := <-commitDone
+	require.NotNil(t, commitResp)
+	defer commitResp.Body.Close()
+	assert.Equal(t, 200, commitResp.StatusCode)
+
+	getResp, err := http.Get(fmt.Sprintf("%s/artifacts/%d", base, id))
+	require.NoError(t, err)
+	defer getResp.Body.Close()
+	require.Equal(t, 200, getResp.StatusCode)
+	got, err := io.ReadAll(getResp.Body)
+	require.NoError(t, err)
+	assert.Equal(t, content, got)
+}

@@ -40,13 +40,17 @@ type Handler struct {
 	gcing atomic.Bool
 	gcAt  time.Time
 
+	cacheLocks *cacheLock
+
 	outboundIP        string
 	customExternalURL string
 	token             string
 }
 
 func StartHandler(dir, customExternalURL string, outboundIP string, port uint16, logger logrus.FieldLogger) (*Handler, error) {
-	h := &Handler{}
+	h := &Handler{
+		cacheLocks: newCacheLock(),
+	}
 
 	if logger == nil {
 		discard := logrus.New()
@@ -245,6 +249,13 @@ func (h *Handler) reserve(w http.ResponseWriter, r *http.Request, _ httprouter.P
 	})
 }
 
+// testHookUploadLocked is called by upload once it holds the per-cache lock
+// and has confirmed the cache is not yet complete, immediately before it
+// writes to storage. It is a no-op outside of tests; test code overrides it
+// to deterministically interleave a concurrent commit at this exact point,
+// exercising the race described in issue #6012 without relying on timing.
+var testHookUploadLocked = func() {}
+
 // PATCH /_apis/artifactcache/caches/:id
 func (h *Handler) upload(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	id, err := strconv.ParseUint(params.ByName("id"), 10, 64)
@@ -252,6 +263,13 @@ func (h *Handler) upload(w http.ResponseWriter, r *http.Request, params httprout
 		h.responseJSON(w, r, 400, err)
 		return
 	}
+
+	// Serialized with commit for the same cache ID: both handlers close their
+	// database handle before touching storage, so without this lock a commit
+	// could finalize (and on cleanup, delete) this cache's temporary chunk
+	// directory while this write is still in flight. See issue #6012.
+	unlock := h.cacheLocks.Lock(id)
+	defer unlock()
 
 	cache := &Cache{}
 	db, err := h.openDB()
@@ -274,6 +292,7 @@ func (h *Handler) upload(w http.ResponseWriter, r *http.Request, params httprout
 		return
 	}
 	db.Close()
+	testHookUploadLocked()
 	start, _, err := parseContentRange(r.Header.Get("Content-Range"))
 	if err != nil {
 		h.responseJSON(w, r, 400, err)
@@ -293,6 +312,10 @@ func (h *Handler) commit(w http.ResponseWriter, r *http.Request, params httprout
 		h.responseJSON(w, r, 400, err)
 		return
 	}
+
+	// See the matching comment in upload.
+	unlock := h.cacheLocks.Lock(uint64(id))
+	defer unlock()
 
 	cache := &Cache{}
 	db, err := h.openDB()
