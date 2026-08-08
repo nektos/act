@@ -64,7 +64,11 @@ type CopyCollector struct {
 }
 
 func (cc *CopyCollector) WriteFile(fpath string, fi fs.FileInfo, linkName string, f io.Reader) error {
+	cleanDst := filepath.Clean(cc.DstDir) + string(os.PathSeparator)
 	fdestpath := filepath.Join(cc.DstDir, fpath)
+	if !strings.HasPrefix(filepath.Clean(fdestpath)+string(os.PathSeparator), cleanDst) {
+		return fmt.Errorf("path %q escapes destination directory", fpath)
+	}
 	if err := os.MkdirAll(filepath.Dir(fdestpath), 0o777); err != nil {
 		return err
 	}
