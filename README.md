@@ -27,6 +27,19 @@ Please look at the [act user guide](https://nektosact.com) for more documentatio
 
 # Support
 
+## Docker on macOS
+
+`act` requires access to a Docker-compatible daemon. On macOS, verify that Docker Desktop, Rancher Desktop, or Podman Desktop is running before invoking `act`.
+
+If the daemon is exposed through a non-default socket, set `DOCKER_HOST` to the endpoint reported by your container runtime:
+
+```sh
+export DOCKER_HOST="$(docker context inspect --format '{{.Endpoints.docker.Host}}')"
+act
+```
+
+If workflow images do not have a native image for your Mac, add `--container-architecture linux/amd64` when running `act`.
+
 Need help? Ask in [discussions](https://github.com/nektos/act/discussions)!
 
 # Contributing
