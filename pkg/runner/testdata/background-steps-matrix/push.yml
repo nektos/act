@@ -1,0 +1,36 @@
+name: background-steps-matrix
+on: push
+jobs:
+  # Every matrix entry expands the same `parallel` groups, and the steps in a
+  # group that carry no `id` get one assigned from their position. This job
+  # exists to lock in that those generated ids stay per-entry: if they leaked
+  # between matrix RunContexts the background step registry would reject the
+  # duplicate and fail the job.
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        entry: [one, two, three]
+    steps:
+      - name: Loose background step
+        id: loose
+        run: |
+          echo "entry=${{ matrix.entry }}" >> "$GITHUB_OUTPUT"
+          sleep 1
+        background: true
+
+      # no ids anywhere in this group, so all of them are generated
+      - parallel:
+          - run: sleep 1 && echo "first group, ${{ matrix.entry }}"
+          - run: sleep 1 && echo "first group, ${{ matrix.entry }}"
+
+      # a second group in the same job, mixing a named step with unnamed ones
+      - parallel:
+          - id: named
+            run: echo "named in ${{ matrix.entry }}" && sleep 1
+          - run: sleep 1 && echo "second group, ${{ matrix.entry }}"
+
+      - wait: loose
+      - name: The matrix entry survived the parallel groups
+        run: |
+          [ "${{ steps.loose.outputs.entry }}" = "${{ matrix.entry }}" ]
