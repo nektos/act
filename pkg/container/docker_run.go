@@ -210,9 +210,8 @@ func (cr *containerReference) ReplaceLogWriter(stdout io.Writer, stderr io.Write
 	return out, err
 }
 
-// getLogWriters returns the writers command output is copied to. They are
-// replaced while a command may already be running, so they must not be read
-// without the mutex.
+// getLogWriters returns the current log writers, they are replaced per step
+// and read concurrently by steps running in the background
 func (cr *containerReference) getLogWriters() (io.Writer, io.Writer) {
 	cr.logWriterMutex.Lock()
 	defer cr.logWriterMutex.Unlock()
@@ -690,6 +689,9 @@ func (cr *containerReference) waitForCommand(ctx context.Context, isTerminal boo
 	cmdResponse := make(chan error)
 
 	outWriter, errWriter := cr.getLogWriters()
+	if ctxOut, ctxErr, ok := LogWriters(ctx); ok {
+		outWriter, errWriter = ctxOut, ctxErr
+	}
 	go func() {
 		var err error
 		if !isTerminal || os.Getenv("NORAW") != "" {

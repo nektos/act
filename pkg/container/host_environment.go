@@ -36,8 +36,8 @@ type HostEnvironment struct {
 	CleanUp   func()
 	StdOut    io.Writer
 
-	// stdoutMutex guards StdOut, which is replaced while a command may
-	// already be running and reading it
+	// stdoutMutex guards StdOut, it is replaced per step and read
+	// concurrently by steps running in the background
 	stdoutMutex sync.Mutex
 }
 
@@ -193,9 +193,7 @@ func (e *HostEnvironment) Start(_ bool) common.Executor {
 }
 
 type ptyWriter struct {
-	Out io.Writer
-	// AutoStop is set on the executing goroutine after copyPtyOutput has
-	// already started reading it
+	Out       io.Writer
 	AutoStop  atomic.Bool
 	dirtyLine bool
 }
@@ -309,6 +307,9 @@ func (e *HostEnvironment) exec(ctx context.Context, command []string, cmdline st
 		wd = e.Path
 	}
 	stdout := e.getStdOut()
+	if ctxStdout, _, ok := LogWriters(ctx); ok {
+		stdout = ctxStdout
+	}
 	f, err := lookupPathHost(command[0], env, stdout)
 	if err != nil {
 		return err

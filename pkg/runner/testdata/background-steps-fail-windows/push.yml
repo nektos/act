@@ -1,0 +1,54 @@
+name: background-steps-fail
+on: push
+defaults:
+  run:
+    shell: powershell
+jobs:
+  fail-at-wait:
+    runs-on: self-hosted
+    steps:
+      - name: Failing background step
+        id: failing
+        run: exit 1
+        background: true
+      - name: Still runs before the failure surfaces
+        run: echo ok
+      - name: The job fails here
+        wait: failing
+  continue-on-error:
+    runs-on: self-hosted
+    steps:
+      - name: Failing background step with continue-on-error
+        id: failing
+        run: exit 1
+        background: true
+        continue-on-error: true
+      - name: Does not fail the job
+        wait: failing
+  duplicate-id:
+    runs-on: self-hosted
+    steps:
+      - id: dup
+        run: echo one
+        background: true
+      - id: dup
+        run: echo two
+        background: true
+      - wait: dup
+  cancel-after-failure:
+    runs-on: self-hosted
+    steps:
+      - name: Fails in the background
+        id: failing
+        run: |
+          New-Item -ItemType File -Path "$env:MARKER_DIR/cancel-after-failure-done" | Out-Null
+          exit 1
+        background: true
+      - name: Wait until the background step has finished
+        run: |
+          while (-not (Test-Path "$env:MARKER_DIR/cancel-after-failure-done")) { Start-Sleep -Milliseconds 200 }
+          Start-Sleep -Seconds 1
+      - name: Cancelling a finished step must not hide its failure
+        cancel: failing
+      - name: The job fails here
+        wait: failing
