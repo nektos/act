@@ -9,6 +9,7 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/nektos/act/pkg/common"
@@ -91,6 +92,10 @@ func processRunnerEnvFileCommand(ctx context.Context, fileName string, rc *RunCo
 	return nil
 }
 
+// stepFileCommandSeq makes the runner file command paths unique per step
+// execution, so the commands of one step cannot be read by the next
+var stepFileCommandSeq atomic.Int64
+
 func runStepExecutor(step step, stage stepStage, executor common.Executor) common.Executor {
 	return func(ctx context.Context) error {
 		logger := common.Logger(ctx)
@@ -137,22 +142,25 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 		}
 		logger.Infof("\u2B50 Run %s %s", stage, stepString)
 
-		// Prepare and clean Runner File Commands
+		// Prepare and clean Runner File Commands. Every step execution gets
+		// its own directory, so a step never reads the file commands another
+		// step left behind.
 		actPath := rc.JobContainer.GetActPath()
+		cmdDir := path.Join("workflow", fmt.Sprintf("cmds-%d-%s", stepFileCommandSeq.Add(1), stage.String()))
 
-		outputFileCommand := path.Join("workflow", "outputcmd.txt")
+		outputFileCommand := path.Join(cmdDir, "outputcmd.txt")
 		(*step.getEnv())["GITHUB_OUTPUT"] = path.Join(actPath, outputFileCommand)
 
-		stateFileCommand := path.Join("workflow", "statecmd.txt")
+		stateFileCommand := path.Join(cmdDir, "statecmd.txt")
 		(*step.getEnv())["GITHUB_STATE"] = path.Join(actPath, stateFileCommand)
 
-		pathFileCommand := path.Join("workflow", "pathcmd.txt")
+		pathFileCommand := path.Join(cmdDir, "pathcmd.txt")
 		(*step.getEnv())["GITHUB_PATH"] = path.Join(actPath, pathFileCommand)
 
-		envFileCommand := path.Join("workflow", "envs.txt")
+		envFileCommand := path.Join(cmdDir, "envs.txt")
 		(*step.getEnv())["GITHUB_ENV"] = path.Join(actPath, envFileCommand)
 
-		summaryFileCommand := path.Join("workflow", "SUMMARY.md")
+		summaryFileCommand := path.Join(cmdDir, "SUMMARY.md")
 		(*step.getEnv())["GITHUB_STEP_SUMMARY"] = path.Join(actPath, summaryFileCommand)
 
 		_ = rc.JobContainer.Copy(actPath, &container.FileEntry{
@@ -203,11 +211,18 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 
 			logger.WithFields(logrus.Fields{"executionTime": executionTime, "stepResult": stepResult.Outcome}).Infof("  \u274C  Failure - %s %s [%s]", stage, stepString, executionTime)
 		}
-		// Process Runner File Commands
+		// Process Runner File Commands. They belong to this step, so they are
+		// recorded against its id rather than whatever CurrentStep happens to
+		// hold by the time they are read.
+		stepID := stepModel.ID
 		ferrors := []error{err}
 		ferrors = append(ferrors, processRunnerEnvFileCommand(ctx, envFileCommand, rc, rc.setEnv))
-		ferrors = append(ferrors, processRunnerEnvFileCommand(ctx, stateFileCommand, rc, rc.saveState))
-		ferrors = append(ferrors, processRunnerEnvFileCommand(ctx, outputFileCommand, rc, rc.setOutput))
+		ferrors = append(ferrors, processRunnerEnvFileCommand(ctx, stateFileCommand, rc, func(ctx context.Context, kvPairs map[string]string, arg string) {
+			rc.saveStateForStep(ctx, stepID, kvPairs, arg)
+		}))
+		ferrors = append(ferrors, processRunnerEnvFileCommand(ctx, outputFileCommand, rc, func(ctx context.Context, kvPairs map[string]string, arg string) {
+			rc.setOutputForStep(ctx, stepID, kvPairs, arg)
+		}))
 		ferrors = append(ferrors, processRunnerSummaryCommand(ctx, summaryFileCommand, rc))
 		ferrors = append(ferrors, rc.UpdateExtraPath(ctx, path.Join(actPath, pathFileCommand)))
 		return errors.Join(ferrors...)

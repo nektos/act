@@ -73,6 +73,7 @@ func newCompositeRunContext(ctx context.Context, parent *RunContext, step action
 		Masks:            parent.masksSnapshot(),
 		ExtraPath:        parent.ExtraPath,
 		Parent:           parent,
+		parentStepID:     step.getStepModel().ID,
 		EventJSON:        parent.EventJSON,
 		nodeToolFullPath: parent.nodeToolFullPath,
 	}
@@ -98,10 +99,13 @@ func execAsComposite(step actionStep) common.Executor {
 
 		err := steps.main(ctx)
 
-		// Map outputs from composite RunContext to job RunContext
+		// Map outputs from composite RunContext to job RunContext. They
+		// belong to the step that used the action, not to whichever step is
+		// current once the composite finished.
+		stepID := step.getStepModel().ID
 		eval := compositeRC.NewExpressionEvaluator(ctx)
 		for outputName, output := range action.Outputs {
-			rc.setOutput(ctx, map[string]string{
+			rc.setOutputForStep(ctx, stepID, map[string]string{
 				"name": outputName,
 			}, eval.Interpolate(ctx, output.Value))
 		}
