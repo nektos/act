@@ -1,0 +1,21 @@
+name: Nested composite input context
+description: Validates nested composite input isolation
+
+inputs:
+  nested_value:
+    description: Value forwarded by the parent composite action
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Read the nested input from the inputs context
+      shell: sh
+      env:
+        RESOLVED_NESTED: ${{ inputs.nested_value }}
+      run: |
+        test "$RESOLVED_NESTED" = "fallback-value"
+        if env | grep -q '^INPUT_'; then
+          echo "nested composite inputs leaked into the process environment"
+          exit 1
+        fi

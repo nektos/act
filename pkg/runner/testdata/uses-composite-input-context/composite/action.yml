@@ -1,0 +1,44 @@
+name: Composite input context
+description: Validates composite input context and environment isolation
+
+inputs:
+  explicit:
+    description: Explicit input
+    required: true
+  derived:
+    description: Input with a default value
+    default: fallback-value
+  enabled:
+    description: Enables the conditional step
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    - name: Read inputs without automatic environment variables
+      shell: sh
+      env:
+        RESOLVED_EXPLICIT: ${{ inputs.explicit }}
+        RESOLVED_DERIVED: ${{ inputs.derived }}
+      run: |
+        test "$RESOLVED_EXPLICIT" = "from-workflow"
+        test "$RESOLVED_DERIVED" = "fallback-value"
+        if env | grep -q '^INPUT_'; then
+          echo "composite inputs leaked into the process environment"
+          exit 1
+        fi
+
+    - name: Evaluate inputs in a step condition
+      if: inputs.enabled == 'true'
+      shell: sh
+      run: test "${{ inputs.explicit }}" = "from-workflow"
+
+    - name: Pass an input to a nested composite action
+      uses: ./uses-composite-input-context/nested
+      with:
+        nested_value: ${{ inputs.derived }}
+
+    - name: Preserve input environment variables for JavaScript actions
+      uses: ./uses-composite-input-context/javascript
+      with:
+        child_value: ${{ inputs.explicit }}

@@ -250,6 +250,7 @@ func TestRunEvent(t *testing.T) {
 		{workdir, "uses-composite-with-error", "push", "Job 'failing-composite-action' failed", platforms, secrets},
 		{workdir, "uses-composite-check-for-input-collision", "push", "", platforms, secrets},
 		{workdir, "uses-composite-check-for-input-shadowing", "push", "", platforms, secrets},
+		{workdir, "uses-composite-input-context", "push", "", platforms, secrets},
 		{workdir, "uses-nested-composite", "push", "", platforms, secrets},
 		{workdir, "remote-action-composite-js-pre-with-defaults", "push", "", platforms, secrets},
 		{workdir, "remote-action-composite-action-ref", "push", "", platforms, secrets},
@@ -583,6 +584,7 @@ func TestRunEventHostEnvironment(t *testing.T) {
 			{workdir, "windows-prepend-path-powershell-5", "push", "", platforms, secrets},
 			{workdir, "windows-add-env-powershell-5", "push", "", platforms, secrets},
 			{workdir, "windows-shell-cmd", "push", "", platforms, secrets},
+			{workdir, "uses-composite-input-context-windows", "push", "", platforms, secrets},
 		}...)
 	} else {
 		platforms := map[string]string{
