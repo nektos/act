@@ -36,6 +36,7 @@ type RunContext struct {
 	Run                 *model.Run
 	EventJSON           string
 	Env                 map[string]string
+	ActionInputs        map[string]interface{}
 	GlobalEnv           map[string]string // to pass env changes of GITHUB_ENV and set-env correctly, due to dirty Env field
 	ExtraPath           []string
 	CurrentStep         string

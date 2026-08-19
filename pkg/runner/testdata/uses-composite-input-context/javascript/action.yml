@@ -1,0 +1,11 @@
+name: JavaScript input environment
+description: Validates input environment variables for JavaScript actions
+
+inputs:
+  child_value:
+    description: Value forwarded by the composite action
+    required: true
+
+runs:
+  using: node20
+  main: index.js
