@@ -35,6 +35,7 @@ type Config struct {
 	JSONLogger                         bool                         // use json or text logger
 	LogPrefixJobID                     bool                         // switches from the full job name to the job id
 	Env                                map[string]string            // env for containers
+	NoHostEnv                          bool                         // don't inherit the parent process environment in host execution
 	Inputs                             map[string]string            // manually passed action inputs
 	Secrets                            map[string]string            // list of secrets
 	Vars                               map[string]string            // list of vars

@@ -18,6 +18,7 @@ type Input struct {
 	secrets                            []string
 	vars                               []string
 	envs                               []string
+	noHostEnv                          bool
 	inputs                             []string
 	platforms                          []string
 	dryrun                             bool

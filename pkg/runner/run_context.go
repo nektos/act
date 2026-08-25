@@ -229,11 +229,15 @@ func (rc *RunContext) startHostEnvironment() common.Executor {
 				rc.Env[fmt.Sprintf("RUNNER_%s", strings.ToUpper(k))] = v
 			}
 		}
-		for _, env := range os.Environ() {
-			if k, v, ok := strings.Cut(env, "="); ok {
-				// don't override
-				if _, ok := rc.Env[k]; !ok {
-					rc.Env[k] = v
+		if rc.Config.NoHostEnv {
+			rc.addHostShellEnvironment()
+		} else {
+			for _, env := range os.Environ() {
+				if k, v, ok := strings.Cut(env, "="); ok {
+					// don't override
+					if _, ok := rc.Env[k]; !ok {
+						rc.Env[k] = v
+					}
 				}
 			}
 		}
@@ -250,6 +254,38 @@ func (rc *RunContext) startHostEnvironment() common.Executor {
 			}),
 		)(ctx)
 	}
+}
+
+func (rc *RunContext) addHostShellEnvironment() {
+	pathName := rc.JobContainer.GetPathVariableName()
+	if !rc.addHostEnvVariable(pathName) {
+		if path := rc.JobContainer.DefaultPathVariable(); path != "" {
+			rc.Env[pathName] = path
+		}
+	}
+	if runtime.GOOS == "windows" {
+		rc.addHostEnvVariable("PATHEXT")
+	}
+}
+
+func (rc *RunContext) addHostEnvVariable(name string) bool {
+	isNameMatch := func(key string) bool {
+		return key == name || (rc.JobContainer.IsEnvironmentCaseInsensitive() && strings.EqualFold(key, name))
+	}
+
+	for k := range rc.Env {
+		if isNameMatch(k) {
+			return true
+		}
+	}
+
+	for _, env := range os.Environ() {
+		if k, v, ok := strings.Cut(env, "="); ok && isNameMatch(k) {
+			rc.Env[k] = v
+			return true
+		}
+	}
+	return false
 }
 
 func (rc *RunContext) startJobContainer() common.Executor {
