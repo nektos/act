@@ -78,6 +78,7 @@ func createRootCommand(ctx context.Context, input *Input, version string) *cobra
 	rootCmd.Flags().StringArrayVarP(&input.secrets, "secret", "s", []string{}, "secret to make available to actions with optional value (e.g. -s mysecret=foo or -s mysecret)")
 	rootCmd.Flags().StringArrayVar(&input.vars, "var", []string{}, "variable to make available to actions with optional value (e.g. --var myvar=foo or --var myvar)")
 	rootCmd.Flags().StringArrayVarP(&input.envs, "env", "", []string{}, "env to make available to actions with optional value (e.g. --env myenv=foo or --env myenv)")
+	rootCmd.Flags().BoolVar(&input.noHostEnv, "no-host-env", false, "don't inherit the parent process environment in host execution")
 	rootCmd.Flags().StringArrayVarP(&input.inputs, "input", "", []string{}, "action input to make available to actions (e.g. --input myinput=foo)")
 	rootCmd.Flags().StringArrayVarP(&input.platforms, "platform", "P", []string{}, "custom image to use per platform (e.g. -P ubuntu-18.04=nektos/act-environments-ubuntu:18.04)")
 	rootCmd.Flags().BoolVarP(&input.reuseContainers, "reuse", "r", false, "don't remove container(s) on successfully completed workflow(s) to maintain state between runs")
@@ -619,6 +620,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			JSONLogger:                         input.jsonLogger,
 			LogPrefixJobID:                     input.logPrefixJobID,
 			Env:                                envs,
+			NoHostEnv:                          input.noHostEnv,
 			Secrets:                            secrets,
 			Vars:                               vars,
 			Inputs:                             inputs,

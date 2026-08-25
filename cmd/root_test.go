@@ -83,6 +83,15 @@ func TestFlags(t *testing.T) {
 	}
 }
 
+func TestNoHostEnvFlag(t *testing.T) {
+	input := &Input{}
+	rootCmd := createRootCommand(context.Background(), input, "")
+
+	err := rootCmd.Flags().Set("no-host-env", "true")
+	assert.NoError(t, err)
+	assert.True(t, input.noHostEnv)
+}
+
 func TestReadArgsFile(t *testing.T) {
 	tables := []struct {
 		path  string
