@@ -390,9 +390,23 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			jobContainerNetwork = "host"
 		}
 
+		entrypoint := []string{"tail", "-f", "/dev/null"}
+		privileged := rc.Config.Privileged
+		options := rc.options(ctx)
+		if rc.Config.Systemd {
+			// systemd needs to run as PID 1, plus privileged mode and its own
+			// cgroup namespace/mount to manage services (e.g. via systemctl).
+			// /run is pre-mounted as tmpfs so systemd finds it already the
+			// right fs type and skips its own remount, which would otherwise
+			// shadow act's volume mount at /var/run/act (act's ActPath).
+			entrypoint = []string{"/sbin/init"}
+			privileged = true
+			options = strings.TrimSpace(options + " --cgroupns=host -v /sys/fs/cgroup:/sys/fs/cgroup:rw --tmpfs /run")
+		}
+
 		rc.JobContainer = container.NewContainer(&container.NewContainerInput{
 			Cmd:            nil,
-			Entrypoint:     []string{"tail", "-f", "/dev/null"},
+			Entrypoint:     entrypoint,
 			WorkingDir:     ext.ToContainerPath(rc.Config.Workdir),
 			Image:          image,
 			Username:       username,
@@ -405,10 +419,10 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			Binds:          binds,
 			Stdout:         logWriter,
 			Stderr:         logWriter,
-			Privileged:     rc.Config.Privileged,
+			Privileged:     privileged,
 			UsernsMode:     rc.Config.UsernsMode,
 			Platform:       rc.Config.ContainerArchitecture,
-			Options:        rc.options(ctx),
+			Options:        options,
 		})
 		if rc.JobContainer == nil {
 			return errors.New("Failed to create job container")
@@ -422,6 +436,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			rc.startServiceContainers(networkName),
 			rc.JobContainer.Create(rc.Config.ContainerCapAdd, rc.Config.ContainerCapDrop),
 			rc.JobContainer.Start(false),
+			rc.waitForSystemdBoot(),
 			rc.JobContainer.Copy(rc.JobContainer.GetActPath()+"/", &container.FileEntry{
 				Name: "workflow/event.json",
 				Mode: 0o644,
@@ -433,6 +448,33 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			}),
 			rc.waitForServiceContainers(),
 		)(ctx)
+	}
+}
+
+// waitForSystemdBoot blocks until systemd finishes its startup jobs. Without
+// this, files act copies into the container right after Start (e.g. step
+// scripts under /var/run/act) can be shadowed once systemd mounts its own
+// tmpfs over /run during boot.
+func (rc *RunContext) waitForSystemdBoot() common.Executor {
+	return func(ctx context.Context) error {
+		if !rc.Config.Systemd {
+			return nil
+		}
+		// Immediately after Start, systemd may not have created its private
+		// D-Bus socket yet, so the first is-system-running call can fail
+		// with "Failed to connect to bus" rather than actually waiting.
+		// Retry until it connects (empty stdout means it never connected);
+		// once connected, --wait blocks until a final state is reached, and
+		// "degraded" (e.g. no network-online.target) is an expected final
+		// state, not a reason to keep retrying or fail the job.
+		_ = rc.JobContainer.Exec([]string{"bash", "-c",
+			`for i in $(seq 1 60); do
+				state=$(systemctl is-system-running --wait 2>/dev/null)
+				[ -n "$state" ] && exit 0
+				sleep 0.5
+			done`,
+		}, map[string]string{}, "", "")(ctx)
+		return nil
 	}
 }
 
