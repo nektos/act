@@ -141,14 +141,18 @@ func TestServiceContextRequiresPrivateInspectionCapability(t *testing.T) {
 type serviceContainerFake struct {
 	container.ExecutionsEnvironment
 	id            string
+	network       string
+	networkErr    error
 	bindings      nat.PortMap
 	inspectErr    error
 	bindingsAfter int
 	inspectCalls  int
+	networkCalls  int
 	startCalled   bool
 	removeCalled  bool
 	removeErr     error
 	closeCalled   bool
+	closeErr      error
 }
 
 func (c *serviceContainerFake) Pull(bool) common.Executor {
@@ -168,6 +172,11 @@ func (c *serviceContainerFake) Start(bool) common.Executor {
 
 func (c *serviceContainerFake) GetContainerID() string {
 	return c.id
+}
+
+func (c *serviceContainerFake) GetContainerNetwork(context.Context) (string, error) {
+	c.networkCalls++
+	return c.network, c.networkErr
 }
 
 func (c *serviceContainerFake) GetPortBindings(context.Context) (nat.PortMap, error) {
@@ -194,7 +203,7 @@ func (c *serviceContainerFake) Remove() common.Executor {
 func (c *serviceContainerFake) Close() common.Executor {
 	return func(context.Context) error {
 		c.closeCalled = true
-		return nil
+		return c.closeErr
 	}
 }
 
@@ -216,13 +225,15 @@ func TestWaitForServiceContainerCancellationInterruptsBackoff(t *testing.T) {
 
 func TestStartServiceContainersPublishesContextAfterStart(t *testing.T) {
 	postgres := &serviceContainerFake{
-		id: "postgres-container-id",
+		id:      "postgres-container-id",
+		network: "act-test-network",
 		bindings: nat.PortMap{
 			nat.Port("5432/tcp"): {{HostPort: "49153"}},
 		},
 	}
 	redis := &serviceContainerFake{
-		id: "redis-container-id",
+		id:      "redis-container-id",
+		network: "act-test-network",
 		bindings: nat.PortMap{
 			nat.Port("6379/tcp"): {{HostPort: "49154"}},
 		},
@@ -231,8 +242,8 @@ func TestStartServiceContainersPublishesContextAfterStart(t *testing.T) {
 		Config:            &Config{},
 		ServiceContainers: []container.ExecutionsEnvironment{postgres, redis},
 		serviceContainerMetadata: []serviceContainerMetadata{
-			{contextName: "postgres", networkName: "act-test-network", exposedPorts: nat.PortSet{nat.Port("5432/tcp"): {}}},
-			{contextName: "redis", networkName: "act-test-network", exposedPorts: nat.PortSet{nat.Port("6379/tcp"): {}}},
+			{contextName: "postgres", exposedPorts: nat.PortSet{nat.Port("5432/tcp"): {}}},
+			{contextName: "redis", exposedPorts: nat.PortSet{nat.Port("6379/tcp"): {}}},
 		},
 		StepResults: map[string]*model.StepResult{},
 	}
@@ -249,32 +260,62 @@ func TestStartServiceContainersPublishesContextAfterStart(t *testing.T) {
 func TestCaptureJobContainerContext(t *testing.T) {
 	t.Run("requires ID capability", func(t *testing.T) {
 		rc := &RunContext{JobContainer: &serviceContainerWithoutInspection{}}
-		err := rc.captureJobContainerContext("act-test-network")(context.Background())
-		require.ErrorContains(t, err, "does not expose its ID")
+		err := rc.captureJobContainerContext()(context.Background())
+		require.ErrorContains(t, err, "does not support inspection")
 	})
 
 	t.Run("requires non-empty ID", func(t *testing.T) {
 		rc := &RunContext{JobContainer: &serviceContainerFake{}}
-		err := rc.captureJobContainerContext("act-test-network")(context.Background())
+		err := rc.captureJobContainerContext()(context.Background())
 		require.ErrorContains(t, err, "container ID is empty")
 	})
 
-	t.Run("publishes ID and network", func(t *testing.T) {
+	t.Run("preserves network inspection error", func(t *testing.T) {
+		inspectErr := errors.New("network inspect failed")
+		rc := &RunContext{JobContainer: &serviceContainerFake{
+			id:         "job-container-id",
+			networkErr: inspectErr,
+		}}
+		err := rc.captureJobContainerContext()(context.Background())
+		require.ErrorIs(t, err, inspectErr)
+		require.Empty(t, rc.jobContainerContext)
+	})
+
+	t.Run("publishes ID and inspected network override", func(t *testing.T) {
 		rc := &RunContext{
-			JobContainer: &serviceContainerFake{id: "job-container-id"},
+			JobContainer: &serviceContainerFake{id: "job-container-id", network: "host"},
 			StepResults:  map[string]*model.StepResult{},
 		}
-		require.NoError(t, rc.captureJobContainerContext("act-test-network")(context.Background()))
+		require.NoError(t, rc.captureJobContainerContext()(context.Background()))
 
 		job := rc.getJobContext()
 		require.Equal(t, "job-container-id", job.Container.ID)
-		require.Equal(t, "act-test-network", job.Container.Network)
+		require.Equal(t, "host", job.Container.Network)
 	})
+}
+
+func TestServiceContextUsesInspectedNetworkOverride(t *testing.T) {
+	postgres := &serviceContainerFake{
+		id:          "postgres-container-id",
+		network:     "host",
+		startCalled: true,
+		bindings: nat.PortMap{
+			nat.Port("5432/tcp"): {{HostPort: "49153"}},
+		},
+	}
+	serviceContext, err := serviceContextAfterStart(context.Background(), postgres, serviceContainerMetadata{
+		contextName:  "postgres",
+		exposedPorts: nat.PortSet{nat.Port("5432/tcp"): {}},
+	})
+	require.NoError(t, err)
+	require.Equal(t, "host", serviceContext.Network)
+	require.Equal(t, "49153", serviceContext.Ports["5432"])
 }
 
 func TestStartServiceContainersFailsClosedOnInvalidBinding(t *testing.T) {
 	postgres := &serviceContainerFake{
-		id: "postgres-container-id",
+		id:      "postgres-container-id",
+		network: "act-test-network",
 		bindings: nat.PortMap{
 			nat.Port("5432/tcp"): {{HostPort: "not-a-port"}},
 		},
@@ -306,7 +347,7 @@ func TestServiceContextAfterStartRetriesInspectErrors(t *testing.T) {
 		20*time.Millisecond,
 		time.Millisecond,
 	)
-	require.ErrorContains(t, err, "inspect service postgres port bindings")
+	require.ErrorContains(t, err, "inspect service postgres context")
 	require.ErrorContains(t, err, "inspect unavailable")
 	require.ErrorIs(t, err, context.DeadlineExceeded)
 	require.Greater(t, postgres.inspectCalls, 1)
@@ -334,6 +375,7 @@ func TestServiceContextAfterStartPreservesParentCancellation(t *testing.T) {
 func TestServiceContextAfterStartRetriesPendingBindings(t *testing.T) {
 	postgres := &serviceContainerFake{
 		id:            "postgres-container-id",
+		network:       "act-test-network",
 		bindingsAfter: 2,
 		startCalled:   true,
 		bindings: nat.PortMap{
@@ -342,7 +384,6 @@ func TestServiceContextAfterStartRetriesPendingBindings(t *testing.T) {
 	}
 	serviceContext, err := serviceContextAfterStart(context.Background(), postgres, serviceContainerMetadata{
 		contextName:  "postgres",
-		networkName:  "act-test-network",
 		exposedPorts: nat.PortSet{nat.Port("5432/tcp"): {}},
 	})
 	require.NoError(t, err)
@@ -363,18 +404,21 @@ func TestStartServiceContainersDryrunSkipsInspection(t *testing.T) {
 	ctx := common.WithDryrun(context.Background(), true)
 	require.NoError(t, rc.startServiceContainers("")(ctx))
 	require.Zero(t, postgres.inspectCalls)
+	require.Zero(t, postgres.networkCalls)
 	require.Empty(t, rc.serviceContexts)
 }
 
 func TestContainerSetupFailureCleansPartiallyStartedServices(t *testing.T) {
 	postgres := &serviceContainerFake{
-		id: "postgres-container-id",
+		id:      "postgres-container-id",
+		network: "act-test-network",
 		bindings: nat.PortMap{
 			nat.Port("5432/tcp"): {{HostPort: "49153"}},
 		},
 	}
 	redis := &serviceContainerFake{
-		id: "redis-container-id",
+		id:      "redis-container-id",
+		network: "act-test-network",
 		bindings: nat.PortMap{
 			nat.Port("6379/tcp"): {{HostPort: "not-a-port"}},
 		},
@@ -531,6 +575,26 @@ func TestCleanupContainerResourcesContinuesAfterErrors(t *testing.T) {
 	require.ErrorIs(t, err, jobErr)
 	require.ErrorIs(t, err, networkErr)
 	require.Equal(t, []string{"job", "volume-1", "volume-2", "services", "network"}, calls)
+}
+
+func TestStopServiceContainersPreservesAllRemoveAndCloseErrors(t *testing.T) {
+	removeErr1 := errors.New("postgres remove failed")
+	closeErr1 := errors.New("postgres close failed")
+	removeErr2 := errors.New("redis remove failed")
+	closeErr2 := errors.New("redis close failed")
+	postgres := &serviceContainerFake{removeErr: removeErr1, closeErr: closeErr1}
+	redis := &serviceContainerFake{removeErr: removeErr2, closeErr: closeErr2}
+	rc := &RunContext{ServiceContainers: []container.ExecutionsEnvironment{postgres, redis}}
+
+	err := rc.stopServiceContainers()(context.Background())
+
+	for _, want := range []error{removeErr1, closeErr1, removeErr2, closeErr2} {
+		require.ErrorIs(t, err, want)
+	}
+	require.True(t, postgres.removeCalled)
+	require.True(t, postgres.closeCalled)
+	require.True(t, redis.removeCalled)
+	require.True(t, redis.closeCalled)
 }
 
 func TestCleanupContainerResourcesReuseStillCleansServicesAndNetwork(t *testing.T) {

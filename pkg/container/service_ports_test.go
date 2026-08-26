@@ -126,6 +126,35 @@ func TestGetPortBindingsConvertsInspectResponse(t *testing.T) {
 	}, got)
 }
 
+func TestGetContainerNetworkReflectsOptionsOverride(t *testing.T) {
+	const nominalNetwork = "act-job-network"
+	cr := &containerReference{
+		input: &NewContainerInput{
+			NetworkMode: nominalNetwork,
+			Options:     "--network host",
+		},
+	}
+	_, mergedHostConfig, err := cr.mergeContainerConfigs(
+		context.Background(),
+		&mobycontainer.Config{},
+		&mobycontainer.HostConfig{NetworkMode: mobycontainer.NetworkMode(nominalNetwork)},
+	)
+	require.NoError(t, err)
+	require.Equal(t, mobycontainer.NetworkMode("host"), mergedHostConfig.NetworkMode)
+
+	cr.cli = &servicePortDockerClient{
+		inspectResult: client.ContainerInspectResult{
+			Container: mobycontainer.InspectResponse{HostConfig: mergedHostConfig},
+		},
+	}
+	cr.id = "job-container-id"
+
+	got, err := cr.GetContainerNetwork(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, "host", got)
+	require.Equal(t, nominalNetwork, cr.input.NetworkMode)
+}
+
 func TestRemoveRetainsContainerIDOnFailure(t *testing.T) {
 	removeErr := errors.New("remove failed")
 	cli := &servicePortDockerClient{removeErr: removeErr}

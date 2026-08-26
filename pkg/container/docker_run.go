@@ -201,6 +201,24 @@ func (cr *containerReference) GetContainerID() string {
 	return cr.id
 }
 
+func (cr *containerReference) GetContainerNetwork(ctx context.Context) (string, error) {
+	if cr.cli == nil || cr.id == "" {
+		return "", errors.New("container must be started before inspecting its network")
+	}
+	inspectResult, err := cr.cli.ContainerInspect(ctx, cr.id, client.ContainerInspectOptions{})
+	if err != nil {
+		return "", fmt.Errorf("inspect container network: %w", err)
+	}
+	if inspectResult.Container.HostConfig == nil {
+		return "", errors.New("inspect container network: missing host config")
+	}
+	networkName := inspectResult.Container.HostConfig.NetworkMode.NetworkName()
+	if networkName == "" {
+		return "", fmt.Errorf("inspect container network: invalid network mode %q", inspectResult.Container.HostConfig.NetworkMode)
+	}
+	return networkName, nil
+}
+
 func (cr *containerReference) GetPortBindings(ctx context.Context) (nat.PortMap, error) {
 	if cr.cli == nil || cr.id == "" {
 		return nil, errors.New("container must be started before inspecting port bindings")
