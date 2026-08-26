@@ -246,6 +246,32 @@ func TestStartServiceContainersPublishesContextAfterStart(t *testing.T) {
 	require.Equal(t, "49154", job.Services["redis"].Ports["6379"])
 }
 
+func TestCaptureJobContainerContext(t *testing.T) {
+	t.Run("requires ID capability", func(t *testing.T) {
+		rc := &RunContext{JobContainer: &serviceContainerWithoutInspection{}}
+		err := rc.captureJobContainerContext("act-test-network")(context.Background())
+		require.ErrorContains(t, err, "does not expose its ID")
+	})
+
+	t.Run("requires non-empty ID", func(t *testing.T) {
+		rc := &RunContext{JobContainer: &serviceContainerFake{}}
+		err := rc.captureJobContainerContext("act-test-network")(context.Background())
+		require.ErrorContains(t, err, "container ID is empty")
+	})
+
+	t.Run("publishes ID and network", func(t *testing.T) {
+		rc := &RunContext{
+			JobContainer: &serviceContainerFake{id: "job-container-id"},
+			StepResults:  map[string]*model.StepResult{},
+		}
+		require.NoError(t, rc.captureJobContainerContext("act-test-network")(context.Background()))
+
+		job := rc.getJobContext()
+		require.Equal(t, "job-container-id", job.Container.ID)
+		require.Equal(t, "act-test-network", job.Container.Network)
+	})
+}
+
 func TestStartServiceContainersFailsClosedOnInvalidBinding(t *testing.T) {
 	postgres := &serviceContainerFake{
 		id: "postgres-container-id",
@@ -551,6 +577,10 @@ func TestGetJobContextIncludesIndependentServiceSnapshot(t *testing.T) {
 
 func TestCompositeRunContextInheritsServiceSnapshot(t *testing.T) {
 	parent := &RunContext{
+		jobContainerContext: model.ContainerContext{
+			ID:      "job-container-id",
+			Network: "act-test-network",
+		},
 		serviceContexts: map[string]model.ServiceContext{
 			"postgres": {
 				ID:      "postgres-container-id",
@@ -561,6 +591,8 @@ func TestCompositeRunContextInheritsServiceSnapshot(t *testing.T) {
 	}
 	child := &RunContext{Parent: parent, StepResults: map[string]*model.StepResult{}}
 	job := child.getJobContext()
+	require.Equal(t, "job-container-id", job.Container.ID)
+	require.Equal(t, "act-test-network", job.Container.Network)
 	require.Equal(t, "49153", job.Services["postgres"].Ports["5432"])
 	job.Services["postgres"].Ports["5432"] = "1"
 	require.Equal(t, "49153", parent.serviceContexts["postgres"].Ports["5432"])
@@ -568,6 +600,10 @@ func TestCompositeRunContextInheritsServiceSnapshot(t *testing.T) {
 
 func TestServicePortExpressionUsesNumericIndex(t *testing.T) {
 	rc := createRunContext(t)
+	rc.jobContainerContext = model.ContainerContext{
+		ID:      "job-container-id",
+		Network: "act-test-network",
+	}
 	rc.serviceContexts = map[string]model.ServiceContext{
 		"postgres": {
 			ID:      "postgres-container-id",
@@ -582,4 +618,6 @@ func TestServicePortExpressionUsesNumericIndex(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "49153", got)
 	require.Equal(t, "127.0.0.1:49153", evaluator.Interpolate(ctx, "127.0.0.1:${{ job.services.postgres.ports[5432] }}"))
+	require.Equal(t, "job-container-id", evaluator.Interpolate(ctx, "${{ job.container.id }}"))
+	require.Equal(t, "act-test-network", evaluator.Interpolate(ctx, "${{ job.container.network }}"))
 }

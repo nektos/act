@@ -56,6 +56,7 @@ type RunContext struct {
 	Cancelled                bool
 	nodeToolFullPath         string
 	serviceContextsMu        sync.RWMutex
+	jobContainerContext      model.ContainerContext
 	serviceContexts          map[string]model.ServiceContext
 }
 
@@ -65,8 +66,12 @@ type serviceContainerMetadata struct {
 	exposedPorts nat.PortSet
 }
 
-type serviceContainerInspector interface {
+type containerIDProvider interface {
 	GetContainerID() string
+}
+
+type serviceContainerInspector interface {
+	containerIDProvider
 	GetPortBindings(context.Context) (nat.PortMap, error)
 }
 
@@ -434,6 +439,9 @@ func (rc *RunContext) startJobContainer() common.Executor {
 		if rc.JobContainer == nil {
 			return errors.New("Failed to create job container")
 		}
+		rc.serviceContextsMu.Lock()
+		rc.jobContainerContext = model.ContainerContext{}
+		rc.serviceContextsMu.Unlock()
 
 		setup := common.NewPipelineExecutor(
 			rc.pullServicesImages(rc.Config.ForcePull),
@@ -443,6 +451,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			rc.startServiceContainers(networkName),
 			rc.JobContainer.Create(rc.Config.ContainerCapAdd, rc.Config.ContainerCapDrop),
 			rc.JobContainer.Start(false),
+			rc.captureJobContainerContext(jobContainerNetwork).IfNot(common.Dryrun),
 			rc.JobContainer.Copy(rc.JobContainer.GetActPath()+"/", &container.FileEntry{
 				Name: "workflow/event.json",
 				Mode: 0o644,
@@ -455,6 +464,27 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			rc.waitForServiceContainers(),
 		)
 		return rc.cleanupContainerSetupFailure(setup)(ctx)
+	}
+}
+
+func (rc *RunContext) captureJobContainerContext(networkName string) common.Executor {
+	return func(_ context.Context) error {
+		provider, ok := rc.JobContainer.(containerIDProvider)
+		if !ok {
+			return errors.New("resolve job container context: container does not expose its ID")
+		}
+		containerID := provider.GetContainerID()
+		if containerID == "" {
+			return errors.New("resolve job container context: container ID is empty")
+		}
+
+		rc.serviceContextsMu.Lock()
+		defer rc.serviceContextsMu.Unlock()
+		rc.jobContainerContext = model.ContainerContext{
+			ID:      containerID,
+			Network: networkName,
+		}
+		return nil
 	}
 }
 
@@ -1138,11 +1168,23 @@ func (rc *RunContext) getJobContext() *model.JobContext {
 			}
 		}
 	}
+	containerContext := rc.jobContainerContextSnapshot()
 	services := rc.serviceContextsSnapshot()
 	return &model.JobContext{
-		Status:   jobStatus,
-		Services: services,
+		Status:    jobStatus,
+		Container: containerContext,
+		Services:  services,
 	}
+}
+
+func (rc *RunContext) jobContainerContextSnapshot() model.ContainerContext {
+	source := rc
+	for source.Parent != nil {
+		source = source.Parent
+	}
+	source.serviceContextsMu.RLock()
+	defer source.serviceContextsMu.RUnlock()
+	return source.jobContainerContext
 }
 
 func (rc *RunContext) serviceContextsSnapshot() map[string]model.ServiceContext {
