@@ -42,6 +42,7 @@ type Config struct {
 	InsecureSecrets                    bool                         // switch hiding output when printing to terminal
 	Platforms                          map[string]string            // list of platforms
 	Privileged                         bool                         // use privileged mode
+	Systemd                            bool                         // start job containers with systemd (/sbin/init) as PID 1 instead of `tail -f /dev/null`; implies Privileged and a host cgroup namespace/mount
 	UsernsMode                         string                       // user namespace to use
 	ContainerArchitecture              string                       // Desired OS/architecture platform for running containers
 	ContainerDaemonSocket              string                       // Path to Docker daemon socket
