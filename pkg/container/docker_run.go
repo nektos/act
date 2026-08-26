@@ -20,6 +20,7 @@ import (
 
 	"dario.cat/mergo"
 	"github.com/Masterminds/semver"
+	cerrdefs "github.com/containerd/errdefs"
 	"github.com/docker/cli/cli/connhelper"
 	"github.com/docker/go-connections/nat"
 	"github.com/go-git/go-billy/v5/helper/polyfill"
@@ -196,6 +197,42 @@ func (cr *containerReference) GetHealth(ctx context.Context) Health {
 	return HealthUnHealthy
 }
 
+func (cr *containerReference) GetContainerID() string {
+	return cr.id
+}
+
+func (cr *containerReference) GetContainerNetwork(ctx context.Context) (string, error) {
+	if cr.cli == nil || cr.id == "" {
+		return "", errors.New("container must be started before inspecting its network")
+	}
+	inspectResult, err := cr.cli.ContainerInspect(ctx, cr.id, client.ContainerInspectOptions{})
+	if err != nil {
+		return "", fmt.Errorf("inspect container network: %w", err)
+	}
+	if inspectResult.Container.HostConfig == nil {
+		return "", errors.New("inspect container network: missing host config")
+	}
+	networkName := inspectResult.Container.HostConfig.NetworkMode.NetworkName()
+	if networkName == "" {
+		return "", fmt.Errorf("inspect container network: invalid network mode %q", inspectResult.Container.HostConfig.NetworkMode)
+	}
+	return networkName, nil
+}
+
+func (cr *containerReference) GetPortBindings(ctx context.Context) (nat.PortMap, error) {
+	if cr.cli == nil || cr.id == "" {
+		return nil, errors.New("container must be started before inspecting port bindings")
+	}
+	inspectResult, err := cr.cli.ContainerInspect(ctx, cr.id, client.ContainerInspectOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("inspect container port bindings: %w", err)
+	}
+	if inspectResult.Container.NetworkSettings == nil {
+		return nil, errors.New("inspect container port bindings: missing network settings")
+	}
+	return convertDockerPortMap(inspectResult.Container.NetworkSettings.Ports), nil
+}
+
 func (cr *containerReference) ReplaceLogWriter(stdout io.Writer, stderr io.Writer) (io.Writer, io.Writer) {
 	out := cr.input.Stdout
 	err := cr.input.Stderr
@@ -342,7 +379,12 @@ func (cr *containerReference) remove() common.Executor {
 			Force:         true,
 		})
 		if err != nil {
-			logger.Error(fmt.Errorf("failed to remove container: %w", err))
+			if cerrdefs.IsNotFound(err) {
+				logger.Debugf("Container already removed: %v", cr.id)
+				cr.id = ""
+				return nil
+			}
+			return fmt.Errorf("failed to remove container %s: %w", cr.id, err)
 		}
 
 		logger.Debugf("Removed container: %v", cr.id)
@@ -925,6 +967,30 @@ func convertPortSet(ps nat.PortSet) network.PortSet {
 		if err == nil {
 			result[np] = struct{}{}
 		}
+	}
+	return result
+}
+
+// convertDockerPortMap converts the Docker API representation returned by
+// ContainerInspect into the representation used by act's workflow model.
+func convertDockerPortMap(pm network.PortMap) nat.PortMap {
+	if pm == nil {
+		return nil
+	}
+	result := make(nat.PortMap, len(pm))
+	for p, bindings := range pm {
+		converted := make([]nat.PortBinding, len(bindings))
+		for i, binding := range bindings {
+			hostIP := ""
+			if binding.HostIP.IsValid() {
+				hostIP = binding.HostIP.String()
+			}
+			converted[i] = nat.PortBinding{
+				HostIP:   hostIP,
+				HostPort: binding.HostPort,
+			}
+		}
+		result[nat.Port(p.String())] = converted
 	}
 	return result
 }

@@ -18,6 +18,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/docker/go-connections/nat"
@@ -30,29 +31,48 @@ import (
 
 // RunContext contains info about current job
 type RunContext struct {
-	Name                string
-	Config              *Config
-	Matrix              map[string]interface{}
-	Run                 *model.Run
-	EventJSON           string
-	Env                 map[string]string
-	GlobalEnv           map[string]string // to pass env changes of GITHUB_ENV and set-env correctly, due to dirty Env field
-	ExtraPath           []string
-	CurrentStep         string
-	StepResults         map[string]*model.StepResult
-	IntraActionState    map[string]map[string]string
-	ExprEval            ExpressionEvaluator
-	JobContainer        container.ExecutionsEnvironment
-	ServiceContainers   []container.ExecutionsEnvironment
-	OutputMappings      map[MappableOutput]MappableOutput
-	JobName             string
-	ActionPath          string
-	Parent              *RunContext
-	Masks               []string
-	cleanUpJobContainer common.Executor
-	caller              *caller // job calling this RunContext (reusable workflows)
-	Cancelled           bool
-	nodeToolFullPath    string
+	Name                     string
+	Config                   *Config
+	Matrix                   map[string]interface{}
+	Run                      *model.Run
+	EventJSON                string
+	Env                      map[string]string
+	GlobalEnv                map[string]string // to pass env changes of GITHUB_ENV and set-env correctly, due to dirty Env field
+	ExtraPath                []string
+	CurrentStep              string
+	StepResults              map[string]*model.StepResult
+	IntraActionState         map[string]map[string]string
+	ExprEval                 ExpressionEvaluator
+	JobContainer             container.ExecutionsEnvironment
+	ServiceContainers        []container.ExecutionsEnvironment
+	serviceContainerMetadata []serviceContainerMetadata
+	OutputMappings           map[MappableOutput]MappableOutput
+	JobName                  string
+	ActionPath               string
+	Parent                   *RunContext
+	Masks                    []string
+	cleanUpJobContainer      common.Executor
+	caller                   *caller // job calling this RunContext (reusable workflows)
+	Cancelled                bool
+	nodeToolFullPath         string
+	serviceContextsMu        sync.RWMutex
+	jobContainerContext      model.ContainerContext
+	serviceContexts          map[string]model.ServiceContext
+}
+
+type serviceContainerMetadata struct {
+	contextName  string
+	exposedPorts nat.PortSet
+}
+
+type containerContextInspector interface {
+	GetContainerID() string
+	GetContainerNetwork(context.Context) (string, error)
+}
+
+type serviceContainerInspector interface {
+	containerContextInspector
+	GetPortBindings(context.Context) (nat.PortMap, error)
 }
 
 func (rc *RunContext) AddMask(mask string) {
@@ -349,38 +369,43 @@ func (rc *RunContext) startJobContainer() common.Executor {
 				PortBindings:   portBindings,
 			})
 			rc.ServiceContainers = append(rc.ServiceContainers, c)
+			rc.serviceContainerMetadata = append(rc.serviceContainerMetadata, serviceContainerMetadata{
+				contextName:  serviceID,
+				exposedPorts: exposedPorts,
+			})
 		}
 
 		rc.cleanUpJobContainer = func(ctx context.Context) error {
-			reuseJobContainer := func(_ context.Context) bool {
-				return rc.Config.ReuseContainers
+			var jobRemove common.Executor
+			volumeRemoves := make([]common.Executor, 0, 2)
+			if rc.JobContainer != nil {
+				jobRemove = rc.JobContainer.Remove()
+				volumeRemoves = append(volumeRemoves,
+					container.NewDockerVolumeRemoveExecutor(rc.jobContainerName(), false),
+					container.NewDockerVolumeRemoveExecutor(rc.jobContainerName()+"-env", false),
+				)
 			}
 
-			if rc.JobContainer != nil {
-				return rc.JobContainer.Remove().IfNot(reuseJobContainer).
-					Then(container.NewDockerVolumeRemoveExecutor(rc.jobContainerName(), false)).IfNot(reuseJobContainer).
-					Then(container.NewDockerVolumeRemoveExecutor(rc.jobContainerName()+"-env", false)).IfNot(reuseJobContainer).
-					Then(func(ctx context.Context) error {
-						if len(rc.ServiceContainers) > 0 {
-							logger.Infof("Cleaning up services for job %s", rc.JobName)
-							if err := rc.stopServiceContainers()(ctx); err != nil {
-								logger.Errorf("Error while cleaning services: %v", err)
-							}
-							if createAndDeleteNetwork {
-								// clean network if it has been created by act
-								// if using service containers
-								// it means that the network to which containers are connecting is created by `act_runner`,
-								// so, we should remove the network at last.
-								logger.Infof("Cleaning up network for job %s, and network name is: %s", rc.JobName, networkName)
-								if err := container.NewDockerNetworkRemoveExecutor(networkName)(ctx); err != nil {
-									logger.Errorf("Error while cleaning network: %v", err)
-								}
-							}
-						}
-						return nil
-					})(ctx)
+			var servicesRemove common.Executor
+			if len(rc.ServiceContainers) > 0 {
+				logger.Infof("Cleaning up services for job %s", rc.JobName)
+				servicesRemove = rc.stopServiceContainers()
 			}
-			return nil
+
+			var networkRemove common.Executor
+			if createAndDeleteNetwork {
+				logger.Infof("Cleaning up network for job %s, and network name is: %s", rc.JobName, networkName)
+				networkRemove = container.NewDockerNetworkRemoveExecutor(networkName)
+			}
+
+			return cleanupContainerResources(
+				ctx,
+				rc.Config.ReuseContainers,
+				jobRemove,
+				volumeRemoves,
+				servicesRemove,
+				networkRemove,
+			)
 		}
 
 		jobContainerNetwork := rc.Config.ContainerNetworkMode.NetworkName()
@@ -413,8 +438,11 @@ func (rc *RunContext) startJobContainer() common.Executor {
 		if rc.JobContainer == nil {
 			return errors.New("Failed to create job container")
 		}
+		rc.serviceContextsMu.Lock()
+		rc.jobContainerContext = model.ContainerContext{}
+		rc.serviceContextsMu.Unlock()
 
-		return common.NewPipelineExecutor(
+		setup := common.NewPipelineExecutor(
 			rc.pullServicesImages(rc.Config.ForcePull),
 			rc.JobContainer.Pull(rc.Config.ForcePull),
 			rc.stopJobContainer(),
@@ -422,6 +450,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			rc.startServiceContainers(networkName),
 			rc.JobContainer.Create(rc.Config.ContainerCapAdd, rc.Config.ContainerCapDrop),
 			rc.JobContainer.Start(false),
+			rc.captureJobContainerContext().IfNot(common.Dryrun),
 			rc.JobContainer.Copy(rc.JobContainer.GetActPath()+"/", &container.FileEntry{
 				Name: "workflow/event.json",
 				Mode: 0o644,
@@ -432,7 +461,100 @@ func (rc *RunContext) startJobContainer() common.Executor {
 				Body: "",
 			}),
 			rc.waitForServiceContainers(),
-		)(ctx)
+		)
+		return rc.cleanupContainerSetupFailure(setup)(ctx)
+	}
+}
+
+func (rc *RunContext) captureJobContainerContext() common.Executor {
+	return func(ctx context.Context) error {
+		inspector, ok := rc.JobContainer.(containerContextInspector)
+		if !ok {
+			return errors.New("resolve job container context: container does not support inspection")
+		}
+		containerID := inspector.GetContainerID()
+		if containerID == "" {
+			return errors.New("resolve job container context: container ID is empty")
+		}
+		networkName, err := inspector.GetContainerNetwork(ctx)
+		if err != nil {
+			return fmt.Errorf("resolve job container context: %w", err)
+		}
+
+		rc.serviceContextsMu.Lock()
+		defer rc.serviceContextsMu.Unlock()
+		rc.jobContainerContext = model.ContainerContext{
+			ID:      containerID,
+			Network: networkName,
+		}
+		return nil
+	}
+}
+
+type namedCleanupExecutor struct {
+	name     string
+	executor common.Executor
+}
+
+const containerSetupCleanupTimeout = 1500 * time.Millisecond
+
+func cleanupContainerResources(
+	ctx context.Context,
+	reuseJobContainer bool,
+	jobRemove common.Executor,
+	volumeRemoves []common.Executor,
+	servicesRemove common.Executor,
+	networkRemove common.Executor,
+) error {
+	steps := make([]namedCleanupExecutor, 0, 2+len(volumeRemoves))
+	if !reuseJobContainer {
+		steps = append(steps, namedCleanupExecutor{name: "remove job container", executor: jobRemove})
+		for i, remove := range volumeRemoves {
+			steps = append(steps, namedCleanupExecutor{
+				name:     fmt.Sprintf("remove job volume %d", i+1),
+				executor: remove,
+			})
+		}
+	}
+	steps = append(steps,
+		namedCleanupExecutor{name: "remove service containers", executor: servicesRemove},
+		namedCleanupExecutor{name: "remove service network", executor: networkRemove},
+	)
+
+	var cleanupErr error
+	for _, step := range steps {
+		if step.executor == nil {
+			continue
+		}
+		if err := step.executor(ctx); err != nil {
+			common.Logger(ctx).Errorf("Error while cleaning resources (%s): %v", step.name, err)
+			cleanupErr = errors.Join(cleanupErr, fmt.Errorf("%s: %w", step.name, err))
+		}
+	}
+	return cleanupErr
+}
+
+func (rc *RunContext) cleanupContainerSetupFailure(setup common.Executor) common.Executor {
+	return func(ctx context.Context) error {
+		setupErr := setup(ctx)
+		if _, ok := setupErr.(common.Warning); ok {
+			common.Logger(ctx).Warning(setupErr.Error())
+			setupErr = nil
+		}
+		if setupErr == nil {
+			setupErr = ctx.Err()
+		}
+		if setupErr == nil {
+			return nil
+		}
+
+		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), containerSetupCleanupTimeout)
+		defer cancel()
+		cleanupErr := errors.Join(
+			rc.stopJobContainer()(cleanupCtx),
+			rc.closeContainer()(cleanupCtx),
+		)
+		return errors.Join(setupErr, cleanupErr)
 	}
 }
 
@@ -571,16 +693,187 @@ func (rc *RunContext) pullServicesImages(forcePull bool) common.Executor {
 
 func (rc *RunContext) startServiceContainers(_ string) common.Executor {
 	return func(ctx context.Context) error {
+		if len(rc.ServiceContainers) != len(rc.serviceContainerMetadata) {
+			return errors.New("service container metadata is inconsistent")
+		}
+		if !common.Dryrun(ctx) {
+			rc.serviceContextsMu.Lock()
+			rc.serviceContexts = nil
+			rc.serviceContextsMu.Unlock()
+		}
+
+		resolvedContexts := make(map[string]model.ServiceContext, len(rc.ServiceContainers))
+		var resolvedContextsMu sync.Mutex
 		execs := []common.Executor{}
-		for _, c := range rc.ServiceContainers {
+		for i, c := range rc.ServiceContainers {
+			metadata := rc.serviceContainerMetadata[i]
+			resolveContext := common.Executor(func(ctx context.Context) error {
+				serviceContext, err := serviceContextAfterStart(ctx, c, metadata)
+				if err != nil {
+					return err
+				}
+				resolvedContextsMu.Lock()
+				defer resolvedContextsMu.Unlock()
+				resolvedContexts[metadata.contextName] = serviceContext
+				return nil
+			}).IfNot(common.Dryrun)
 			execs = append(execs, common.NewPipelineExecutor(
 				c.Pull(false),
 				c.Create(rc.Config.ContainerCapAdd, rc.Config.ContainerCapDrop),
 				c.Start(false),
+				resolveContext,
 			))
 		}
-		return common.NewParallelExecutor(len(execs), execs...)(ctx)
+
+		if err := common.NewParallelExecutor(len(execs), execs...)(ctx); err != nil {
+			return err
+		}
+		if common.Dryrun(ctx) {
+			return nil
+		}
+
+		rc.serviceContextsMu.Lock()
+		defer rc.serviceContextsMu.Unlock()
+		rc.serviceContexts = resolvedContexts
+		return nil
 	}
+}
+
+const (
+	servicePortInspectTimeout = 2 * time.Second
+	servicePortInspectDelay   = 50 * time.Millisecond
+)
+
+func serviceContextAfterStart(
+	ctx context.Context,
+	service container.ExecutionsEnvironment,
+	metadata serviceContainerMetadata,
+) (model.ServiceContext, error) {
+	return serviceContextAfterStartWithRetry(
+		ctx,
+		service,
+		metadata,
+		servicePortInspectTimeout,
+		servicePortInspectDelay,
+	)
+}
+
+func serviceContextAfterStartWithRetry(
+	ctx context.Context,
+	service container.ExecutionsEnvironment,
+	metadata serviceContainerMetadata,
+	timeout time.Duration,
+	delay time.Duration,
+) (model.ServiceContext, error) {
+	inspector, ok := service.(serviceContainerInspector)
+	if !ok {
+		return model.ServiceContext{}, fmt.Errorf("resolve service %s context: container does not support port inspection", metadata.contextName)
+	}
+	containerID := inspector.GetContainerID()
+	if containerID == "" {
+		return model.ServiceContext{}, fmt.Errorf("resolve service %s context: container ID is empty", metadata.contextName)
+	}
+
+	inspectCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	var lastErr error
+	for {
+		inspected, err := inspector.GetPortBindings(inspectCtx)
+		if err == nil {
+			if servicePortBindingsReady(metadata.exposedPorts, inspected) {
+				networkName, networkErr := inspector.GetContainerNetwork(inspectCtx)
+				if networkErr == nil {
+					ports, resolveErr := githubServicePorts(metadata.exposedPorts, inspected)
+					if resolveErr != nil {
+						return model.ServiceContext{}, fmt.Errorf("resolve service %s port bindings: %w", metadata.contextName, resolveErr)
+					}
+					return model.ServiceContext{
+						ID:      containerID,
+						Network: networkName,
+						Ports:   ports,
+					}, nil
+				}
+				lastErr = networkErr
+			} else {
+				_, lastErr = githubServicePorts(metadata.exposedPorts, inspected)
+			}
+		} else {
+			lastErr = err
+		}
+
+		timer := time.NewTimer(delay)
+		select {
+		case <-inspectCtx.Done():
+			if !timer.Stop() {
+				select {
+				case <-timer.C:
+				default:
+				}
+			}
+			return model.ServiceContext{}, fmt.Errorf(
+				"inspect service %s context: %w",
+				metadata.contextName,
+				errors.Join(inspectCtx.Err(), lastErr),
+			)
+		case <-timer.C:
+		}
+	}
+}
+
+func servicePortBindingsReady(expected nat.PortSet, inspected nat.PortMap) bool {
+	for port := range expected {
+		values, ok := inspected[port]
+		if !ok || !hasPublishedHostPort(values) {
+			return false
+		}
+	}
+	return true
+}
+
+func githubServicePorts(expected nat.PortSet, inspected nat.PortMap) (map[string]string, error) {
+	for port := range expected {
+		values, ok := inspected[port]
+		if !ok || !hasPublishedHostPort(values) {
+			return nil, fmt.Errorf("declared port %s has no published binding", port)
+		}
+	}
+
+	ports := make(map[string]string, len(inspected))
+	for port, values := range inspected {
+		numericPort := port.Port()
+		var resolved string
+		for _, binding := range values {
+			if binding.HostPort == "" {
+				continue
+			}
+			hostPort, err := strconv.Atoi(binding.HostPort)
+			if err != nil || hostPort < 1 || hostPort > 65535 {
+				return nil, fmt.Errorf("published port %s has invalid host port %q", port, binding.HostPort)
+			}
+			canonical := strconv.Itoa(hostPort)
+			if resolved != "" && resolved != canonical {
+				return nil, fmt.Errorf("published port %s has ambiguous host ports %s and %s", port, resolved, canonical)
+			}
+			resolved = canonical
+		}
+		if resolved == "" {
+			continue
+		}
+		if previous, exists := ports[numericPort]; exists && previous != resolved {
+			return nil, fmt.Errorf("container port %s has ambiguous protocol bindings %s and %s", numericPort, previous, resolved)
+		}
+		ports[numericPort] = resolved
+	}
+	return ports, nil
+}
+
+func hasPublishedHostPort(bindings []nat.PortBinding) bool {
+	for _, binding := range bindings {
+		if binding.HostPort != "" {
+			return true
+		}
+	}
+	return false
 }
 
 func (rc *RunContext) waitForServiceContainer(c container.ExecutionsEnvironment) common.Executor {
@@ -591,10 +884,24 @@ func (rc *RunContext) waitForServiceContainer(c container.ExecutionsEnvironment)
 		delay := time.Second
 		for i := 0; ; i++ {
 			health = c.GetHealth(sctx)
+			if err := sctx.Err(); err != nil {
+				return err
+			}
 			if health != container.HealthStarting || i > 30 {
 				break
 			}
-			time.Sleep(delay)
+			timer := time.NewTimer(delay)
+			select {
+			case <-timer.C:
+			case <-sctx.Done():
+				if !timer.Stop() {
+					select {
+					case <-timer.C:
+					default:
+					}
+				}
+				return sctx.Err()
+			}
 			delay *= 2
 			if delay > 10*time.Second {
 				delay = 10 * time.Second
@@ -619,11 +926,32 @@ func (rc *RunContext) waitForServiceContainers() common.Executor {
 
 func (rc *RunContext) stopServiceContainers() common.Executor {
 	return func(ctx context.Context) error {
-		execs := []common.Executor{}
-		for _, c := range rc.ServiceContainers {
-			execs = append(execs, c.Remove().Finally(c.Close()))
+		type serviceCleanupResult struct {
+			removeErr error
+			closeErr  error
 		}
-		return common.NewParallelExecutor(len(execs), execs...)(ctx)
+		results := make([]serviceCleanupResult, len(rc.ServiceContainers))
+		var cleanup sync.WaitGroup
+		cleanup.Add(len(rc.ServiceContainers))
+		for i, c := range rc.ServiceContainers {
+			go func() {
+				defer cleanup.Done()
+				results[i].removeErr = c.Remove()(ctx)
+				results[i].closeErr = c.Close()(ctx)
+			}()
+		}
+		cleanup.Wait()
+
+		var cleanupErr error
+		for i, result := range results {
+			if err := result.removeErr; err != nil {
+				cleanupErr = errors.Join(cleanupErr, fmt.Errorf("remove service container %d: %w", i+1, err))
+			}
+			if err := result.closeErr; err != nil {
+				cleanupErr = errors.Join(cleanupErr, fmt.Errorf("close service container %d: %w", i+1, err))
+			}
+		}
+		return cleanupErr
 	}
 }
 
@@ -869,9 +1197,42 @@ func (rc *RunContext) getJobContext() *model.JobContext {
 			}
 		}
 	}
+	containerContext := rc.jobContainerContextSnapshot()
+	services := rc.serviceContextsSnapshot()
 	return &model.JobContext{
-		Status: jobStatus,
+		Status:    jobStatus,
+		Container: containerContext,
+		Services:  services,
 	}
+}
+
+func (rc *RunContext) jobContainerContextSnapshot() model.ContainerContext {
+	source := rc
+	for source.Parent != nil {
+		source = source.Parent
+	}
+	source.serviceContextsMu.RLock()
+	defer source.serviceContextsMu.RUnlock()
+	return source.jobContainerContext
+}
+
+func (rc *RunContext) serviceContextsSnapshot() map[string]model.ServiceContext {
+	source := rc
+	for source.Parent != nil {
+		source = source.Parent
+	}
+	source.serviceContextsMu.RLock()
+	defer source.serviceContextsMu.RUnlock()
+	services := make(map[string]model.ServiceContext, len(source.serviceContexts))
+	for serviceID, serviceContext := range source.serviceContexts {
+		ports := make(map[string]string, len(serviceContext.Ports))
+		for containerPort, hostPort := range serviceContext.Ports {
+			ports[containerPort] = hostPort
+		}
+		serviceContext.Ports = ports
+		services[serviceID] = serviceContext
+	}
+	return services
 }
 
 func (rc *RunContext) getStepsContext() map[string]*model.StepResult {
