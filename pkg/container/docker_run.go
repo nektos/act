@@ -45,6 +45,7 @@ import (
 func NewContainer(input *NewContainerInput) ExecutionsEnvironment {
 	cr := new(containerReference)
 	cr.input = input
+	cr.containerArchitecture = input.Platform
 	return cr
 }
 
@@ -255,26 +256,28 @@ func GetHostInfo(ctx context.Context) (info system.Info, err error) {
 	return result.Info, nil
 }
 
-// Arch fetches values from docker info and translates architecture to
-// GitHub actions compatible runner.arch values
+// RunnerArch translates the Docker host architecture to a GitHub Actions
+// compatible runner.arch value.
 // https://github.com/github/docs/blob/main/data/reusables/actions/runner-arch-description.md
 func RunnerArch(ctx context.Context) string {
-	info, err := GetHostInfo(ctx)
-	if err != nil {
-		return ""
+	return RunnerArchForPlatform(ctx, "")
+}
+
+// RunnerArchForPlatform translates the configured container platform, or the
+// Docker host architecture when no override is configured, to a GitHub Actions
+// compatible runner.arch value.
+func RunnerArchForPlatform(ctx context.Context, containerArchitecture string) string {
+	architecture := runnerArchFromContainerArchitecture(containerArchitecture)
+
+	if architecture == "" {
+		info, err := GetHostInfo(ctx)
+		if err != nil {
+			return ""
+		}
+		architecture = info.Architecture
 	}
 
-	archMapper := map[string]string{
-		"x86_64":  "X64",
-		"amd64":   "X64",
-		"386":     "X86",
-		"aarch64": "ARM64",
-		"arm64":   "ARM64",
-	}
-	if arch, ok := archMapper[info.Architecture]; ok {
-		return arch
-	}
-	return info.Architecture
+	return githubRunnerArch(architecture)
 }
 
 func (cr *containerReference) connect() common.Executor {

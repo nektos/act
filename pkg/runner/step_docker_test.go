@@ -32,7 +32,7 @@ func TestStepDockerMain(t *testing.T) {
 	sd := &stepDocker{
 		RunContext: &RunContext{
 			StepResults: map[string]*model.StepResult{},
-			Config:      &Config{},
+			Config:      &Config{ContainerArchitecture: "linux/amd64"},
 			Run: &model.Run{
 				JobID: "1",
 				Workflow: &model.Workflow{
@@ -100,6 +100,7 @@ func TestStepDockerMain(t *testing.T) {
 	assert.Nil(t, err)
 
 	assert.Equal(t, "node:14", input.Image)
+	assert.Contains(t, input.Env, "RUNNER_ARCH=X64")
 
 	cm.AssertExpectations(t)
 }

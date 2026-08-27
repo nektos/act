@@ -43,7 +43,15 @@ func NewContainer(input *NewContainerInput) ExecutionsEnvironment {
 }
 
 func RunnerArch(ctx context.Context) string {
-	return runtime.GOOS
+	return RunnerArchForPlatform(ctx, "")
+}
+
+func RunnerArchForPlatform(ctx context.Context, containerArchitecture string) string {
+	architecture := runnerArchFromContainerArchitecture(containerArchitecture)
+	if architecture == "" {
+		architecture = runtime.GOOS
+	}
+	return githubRunnerArch(architecture)
 }
 
 func GetHostInfo(ctx context.Context) (info system.Info, err error) {
