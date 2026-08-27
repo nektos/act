@@ -11,6 +11,30 @@ import (
 )
 
 type LinuxContainerEnvironmentExtensions struct {
+	containerArchitecture string
+}
+
+func runnerArchFromContainerArchitecture(containerArchitecture string) string {
+	platform := strings.SplitN(containerArchitecture, "/", 3)
+	if len(platform) < 2 {
+		return ""
+	}
+	return platform[1]
+}
+
+func githubRunnerArch(architecture string) string {
+	archMapper := map[string]string{
+		"x86_64":  "X64",
+		"amd64":   "X64",
+		"386":     "X86",
+		"aarch64": "ARM64",
+		"arm64":   "ARM64",
+		"arm":     "ARM",
+	}
+	if arch, ok := archMapper[architecture]; ok {
+		return arch
+	}
+	return architecture
 }
 
 // Resolves the equivalent host path inside the container
@@ -63,10 +87,10 @@ func (*LinuxContainerEnvironmentExtensions) JoinPathVariable(paths ...string) st
 	return strings.Join(paths, ":")
 }
 
-func (*LinuxContainerEnvironmentExtensions) GetRunnerContext(ctx context.Context) map[string]interface{} {
+func (e *LinuxContainerEnvironmentExtensions) GetRunnerContext(ctx context.Context) map[string]interface{} {
 	return map[string]interface{}{
 		"os":         "Linux",
-		"arch":       RunnerArch(ctx),
+		"arch":       RunnerArchForPlatform(ctx, e.containerArchitecture),
 		"temp":       "/tmp",
 		"tool_cache": "/opt/hostedtoolcache",
 	}
