@@ -35,6 +35,9 @@ jobs:
   test-linux:
     name: test-linux
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v6
         with:
@@ -55,12 +58,31 @@ jobs:
         run: go run main.go -P ubuntu-latest=node:16-buster-slim -C ./pkg/runner/testdata/ -W ./basic/push.yml
       - name: Run act from cli without docker support
         run: go run -tags WITHOUT_DOCKER main.go -P ubuntu-latest=-self-hosted -C ./pkg/runner/testdata/ -W ./local-action-js/push.yml
+      - name: Import verified Codecov uploader key
+        env:
+          CODECOV_SIGNER_FINGERPRINT: 27034E7FDB850E0BBC2C62FF806BB28AED779869
+        run: |
+          for attempt in 1 2 3; do
+            if timeout 45s gpg --batch --keyserver-options timeout=30 \
+              --keyserver hkps://keyserver.ubuntu.com --recv-keys "$CODECOV_SIGNER_FINGERPRINT"; then
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              exit 1
+            fi
+          done
+          imported_fingerprint="$(
+            gpg --batch --with-colons --fingerprint "$CODECOV_SIGNER_FINGERPRINT" |
+              awk -F: '$1 == "fpr" { print $10; exit }'
+          )"
+          test "$imported_fingerprint" = "$CODECOV_SIGNER_FINGERPRINT"
       - name: Upload Codecov report
         uses: codecov/codecov-action@1af58845a975a7985b0beb0cbe6fbbb71a41dbad # v5
         with:
           files: coverage.txt
           fail_ci_if_error: true # optional (default = false)
-          token: ${{ secrets.CODECOV_TOKEN }}
+          use_oidc: true
+          version: v11.3.1
 
   test-host:
     strategy:

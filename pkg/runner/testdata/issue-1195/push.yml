@@ -10,4 +10,4 @@ jobs:
       - name: print env.variable
         run: |
           echo ${{ env.variable }}
-          exit ${{ (env.variable == 'nektos') && '0' || '1'}}
+          test "${{ env.variable }}" = "$GITHUB_REPOSITORY_OWNER"

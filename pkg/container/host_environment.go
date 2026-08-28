@@ -61,10 +61,15 @@ func (e *HostEnvironment) Copy(destPath string, files ...*FileEntry) common.Exec
 	}
 }
 
-func (e *HostEnvironment) CopyTarStream(ctx context.Context, destPath string, tarStream io.Reader) error {
+func (e *HostEnvironment) CopyTarStream(ctx context.Context, destPath string, tarStream io.Reader) (retErr error) {
 	if err := os.RemoveAll(destPath); err != nil {
 		return err
 	}
+	defer func() {
+		if retErr != nil {
+			retErr = errors.Join(retErr, os.RemoveAll(destPath))
+		}
+	}()
 	tr := tar.NewReader(tarStream)
 	cp := &filecollector.CopyCollector{
 		DstDir: destPath,
@@ -72,7 +77,7 @@ func (e *HostEnvironment) CopyTarStream(ctx context.Context, destPath string, ta
 	for {
 		ti, err := tr.Next()
 		if errors.Is(err, io.EOF) {
-			return nil
+			return cp.Finalize()
 		} else if err != nil {
 			return err
 		}
@@ -89,7 +94,7 @@ func (e *HostEnvironment) CopyTarStream(ctx context.Context, destPath string, ta
 }
 
 func (e *HostEnvironment) CopyDir(destPath string, srcPath string, useGitIgnore bool) common.Executor {
-	return func(ctx context.Context) error {
+	return func(ctx context.Context) (retErr error) {
 		logger := common.Logger(ctx)
 		srcPrefix := filepath.Dir(srcPath)
 		if !strings.HasSuffix(srcPrefix, string(filepath.Separator)) {
@@ -105,14 +110,16 @@ func (e *HostEnvironment) CopyDir(destPath string, srcPath string, useGitIgnore 
 
 			ignorer = gitignore.NewMatcher(ps)
 		}
+		cp := &filecollector.CopyCollector{
+			DstDir: destPath,
+		}
+		defer func() { retErr = errors.Join(retErr, cp.Finalize()) }()
 		fc := &filecollector.FileCollector{
 			Fs:        &filecollector.DefaultFs{},
 			Ignorer:   ignorer,
 			SrcPath:   srcPath,
 			SrcPrefix: srcPrefix,
-			Handler: &filecollector.CopyCollector{
-				DstDir: destPath,
-			},
+			Handler:   cp,
 		}
 		return filepath.Walk(srcPath, fc.CollectFiles(ctx, []string{}))
 	}

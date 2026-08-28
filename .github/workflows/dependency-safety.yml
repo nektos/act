@@ -1,0 +1,87 @@
+name: dependency-safety
+
+on:
+  pull_request:
+    paths:
+      - go.mod
+      - go.sum
+      - .github/workflows/dependency-safety.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.ref }}
+
+env:
+  ACT_OWNER: ${{ github.repository_owner }}
+  ACT_REPOSITORY: ${{ github.repository }}
+  CGO_ENABLED: 0
+  GOTOOLCHAIN: local
+
+jobs:
+  verify:
+    name: test-vet-build-vuln
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 2
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@ce360397dd3f832beb865e1373c09c0e9f86d70a # v4
+      - name: Set up Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: '1.26.7'
+          cache: true
+      - name: Verify checked-out revision
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - name: Verify deterministic module files
+        run: |
+          go mod verify
+          go mod tidy
+          git diff --exit-code -- go.mod go.sum
+      - name: Test
+        run: go test -timeout 20m ./...
+      - name: Vet
+        run: go vet ./...
+      - name: Build
+        run: go build ./...
+      - name: Install govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@v1.7.0
+      - name: Vulnerability scan
+        run: |
+          "$(go env GOPATH)/bin/govulncheck" ./...
+
+  windows-readonly-replacement:
+    name: windows-readonly-replacement
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 2
+      - name: Set up Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: '1.26.7'
+          cache: true
+      - name: Verify checked-out revision
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - name: Test read-only replacement and rollback
+        shell: bash
+        run: |
+          go test -count=1 ./pkg/filecollector -run '^(TestCopyCollectorOverwritesReadOnlyFile|TestPrepareRootBackupRemovalClearsReadOnly|TestRollbackAfterBackupCleanupFailure)$'
+          go test -count=1 ./pkg/container -run '^TestCopyDirOverwritesReadOnlyGitPack$'
