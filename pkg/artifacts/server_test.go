@@ -281,6 +281,7 @@ func TestArtifactFlow(t *testing.T) {
 	tables := []TestJobFileInfo{
 		{"testdata", "upload-and-download", "push", "", node16platforms, ""},
 		{"testdata", "GHSL-2023-004", "push", "", node16platforms, ""},
+		{"testdata", "versions/direct-artifacts", "push", "", node24Platforms, ""},
 	}
 
 	templateSource, err := os.ReadFile("testdata/versions/versioned-artifacts.yml.tmpl")
@@ -369,7 +370,7 @@ func TestArtifactV4AcceptsCurrentClientRequests(t *testing.T) {
 	router := httprouter.New()
 	RoutesV4(router, "artifact/server/path", writeMapFS{memfs}, memfs)
 
-	createBody := `{"workflow_run_backend_id":"1","workflow_job_run_backend_id":"1","name":"test","version":7,"mime_type":"application/zip"}`
+	createBody := `{"workflow_run_backend_id":"1","workflow_job_run_backend_id":"1","name":"direct.txt","version":7,"mime_type":"text/plain"}`
 	createReq, _ := http.NewRequest(http.MethodPost, "http://localhost"+path.Join(ArtifactV4RouteBase, "CreateArtifact"), strings.NewReader(createBody))
 	createResp := httptest.NewRecorder()
 	router.ServeHTTP(createResp, createReq)
@@ -377,6 +378,7 @@ func TestArtifactV4AcceptsCurrentClientRequests(t *testing.T) {
 
 	var artifact struct {
 		SignedUploadURL string `json:"signedUploadUrl"`
+		SignedURL       string `json:"signedUrl"`
 	}
 	assert.NoError(t, json.Unmarshal(createResp.Body.Bytes(), &artifact))
 
@@ -386,6 +388,21 @@ func TestArtifactV4AcceptsCurrentClientRequests(t *testing.T) {
 	uploadResp := httptest.NewRecorder()
 	router.ServeHTTP(uploadResp, uploadReq)
 	assert.Equal(t, http.StatusCreated, uploadResp.Code)
+
+	getURLBody := `{"workflow_run_backend_id":"1","workflow_job_run_backend_id":"1","name":"direct.txt"}`
+	getURLReq, _ := http.NewRequest(http.MethodPost, "http://localhost"+path.Join(ArtifactV4RouteBase, "GetSignedArtifactURL"), strings.NewReader(getURLBody))
+	getURLResp := httptest.NewRecorder()
+	router.ServeHTTP(getURLResp, getURLReq)
+	require.Equal(t, http.StatusOK, getURLResp.Code)
+	require.NoError(t, json.Unmarshal(getURLResp.Body.Bytes(), &artifact))
+
+	downloadReq, _ := http.NewRequest(http.MethodGet, artifact.SignedURL, nil)
+	downloadResp := httptest.NewRecorder()
+	router.ServeHTTP(downloadResp, downloadReq)
+	assert.Equal(t, http.StatusOK, downloadResp.Code)
+	assert.Equal(t, "text/plain", downloadResp.Header().Get("Content-Type"))
+	assert.Equal(t, "attachment; filename=direct.txt", downloadResp.Header().Get("Content-Disposition"))
+	assert.Equal(t, "content", downloadResp.Body.String())
 }
 
 func TestMkdirFsImplSafeResolve(t *testing.T) {
