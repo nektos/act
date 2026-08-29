@@ -219,7 +219,8 @@ func (r artifactV4Routes) verifySignature(ctx *ArtifactContext, endp string) (in
 	sig := ctx.Req.URL.Query().Get("sig")
 	expires := ctx.Req.URL.Query().Get("expires")
 	artifactName := ctx.Req.URL.Query().Get("artifactName")
-	dsig, _ := base64.URLEncoding.DecodeString(sig)
+	// Azure blob clients may strip base64 padding when adding block parameters.
+	dsig, _ := base64.RawURLEncoding.DecodeString(strings.TrimRight(sig, "="))
 	taskID, _ := strconv.ParseInt(rawTaskID, 10, 64)
 
 	expecedsig := r.buildSignature(endp, expires, artifactName, taskID)
@@ -244,7 +245,8 @@ func (r *artifactV4Routes) parseProtbufBody(ctx *ArtifactContext, req protorefle
 		ctx.Error(http.StatusInternalServerError, "Error decode request body")
 		return false
 	}
-	err = protojson.Unmarshal(body, req)
+	// Artifact clients may add optional fields before act updates its schema.
+	err = protojson.UnmarshalOptions{DiscardUnknown: true}.Unmarshal(body, req)
 	if err != nil {
 		log.Errorf("Error decode request body: %v", err)
 		ctx.Error(http.StatusInternalServerError, "Error decode request body")
