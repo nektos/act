@@ -163,7 +163,10 @@ func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 					log.Debugf("Job.Strategy.RawMatrix: %v", job.Strategy.RawMatrix)
 
 					strategyRc := runner.newRunContext(ctx, run, nil)
-					if err := strategyRc.NewExpressionEvaluator(ctx).EvaluateYamlNode(ctx, &job.Strategy.RawMatrix); err != nil {
+					evaluator := strategyRc.NewExpressionEvaluator(ctx)
+					// fixes: https://github.com/nektos/act/issues/2619
+					job.Strategy.MaxParallelString = evaluator.Interpolate(ctx, job.Strategy.MaxParallelString)
+					if err := evaluator.EvaluateYamlNode(ctx, &job.Strategy.RawMatrix); err != nil {
 						log.Errorf("Error while evaluating matrix: %v", err)
 					}
 				}
