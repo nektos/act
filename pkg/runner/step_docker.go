@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/kballard/go-shellquote"
 	"github.com/harness/nektos-act/v2/pkg/common"
 	"github.com/harness/nektos-act/v2/pkg/container"
 	"github.com/harness/nektos-act/v2/pkg/model"
+	"github.com/kballard/go-shellquote"
 )
 
 type stepDocker struct {
