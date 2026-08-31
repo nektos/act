@@ -110,7 +110,13 @@ func TestReadArgsFile(t *testing.T) {
 		{
 			path:  path.Join("testdata", "split.actrc"),
 			split: true,
-			args:  []string{"--container-options", "--volume /foo:/bar --volume /baz:/qux --volume /tmp:/tmp"},
+			args: []string{
+				"--container-options", "--volume /foo:/bar --volume /baz:/qux --volume /tmp:/tmp",
+				"--platform", "big-cpu-runner=node:16-buster-slim",
+				"--platform", "gpu-runner=node:16-buster-slim",
+				"--platform-options", "big-cpu-runner=--cpus 16",
+				"--platform-options", "gpu-runner+=--gpus all",
+			},
 		},
 	}
 	for _, table := range tables {

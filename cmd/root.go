@@ -80,6 +80,7 @@ func createRootCommand(ctx context.Context, input *Input, version string) *cobra
 	rootCmd.Flags().StringArrayVarP(&input.envs, "env", "", []string{}, "env to make available to actions with optional value (e.g. --env myenv=foo or --env myenv)")
 	rootCmd.Flags().StringArrayVarP(&input.inputs, "input", "", []string{}, "action input to make available to actions (e.g. --input myinput=foo)")
 	rootCmd.Flags().StringArrayVarP(&input.platforms, "platform", "P", []string{}, "custom image to use per platform (e.g. -P ubuntu-18.04=nektos/act-environments-ubuntu:18.04)")
+	rootCmd.Flags().StringArrayVarP(&input.platformOptions, "platform-options", "", []string{}, "custom docker container options to use per platform (e.g. --platform-options big-cpu-runner='--cpus 16' to override or --platform-options gpu-runner+='--gpus all' to append)")
 	rootCmd.Flags().BoolVarP(&input.reuseContainers, "reuse", "r", false, "don't remove container(s) on successfully completed workflow(s) to maintain state between runs")
 	rootCmd.Flags().BoolVarP(&input.bindWorkdir, "bind", "b", false, "bind working directory to container, rather than copy")
 	rootCmd.Flags().BoolVarP(&input.forcePull, "pull", "p", true, "pull docker image(s) even if already present")
@@ -625,6 +626,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			Token:                              secrets["GITHUB_TOKEN"],
 			InsecureSecrets:                    input.insecureSecrets,
 			Platforms:                          input.newPlatforms(),
+			PlatformOptions:                    input.newPlatformOptions(),
 			Privileged:                         input.privileged,
 			UsernsMode:                         input.usernsMode,
 			ContainerArchitecture:              input.containerArchitecture,

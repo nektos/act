@@ -18,6 +18,12 @@ type Runner interface {
 	NewPlanExecutor(plan *model.Plan) common.Executor
 }
 
+// PlatformOptions defines container options for a platform.
+type PlatformOptions struct {
+	Options string // docker container options
+	Append  bool   // append to the global container options instead of replacing them
+}
+
 // Config contains the config for a new runner
 type Config struct {
 	Actor                              string                       // the user that triggered the event
@@ -41,6 +47,7 @@ type Config struct {
 	Token                              string                       // GitHub token
 	InsecureSecrets                    bool                         // switch hiding output when printing to terminal
 	Platforms                          map[string]string            // list of platforms
+	PlatformOptions                    map[string]PlatformOptions   // container options per platform
 	Privileged                         bool                         // use privileged mode
 	UsernsMode                         string                       // user namespace to use
 	ContainerArchitecture              string                       // Desired OS/architecture platform for running containers

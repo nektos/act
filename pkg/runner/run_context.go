@@ -787,6 +787,22 @@ func (rc *RunContext) options(ctx context.Context) string {
 		return rc.ExprEval.Interpolate(ctx, c.Options)
 	}
 
+	return rc.containerOptions(ctx)
+}
+
+func (rc *RunContext) containerOptions(ctx context.Context) string {
+	for _, platformName := range rc.runsOnPlatformNames(ctx) {
+		if options, ok := rc.Config.PlatformOptions[strings.ToLower(platformName)]; ok {
+			if !options.Append || rc.Config.ContainerOptions == "" {
+				return options.Options
+			}
+			if options.Options == "" {
+				return rc.Config.ContainerOptions
+			}
+			return rc.Config.ContainerOptions + " " + options.Options
+		}
+	}
+
 	return rc.Config.ContainerOptions
 }
 
