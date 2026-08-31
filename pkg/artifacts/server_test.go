@@ -1,6 +1,7 @@
 package artifacts
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -12,10 +13,12 @@ import (
 	"strings"
 	"testing"
 	"testing/fstest"
+	"text/template"
 
 	"github.com/julienschmidt/httprouter"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/nektos/act/pkg/model"
 	"github.com/nektos/act/pkg/runner"
@@ -239,6 +242,16 @@ type TestJobFileInfo struct {
 	containerArchitecture string
 }
 
+type artifactActionVersionPair struct {
+	UploadVersion   string
+	DownloadVersion string
+	platforms       map[string]string
+}
+
+func (pair artifactActionVersionPair) name() string {
+	return fmt.Sprintf("upload-%s-download-%s", pair.UploadVersion, pair.DownloadVersion)
+}
+
 var (
 	artifactsPath = path.Join(os.TempDir(), "test-artifacts")
 	artifactsAddr = "127.0.0.1"
@@ -255,15 +268,50 @@ func TestArtifactFlow(t *testing.T) {
 	cancel := Serve(ctx, artifactsPath, artifactsAddr, artifactsPort)
 	defer cancel()
 
-	platforms := map[string]string{
+	node16platforms := map[string]string{
 		"ubuntu-latest": "node:16-buster", // Don't use node:16-buster-slim because it doesn't have curl command, which is used in the tests
+	}
+	node20Platforms := map[string]string{
+		"ubuntu-latest": "node:20-bookworm-slim",
+	}
+	node24Platforms := map[string]string{
+		"ubuntu-latest": "node:24-bookworm-slim",
 	}
 
 	tables := []TestJobFileInfo{
-		{"testdata", "upload-and-download", "push", "", platforms, ""},
-		{"testdata", "GHSL-2023-004", "push", "", platforms, ""},
-		{"testdata", "v4", "push", "", platforms, ""},
+		{"testdata", "upload-and-download", "push", "", node16platforms, ""},
+		{"testdata", "GHSL-2023-004", "push", "", node16platforms, ""},
+		{"testdata", "versions/direct-artifacts", "push", "", node24Platforms, ""},
 	}
+
+	templateSource, err := os.ReadFile("testdata/versions/versioned-artifacts.yml.tmpl")
+	require.NoError(t, err)
+	workflowTemplate, err := template.New("versioned-artifacts").
+		Delims("<<", ">>").
+		Option("missingkey=error").
+		Parse(string(templateSource))
+	require.NoError(t, err)
+
+	versionPairs := []artifactActionVersionPair{
+		{UploadVersion: "v4", DownloadVersion: "v4", platforms: node20Platforms},
+		{UploadVersion: "v4", DownloadVersion: "v5", platforms: node20Platforms},
+		{UploadVersion: "v5", DownloadVersion: "v6", platforms: node20Platforms},
+		{UploadVersion: "v6", DownloadVersion: "v7", platforms: node24Platforms},
+		{UploadVersion: "v7", DownloadVersion: "v8", platforms: node24Platforms},
+	}
+	generatedWorkflows := t.TempDir()
+	for _, pair := range versionPairs {
+		workflowPath := pair.name()
+		workflowDir := filepath.Join(generatedWorkflows, workflowPath)
+		require.NoError(t, os.MkdirAll(workflowDir, 0o700))
+
+		var workflow bytes.Buffer
+		require.NoError(t, workflowTemplate.Execute(&workflow, pair))
+		require.NoError(t, os.WriteFile(filepath.Join(workflowDir, "artifacts.yml"), workflow.Bytes(), 0o600))
+
+		tables = append(tables, TestJobFileInfo{generatedWorkflows, workflowPath, "push", "", pair.platforms, ""})
+	}
+
 	log.SetLevel(log.DebugLevel)
 
 	for _, table := range tables {
@@ -315,6 +363,46 @@ func runTestJobFile(ctx context.Context, t *testing.T, tjfi TestJobFileInfo) {
 
 		fmt.Println("::endgroup::")
 	})
+}
+
+func TestArtifactV4AcceptsCurrentClientRequests(t *testing.T) {
+	memfs := fstest.MapFS{}
+	router := httprouter.New()
+	RoutesV4(router, "artifact/server/path", writeMapFS{memfs}, memfs)
+
+	createBody := `{"workflow_run_backend_id":"1","workflow_job_run_backend_id":"1","name":"direct.txt","version":7,"mime_type":"text/plain"}`
+	createReq, _ := http.NewRequest(http.MethodPost, "http://localhost"+path.Join(ArtifactV4RouteBase, "CreateArtifact"), strings.NewReader(createBody))
+	createResp := httptest.NewRecorder()
+	router.ServeHTTP(createResp, createReq)
+	assert.Equal(t, http.StatusOK, createResp.Code)
+
+	var artifact struct {
+		SignedUploadURL string `json:"signedUploadUrl"`
+		SignedURL       string `json:"signedUrl"`
+	}
+	assert.NoError(t, json.Unmarshal(createResp.Body.Bytes(), &artifact))
+
+	// The current Azure client removes base64 padding when adding blob query parameters.
+	uploadURL := strings.Replace(artifact.SignedUploadURL, "=&expires", "&expires", 1) + "&comp=block"
+	uploadReq, _ := http.NewRequest(http.MethodPut, uploadURL, strings.NewReader("content"))
+	uploadResp := httptest.NewRecorder()
+	router.ServeHTTP(uploadResp, uploadReq)
+	assert.Equal(t, http.StatusCreated, uploadResp.Code)
+
+	getURLBody := `{"workflow_run_backend_id":"1","workflow_job_run_backend_id":"1","name":"direct.txt"}`
+	getURLReq, _ := http.NewRequest(http.MethodPost, "http://localhost"+path.Join(ArtifactV4RouteBase, "GetSignedArtifactURL"), strings.NewReader(getURLBody))
+	getURLResp := httptest.NewRecorder()
+	router.ServeHTTP(getURLResp, getURLReq)
+	require.Equal(t, http.StatusOK, getURLResp.Code)
+	require.NoError(t, json.Unmarshal(getURLResp.Body.Bytes(), &artifact))
+
+	downloadReq, _ := http.NewRequest(http.MethodGet, artifact.SignedURL, nil)
+	downloadResp := httptest.NewRecorder()
+	router.ServeHTTP(downloadResp, downloadReq)
+	assert.Equal(t, http.StatusOK, downloadResp.Code)
+	assert.Equal(t, "text/plain", downloadResp.Header().Get("Content-Type"))
+	assert.Equal(t, "attachment; filename=direct.txt", downloadResp.Header().Get("Content-Disposition"))
+	assert.Equal(t, "content", downloadResp.Body.String())
 }
 
 func TestMkdirFsImplSafeResolve(t *testing.T) {

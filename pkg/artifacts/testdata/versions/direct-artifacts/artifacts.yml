@@ -1,0 +1,21 @@
+on:
+  push:
+jobs:
+  artifacts:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo 'Direct artifact' > direct.txt
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ignored
+          path: direct.txt
+          archive: false
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: direct.txt
+          path: out
+
+      - name: assert
+        run: cmp direct.txt out/direct.txt
