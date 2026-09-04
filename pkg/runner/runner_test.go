@@ -386,6 +386,8 @@ func TestRunEventDockerDaemonService(t *testing.T) {
 	tables := []TestJobFileInfo{
 		// The injected dockerd is reachable at /var/run/docker.sock.
 		{workdir, "docker-daemon-service", "push", "", platforms, secrets},
+		// dind and the job container share the workspace filesystem.
+		{workdir, "docker-daemon-service-shared-fs", "push", "", platforms, secrets},
 	}
 
 	for _, table := range tables {

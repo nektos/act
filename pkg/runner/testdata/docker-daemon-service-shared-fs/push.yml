@@ -1,0 +1,63 @@
+name: docker-daemon-service-shared-fs
+on: push
+jobs:
+  # Proves that the injected dind service sees the same filesystem as the
+  # job container: a file written to $GITHUB_WORKSPACE from inside the job
+  # must be readable when dockerd bind-mounts that path into a helper
+  # container. This mirrors the GitHub-hosted runners' single-filesystem
+  # contract that testcontainers, `docker run -v $GITHUB_WORKSPACE:/x`, and
+  # `docker cp` all rely on.
+  shared-workspace:
+    runs-on: ubuntu-latest
+    container:
+      image: docker:cli
+    steps:
+      - name: seed a marker in the workspace from the job container
+        run: |
+          echo hello-shared-fs > "$GITHUB_WORKSPACE/marker.txt"
+          ls -la "$GITHUB_WORKSPACE/marker.txt"
+      - name: read the marker through the injected dind daemon
+        run: |
+          out=$(docker run --rm -v "$GITHUB_WORKSPACE":/w alpine:3.20 cat /w/marker.txt)
+          echo "got: $out"
+          test "$out" = hello-shared-fs
+
+  # Proves that extra volumes declared under `container.volumes` are also
+  # mirrored onto the dind service, not just the default workspace: both
+  # an anonymous named volume (mount) and a host-path bind must resolve
+  # to the same storage from the job container and from a container
+  # launched via the injected dockerd.
+  extra-volumes:
+    runs-on: ubuntu-latest
+    container:
+      image: docker:cli
+      volumes:
+        # Named volume: `mounts` codepath in GetBindsAndMounts.
+        - act-dind-shared-fs-vol:/shared-vol
+        # Host-path bind: `binds` codepath. /tmp exists on every runner
+        # and inside every reasonable container image, and act creates
+        # missing bind sources on demand.
+        - /tmp/act-dind-shared-fs-bind:/shared-bind
+    steps:
+      - name: seed markers on both extra volumes from the job container
+        run: |
+          echo hello-vol > /shared-vol/marker.txt
+          echo hello-bind > /shared-bind/marker.txt
+          ls -la /shared-vol/marker.txt /shared-bind/marker.txt
+      - name: read the named-volume marker through the injected dind daemon
+        run: |
+          out=$(docker run --rm -v /shared-vol:/x alpine:3.20 cat /x/marker.txt)
+          echo "got: $out"
+          test "$out" = hello-vol
+      - name: read the host-bind marker through the injected dind daemon
+        run: |
+          out=$(docker run --rm -v /shared-bind:/x alpine:3.20 cat /x/marker.txt)
+          echo "got: $out"
+          test "$out" = hello-bind
+      - name: clean up bind-mount contents so the host dir can be re-created
+        # Files written above are owned by root inside the container, so
+        # remove them from inside the container while we still can. The
+        # empty /tmp/act-dind-shared-fs-bind dir on the host is fine to
+        # leave behind (act re-uses it on subsequent runs).
+        if: always()
+        run: rm -f /shared-bind/marker.txt

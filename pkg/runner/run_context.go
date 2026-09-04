@@ -361,7 +361,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 
 		if rc.useDockerDaemonService() {
 			rc.ServiceContainers = append(rc.ServiceContainers,
-				rc.buildDockerDaemonServiceContainer(logWriter, networkName))
+				rc.buildDockerDaemonServiceContainer(logWriter, networkName, binds, mounts))
 		}
 
 		rc.cleanUpJobContainer = func(ctx context.Context) error {
@@ -370,30 +370,38 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			}
 
 			if rc.JobContainer != nil {
+				stopServicesAndNetwork := func(ctx context.Context) error {
+					if len(rc.ServiceContainers) > 0 {
+						logger.Infof("Cleaning up services for job %s", rc.JobName)
+						if err := rc.stopServiceContainers()(ctx); err != nil {
+							logger.Errorf("Error while cleaning services: %v", err)
+						}
+						if createAndDeleteNetwork {
+							// clean network if it has been created by act
+							// if using service containers
+							// it means that the network to which containers are connecting is created by `act_runner`,
+							// so, we should remove the network at last.
+							logger.Infof("Cleaning up network for job %s, and network name is: %s", rc.JobName, networkName)
+							if err := container.NewDockerNetworkRemoveExecutor(networkName)(ctx); err != nil {
+								logger.Errorf("Error while cleaning network: %v", err)
+							}
+						}
+					}
+					return nil
+				}
+
+				// Stop the job container and every service container BEFORE
+				// removing any named volumes. The injected dind service (and
+				// any user-declared service) mirrors the job's binds/mounts,
+				// so it still holds references to those volumes until it is
+				// stopped; removing them earlier fails with "volume is in
+				// use".
 				return rc.JobContainer.Remove().IfNot(reuseJobContainer).
+					Then(stopServicesAndNetwork).IfNot(reuseJobContainer).
 					Then(container.NewDockerVolumeRemoveExecutor(rc.jobContainerName(), false)).IfNot(reuseJobContainer).
 					Then(container.NewDockerVolumeRemoveExecutor(rc.jobContainerName()+"-env", false)).IfNot(reuseJobContainer).
 					Then(container.NewDockerVolumeRemoveExecutor(rc.dockerDaemonServiceSocketVolume(), false)).
-					IfBool(rc.useDockerDaemonService()).IfNot(reuseJobContainer).
-					Then(func(ctx context.Context) error {
-						if len(rc.ServiceContainers) > 0 {
-							logger.Infof("Cleaning up services for job %s", rc.JobName)
-							if err := rc.stopServiceContainers()(ctx); err != nil {
-								logger.Errorf("Error while cleaning services: %v", err)
-							}
-							if createAndDeleteNetwork {
-								// clean network if it has been created by act
-								// if using service containers
-								// it means that the network to which containers are connecting is created by `act_runner`,
-								// so, we should remove the network at last.
-								logger.Infof("Cleaning up network for job %s, and network name is: %s", rc.JobName, networkName)
-								if err := container.NewDockerNetworkRemoveExecutor(networkName)(ctx); err != nil {
-									logger.Errorf("Error while cleaning network: %v", err)
-								}
-							}
-						}
-						return nil
-					})(ctx)
+					IfBool(rc.useDockerDaemonService()).IfNot(reuseJobContainer)(ctx)
 			}
 			return nil
 		}
@@ -1247,7 +1255,15 @@ func (rc *RunContext) dockerDaemonServiceImage() string {
 // container mounts the same volume and reaches the daemon via that socket
 // (plus a /var/run/docker.sock symlink dropped after start). TLS is
 // disabled because the socket never leaves the shared volume.
-func (rc *RunContext) buildDockerDaemonServiceContainer(logWriter io.Writer, networkName string) container.ExecutionsEnvironment {
+//
+// The job container's binds and mounts are mirrored onto the dind container
+// so paths resolve identically on both sides. GitHub-hosted runners share a
+// single filesystem between dockerd and the job; workflows rely on that when
+// they run `docker run -v $GITHUB_WORKSPACE:/x`, when testcontainers passes
+// host paths through the daemon, or when actions bind-mount /opt/hosted
+// toolcache into helper containers. Without mirroring, dockerd would reject
+// those paths as "no such file or directory".
+func (rc *RunContext) buildDockerDaemonServiceContainer(logWriter io.Writer, networkName string, jobBinds []string, jobMounts map[string]string) container.ExecutionsEnvironment {
 	name := createContainerName(rc.jobContainerName(), dockerDaemonServiceAlias)
 	sockPath := dockerDaemonServiceSocketDir + "/docker.sock"
 	// docker:dind's default entrypoint enables TLS when DOCKER_TLS_CERTDIR
@@ -1257,14 +1273,21 @@ func (rc *RunContext) buildDockerDaemonServiceContainer(logWriter io.Writer, net
 		"DOCKER_TLS_CERTDIR=",
 		"DOCKERD_ROOTLESS_ROOTLESSKIT_FLAGS=",
 	}
-	mounts := map[string]string{
-		rc.dockerDaemonServiceSocketVolume(): dockerDaemonServiceSocketDir,
+	// Shallow-copy the job's binds/mounts so callers keep ownership of the
+	// originals. jobMounts already contains the shared socket volume entry
+	// (added by GetBindsAndMounts when the dind service is enabled), so
+	// dind sees the same /var/run/act-dind path it writes docker.sock into.
+	binds := append([]string(nil), jobBinds...)
+	mounts := make(map[string]string, len(jobMounts))
+	for k, v := range jobMounts {
+		mounts[k] = v
 	}
 	return container.NewContainer(&container.NewContainerInput{
 		Name:           name,
 		Image:          rc.dockerDaemonServiceImage(),
 		Cmd:            []string{"dockerd", "--host=unix://" + sockPath},
 		Env:            env,
+		Binds:          binds,
 		Mounts:         mounts,
 		Stdout:         logWriter,
 		Stderr:         logWriter,
