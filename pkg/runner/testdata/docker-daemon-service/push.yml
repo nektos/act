@@ -1,0 +1,17 @@
+name: docker-daemon-service
+on: push
+jobs:
+  # Proves that when act is started with --docker-daemon-service, the job
+  # container can talk to the injected dockerd via the canonical
+  # /var/run/docker.sock without any DOCKER_HOST plumbing.
+  dind-available:
+    runs-on: ubuntu-latest
+    container:
+      image: docker:cli
+    steps:
+      - name: docker socket must exist at the GitHub-hosted path
+        run: test -S /var/run/docker.sock
+      - name: docker version must reach the injected daemon
+        run: docker version
+      - name: run a container through the injected daemon
+        run: docker run --rm alpine:3.20 echo hello-from-dind

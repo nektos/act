@@ -368,6 +368,65 @@ func TestRunEvent(t *testing.T) {
 	}
 }
 
+// TestRunEventDockerDaemonService exercises the injected docker-in-docker
+// service container end-to-end. Each subtest runs a workflow inside a
+// docker:cli job container, with --docker-daemon-service on and the host
+// socket bind suppressed (ContainerDaemonSocket == "-"), and verifies the
+// job can reach the injected dockerd at the canonical socket path.
+//
+// Requires a working outer Docker daemon that permits --privileged
+// containers (dind cannot run otherwise). Skipped under -short.
+func TestRunEventDockerDaemonService(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	ctx := context.Background()
+
+	tables := []TestJobFileInfo{
+		// The injected dockerd is reachable at /var/run/docker.sock.
+		{workdir, "docker-daemon-service", "push", "", platforms, secrets},
+	}
+
+	for _, table := range tables {
+		t.Run(table.workflowPath, func(t *testing.T) {
+			workdirAbs, err := filepath.Abs(table.workdir)
+			assert.Nil(t, err, workdirAbs)
+			fullWorkflowPath := filepath.Join(workdirAbs, table.workflowPath)
+
+			cfg := &Config{
+				Workdir:                  workdirAbs,
+				BindWorkdir:              false,
+				EventName:                table.eventName,
+				Platforms:                table.platforms,
+				ReuseContainers:          false,
+				Secrets:                  table.secrets,
+				GitHubInstance:           "github.com",
+				ContainerDaemonSocket:    "-",
+				DockerDaemonService:      true,
+				DockerDaemonServiceImage: "docker:dind",
+			}
+
+			runner, err := New(cfg)
+			assert.Nil(t, err, table.workflowPath)
+
+			planner, err := model.NewWorkflowPlanner(fullWorkflowPath, true, false)
+			assert.Nil(t, err, fullWorkflowPath)
+
+			plan, err := planner.PlanEvent(table.eventName)
+			assert.Nil(t, err)
+			assert.NotNil(t, plan)
+
+			err = runner.NewPlanExecutor(plan)(ctx)
+			if table.errorMessage == "" {
+				assert.Nil(t, err, fullWorkflowPath)
+			} else {
+				assert.Error(t, err, table.errorMessage)
+			}
+		})
+	}
+}
+
 type captureJobLoggerFactory struct {
 	buffer bytes.Buffer
 }

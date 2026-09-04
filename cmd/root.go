@@ -113,6 +113,8 @@ func createRootCommand(ctx context.Context, input *Input, version string) *cobra
 	rootCmd.PersistentFlags().StringVarP(&input.containerArchitecture, "container-architecture", "", "", "Architecture which should be used to run containers, e.g.: linux/amd64. If not specified, will use host default architecture. Requires Docker server API Version 1.41+. Ignored on earlier Docker server platforms.")
 	rootCmd.PersistentFlags().StringVarP(&input.containerDaemonSocket, "container-daemon-socket", "", "", "URI to Docker Engine socket (e.g.: unix://~/.docker/run/docker.sock or - to disable bind mounting the socket)")
 	rootCmd.PersistentFlags().StringVarP(&input.containerOptions, "container-options", "", "", "Custom docker container options for the job container without an options property in the job definition")
+	rootCmd.PersistentFlags().BoolVarP(&input.dockerDaemonService, "docker-daemon-service", "", false, "Start a Docker-in-Docker service container (network alias 'docker') alongside the job container so builds have a Docker daemon without mounting the host socket. Sets DOCKER_HOST/DOCKER_TLS_VERIFY/DOCKER_CERT_PATH in the job container and disables the host socket bind.")
+	rootCmd.PersistentFlags().StringVarP(&input.dockerDaemonServiceImage, "docker-daemon-service-image", "", "docker:dind", "Image to use for the docker-in-docker service container.")
 	rootCmd.PersistentFlags().StringVarP(&input.githubInstance, "github-instance", "", "github.com", "GitHub instance to use. Only use this when using GitHub Enterprise Server.")
 	rootCmd.PersistentFlags().StringVarP(&input.artifactServerPath, "artifact-server-path", "", "", "Defines the path where the artifact server stores uploads and retrieves downloads from. If not specified the artifact server will not start.")
 	rootCmd.PersistentFlags().StringVarP(&input.artifactServerAddr, "artifact-server-addr", "", common.GetOutboundIP().String(), "Defines the address to which the artifact server binds.")
@@ -406,6 +408,10 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			return listOptions(cmd)
 		}
 
+		if err := validateDockerDaemonServiceFlags(input, cmd.Flag("container-daemon-socket").Changed); err != nil {
+			return err
+		}
+
 		if ret, err := container.GetSocketAndHost(input.containerDaemonSocket); err != nil {
 			log.Warnf("Couldn't get a valid docker connection: %+v", err)
 		} else {
@@ -630,6 +636,8 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			ContainerArchitecture:              input.containerArchitecture,
 			ContainerDaemonSocket:              input.containerDaemonSocket,
 			ContainerOptions:                   input.containerOptions,
+			DockerDaemonService:                input.dockerDaemonService,
+			DockerDaemonServiceImage:           input.dockerDaemonServiceImage,
 			UseGitIgnore:                       input.useGitIgnore,
 			GitHubInstance:                     input.githubInstance,
 			ContainerCapAdd:                    input.containerCapAdd,
@@ -802,5 +810,41 @@ func watchAndRun(ctx context.Context, fn common.Executor) error {
 		}
 	}
 
+	return nil
+}
+
+// validateDockerDaemonServiceFlags enforces the exclusivity between
+// --docker-daemon-service and --container-daemon-socket. When the dind
+// service is on, the host socket must not be bind-mounted, since the
+// injected dockerd shares its own unix socket via a per-job named volume.
+//
+// socketFlagChanged reports whether --container-daemon-socket was
+// explicitly set on the command line (Cobra's flag.Changed). We treat the
+// two cases differently so the common invocation stays terse:
+//
+//	--docker-daemon-service alone
+//	    auto-forces containerDaemonSocket to "-" (suppress the default
+//	    host-socket bind). Convenient default.
+//
+//	--docker-daemon-service --container-daemon-socket=-
+//	    explicit form, accepted as-is.
+//
+//	--docker-daemon-service --container-daemon-socket=<anything-else>
+//	    hard error: the user asked for two incompatible things, quoting
+//	    the offending value so the mistake is obvious.
+//
+// The check has no effect when --docker-daemon-service is off.
+func validateDockerDaemonServiceFlags(input *Input, socketFlagChanged bool) error {
+	if !input.dockerDaemonService {
+		return nil
+	}
+	if socketFlagChanged {
+		if input.containerDaemonSocket != "-" {
+			return fmt.Errorf("--docker-daemon-service is incompatible with --container-daemon-socket=%q; the injected dind service shares its socket via a named volume, so the host socket must not be bound (pass --container-daemon-socket=- or omit it)", input.containerDaemonSocket)
+		}
+		return nil
+	}
+	// Not explicitly set: suppress the default host-socket bind.
+	input.containerDaemonSocket = "-"
 	return nil
 }

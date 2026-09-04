@@ -132,7 +132,7 @@ func (rc *RunContext) GetBindsAndMounts() ([]string, map[string]string) {
 	}
 
 	binds := []string{}
-	if rc.Config.ContainerDaemonSocket != "-" {
+	if rc.Config.ContainerDaemonSocket != "-" && !rc.useDockerDaemonService() {
 		daemonPath := getDockerDaemonSocketMountPath(rc.Config.ContainerDaemonSocket)
 		binds = append(binds, fmt.Sprintf("%s:%s", daemonPath, "/var/run/docker.sock"))
 	}
@@ -178,6 +178,14 @@ func (rc *RunContext) GetBindsAndMounts() ([]string, map[string]string) {
 		binds = append(binds, fmt.Sprintf("%s:%s%s", rc.Config.Workdir, ext.ToContainerPath(rc.Config.Workdir), bindModifiers))
 	} else {
 		mounts[name] = ext.ToContainerPath(rc.Config.Workdir)
+	}
+
+	if rc.useDockerDaemonService() {
+		// Share the injected dind's unix socket with the job container via
+		// a per-job named volume. A post-start step drops a
+		// /var/run/docker.sock symlink so workflows that hardcode the
+		// GitHub-hosted path keep working.
+		mounts[rc.dockerDaemonServiceSocketVolume()] = dockerDaemonServiceSocketDir
 	}
 
 	return binds, mounts
@@ -351,6 +359,11 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			rc.ServiceContainers = append(rc.ServiceContainers, c)
 		}
 
+		if rc.useDockerDaemonService() {
+			rc.ServiceContainers = append(rc.ServiceContainers,
+				rc.buildDockerDaemonServiceContainer(logWriter, networkName))
+		}
+
 		rc.cleanUpJobContainer = func(ctx context.Context) error {
 			reuseJobContainer := func(_ context.Context) bool {
 				return rc.Config.ReuseContainers
@@ -360,6 +373,8 @@ func (rc *RunContext) startJobContainer() common.Executor {
 				return rc.JobContainer.Remove().IfNot(reuseJobContainer).
 					Then(container.NewDockerVolumeRemoveExecutor(rc.jobContainerName(), false)).IfNot(reuseJobContainer).
 					Then(container.NewDockerVolumeRemoveExecutor(rc.jobContainerName()+"-env", false)).IfNot(reuseJobContainer).
+					Then(container.NewDockerVolumeRemoveExecutor(rc.dockerDaemonServiceSocketVolume(), false)).
+					IfBool(rc.useDockerDaemonService()).IfNot(reuseJobContainer).
 					Then(func(ctx context.Context) error {
 						if len(rc.ServiceContainers) > 0 {
 							logger.Infof("Cleaning up services for job %s", rc.JobName)
@@ -432,6 +447,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 				Body: "",
 			}),
 			rc.waitForServiceContainers(),
+			rc.linkDockerDaemonServiceSocket().IfBool(rc.useDockerDaemonService()),
 		)(ctx)
 	}
 }
@@ -1155,7 +1171,7 @@ func (rc *RunContext) GetServiceBindsAndMounts(svcVolumes []string) ([]string, m
 		rc.Config.ContainerDaemonSocket = "/var/run/docker.sock"
 	}
 	binds := []string{}
-	if rc.Config.ContainerDaemonSocket != "-" {
+	if rc.Config.ContainerDaemonSocket != "-" && !rc.useDockerDaemonService() {
 		daemonPath := getDockerDaemonSocketMountPath(rc.Config.ContainerDaemonSocket)
 		binds = append(binds, fmt.Sprintf("%s:%s", daemonPath, "/var/run/docker.sock"))
 	}
@@ -1174,4 +1190,122 @@ func (rc *RunContext) GetServiceBindsAndMounts(svcVolumes []string) ([]string, m
 	}
 
 	return binds, mounts
+}
+
+// dockerDaemonServiceAlias is the network alias/service name used for the
+// injected docker-in-docker service container. It is not resolvable from the
+// job container (the socket-sharing model doesn't need DNS); it just gives
+// the container a stable, discoverable name in `docker ps` output.
+const dockerDaemonServiceAlias = "docker"
+
+// dockerDaemonServiceSocketDir is the in-container mount point of the shared
+// named volume that holds the dind unix socket. Same path in both the dind
+// service container (dockerd writes docker.sock here) and the job container
+// (which sees docker.sock and gets a /var/run/docker.sock symlink pointing
+// at it).
+const dockerDaemonServiceSocketDir = "/var/run/act-dind"
+
+// useDockerDaemonService reports whether the runner should attach an
+// injected docker-in-docker service container to this job. Skipped if the
+// workflow already declares a service with the reserved alias so the
+// user-defined service wins.
+func (rc *RunContext) useDockerDaemonService() bool {
+	if rc == nil || rc.Config == nil || !rc.Config.DockerDaemonService {
+		return false
+	}
+	if rc.Run == nil {
+		return false
+	}
+	job := rc.Run.Job()
+	if job == nil {
+		return false
+	}
+	if _, exists := job.Services[dockerDaemonServiceAlias]; exists {
+		return false
+	}
+	return true
+}
+
+// dockerDaemonServiceSocketVolume returns the per-job named volume that
+// shuttles the dind unix socket to the job container. Scoped per job so
+// parallel jobs never collide.
+func (rc *RunContext) dockerDaemonServiceSocketVolume() string {
+	return rc.jobContainerName() + "-dind-sock"
+}
+
+// dockerDaemonServiceImage returns the image for the injected dind service
+// container, defaulting to docker:dind when unset.
+func (rc *RunContext) dockerDaemonServiceImage() string {
+	if img := rc.Config.DockerDaemonServiceImage; img != "" {
+		return img
+	}
+	return "docker:dind"
+}
+
+// buildDockerDaemonServiceContainer constructs the dind service container.
+// dockerd listens on a unix socket inside a shared named volume; the job
+// container mounts the same volume and reaches the daemon via that socket
+// (plus a /var/run/docker.sock symlink dropped after start). TLS is
+// disabled because the socket never leaves the shared volume.
+func (rc *RunContext) buildDockerDaemonServiceContainer(logWriter io.Writer, networkName string) container.ExecutionsEnvironment {
+	name := createContainerName(rc.jobContainerName(), dockerDaemonServiceAlias)
+	sockPath := dockerDaemonServiceSocketDir + "/docker.sock"
+	// docker:dind's default entrypoint enables TLS when DOCKER_TLS_CERTDIR
+	// is non-empty. Blank it out so we get a plain unix socket, and tell
+	// dockerd where to put it.
+	env := []string{
+		"DOCKER_TLS_CERTDIR=",
+		"DOCKERD_ROOTLESS_ROOTLESSKIT_FLAGS=",
+	}
+	mounts := map[string]string{
+		rc.dockerDaemonServiceSocketVolume(): dockerDaemonServiceSocketDir,
+	}
+	return container.NewContainer(&container.NewContainerInput{
+		Name:           name,
+		Image:          rc.dockerDaemonServiceImage(),
+		Cmd:            []string{"dockerd", "--host=unix://" + sockPath},
+		Env:            env,
+		Mounts:         mounts,
+		Stdout:         logWriter,
+		Stderr:         logWriter,
+		Privileged:     true, // dockerd requires privileged
+		UsernsMode:     rc.Config.UsernsMode,
+		Platform:       rc.Config.ContainerArchitecture,
+		NetworkMode:    networkName,
+		NetworkAliases: []string{dockerDaemonServiceAlias},
+	})
+}
+
+// linkDockerDaemonServiceSocket waits for dockerd to create its socket in
+// the shared volume, then drops a /var/run/docker.sock symlink inside the
+// job container so workflows that hardcode the GitHub-hosted path keep
+// working without a DOCKER_HOST env var.
+func (rc *RunContext) linkDockerDaemonServiceSocket() common.Executor {
+	return func(ctx context.Context) error {
+		sockPath := dockerDaemonServiceSocketDir + "/docker.sock"
+		logger := common.Logger(ctx)
+		// Poll for the socket to appear. dind's entrypoint creates it soon
+		// after startup but we don't have a healthcheck any more, so bound
+		// the wait ourselves.
+		wctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+		defer cancel()
+		delay := 200 * time.Millisecond
+		waitCmd := []string{"sh", "-c", fmt.Sprintf("test -S %s", sockPath)}
+		for {
+			if err := rc.JobContainer.Exec(waitCmd, nil, "root", "/")(wctx); err == nil {
+				break
+			}
+			select {
+			case <-wctx.Done():
+				return fmt.Errorf("timed out waiting for docker daemon socket at %s", sockPath)
+			case <-time.After(delay):
+			}
+			if delay < 2*time.Second {
+				delay *= 2
+			}
+		}
+		logger.Debugf("dind socket ready at %s, linking /var/run/docker.sock", sockPath)
+		linkCmd := []string{"sh", "-c", fmt.Sprintf("ln -sf %s /var/run/docker.sock", sockPath)}
+		return rc.JobContainer.Exec(linkCmd, nil, "root", "/")(ctx)
+	}
 }

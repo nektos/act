@@ -83,6 +83,115 @@ func TestFlags(t *testing.T) {
 	}
 }
 
+func TestValidateDockerDaemonServiceFlags(t *testing.T) {
+	cases := []struct {
+		name              string
+		dockerDaemon      bool
+		socketIn          string
+		socketFlagChanged bool
+		wantErr           bool
+		wantErrContains   string
+		wantSocketOut     string
+	}{
+		{
+			// dind off, socket untouched: no-op.
+			name:          "dind off / socket unset -> passthrough",
+			wantSocketOut: "",
+		},
+		{
+			// dind off, user picked a socket: leave it alone, no error.
+			name:              "dind off / socket set to path -> passthrough",
+			socketIn:          "unix:///var/run/docker.sock",
+			socketFlagChanged: true,
+			wantSocketOut:     "unix:///var/run/docker.sock",
+		},
+		{
+			// dind off, user disabled the bind: leave it alone.
+			name:              "dind off / socket set to '-' -> passthrough",
+			socketIn:          "-",
+			socketFlagChanged: true,
+			wantSocketOut:     "-",
+		},
+		{
+			// Common convenience case: --docker-daemon-service alone
+			// auto-forces the socket to "-" so no host bind is added.
+			name:          "dind on / socket unset -> auto '-'",
+			dockerDaemon:  true,
+			wantSocketOut: "-",
+		},
+		{
+			// dind on, socket left at default "" but explicitly by the
+			// user (shell-quoting mishap, --container-daemon-socket=).
+			// Empty is not "-", so this is a conflict.
+			name:              "dind on / socket explicitly empty -> error",
+			dockerDaemon:      true,
+			socketIn:          "",
+			socketFlagChanged: true,
+			wantErr:           true,
+			wantErrContains:   `--container-daemon-socket=""`,
+			wantSocketOut:     "",
+		},
+		{
+			// dind on, explicit "-": accepted, no rewrite.
+			name:              "dind on / socket explicitly '-' -> accepted",
+			dockerDaemon:      true,
+			socketIn:          "-",
+			socketFlagChanged: true,
+			wantSocketOut:     "-",
+		},
+		{
+			// dind on with a URI: hard error, value quoted in message.
+			name:              "dind on / socket set to unix URI -> error",
+			dockerDaemon:      true,
+			socketIn:          "unix:///var/run/docker.sock",
+			socketFlagChanged: true,
+			wantErr:           true,
+			wantErrContains:   `--container-daemon-socket="unix:///var/run/docker.sock"`,
+			wantSocketOut:     "unix:///var/run/docker.sock",
+		},
+		{
+			// dind on with tcp URI: same hard error.
+			name:              "dind on / socket set to tcp URI -> error",
+			dockerDaemon:      true,
+			socketIn:          "tcp://127.0.0.1:2375",
+			socketFlagChanged: true,
+			wantErr:           true,
+			wantErrContains:   `--container-daemon-socket="tcp://127.0.0.1:2375"`,
+			wantSocketOut:     "tcp://127.0.0.1:2375",
+		},
+		{
+			// dind on with a bare filesystem path: same hard error.
+			name:              "dind on / socket set to bare path -> error",
+			dockerDaemon:      true,
+			socketIn:          "/var/run/docker.sock",
+			socketFlagChanged: true,
+			wantErr:           true,
+			wantErrContains:   `--container-daemon-socket="/var/run/docker.sock"`,
+			wantSocketOut:     "/var/run/docker.sock",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			in := &Input{
+				dockerDaemonService:   tc.dockerDaemon,
+				containerDaemonSocket: tc.socketIn,
+			}
+			err := validateDockerDaemonServiceFlags(in, tc.socketFlagChanged)
+			if tc.wantErr {
+				assert.Error(t, err)
+				if tc.wantErrContains != "" && err != nil {
+					assert.Contains(t, err.Error(), tc.wantErrContains)
+				}
+			} else {
+				assert.NoError(t, err)
+			}
+			assert.Equal(t, tc.wantSocketOut, in.containerDaemonSocket,
+				"containerDaemonSocket after validation")
+		})
+	}
+}
+
 func TestReadArgsFile(t *testing.T) {
 	tables := []struct {
 		path  string
