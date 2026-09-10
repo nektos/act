@@ -427,6 +427,7 @@ func goArchToActionArch(arch string) string {
 		"x86_64":  "X64",
 		"386":     "X86",
 		"aarch64": "ARM64",
+		"arm64":   "ARM64",
 	}
 	if arch, ok := archMapper[arch]; ok {
 		return arch
