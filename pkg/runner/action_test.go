@@ -4,6 +4,8 @@ import (
 	"context"
 	"io"
 	"io/fs"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -248,4 +250,31 @@ func TestActionRunner(t *testing.T) {
 			cm.AssertExpectations(t)
 		})
 	}
+}
+
+func TestRemoveGitIgnore(t *testing.T) {
+	t.Run("removes existing gitignore", func(t *testing.T) {
+		dir := t.TempDir()
+		gitignore := filepath.Join(dir, ".gitignore")
+		assert.NoError(t, os.WriteFile(gitignore, []byte("node_modules\n"), 0o644))
+
+		assert.NoError(t, removeGitIgnore(context.Background(), dir))
+
+		_, err := os.Stat(gitignore)
+		assert.True(t, os.IsNotExist(err))
+	})
+
+	t.Run("missing gitignore is ok", func(t *testing.T) {
+		dir := t.TempDir()
+		assert.NoError(t, removeGitIgnore(context.Background(), dir))
+	})
+
+	t.Run("already removed gitignore is ok", func(t *testing.T) {
+		dir := t.TempDir()
+		gitignore := filepath.Join(dir, ".gitignore")
+		assert.NoError(t, os.WriteFile(gitignore, []byte("x\n"), 0o644))
+		assert.NoError(t, os.Remove(gitignore))
+
+		assert.NoError(t, removeGitIgnore(context.Background(), dir))
+	})
 }

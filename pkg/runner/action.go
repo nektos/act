@@ -231,15 +231,16 @@ func setupActionEnv(ctx context.Context, step actionStep, _ *remoteAction) error
 // such as `node_modules` for example
 func removeGitIgnore(ctx context.Context, directory string) error {
 	gitIgnorePath := path.Join(directory, ".gitignore")
-	if _, err := os.Stat(gitIgnorePath); err == nil {
-		// .gitignore exists
+	// Tolerate ENOENT: concurrent jobs can race on a shared action-cache tree (#6180).
+	err := os.Remove(gitIgnorePath)
+	if err == nil {
 		common.Logger(ctx).Debugf("Removing %s before docker cp", gitIgnorePath)
-		err := os.Remove(gitIgnorePath)
-		if err != nil {
-			return err
-		}
+		return nil
 	}
-	return nil
+	if os.IsNotExist(err) {
+		return nil
+	}
+	return err
 }
 
 // TODO: break out parts of function to reduce complexicity
