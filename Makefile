@@ -76,6 +76,7 @@ tidy:
 
 .PHONY: install
 install: build
+	mkdir --parents $(PREFIX)/bin
 	@cp dist/local/act $(PREFIX)/bin/act
 	@chmod 755 $(PREFIX)/bin/act
 	@act --version
