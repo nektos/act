@@ -4,7 +4,10 @@ import (
 	"context"
 	"io"
 	"io/fs"
+	"os"
+	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/nektos/act/pkg/model"
@@ -248,4 +251,37 @@ func TestActionRunner(t *testing.T) {
 			cm.AssertExpectations(t)
 		})
 	}
+}
+
+func TestRemoveGitIgnoreConcurrent(t *testing.T) {
+	// https://github.com/nektos/act/issues/6180
+	// Concurrent jobs sharing one action-cache entry both stat the same
+	// .gitignore, the first Remove succeeds and the sibling must not fail
+	// with ENOENT.
+	dir := t.TempDir()
+	gitIgnore := filepath.Join(dir, ".gitignore")
+	assert.NoError(t, os.WriteFile(gitIgnore, []byte("node_modules\n"), 0o644))
+
+	const callers = 16
+	var wg sync.WaitGroup
+	errs := make([]error, callers)
+	for i := 0; i < callers; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			errs[i] = removeGitIgnore(context.Background(), dir)
+		}(i)
+	}
+	wg.Wait()
+
+	for i, err := range errs {
+		assert.NoError(t, err, "caller %d must not fail on ENOENT", i)
+	}
+	_, err := os.Stat(gitIgnore)
+	assert.True(t, os.IsNotExist(err), ".gitignore must have been removed")
+}
+
+func TestRemoveGitIgnoreMissingIsNoop(t *testing.T) {
+	dir := t.TempDir()
+	assert.NoError(t, removeGitIgnore(context.Background(), dir))
 }

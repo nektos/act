@@ -231,14 +231,18 @@ func setupActionEnv(ctx context.Context, step actionStep, _ *remoteAction) error
 // such as `node_modules` for example
 func removeGitIgnore(ctx context.Context, directory string) error {
 	gitIgnorePath := path.Join(directory, ".gitignore")
-	if _, err := os.Stat(gitIgnorePath); err == nil {
-		// .gitignore exists
-		common.Logger(ctx).Debugf("Removing %s before docker cp", gitIgnorePath)
-		err := os.Remove(gitIgnorePath)
-		if err != nil {
-			return err
+	err := os.Remove(gitIgnorePath)
+	if err != nil {
+		// Concurrent jobs sharing the same action-cache entry may both reach
+		// this point; the first Remove succeeds and the sibling gets ENOENT,
+		// which is expected and must not fail the job.
+		// https://github.com/nektos/act/issues/6180
+		if os.IsNotExist(err) {
+			return nil
 		}
+		return err
 	}
+	common.Logger(ctx).Debugf("Removing %s before docker cp", gitIgnorePath)
 	return nil
 }
 
