@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -758,4 +759,58 @@ func TestHandler_BindAddress(t *testing.T) {
 
 	addr := handler.listener.Addr().String()
 	assert.True(t, strings.HasPrefix(addr, "127.0.0.1:"))
+}
+
+func TestHandler_UploadWriteFailureDoesNotDoubleRespond(t *testing.T) {
+	// https://github.com/nektos/act/issues/6131
+	// When storage.Write fails, the upload handler must stop after the 500
+	// response: it must not call useCache nor write a second (200) body.
+	dir := filepath.Join(t.TempDir(), "artifactcache")
+	handler, err := StartHandler(dir, "", "", 0, nil)
+	require.NoError(t, err)
+	defer func() { require.NoError(t, handler.Close()) }()
+
+	base := fmt.Sprintf("%s%s", handler.ExternalURL(), apiPath)
+	key := strings.ToLower(t.Name())
+	version := "c19da02a2bd7e77277f1ac29ab45c09b7d46a4ee758284e26bb3045ad11d9d20"
+	content := make([]byte, 100)
+	_, err = rand.Read(content)
+	require.NoError(t, err)
+
+	var id uint64
+	{
+		body, err := json.Marshal(&Request{Key: key, Version: version, Size: int64(len(content))})
+		require.NoError(t, err)
+		resp, err := http.Post(fmt.Sprintf("%s/caches", base), "application/json", bytes.NewReader(body))
+		require.NoError(t, err)
+		require.Equal(t, 200, resp.StatusCode)
+		got := struct {
+			CacheID uint64 `json:"cacheId"`
+		}{}
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(&got))
+		id = got.CacheID
+	}
+
+	// Occupy the temp-dir path with a regular file so that storage.Write
+	// fails (MkdirAll on an existing non-directory -> ENOTDIR).
+	tmpPath := filepath.Join(handler.storage.rootDir, "tmp", fmt.Sprint(id))
+	require.NoError(t, os.MkdirAll(filepath.Dir(tmpPath), 0o755))
+	require.NoError(t, os.WriteFile(tmpPath, []byte("blocked"), 0o644))
+
+	req, err := http.NewRequest(http.MethodPatch, fmt.Sprintf("%s/caches/%d", base, id), bytes.NewReader(content))
+	require.NoError(t, err)
+	req.Header.Set("Content-Type", "application/octet-stream")
+	req.Header.Set("Content-Range", "bytes 0-99/*")
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	require.Equal(t, 500, resp.StatusCode)
+
+	got, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	// Before the fix the handler wrote the 500 error body AND then an
+	// extra `{}` (from the second responseJSON), producing `}{`:
+	assert.NotContains(t, string(got), "}{", "response body must be a single JSON document")
+	var m map[string]any
+	require.NoError(t, json.Unmarshal(got, &m))
+	assert.Contains(t, m, "error")
 }

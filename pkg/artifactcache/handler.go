@@ -281,6 +281,7 @@ func (h *Handler) upload(w http.ResponseWriter, r *http.Request, params httprout
 	}
 	if err := h.storage.Write(cache.ID, start, r.Body); err != nil {
 		h.responseJSON(w, r, 500, err)
+		return
 	}
 	h.useCache(id)
 	h.responseJSON(w, r, 200)
