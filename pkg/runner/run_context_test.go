@@ -3,6 +3,7 @@ package runner
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"regexp"
 	"runtime"
@@ -11,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/exprparser"
 	"github.com/nektos/act/pkg/model"
 
@@ -681,8 +683,9 @@ func TestRunContextGetEnv(t *testing.T) {
 func TestSetRuntimeVariables(t *testing.T) {
 	rc := &RunContext{
 		Config: &Config{
-			ArtifactServerAddr: "myhost",
-			ArtifactServerPort: "8000",
+			ArtifactServerAddr:    "myhost",
+			ArtifactServerPort:    "8000",
+			ArtifactServerAuthKey: []byte("artifact server auth key"),
 		},
 	}
 	v := "http://myhost:8000/"
@@ -697,13 +700,19 @@ func TestSetRuntimeVariables(t *testing.T) {
 	tkn, _, err := jwt.NewParser().ParseUnverified(runtimeToken, jwt.MapClaims{})
 	assert.NotNil(t, tkn)
 	assert.Nil(t, err)
+
+	// the artifact server only accepts tokens signed with its auth key
+	req := &http.Request{Header: http.Header{"Authorization": []string{"Bearer " + runtimeToken}}}
+	assert.NoError(t, common.ValidateAuthorizationToken(rc.Config.ArtifactServerAuthKey, req))
+	assert.Error(t, common.ValidateAuthorizationToken([]byte("another key"), req))
 }
 
 func TestSetRuntimeVariablesWithRunID(t *testing.T) {
 	rc := &RunContext{
 		Config: &Config{
-			ArtifactServerAddr: "myhost",
-			ArtifactServerPort: "8000",
+			ArtifactServerAddr:    "myhost",
+			ArtifactServerPort:    "8000",
+			ArtifactServerAuthKey: []byte("artifact server auth key"),
 			Env: map[string]string{
 				"GITHUB_RUN_ID": "45",
 			},

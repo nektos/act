@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/assert"
@@ -59,4 +60,49 @@ func TestParseAuthorizationTokenNoAuthHeader(t *testing.T) {
 	})
 	assert.Nil(t, err)
 	assert.Equal(t, int64(0), rTaskID)
+}
+
+func TestValidateAuthorizationToken(t *testing.T) {
+	key := []byte("0123456789abcdef0123456789abcdef")
+	valid, err := CreateSignedAuthorizationToken(key, 1, 2, 3)
+	assert.NoError(t, err)
+	unsignedKey, err := CreateAuthorizationToken(1, 2, 3)
+	assert.NoError(t, err)
+	otherKey, err := CreateSignedAuthorizationToken([]byte("other"), 1, 2, 3)
+	assert.NoError(t, err)
+	expired, err := jwt.NewWithClaims(jwt.SigningMethodHS256, actionsClaims{
+		RegisteredClaims: jwt.RegisteredClaims{ExpiresAt: jwt.NewNumericDate(time.Now().Add(-time.Minute))},
+	}).SignedString(key)
+	assert.NoError(t, err)
+	algNone, err := jwt.NewWithClaims(jwt.SigningMethodNone, actionsClaims{}).SignedString(jwt.UnsafeAllowNoneSignatureType)
+	assert.NoError(t, err)
+
+	request := func(header string) *http.Request {
+		h := http.Header{}
+		if header != "" {
+			h.Set("Authorization", header)
+		}
+		return &http.Request{Header: h}
+	}
+
+	assert.NoError(t, ValidateAuthorizationToken(key, request("Bearer "+valid)))
+	assert.NoError(t, ValidateAuthorizationToken(key, request("bearer "+valid)))
+
+	for name, header := range map[string]string{
+		"missing header":  "",
+		"no scheme":       valid,
+		"basic scheme":    "Basic " + valid,
+		"empty token":     "Bearer ",
+		"empty key token": "Bearer " + unsignedKey,
+		"other key token": "Bearer " + otherKey,
+		"expired token":   "Bearer " + expired,
+		"alg none token":  "Bearer " + algNone,
+		"garbage":         "Bearer garbage",
+	} {
+		assert.Error(t, ValidateAuthorizationToken(key, request(header)), name)
+	}
+
+	// an empty key never validates, not even a token signed with an empty key
+	assert.Error(t, ValidateAuthorizationToken(nil, request("Bearer "+unsignedKey)))
+	assert.Error(t, ValidateAuthorizationToken([]byte{}, request("Bearer "+unsignedKey)))
 }

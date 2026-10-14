@@ -602,6 +602,12 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			log.Warnf(deprecationWarning, "container-cap-drop", fmt.Sprintf("--cap-drop=%s", input.containerCapDrop))
 		}
 
+		// per-process key; the artifact server only accepts ACTIONS_RUNTIME_TOKENs signed with it
+		artifactServerAuthKey, err := artifacts.NewAuthKey()
+		if err != nil {
+			return err
+		}
+
 		// run the plan
 		config := &runner.Config{
 			Actor:                              input.actor,
@@ -638,6 +644,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			ArtifactServerPath:                 input.artifactServerPath,
 			ArtifactServerAddr:                 input.artifactServerAddr,
 			ArtifactServerPort:                 input.artifactServerPort,
+			ArtifactServerAuthKey:              artifactServerAuthKey,
 			NoSkipCheckout:                     input.noSkipCheckout,
 			RemoteName:                         input.remoteName,
 			ReplaceGheActionWithGithubCom:      input.replaceGheActionWithGithubCom,
@@ -676,7 +683,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			return err
 		}
 
-		cancel := artifacts.Serve(ctx, input.artifactServerPath, input.artifactServerAddr, input.artifactServerPort)
+		cancel := artifacts.Serve(ctx, input.artifactServerPath, input.artifactServerAddr, input.artifactServerPort, artifactServerAuthKey)
 
 		const cacheURLKey = "ACTIONS_CACHE_URL"
 		var cacheHandler *artifactcache.Handler

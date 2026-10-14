@@ -80,6 +80,7 @@ package artifacts
 
 import (
 	"crypto/hmac"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
 	"errors"
@@ -113,6 +114,18 @@ type artifactV4Routes struct {
 	rfs     fs.FS
 	AppURL  string
 	baseDir string
+	// signingKey is the HMAC key for signed upload/download URLs. It is
+	// generated per process so that signed URLs cannot be forged by anyone who
+	// has not been handed one by this server.
+	signingKey []byte
+}
+
+func newSigningKey() []byte {
+	key := make([]byte, 32)
+	if _, err := rand.Read(key); err != nil {
+		panic(fmt.Errorf("generate artifact url signing key: %w", err))
+	}
+	return key
 }
 
 type ArtifactContext struct {
@@ -146,10 +159,11 @@ func validateRunIDV4(ctx *ArtifactContext, rawRunID string) (interface{}, int64,
 
 func RoutesV4(router *httprouter.Router, baseDir string, fsys WriteFS, rfs fs.FS) {
 	route := &artifactV4Routes{
-		fs:      fsys,
-		rfs:     rfs,
-		baseDir: baseDir,
-		prefix:  ArtifactV4RouteBase,
+		fs:         fsys,
+		rfs:        rfs,
+		baseDir:    baseDir,
+		prefix:     ArtifactV4RouteBase,
+		signingKey: newSigningKey(),
 	}
 	router.POST(path.Join(ArtifactV4RouteBase, "CreateArtifact"), func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		route.AppURL = r.Host
@@ -199,7 +213,7 @@ func RoutesV4(router *httprouter.Router, baseDir string, fsys WriteFS, rfs fs.FS
 }
 
 func (r artifactV4Routes) buildSignature(endp, expires, artifactName string, taskID int64) []byte {
-	mac := hmac.New(sha256.New, []byte{0xba, 0xdb, 0xee, 0xf0})
+	mac := hmac.New(sha256.New, r.signingKey)
 	mac.Write([]byte(endp))
 	mac.Write([]byte(expires))
 	mac.Write([]byte(artifactName))
@@ -428,7 +442,13 @@ func (r *artifactV4Routes) downloadArtifact(ctx *ArtifactContext) {
 	safePath := safeResolve(safeRunPath, artifactName)
 	safePath = safeResolve(safePath, artifactName+".zip")
 
-	file, _ := r.rfs.Open(safePath)
+	file, err := r.rfs.Open(safePath)
+	if err != nil {
+		log.Errorf("Error open artifact: %v", err)
+		ctx.Error(http.StatusNotFound, "artifact not found")
+		return
+	}
+	defer file.Close()
 
 	_, _ = io.Copy(ctx.Resp, file)
 }

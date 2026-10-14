@@ -35,7 +35,15 @@ const (
 	actionsCachePermissionWrite
 )
 
+// CreateAuthorizationToken creates an ACTIONS_RUNTIME_TOKEN style JWT signed with an empty key.
+// Anyone can mint such a token, so it must not be used to authenticate requests; see
+// CreateSignedAuthorizationToken.
 func CreateAuthorizationToken(taskID, runID, jobID int64) (string, error) {
+	return CreateSignedAuthorizationToken([]byte{}, taskID, runID, jobID)
+}
+
+// CreateSignedAuthorizationToken creates an ACTIONS_RUNTIME_TOKEN style JWT signed with key (HS256).
+func CreateSignedAuthorizationToken(key []byte, taskID, runID, jobID int64) (string, error) {
 	now := time.Now()
 
 	ac, err := json.Marshal(&[]actionsCacheScope{
@@ -61,7 +69,7 @@ func CreateAuthorizationToken(taskID, runID, jobID int64) (string, error) {
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
-	tokenString, err := token.SignedString([]byte{})
+	tokenString, err := token.SignedString(key)
 	if err != nil {
 		return "", err
 	}
@@ -97,4 +105,26 @@ func ParseAuthorizationToken(req *http.Request) (int64, error) {
 	}
 
 	return c.TaskID, nil
+}
+
+// ValidateAuthorizationToken checks that req carries an "Authorization: Bearer <jwt>" header whose
+// token was signed with key (HS256) and is currently valid. An empty key never validates.
+func ValidateAuthorizationToken(key []byte, req *http.Request) error {
+	if len(key) == 0 {
+		return fmt.Errorf("no authorization key configured")
+	}
+	scheme, raw, ok := strings.Cut(req.Header.Get("Authorization"), " ")
+	if !ok || !strings.EqualFold(scheme, "Bearer") || raw == "" {
+		return fmt.Errorf("missing bearer token")
+	}
+	token, err := jwt.ParseWithClaims(raw, &actionsClaims{}, func(_ *jwt.Token) (any, error) {
+		return key, nil
+	}, jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}))
+	if err != nil {
+		return err
+	}
+	if !token.Valid {
+		return fmt.Errorf("invalid token")
+	}
+	return nil
 }

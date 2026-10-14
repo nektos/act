@@ -252,7 +252,10 @@ func TestArtifactFlow(t *testing.T) {
 
 	ctx := context.Background()
 
-	cancel := Serve(ctx, artifactsPath, artifactsAddr, artifactsPort)
+	authKey, err := NewAuthKey()
+	assert.NoError(t, err)
+
+	cancel := Serve(ctx, artifactsPath, artifactsAddr, artifactsPort, authKey)
 	defer cancel()
 
 	platforms := map[string]string{
@@ -267,11 +270,11 @@ func TestArtifactFlow(t *testing.T) {
 	log.SetLevel(log.DebugLevel)
 
 	for _, table := range tables {
-		runTestJobFile(ctx, t, table)
+		runTestJobFile(ctx, t, table, authKey)
 	}
 }
 
-func runTestJobFile(ctx context.Context, t *testing.T, tjfi TestJobFileInfo) {
+func runTestJobFile(ctx context.Context, t *testing.T, tjfi TestJobFileInfo, authKey []byte) {
 	t.Run(tjfi.workflowPath, func(t *testing.T) {
 		fmt.Printf("::group::%s\n", tjfi.workflowPath)
 
@@ -293,6 +296,7 @@ func runTestJobFile(ctx context.Context, t *testing.T, tjfi TestJobFileInfo) {
 			ArtifactServerPath:    artifactsPath,
 			ArtifactServerAddr:    artifactsAddr,
 			ArtifactServerPort:    artifactsPort,
+			ArtifactServerAuthKey: authKey,
 		}
 
 		runner, err := runner.New(runnerConfig)

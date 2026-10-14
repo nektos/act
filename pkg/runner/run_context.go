@@ -1088,7 +1088,7 @@ func setActionRuntimeVars(rc *RunContext, env map[string]string) {
 		if rid, ok := rc.Config.Env["GITHUB_RUN_ID"]; ok {
 			runID, _ = strconv.ParseInt(rid, 10, 64)
 		}
-		actionsRuntimeToken, _ = common.CreateAuthorizationToken(runID, runID, runID)
+		actionsRuntimeToken, _ = common.CreateSignedAuthorizationToken(rc.Config.ArtifactServerAuthKey, runID, runID, runID)
 	}
 	env["ACTIONS_RUNTIME_TOKEN"] = actionsRuntimeToken
 }

@@ -2,6 +2,7 @@ package artifacts
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -92,9 +93,25 @@ func safeResolve(baseDir string, relPath string) string {
 	return filepath.Join(baseDir, filepath.Clean(filepath.Join(string(os.PathSeparator), relPath)))
 }
 
+// isValidRunID reports whether runID names a single run directory below the
+// artifact base directory. safeResolve keeps every path inside the base
+// directory, but "", "." and ".." resolve to the base directory itself, which
+// would let a caller list or write across all runs.
+func isValidRunID(runID string) bool {
+	return runID != "" && runID != "." && runID != ".." && !strings.ContainsAny(runID, `/\`)
+}
+
+func writeInvalidRunID(w http.ResponseWriter) {
+	http.Error(w, "invalid run id", http.StatusBadRequest)
+}
+
 func uploads(router *httprouter.Router, baseDir string, fsys WriteFS) {
 	router.POST("/_apis/pipelines/workflows/:runId/artifacts", func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
 		runID := params.ByName("runId")
+		if !isValidRunID(runID) {
+			writeInvalidRunID(w)
+			return
+		}
 
 		json, err := json.Marshal(FileContainerResourceURL{
 			FileContainerResourceURL: fmt.Sprintf("http://%s/upload/%s", req.Host, runID),
@@ -112,6 +129,10 @@ func uploads(router *httprouter.Router, baseDir string, fsys WriteFS) {
 	router.PUT("/upload/:runId", func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
 		itemPath := req.URL.Query().Get("itemPath")
 		runID := params.ByName("runId")
+		if !isValidRunID(runID) {
+			writeInvalidRunID(w)
+			return
+		}
 
 		if req.Header.Get("Content-Encoding") == "gzip" {
 			itemPath += gzipExtension
@@ -178,6 +199,10 @@ func uploads(router *httprouter.Router, baseDir string, fsys WriteFS) {
 func downloads(router *httprouter.Router, baseDir string, fsys fs.FS) {
 	router.GET("/_apis/pipelines/workflows/:runId/artifacts", func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
 		runID := params.ByName("runId")
+		if !isValidRunID(runID) {
+			writeInvalidRunID(w)
+			return
+		}
 
 		safePath := safeResolve(baseDir, runID)
 
@@ -210,8 +235,14 @@ func downloads(router *httprouter.Router, baseDir string, fsys fs.FS) {
 
 	router.GET("/download/:container", func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
 		container := params.ByName("container")
-		itemPath := req.URL.Query().Get("itemPath")
-		safePath := safeResolve(baseDir, filepath.Join(container, itemPath))
+		if !isValidRunID(container) {
+			writeInvalidRunID(w)
+			return
+		}
+		// resolve itemPath inside the container, so that e.g. itemPath=.. cannot
+		// walk the whole artifact store
+		itemPath := strings.TrimPrefix(filepath.ToSlash(filepath.Clean("/"+req.URL.Query().Get("itemPath"))), "/")
+		safePath := safeResolve(safeResolve(baseDir, container), itemPath)
 
 		var files []ContainerItem
 		err := fs.WalkDir(fsys, safePath, func(path string, entry fs.DirEntry, _ error) error {
@@ -267,6 +298,7 @@ func downloads(router *httprouter.Router, baseDir string, fsys fs.FS) {
 			}
 			w.Header().Add("Content-Encoding", "gzip")
 		}
+		defer file.Close()
 
 		_, err = io.Copy(w, file)
 		if err != nil {
@@ -275,7 +307,62 @@ func downloads(router *httprouter.Router, baseDir string, fsys fs.FS) {
 	})
 }
 
-func Serve(ctx context.Context, artifactPath string, addr string, port string) context.CancelFunc {
+// isSignedURLRoute reports whether the request targets one of the v4 blob
+// routes. Those are called by the Azure blob client / plain HTTP client of
+// @actions/artifact without the runtime token, and are instead authorized by
+// the HMAC signature of the URL handed out by CreateArtifact and
+// GetSignedArtifactURL.
+func isSignedURLRoute(req *http.Request) bool {
+	switch req.URL.Path {
+	case ArtifactV4RouteBase + "/UploadArtifact", ArtifactV4RouteBase + "/DownloadArtifact":
+		return true
+	}
+	return false
+}
+
+// requireRuntimeToken only lets requests through that carry an
+// ACTIONS_RUNTIME_TOKEN signed with authKey (see common.CreateSignedAuthorizationToken),
+// except for the v4 signed-URL routes which verify their own signature.
+func requireRuntimeToken(next http.Handler, authKey []byte) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if !isSignedURLRoute(req) {
+			if err := common.ValidateAuthorizationToken(authKey, req); err != nil {
+				common.Logger(req.Context()).Debugf("Rejected unauthorized artifact server request %s %s: %v", req.Method, req.URL.Path, err)
+				http.Error(w, "unauthorized", http.StatusUnauthorized)
+				return
+			}
+		}
+		next.ServeHTTP(w, req)
+	})
+}
+
+// NewAuthKey returns a random key suitable for Serve and runner.Config.ArtifactServerAuthKey.
+func NewAuthKey() ([]byte, error) {
+	key := make([]byte, 32)
+	if _, err := rand.Read(key); err != nil {
+		return nil, fmt.Errorf("generate artifact server auth key: %w", err)
+	}
+	return key, nil
+}
+
+func newHandler(artifactPath string, authKey []byte) http.Handler {
+	router := httprouter.New()
+
+	fsys := readWriteFSImpl{}
+	uploads(router, artifactPath, fsys)
+	downloads(router, artifactPath, fsys)
+	RoutesV4(router, artifactPath, fsys, fsys)
+
+	return requireRuntimeToken(router, authKey)
+}
+
+// Serve starts the artifact server. All requests, apart from the v4 signed
+// upload/download URLs, must carry an "Authorization: Bearer" token created by
+// common.CreateSignedAuthorizationToken with authKey; pass the same key as
+// runner.Config.ArtifactServerAuthKey so that jobs receive such a token in
+// ACTIONS_RUNTIME_TOKEN. authKey should be random per process and must not be
+// empty, otherwise every request is rejected.
+func Serve(ctx context.Context, artifactPath string, addr string, port string, authKey []byte) context.CancelFunc {
 	serverContext, cancel := context.WithCancel(ctx)
 	logger := common.Logger(serverContext)
 
@@ -283,18 +370,15 @@ func Serve(ctx context.Context, artifactPath string, addr string, port string) c
 		return cancel
 	}
 
-	router := httprouter.New()
-
 	logger.Debugf("Artifacts base path '%s'", artifactPath)
-	fsys := readWriteFSImpl{}
-	uploads(router, artifactPath, fsys)
-	downloads(router, artifactPath, fsys)
-	RoutesV4(router, artifactPath, fsys, fsys)
+	if len(authKey) == 0 {
+		logger.Warn("Artifact server started without an auth key, all requests will be rejected")
+	}
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf("%s:%s", addr, port),
 		ReadHeaderTimeout: 2 * time.Second,
-		Handler:           router,
+		Handler:           newHandler(artifactPath, authKey),
 	}
 
 	// run server

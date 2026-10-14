@@ -54,6 +54,7 @@ type Config struct {
 	ArtifactServerPath                 string                       // the path where the artifact server stores uploads
 	ArtifactServerAddr                 string                       // the address the artifact server binds to
 	ArtifactServerPort                 string                       // the port the artifact server binds to
+	ArtifactServerAuthKey              []byte                       // the key passed to artifacts.Serve, used to sign ACTIONS_RUNTIME_TOKEN
 	NoSkipCheckout                     bool                         // do not skip actions/checkout
 	RemoteName                         string                       // remote name in local git repo config
 	ReplaceGheActionWithGithubCom      []string                     // Use actions from GitHub Enterprise instance to GitHub
