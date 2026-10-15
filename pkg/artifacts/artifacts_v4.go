@@ -102,6 +102,12 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
+// expiresLayout formats the expiry of a signed artifact URL. It carries a numeric
+// offset only: a zone abbreviation such as MST does not survive a round trip on
+// Windows, where Go derives it from the localized zone name (for example "E"), and
+// time.Parse then rejects every signed URL as expired.
+const expiresLayout = time.RFC3339Nano
+
 const (
 	ArtifactV4RouteBase       = "/twirp/github.actions.results.api.v1.ArtifactService"
 	ArtifactV4ContentEncoding = "application/zip"
@@ -208,7 +214,7 @@ func (r artifactV4Routes) buildSignature(endp, expires, artifactName string, tas
 }
 
 func (r artifactV4Routes) buildArtifactURL(endp, artifactName string, taskID int64) string {
-	expires := time.Now().Add(60 * time.Minute).Format("2006-01-02 15:04:05.999999999 -0700 MST")
+	expires := time.Now().Add(60 * time.Minute).Format(expiresLayout)
 	uploadURL := "http://" + strings.TrimSuffix(r.AppURL, "/") + strings.TrimSuffix(r.prefix, "/") +
 		"/" + endp + "?sig=" + base64.URLEncoding.EncodeToString(r.buildSignature(endp, expires, artifactName, taskID)) + "&expires=" + url.QueryEscape(expires) + "&artifactName=" + url.QueryEscape(artifactName) + "&taskID=" + fmt.Sprint(taskID)
 	return uploadURL
@@ -228,7 +234,7 @@ func (r artifactV4Routes) verifySignature(ctx *ArtifactContext, endp string) (in
 		ctx.Error(http.StatusUnauthorized, "Error unauthorized")
 		return -1, "", false
 	}
-	t, err := time.Parse("2006-01-02 15:04:05.999999999 -0700 MST", expires)
+	t, err := time.Parse(expiresLayout, expires)
 	if err != nil || t.Before(time.Now()) {
 		log.Error("Error link expired")
 		ctx.Error(http.StatusUnauthorized, "Error link expired")
