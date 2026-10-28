@@ -74,3 +74,5 @@ queue_rules:
       - check-success=snapshot
     merge_conditions: *queue_conditions
     merge_method: squash
+merge_protections_settings:
+  reporting_method: check-runs
