@@ -664,7 +664,9 @@ func (cr *containerReference) tryReadGID() common.Executor {
 func (cr *containerReference) waitForCommand(ctx context.Context, isTerminal bool, resp client.HijackedResponse) error {
 	logger := common.Logger(ctx)
 
-	cmdResponse := make(chan error)
+	// Buffer the result so a cancelled caller does not leave this goroutine
+	// blocked forever on send after the hijacked connection is closed.
+	cmdResponse := make(chan error, 1)
 
 	go func() {
 		var outWriter io.Writer
@@ -862,13 +864,15 @@ func (cr *containerReference) attach() common.Executor {
 			errWriter = os.Stderr
 		}
 		go func() {
+			defer out.Close()
+			var copyErr error
 			if !isTerminal || os.Getenv("NORAW") != "" {
-				_, err = stdcopy.StdCopy(outWriter, errWriter, out.Reader)
+				_, copyErr = stdcopy.StdCopy(outWriter, errWriter, out.Reader)
 			} else {
-				_, err = io.Copy(outWriter, out.Reader)
+				_, copyErr = io.Copy(outWriter, out.Reader)
 			}
-			if err != nil {
-				common.Logger(ctx).Error(err)
+			if copyErr != nil {
+				common.Logger(ctx).Error(copyErr)
 			}
 		}()
 		return nil

@@ -85,7 +85,7 @@ func ParseAuthorizationToken(req *http.Request) (int64, error) {
 
 	parts := strings.SplitN(h, " ", 2)
 	if len(parts) != 2 {
-		log.Errorf("split token failed: %s", h)
+		log.Error("split token failed")
 		return 0, fmt.Errorf("split token failed")
 	}
 
