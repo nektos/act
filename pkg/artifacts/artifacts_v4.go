@@ -219,7 +219,13 @@ func (r artifactV4Routes) verifySignature(ctx *ArtifactContext, endp string) (in
 	sig := ctx.Req.URL.Query().Get("sig")
 	expires := ctx.Req.URL.Query().Get("expires")
 	artifactName := ctx.Req.URL.Query().Get("artifactName")
-	dsig, _ := base64.URLEncoding.DecodeString(sig)
+	// Newer @actions/upload-artifact releases (v7+) upload blob content with
+	// the Azure storage SDK, which strips the `=` base64 padding from the `sig`
+	// query value when it re-serializes the signed URL to append comp/blockid.
+	// v4-era clients keep the padding. RawURLEncoding + TrimRight decodes both
+	// the padded and unpadded forms, so the signature check works across every
+	// supported artifact-action version.
+	dsig, _ := base64.RawURLEncoding.DecodeString(strings.TrimRight(sig, "="))
 	taskID, _ := strconv.ParseInt(rawTaskID, 10, 64)
 
 	expecedsig := r.buildSignature(endp, expires, artifactName, taskID)
@@ -244,7 +250,12 @@ func (r *artifactV4Routes) parseProtbufBody(ctx *ArtifactContext, req protorefle
 		ctx.Error(http.StatusInternalServerError, "Error decode request body")
 		return false
 	}
-	err = protojson.Unmarshal(body, req)
+	// DiscardUnknown keeps the artifact server forward-compatible with newer
+	// @actions/upload-artifact releases that add optional request fields the
+	// vendored protobuf doesn't know about yet (e.g. mime_type in v7+). act
+	// doesn't consume those fields, so silently dropping them is safe and
+	// avoids hard-failing the upload with `unknown field "..."`.
+	err = protojson.UnmarshalOptions{DiscardUnknown: true}.Unmarshal(body, req)
 	if err != nil {
 		log.Errorf("Error decode request body: %v", err)
 		ctx.Error(http.StatusInternalServerError, "Error decode request body")
