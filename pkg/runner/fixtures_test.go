@@ -21,7 +21,9 @@ const (
 
 func TestMain(m *testing.M) {
 	flag.Parse()
-	if !testing.Short() {
+	// Fixture images are Linux containers. Windows and macOS host jobs must not
+	// try to build them; the Windows daemon rejects debian:bookworm-slim.
+	if !testing.Short() && runtime.GOOS == "linux" {
 		ensureCIFixtures()
 	}
 	os.Exit(m.Run())
@@ -62,6 +64,7 @@ func ensureCIFixtures() {
 			continue
 		}
 		fmt.Fprintf(os.Stderr, "building fixture image %s\n", fixture.tag)
+		//nolint:gosec // G204: tag and paths are fixed fixture constants, not user input
 		cmd := exec.Command("docker", "build", "-t", fixture.tag, "-f", fixture.dockerfile, fixture.context)
 		cmd.Stdout = os.Stderr
 		cmd.Stderr = os.Stderr
@@ -75,6 +78,7 @@ func ensureCIFixtures() {
 }
 
 func dockerImagePresent(tag string) bool {
+	//nolint:gosec // G204: tag is a fixed fixture constant, not user input
 	cmd := exec.Command("docker", "image", "inspect", "--format", "{{.Id}}", tag)
 	cmd.Stdout = nil
 	cmd.Stderr = nil
