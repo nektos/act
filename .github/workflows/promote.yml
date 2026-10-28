@@ -4,6 +4,8 @@ on:
     - cron: '0 2 1 * *'
   workflow_dispatch: {}
 
+permissions: {}
+
 jobs:
   release:
     name: promote
@@ -11,15 +13,23 @@ jobs:
     timeout-minutes: 15
     environment: promote
     steps:
+      - name: Create GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        env:
+          has_release_app: ${{ (vars.RELEASE_APP_ID || secrets.RELEASE_APP_ID) && secrets.RELEASE_APP_PRIVATE_KEY && '1' || '' }}
+        if: env.has_release_app
+        with:
+          app-id: ${{ vars.RELEASE_APP_ID || secrets.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          permission-contents: write
       - uses: actions/checkout@v6
         id: checkout
-        env:
-          has_promote_token: ${{ secrets.PROMOTE_TOKEN && '1' || '' }}
-        if: env.has_promote_token
+        if: steps.app-token.conclusion == 'success'
         with:
           fetch-depth: 0
           ref: master
-          token: ${{ secrets.PROMOTE_TOKEN }}
+          token: ${{ steps.app-token.outputs.token }}
       - uses: fregante/setup-git-user@024bc0b8e177d7e77203b48dab6fb45666854b35 # v2.0.2
         if: steps.checkout.conclusion != 'skipped'
       - uses: actions/setup-go@v6
