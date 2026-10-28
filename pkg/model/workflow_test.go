@@ -136,6 +136,181 @@ jobs:
 	assert.Contains(t, workflow.Jobs["test2"].Container().Env["foo"], "bar")
 }
 
+func TestReadWorkflow_Concurrency(t *testing.T) {
+	yaml := `
+name: concurrency
+on: push
+
+concurrency:
+  group: workflow-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scalar:
+    runs-on: ubuntu-latest
+    concurrency: job-group
+    steps:
+    - run: echo
+  mapping:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: job-group-${{ github.event_name }}
+      cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+    steps:
+    - run: echo
+  none:
+    runs-on: ubuntu-latest
+    steps:
+    - run: echo
+`
+
+	workflow, err := ReadWorkflow(strings.NewReader(yaml), false)
+	assert.NoError(t, err, "read workflow should succeed")
+
+	concurrency := workflow.Concurrency()
+	require.NotNil(t, concurrency)
+	assert.Equal(t, "workflow-${{ github.ref }}", concurrency.Group)
+	assert.Equal(t, "true", concurrency.CancelInProgress)
+
+	concurrency = workflow.GetJob("scalar").Concurrency()
+	require.NotNil(t, concurrency)
+	assert.Equal(t, "job-group", concurrency.Group)
+	assert.Equal(t, "", concurrency.CancelInProgress)
+
+	concurrency = workflow.GetJob("mapping").Concurrency()
+	require.NotNil(t, concurrency)
+	assert.Equal(t, "job-group-${{ github.event_name }}", concurrency.Group)
+	assert.Equal(t, "${{ github.ref != 'refs/heads/main' }}", concurrency.CancelInProgress)
+
+	assert.Nil(t, workflow.GetJob("none").Concurrency())
+}
+
+func TestReadWorkflow_ConcurrencyQueue(t *testing.T) {
+	yaml := `
+name: concurrency-queue
+on: push
+
+concurrency:
+  group: workflow-group
+  queue: max
+
+jobs:
+  queued:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: job-group
+      queue: single
+    steps:
+    - run: echo
+  defaulted:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: other-group
+    steps:
+    - run: echo
+`
+
+	workflow, err := ReadWorkflow(strings.NewReader(yaml), false)
+	assert.NoError(t, err, "read workflow should succeed")
+
+	concurrency := workflow.Concurrency()
+	require.NotNil(t, concurrency)
+	assert.Equal(t, "max", concurrency.Queue)
+
+	concurrency = workflow.GetJob("queued").Concurrency()
+	require.NotNil(t, concurrency)
+	assert.Equal(t, "single", concurrency.Queue)
+
+	concurrency = workflow.GetJob("defaulted").Concurrency()
+	require.NotNil(t, concurrency)
+	assert.Equal(t, "", concurrency.Queue, "queue defaults to single and is left empty when not set")
+}
+
+func TestReadWorkflow_ConcurrencyQueueInvalid(t *testing.T) {
+	yaml := `
+name: concurrency-queue-invalid
+on: push
+
+concurrency:
+  group: g
+  queue: enormous
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - run: echo
+`
+
+	_, err := ReadWorkflow(strings.NewReader(yaml), false)
+	assert.ErrorContains(t, err, "Expected one of single,max got enormous")
+}
+
+func TestReadWorkflow_BackgroundSteps(t *testing.T) {
+	yaml := `
+name: background-steps
+on: push
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Start server
+      id: server
+      run: npm start
+      background: true
+    - name: A uses step in the background
+      id: action
+      uses: ./actions/docker-url
+      background: true
+    - name: Not a background step
+      run: echo
+    - name: Wait for one step
+      wait: server
+    - wait: [server, action]
+    - wait-all:
+    - cancel: server
+    - parallel:
+        - name: Build frontend
+          run: npm run build:frontend
+        - id: backend
+          uses: ./actions/backend
+`
+
+	workflow, err := ReadWorkflow(strings.NewReader(yaml), false)
+	assert.NoError(t, err, "read workflow should succeed")
+
+	steps := workflow.GetJob("test").Steps
+	require.Len(t, steps, 8)
+
+	assert.True(t, steps[0].IsBackground())
+	assert.Equal(t, StepTypeRun, steps[0].Type())
+	assert.True(t, steps[1].IsBackground())
+	assert.Equal(t, StepTypeUsesActionLocal, steps[1].Type())
+	assert.False(t, steps[2].IsBackground())
+
+	assert.Equal(t, StepTypeWait, steps[3].Type())
+	assert.Equal(t, []string{"server"}, steps[3].Wait())
+	assert.Equal(t, "Wait for one step", steps[3].String())
+
+	assert.Equal(t, StepTypeWait, steps[4].Type())
+	assert.Equal(t, []string{"server", "action"}, steps[4].Wait())
+	assert.Equal(t, "wait: server, action", steps[4].String())
+
+	assert.Equal(t, StepTypeWaitAll, steps[5].Type())
+	assert.Equal(t, "wait-all", steps[5].String())
+
+	assert.Equal(t, StepTypeCancel, steps[6].Type())
+	assert.Equal(t, "server", steps[6].Cancel)
+	assert.Equal(t, "cancel: server", steps[6].String())
+
+	assert.Equal(t, StepTypeParallel, steps[7].Type())
+	group := steps[7].ParallelSteps()
+	require.Len(t, group, 2)
+	assert.Equal(t, "npm run build:frontend", group[0].Run)
+	assert.Equal(t, "./actions/backend", group[1].Uses)
+}
+
 func TestReadWorkflow_ObjectContainer(t *testing.T) {
 	yaml := `
 name: local-action-docker-url

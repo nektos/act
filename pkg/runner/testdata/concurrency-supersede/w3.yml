@@ -1,0 +1,15 @@
+name: sw3
+on: push
+concurrency:
+  group: act-test-supersede
+defaults:
+  run:
+    shell: bash
+jobs:
+  a:
+    runs-on: self-hosted
+    steps:
+      - run: |
+          touch "$MARKER_DIR/sw3-start"
+          sleep 2
+          touch "$MARKER_DIR/sw3-end"

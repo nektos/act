@@ -88,7 +88,7 @@ func (sr *stepRun) setupShellCommandExecutor() common.Executor {
 func getScriptName(rc *RunContext, step *model.Step) string {
 	scriptName := step.ID
 	for rcs := rc; rcs.Parent != nil; rcs = rcs.Parent {
-		scriptName = fmt.Sprintf("%s-composite-%s", rcs.Parent.CurrentStep, scriptName)
+		scriptName = fmt.Sprintf("%s-composite-%s", rcs.parentStepID, scriptName)
 	}
 	return fmt.Sprintf("workflow/%s", scriptName)
 }

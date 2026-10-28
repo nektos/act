@@ -1,0 +1,11 @@
+name: concurrency-queue-invalid
+on: push
+concurrency:
+  group: act-test-queue-invalid
+  queue: max
+  cancel-in-progress: true
+jobs:
+  a:
+    runs-on: self-hosted
+    steps:
+      - run: echo unreachable

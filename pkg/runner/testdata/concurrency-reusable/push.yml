@@ -1,0 +1,7 @@
+name: concurrency-reusable
+on: push
+concurrency:
+  group: act-test-reusable-group
+jobs:
+  caller:
+    uses: ./.github/workflows/local-reusable-concurrency.yml

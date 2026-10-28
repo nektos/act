@@ -1,0 +1,22 @@
+name: wf2
+on: push
+concurrency:
+  group: act-test-workflow-group
+defaults:
+  run:
+    shell: bash
+jobs:
+  a:
+    runs-on: self-hosted
+    steps:
+      - run: |
+          touch "$MARKER_DIR/w2-a-start"
+          sleep 2
+          touch "$MARKER_DIR/w2-a-end"
+  b:
+    runs-on: self-hosted
+    steps:
+      - run: |
+          touch "$MARKER_DIR/w2-b-start"
+          sleep 2
+          touch "$MARKER_DIR/w2-b-end"

@@ -1,0 +1,17 @@
+name: concurrency
+on: push
+concurrency:
+  group: act-test-docker-workflow-${{ github.event_name }}
+jobs:
+  first:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: act-test-docker-job
+      cancel-in-progress: false
+    steps:
+      - run: sleep 1 && echo first
+  second:
+    runs-on: ubuntu-latest
+    concurrency: act-test-docker-job
+    steps:
+      - run: sleep 1 && echo second

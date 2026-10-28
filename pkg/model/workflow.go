@@ -17,12 +17,44 @@ import (
 
 // Workflow is the structure of the files in .github/workflows
 type Workflow struct {
-	File     string
-	Name     string            `yaml:"name"`
-	RawOn    yaml.Node         `yaml:"on"`
-	Env      map[string]string `yaml:"env"`
-	Jobs     map[string]*Job   `yaml:"jobs"`
-	Defaults Defaults          `yaml:"defaults"`
+	File           string
+	Name           string            `yaml:"name"`
+	RawOn          yaml.Node         `yaml:"on"`
+	Env            map[string]string `yaml:"env"`
+	Jobs           map[string]*Job   `yaml:"jobs"`
+	Defaults       Defaults          `yaml:"defaults"`
+	RawConcurrency yaml.Node         `yaml:"concurrency"`
+}
+
+// Concurrency for a workflow or job. Group, CancelInProgress and Queue may
+// contain expressions that have to be evaluated before use.
+type Concurrency struct {
+	Group            string `yaml:"group"`
+	CancelInProgress string `yaml:"cancel-in-progress"`
+	Queue            string `yaml:"queue"`
+}
+
+// Concurrency returns the workflow level concurrency settings or nil if none are defined
+func (w *Workflow) Concurrency() *Concurrency {
+	return parseConcurrency(w.RawConcurrency)
+}
+
+func parseConcurrency(node yaml.Node) *Concurrency {
+	switch node.Kind {
+	case yaml.ScalarNode:
+		var group string
+		if !decodeNode(node, &group) || group == "" {
+			return nil
+		}
+		return &Concurrency{Group: group}
+	case yaml.MappingNode:
+		var concurrency Concurrency
+		if !decodeNode(node, &concurrency) || concurrency.Group == "" {
+			return nil
+		}
+		return &concurrency
+	}
+	return nil
 }
 
 // On events for the workflow
@@ -81,7 +113,43 @@ func (w *Workflow) UnmarshalYAML(node *yaml.Node) error {
 		return errors.Join(err, fmt.Errorf("Actions YAML Schema Validation Error detected:\nFor more information, see: https://nektosact.com/usage/schema.html"))
 	}
 	type WorkflowDefault Workflow
-	return node.Decode((*WorkflowDefault)(w))
+	if err := node.Decode((*WorkflowDefault)(w)); err != nil {
+		return err
+	}
+	return w.validateConcurrency()
+}
+
+// validateConcurrency rejects concurrency blocks GitHub refuses to run before
+// the workflow is planned, so no job runs and produces side effects first.
+// Only literal values can be checked here, expression values are validated
+// once they are evaluated.
+func (w *Workflow) validateConcurrency() error {
+	if err := invalidConcurrencyCombination(w.Concurrency()); err != nil {
+		return fmt.Errorf("invalid workflow level 'concurrency': %w", err)
+	}
+	for id, job := range w.Jobs {
+		if job == nil {
+			continue
+		}
+		if err := invalidConcurrencyCombination(job.Concurrency()); err != nil {
+			return fmt.Errorf("invalid 'concurrency' for job '%s': %w", id, err)
+		}
+	}
+	return nil
+}
+
+func invalidConcurrencyCombination(concurrency *Concurrency) error {
+	if concurrency == nil {
+		return nil
+	}
+	// `${{ }}` values are only known after evaluation
+	if strings.Contains(concurrency.Queue, "${{") || strings.Contains(concurrency.CancelInProgress, "${{") {
+		return nil
+	}
+	if concurrency.Queue == "max" && concurrency.CancelInProgress == "true" {
+		return errors.New("the combination of 'queue: max' and 'cancel-in-progress: true' is not allowed")
+	}
+	return nil
 }
 
 type WorkflowStrict Workflow
@@ -99,7 +167,10 @@ func (w *WorkflowStrict) UnmarshalYAML(node *yaml.Node) error {
 		return errors.Join(err, fmt.Errorf("Actions YAML Strict Schema Validation Error detected:\nFor more information, see: https://nektosact.com/usage/schema.html"))
 	}
 	type WorkflowDefault Workflow
-	return node.Decode((*WorkflowDefault)(w))
+	if err := node.Decode((*WorkflowDefault)(w)); err != nil {
+		return err
+	}
+	return (*Workflow)(w).validateConcurrency()
 }
 
 type WorkflowDispatchInput struct {
@@ -209,7 +280,13 @@ type Job struct {
 	Uses           string                    `yaml:"uses"`
 	With           map[string]interface{}    `yaml:"with"`
 	RawSecrets     yaml.Node                 `yaml:"secrets"`
+	RawConcurrency yaml.Node                 `yaml:"concurrency"`
 	Result         string
+}
+
+// Concurrency returns the job level concurrency settings or nil if none are defined
+func (j *Job) Concurrency() *Concurrency {
+	return parseConcurrency(j.RawConcurrency)
 }
 
 // Strategy for the job
@@ -580,6 +657,56 @@ type Step struct {
 	With               map[string]string `yaml:"with"`
 	RawContinueOnError string            `yaml:"continue-on-error"`
 	TimeoutMinutes     string            `yaml:"timeout-minutes"`
+	Background         string            `yaml:"background"`
+	RawWait            yaml.Node         `yaml:"wait"`
+	RawWaitAll         yaml.Node         `yaml:"wait-all"`
+	Cancel             string            `yaml:"cancel"`
+	RawParallel        yaml.Node         `yaml:"parallel"`
+}
+
+// IsBackground returns true if the step runs asynchronously while the job
+// continues with the next step
+func (s *Step) IsBackground() bool {
+	background, _ := strconv.ParseBool(s.Background)
+	return background
+}
+
+// Wait returns the ids of the background steps a `wait` step waits for
+func (s *Step) Wait() []string {
+	switch s.RawWait.Kind {
+	case yaml.ScalarNode:
+		var id string
+		if !decodeNode(s.RawWait, &id) || id == "" {
+			return nil
+		}
+		return []string{id}
+	case yaml.SequenceNode:
+		var ids []string
+		if !decodeNode(s.RawWait, &ids) {
+			return nil
+		}
+		return ids
+	}
+	return nil
+}
+
+// IsBackgroundControl returns true for `wait`, `wait-all` and `cancel` steps
+// that synchronize with or stop background steps
+func (s *Step) IsBackgroundControl() bool {
+	stepType := s.Type()
+	return stepType == StepTypeWait || stepType == StepTypeWaitAll || stepType == StepTypeCancel
+}
+
+// ParallelSteps returns the nested steps of a `parallel` step group
+func (s *Step) ParallelSteps() []*Step {
+	if s.RawParallel.Kind != yaml.SequenceNode {
+		return nil
+	}
+	var steps []*Step
+	if !decodeNode(s.RawParallel, &steps) {
+		return nil
+	}
+	return steps
 }
 
 // String gets the name of step
@@ -590,6 +717,14 @@ func (s *Step) String() string {
 		return s.Uses
 	} else if s.Run != "" {
 		return s.Run
+	} else if s.RawWait.Kind != 0 {
+		return fmt.Sprintf("wait: %s", strings.Join(s.Wait(), ", "))
+	} else if s.RawWaitAll.Kind != 0 {
+		return "wait-all"
+	} else if s.Cancel != "" {
+		return fmt.Sprintf("cancel: %s", s.Cancel)
+	} else if s.RawParallel.Kind != 0 {
+		return "parallel"
 	}
 	return s.ID
 }
@@ -665,6 +800,18 @@ const (
 
 	// StepTypeInvalid is for steps that have invalid step action
 	StepTypeInvalid
+
+	// StepTypeWait is a step with a `wait` attribute that waits for one or more background steps
+	StepTypeWait
+
+	// StepTypeWaitAll is a step with a `wait-all` attribute that waits for all active background steps
+	StepTypeWaitAll
+
+	// StepTypeCancel is a step with a `cancel` attribute that gracefully terminates a background step
+	StepTypeCancel
+
+	// StepTypeParallel is a step with a `parallel` attribute containing a group of steps that run concurrently
+	StepTypeParallel
 )
 
 func (s StepType) String() string {
@@ -683,12 +830,33 @@ func (s StepType) String() string {
 		return "local-reusable-workflow"
 	case StepTypeReusableWorkflowRemote:
 		return "remote-reusable-workflow"
+	case StepTypeWait:
+		return "wait"
+	case StepTypeWaitAll:
+		return "wait-all"
+	case StepTypeCancel:
+		return "cancel"
+	case StepTypeParallel:
+		return "parallel"
 	}
 	return "unknown"
 }
 
 // Type returns the type of the step
 func (s *Step) Type() StepType {
+	if s.RawWait.Kind != 0 {
+		return StepTypeWait
+	}
+	if s.RawWaitAll.Kind != 0 {
+		return StepTypeWaitAll
+	}
+	if s.Cancel != "" {
+		return StepTypeCancel
+	}
+	if s.RawParallel.Kind != 0 {
+		return StepTypeParallel
+	}
+
 	if s.Run == "" && s.Uses == "" {
 		return StepTypeInvalid
 	}

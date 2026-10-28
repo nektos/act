@@ -1,0 +1,22 @@
+name: wf2
+on: push
+concurrency:
+  group: act-test-workflow-group
+defaults:
+  run:
+    shell: powershell
+jobs:
+  a:
+    runs-on: self-hosted
+    steps:
+      - run: |
+          New-Item -ItemType File -Path "$env:MARKER_DIR/w2-a-start" | Out-Null
+          Start-Sleep -Seconds 2
+          New-Item -ItemType File -Path "$env:MARKER_DIR/w2-a-end" | Out-Null
+  b:
+    runs-on: self-hosted
+    steps:
+      - run: |
+          New-Item -ItemType File -Path "$env:MARKER_DIR/w2-b-start" | Out-Null
+          Start-Sleep -Seconds 2
+          New-Item -ItemType File -Path "$env:MARKER_DIR/w2-b-end" | Out-Null
