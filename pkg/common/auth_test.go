@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/assert"
@@ -59,4 +60,56 @@ func TestParseAuthorizationTokenNoAuthHeader(t *testing.T) {
 	})
 	assert.Nil(t, err)
 	assert.Equal(t, int64(0), rTaskID)
+}
+
+func TestValidateAuthorizationToken(t *testing.T) {
+	key := []byte("0123456789abcdef0123456789abcdef")
+	valid, err := CreateSignedAuthorizationToken(key, 1, 2, 3)
+	assert.NoError(t, err)
+	unsignedKey, err := CreateAuthorizationToken(1, 2, 3)
+	assert.NoError(t, err)
+	otherKey, err := CreateSignedAuthorizationToken([]byte("other"), 1, 2, 3)
+	assert.NoError(t, err)
+	expired, err := jwt.NewWithClaims(jwt.SigningMethodHS256, actionsClaims{
+		RegisteredClaims: jwt.RegisteredClaims{ExpiresAt: jwt.NewNumericDate(time.Now().Add(-time.Minute))},
+		RunID:            2,
+	}).SignedString(key)
+	assert.NoError(t, err)
+	algNone, err := jwt.NewWithClaims(jwt.SigningMethodNone, actionsClaims{RunID: 2}).SignedString(jwt.UnsafeAllowNoneSignatureType)
+	assert.NoError(t, err)
+
+	request := func(header string) *http.Request {
+		h := http.Header{}
+		if header != "" {
+			h.Set("Authorization", header)
+		}
+		return &http.Request{Header: h}
+	}
+
+	runID, err := ValidateAuthorizationToken(key, request("Bearer "+valid))
+	assert.NoError(t, err)
+	assert.Equal(t, int64(2), runID)
+	runID, err = ValidateAuthorizationToken(key, request("bearer "+valid))
+	assert.NoError(t, err)
+	assert.Equal(t, int64(2), runID)
+
+	for name, header := range map[string]string{
+		"missing header":  "",
+		"no scheme":       valid,
+		"basic scheme":    "Basic " + valid,
+		"empty token":     "Bearer ",
+		"empty key token": "Bearer " + unsignedKey,
+		"other key token": "Bearer " + otherKey,
+		"expired token":   "Bearer " + expired,
+		"alg none token":  "Bearer " + algNone,
+		"garbage":         "Bearer garbage",
+	} {
+		_, headerErr := ValidateAuthorizationToken(key, request(header))
+		assert.Error(t, headerErr, name)
+	}
+
+	_, err = ValidateAuthorizationToken(nil, request("Bearer "+unsignedKey))
+	assert.Error(t, err)
+	_, err = ValidateAuthorizationToken([]byte{}, request("Bearer "+unsignedKey))
+	assert.Error(t, err)
 }

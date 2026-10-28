@@ -8,9 +8,10 @@ import (
 	"runtime"
 
 	docker_container "github.com/moby/moby/api/types/container"
+	log "github.com/sirupsen/logrus"
+
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/model"
-	log "github.com/sirupsen/logrus"
 )
 
 // Runner provides capabilities to run GitHub actions
@@ -54,6 +55,7 @@ type Config struct {
 	ArtifactServerPath                 string                       // the path where the artifact server stores uploads
 	ArtifactServerAddr                 string                       // the address the artifact server binds to
 	ArtifactServerPort                 string                       // the port the artifact server binds to
+	ArtifactServerAuthKey              []byte                       // key passed to artifacts.Serve; signs ACTIONS_RUNTIME_TOKEN
 	NoSkipCheckout                     bool                         // do not skip actions/checkout
 	RemoteName                         string                       // remote name in local git repo config
 	ReplaceGheActionWithGithubCom      []string                     // Use actions from GitHub Enterprise instance to GitHub
