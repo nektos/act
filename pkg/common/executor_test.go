@@ -3,6 +3,7 @@ package common
 import (
 	"context"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -149,4 +150,241 @@ func TestNewParallelExecutorCanceled(t *testing.T) {
 	err := NewParallelExecutor(3, errorWorkflow, successWorkflow, successWorkflow)(ctx)
 	assert.Equal(3, count)
 	assert.Error(errExpected, err)
+}
+
+func TestNewFailFastParallelExecutorWithFailFastTrue(t *testing.T) {
+	assert := assert.New(t)
+
+	ctx := WithFailFast(context.Background(), true)
+
+	executedCount := 0
+	var mu sync.Mutex
+
+	// Create executors: some succeed, one fails, rest should be cancelled
+	executors := []Executor{
+		func(ctx context.Context) error {
+			mu.Lock()
+			executedCount++
+			mu.Unlock()
+			time.Sleep(100 * time.Millisecond)
+			return nil
+		},
+		func(ctx context.Context) error {
+			mu.Lock()
+			executedCount++
+			mu.Unlock()
+			time.Sleep(100 * time.Millisecond)
+			return fmt.Errorf("intentional failure")
+		},
+		func(ctx context.Context) error {
+			mu.Lock()
+			executedCount++
+			mu.Unlock()
+			time.Sleep(2 * time.Second) // Should be cancelled
+			return nil
+		},
+		func(ctx context.Context) error {
+			mu.Lock()
+			executedCount++
+			mu.Unlock()
+			time.Sleep(2 * time.Second) // Should be cancelled
+			return nil
+		},
+	}
+
+	err := NewFailFastParallelExecutor(2, executors...)(ctx)
+
+	assert.Error(err)
+	assert.Contains(err.Error(), "intentional failure")
+}
+
+func TestNewFailFastParallelExecutorWithFailFastFalse(t *testing.T) {
+	assert := assert.New(t)
+
+	ctx := WithFailFast(context.Background(), false)
+
+	executedCount := 0
+	var mu sync.Mutex
+
+	executors := []Executor{
+		func(ctx context.Context) error {
+			mu.Lock()
+			executedCount++
+			mu.Unlock()
+			return nil
+		},
+		func(ctx context.Context) error {
+			mu.Lock()
+			executedCount++
+			mu.Unlock()
+			return fmt.Errorf("intentional failure")
+		},
+		func(ctx context.Context) error {
+			mu.Lock()
+			executedCount++
+			mu.Unlock()
+			return nil
+		},
+	}
+
+	err := NewFailFastParallelExecutor(2, executors...)(ctx)
+
+	assert.Error(err)
+	mu.Lock()
+	assert.Equal(3, executedCount, "all executors should run when fail-fast is false")
+	mu.Unlock()
+}
+
+func TestNewFailFastParallelExecutorNoFailFastInContext(t *testing.T) {
+	assert := assert.New(t)
+
+	ctx := context.Background()
+
+	executedCount := 0
+	var mu sync.Mutex
+
+	executors := []Executor{
+		func(ctx context.Context) error {
+			mu.Lock()
+			executedCount++
+			mu.Unlock()
+			return nil
+		},
+		func(ctx context.Context) error {
+			mu.Lock()
+			executedCount++
+			mu.Unlock()
+			return fmt.Errorf("intentional failure")
+		},
+		func(ctx context.Context) error {
+			mu.Lock()
+			executedCount++
+			mu.Unlock()
+			return nil
+		},
+	}
+
+	err := NewFailFastParallelExecutor(2, executors...)(ctx)
+
+	assert.Error(err)
+	mu.Lock()
+	assert.Equal(3, executedCount, "all executors should run when fail-fast not in context")
+	mu.Unlock()
+}
+
+func TestNewFailFastParallelExecutorWithWarnings(t *testing.T) {
+	assert := assert.New(t)
+
+	ctx := WithFailFast(context.Background(), true)
+
+	executedCount := 0
+	var mu sync.Mutex
+
+	// Warnings should not trigger fail-fast
+	executors := []Executor{
+		func(ctx context.Context) error {
+			mu.Lock()
+			executedCount++
+			mu.Unlock()
+			return Warningf("this is a warning")
+		},
+		func(ctx context.Context) error {
+			mu.Lock()
+			executedCount++
+			mu.Unlock()
+			return nil
+		},
+		func(ctx context.Context) error {
+			mu.Lock()
+			executedCount++
+			mu.Unlock()
+			return nil
+		},
+	}
+
+	err := NewFailFastParallelExecutor(2, executors...)(ctx)
+
+	// Warnings don't cause executor to fail
+	assert.NoError(err)
+	mu.Lock()
+	assert.Equal(3, executedCount, "all executors should run when only warnings occur")
+	mu.Unlock()
+}
+
+func TestNewFailFastParallelExecutorParentContextCanceled(t *testing.T) {
+	assert := assert.New(t)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	ctx = WithFailFast(ctx, true)
+
+	executedCount := 0
+	var mu sync.Mutex
+
+	executors := []Executor{
+		func(ctx context.Context) error {
+			mu.Lock()
+			executedCount++
+			mu.Unlock()
+			time.Sleep(100 * time.Millisecond)
+			return nil
+		},
+		func(ctx context.Context) error {
+			mu.Lock()
+			executedCount++
+			mu.Unlock()
+			// Cancel parent context
+			cancel()
+			time.Sleep(100 * time.Millisecond)
+			return nil
+		},
+		func(ctx context.Context) error {
+			mu.Lock()
+			executedCount++
+			mu.Unlock()
+			return nil
+		},
+	}
+
+	err := NewFailFastParallelExecutor(2, executors...)(ctx)
+
+	// Should return context.Canceled from parent
+	assert.ErrorIs(err, context.Canceled)
+}
+
+func TestNewFailFastParallelExecutorAllSuccess(t *testing.T) {
+	assert := assert.New(t)
+
+	ctx := WithFailFast(context.Background(), true)
+
+	executedCount := 0
+	var mu sync.Mutex
+
+	// All executors succeed - fail-fast shouldn't interfere
+	executors := []Executor{
+		func(ctx context.Context) error {
+			mu.Lock()
+			executedCount++
+			mu.Unlock()
+			return nil
+		},
+		func(ctx context.Context) error {
+			mu.Lock()
+			executedCount++
+			mu.Unlock()
+			return nil
+		},
+		func(ctx context.Context) error {
+			mu.Lock()
+			executedCount++
+			mu.Unlock()
+			return nil
+		},
+	}
+
+	err := NewFailFastParallelExecutor(2, executors...)(ctx)
+
+	assert.NoError(err)
+	mu.Lock()
+	assert.Equal(3, executedCount, "all executors should run when all succeed")
+	mu.Unlock()
 }
