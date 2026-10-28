@@ -80,9 +80,6 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: read
-      issues: write
-      pull-requests: write
-      statuses: write
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
@@ -99,10 +96,10 @@ jobs:
       - uses: megalinter/megalinter/flavors/go@ec124f7998718d79379a3c5b39f5359952baf21d # v8.4.2
         env:
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VALIDATE_ALL_CODEBASE: false
-          GITHUB_STATUS_REPORTER: ${{ !env.ACT }}
-          GITHUB_COMMENT_REPORTER: ${{ !env.ACT }}
+          # Results stay in the job log. Status and comment reporters need write scopes.
+          GITHUB_STATUS_REPORTER: false
+          GITHUB_COMMENT_REPORTER: false
 
   # Matrix legs run in parallel. The aggregate job below is named test-linux so the
   # existing required check keeps working. ci-success needs that aggregate.
@@ -113,7 +110,6 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: read
-      actions: write
     strategy:
       fail-fast: false
       matrix:
@@ -123,7 +119,9 @@ jobs:
     steps:
       - name: Documentation-only change
         if: needs.changes.outputs.heavy != 'true'
-        run: echo "Documentation-only change; skipping test-linux shard ${{ matrix.shard }}"
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: echo "Documentation-only change; skipping test-linux shard ${SHARD}"
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         if: needs.changes.outputs.heavy == 'true'
         with:
@@ -220,11 +218,12 @@ jobs:
     timeout-minutes: 45
     permissions:
       contents: read
-      actions: write
     steps:
       - name: Documentation-only change
         if: needs.changes.outputs.heavy != 'true'
-        run: echo "Documentation-only change; skipping host tests for ${{ matrix.os }}"
+        env:
+          RUNNER_LABEL: ${{ matrix.os }}
+        run: echo "Documentation-only change; skipping host tests for ${RUNNER_LABEL}"
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         if: needs.changes.outputs.heavy == 'true'
         with:
@@ -260,7 +259,6 @@ jobs:
     timeout-minutes: 45
     permissions:
       contents: read
-      actions: write
     steps:
       - name: Documentation-only change
         if: needs.changes.outputs.heavy != 'true'
@@ -280,7 +278,7 @@ jobs:
         if: needs.changes.outputs.heavy == 'true'
         uses: goreleaser/goreleaser-action@ec59f474b9834571250b370d4735c50f8e2d1e29 # v7.0.0
         with:
-          version: '~> v2'
+          version: v2.19.0
           args: release --snapshot --clean
       - name: Capture x86_64 (64-bit) Linux binary
         if: ${{ needs.changes.outputs.heavy == 'true' && !env.ACT }}
