@@ -81,20 +81,20 @@ func TestStepDockerMain(t *testing.T) {
 		return nil
 	})
 
-	cm.On("UpdateFromEnv", "/var/run/act/workflow/envs.txt", mock.AnythingOfType("*map[string]string")).Return(func(_ context.Context) error {
+	cm.On("UpdateFromEnv", matchCmdFile("envs.txt"), mock.AnythingOfType("*map[string]string")).Return(func(_ context.Context) error {
 		return nil
 	})
 
-	cm.On("UpdateFromEnv", "/var/run/act/workflow/statecmd.txt", mock.AnythingOfType("*map[string]string")).Return(func(_ context.Context) error {
+	cm.On("UpdateFromEnv", matchCmdFile("statecmd.txt"), mock.AnythingOfType("*map[string]string")).Return(func(_ context.Context) error {
 		return nil
 	})
 
-	cm.On("UpdateFromEnv", "/var/run/act/workflow/outputcmd.txt", mock.AnythingOfType("*map[string]string")).Return(func(_ context.Context) error {
+	cm.On("UpdateFromEnv", matchCmdFile("outputcmd.txt"), mock.AnythingOfType("*map[string]string")).Return(func(_ context.Context) error {
 		return nil
 	})
 
-	cm.On("GetContainerArchive", ctx, "/var/run/act/workflow/SUMMARY.md").Return(io.NopCloser(&bytes.Buffer{}), nil)
-	cm.On("GetContainerArchive", ctx, "/var/run/act/workflow/pathcmd.txt").Return(io.NopCloser(&bytes.Buffer{}), nil)
+	cm.On("GetContainerArchive", ctx, matchCmdFile("SUMMARY.md")).Return(io.NopCloser(&bytes.Buffer{}), nil)
+	cm.On("GetContainerArchive", ctx, matchCmdFile("pathcmd.txt")).Return(io.NopCloser(&bytes.Buffer{}), nil)
 
 	err := sd.main()(ctx)
 	assert.Nil(t, err)

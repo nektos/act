@@ -34,6 +34,13 @@ func tryParseRawActionCommand(line string) (command string, kvPairs map[string]s
 }
 
 func (rc *RunContext) commandHandler(ctx context.Context) common.LineHandler {
+	return rc.stepCommandHandler(ctx, "")
+}
+
+// stepCommandHandler returns a line handler that records step scoped commands
+// against stepID. With an empty stepID they are recorded against the step that
+// is current when the command is processed.
+func (rc *RunContext) stepCommandHandler(ctx context.Context, stepID string) common.LineHandler {
 	logger := common.Logger(ctx)
 	resumeCommand := ""
 	return func(line string) bool {
@@ -48,6 +55,9 @@ func (rc *RunContext) commandHandler(ctx context.Context) common.LineHandler {
 		}
 		arg = unescapeCommandData(arg)
 		kvPairs = unescapeKvPairs(kvPairs)
+		if stepID == "" {
+			stepID = rc.CurrentStep
+		}
 		defCommandLogger := logger.WithFields(logrus.Fields{"command": command, "kvPairs": kvPairs, "arg": arg, "raw": line})
 		switch command {
 		case "set-env":
@@ -57,7 +67,7 @@ func (rc *RunContext) commandHandler(ctx context.Context) common.LineHandler {
 			}
 			rc.setEnv(ctx, kvPairs, arg)
 		case "set-output":
-			rc.setOutput(ctx, kvPairs, arg)
+			rc.setOutputForStep(ctx, stepID, kvPairs, arg)
 		case "add-path":
 			if rc.Env["ACTIONS_ALLOW_UNSECURE_COMMANDS"] != "true" {
 				defCommandLogger.Errorf("The `add-path` command is disabled. Please upgrade to using Environment Files or opt into unsafe commands by setting the `ACTIONS_ALLOW_UNSECURE_COMMANDS` environment variable to `true`.")
@@ -81,7 +91,7 @@ func (rc *RunContext) commandHandler(ctx context.Context) common.LineHandler {
 			defCommandLogger.Infof("  \U00002699  %s", line)
 		case "save-state":
 			defCommandLogger.Infof("  \U0001f4be  %s", line)
-			rc.saveState(ctx, kvPairs, arg)
+			rc.saveStateForStep(ctx, stepID, kvPairs, arg)
 		case "add-matcher":
 			defCommandLogger.Infof("  \U00002753 add-matcher %s", arg)
 		default:
@@ -111,9 +121,8 @@ func (rc *RunContext) setEnv(ctx context.Context, kvPairs map[string]string, arg
 	mergeIntoMap(rc.Env, newenv)
 	mergeIntoMap(rc.GlobalEnv, newenv)
 }
-func (rc *RunContext) setOutput(ctx context.Context, kvPairs map[string]string, arg string) {
+func (rc *RunContext) setOutputForStep(ctx context.Context, stepID string, kvPairs map[string]string, arg string) {
 	logger := common.Logger(ctx)
-	stepID := rc.CurrentStep
 	outputName := kvPairs["name"]
 	if outputMapping, ok := rc.OutputMappings[MappableOutput{StepID: stepID, OutputName: outputName}]; ok {
 		stepID = outputMapping.StepID
@@ -182,8 +191,7 @@ func unescapeKvPairs(kvPairs map[string]string) map[string]string {
 	return kvPairs
 }
 
-func (rc *RunContext) saveState(_ context.Context, kvPairs map[string]string, arg string) {
-	stepID := rc.CurrentStep
+func (rc *RunContext) saveStateForStep(_ context.Context, stepID string, kvPairs map[string]string, arg string) {
 	if stepID != "" {
 		if rc.IntraActionState == nil {
 			rc.IntraActionState = map[string]map[string]string{}

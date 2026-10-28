@@ -1,0 +1,13 @@
+name: 'composite nesting another composite'
+description: |
+  Wraps the composite action, so the same scoping is exercised one level
+  deeper.
+outputs:
+  declared:
+    description: 'forwarded from the inner composite'
+    value: ${{ steps.inner-composite.outputs.declared }}
+runs:
+  using: composite
+  steps:
+    - id: inner-composite
+      uses: ./composite-undeclared-outputs/composite

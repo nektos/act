@@ -202,7 +202,7 @@ func useStepLogger(rc *RunContext, stepModel *model.Step, stage stepStage, execu
 		ctx = withStepLogger(ctx, stepModel.ID, rc.ExprEval.Interpolate(ctx, stepModel.String()), stage.String())
 
 		rawLogger := common.Logger(ctx).WithField("raw_output", true)
-		logWriter := common.NewLineWriter(rc.commandHandler(ctx), func(s string) bool {
+		logWriter := common.NewLineWriter(rc.stepCommandHandler(ctx, stepModel.ID), func(s string) bool {
 			if rc.Config.LogOutput {
 				rawLogger.Infof("%s", s)
 			} else {

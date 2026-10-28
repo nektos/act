@@ -388,7 +388,7 @@ func newStepContainer(ctx context.Context, step step, image string, cmd []string
 	rc := step.getRunContext()
 	stepModel := step.getStepModel()
 	rawLogger := common.Logger(ctx).WithField("raw_output", true)
-	logWriter := common.NewLineWriter(rc.commandHandler(ctx), func(s string) bool {
+	logWriter := common.NewLineWriter(rc.stepCommandHandler(ctx, stepModel.ID), func(s string) bool {
 		if rc.Config.LogOutput {
 			rawLogger.Infof("%s", s)
 		} else {
