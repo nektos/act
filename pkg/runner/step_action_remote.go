@@ -101,15 +101,7 @@ func (sar *stepActionRemote) prepareActionExecutor() common.Executor {
 				}
 			}
 
-			actionModel, err := sar.readAction(ctx, sar.Step, sar.resolvedSha, sar.remoteAction.Path, remoteReader(ctx), os.WriteFile)
-			if err != nil {
-				return err
-			}
-			if err := validateRemoteActionPaths(actionModel, sar.remoteAction.Path); err != nil {
-				return err
-			}
-			sar.action = actionModel
-			return nil
+			return sar.readRemoteAction(ctx, sar.resolvedSha, remoteReader(ctx))
 		}
 
 		actionDir := fmt.Sprintf("%s/%s", sar.RunContext.ActionCacheDir(), safeFilename(sar.Step.Uses))
@@ -133,35 +125,45 @@ func (sar *stepActionRemote) prepareActionExecutor() common.Executor {
 		}
 
 		remoteReader := func(_ context.Context) actionYamlReader {
-			return func(filename string) (io.Reader, io.Closer, error) {
-				root, err := os.OpenRoot(actionDir)
-				if err != nil {
-					return nil, nil, err
-				}
-				defer root.Close()
-				f, err := root.Open(filepath.Join(filepath.FromSlash(sar.remoteAction.Path), filename))
-				if err != nil {
-					return nil, nil, err
-				}
-				return f, f, nil
-			}
+			return rootedActionReader(actionDir, sar.remoteAction.Path)
 		}
 
 		return common.NewPipelineExecutor(
 			ntErr,
 			func(ctx context.Context) error {
-				actionModel, err := sar.readAction(ctx, sar.Step, actionDir, sar.remoteAction.Path, remoteReader(ctx), os.WriteFile)
-				if err != nil {
-					return err
-				}
-				if err := validateRemoteActionPaths(actionModel, sar.remoteAction.Path); err != nil {
-					return err
-				}
-				sar.action = actionModel
-				return nil
+				return sar.readRemoteAction(ctx, actionDir, remoteReader(ctx))
 			},
 		)(ctx)
 	}
+}
+
+// rootedActionReader reads action files below actionDir/subPath without
+// following symlinks out of actionDir.
+func rootedActionReader(actionDir, subPath string) actionYamlReader {
+	return func(filename string) (io.Reader, io.Closer, error) {
+		root, err := os.OpenRoot(actionDir)
+		if err != nil {
+			return nil, nil, err
+		}
+		defer root.Close()
+		f, err := root.Open(filepath.Join(filepath.FromSlash(subPath), filename))
+		if err != nil {
+			return nil, nil, err
+		}
+		return f, f, nil
+	}
+}
+
+func (sar *stepActionRemote) readRemoteAction(ctx context.Context, actionDir string, reader actionYamlReader) error {
+	actionModel, err := sar.readAction(ctx, sar.Step, actionDir, sar.remoteAction.Path, reader, os.WriteFile)
+	if err != nil {
+		return err
+	}
+	if err := validateRemoteActionPaths(actionModel, sar.remoteAction.Path); err != nil {
+		return err
+	}
+	sar.action = actionModel
+	return nil
 }
 
 func (sar *stepActionRemote) pre() common.Executor {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/nektos/act/pkg/model"
@@ -128,4 +129,68 @@ func TestCheckWorkflowVolumes(t *testing.T) {
 	assert.NoError(t, checkWorkflowVolumes("container.volumes", []string{"data:/data", "/anonymous", "my_docker_volume:/volume_mount"}))
 	assert.Error(t, checkWorkflowVolumes("container.volumes", []string{"/:/host"}))
 	assert.Error(t, checkWorkflowVolumes("services.db.volumes", []string{"/var/run/docker.sock:/var/run/docker.sock"}))
+}
+
+func TestCheckWorkflowContainerVolumes(t *testing.T) {
+	load := func(t *testing.T, yaml string, policy string) *RunContext {
+		t.Helper()
+		wf, err := model.ReadWorkflow(strings.NewReader(yaml), false)
+		if !assert.NoError(t, err) {
+			t.FailNow()
+		}
+		rc := &RunContext{
+			Run:    &model.Run{JobID: "test", Workflow: wf},
+			Config: &Config{ContainerOptionsPolicy: policy, ContainerDaemonSocket: "-"},
+		}
+		rc.ExprEval = rc.NewExpressionEvaluator(context.Background())
+		return rc
+	}
+	const services = `
+on: push
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: postgres
+        volumes: ["/etc:/host-etc"]
+    steps: [{run: "true"}]
+`
+	const jobContainer = `
+on: push
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    container:
+      image: alpine
+      volumes: ["data:/data", "/:/host"]
+    steps: [{run: "true"}]
+`
+	const safe = `
+on: push
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    container:
+      image: alpine
+      volumes: ["data:/data"]
+    services:
+      db:
+        image: postgres
+        volumes: ["pgdata:/var/lib/postgresql/data"]
+    steps: [{run: "true"}]
+`
+	_, _, err := load(t, services, "auto").checkWorkflowContainerVolumes(context.Background())
+	assert.ErrorContains(t, err, "services.db.volumes")
+	_, _, err = load(t, jobContainer, "auto").checkWorkflowContainerVolumes(context.Background())
+	assert.ErrorContains(t, err, "container.volumes")
+
+	restrict, restrictJob, err := load(t, safe, "auto").checkWorkflowContainerVolumes(context.Background())
+	assert.NoError(t, err)
+	assert.True(t, restrict)
+	assert.True(t, restrictJob)
+
+	restrict, _, err = load(t, jobContainer, "allow").checkWorkflowContainerVolumes(context.Background())
+	assert.NoError(t, err)
+	assert.False(t, restrict)
 }

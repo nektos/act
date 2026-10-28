@@ -286,16 +286,9 @@ func (rc *RunContext) startJobContainer() common.Executor {
 		envList = append(envList, fmt.Sprintf("%s=%s", "LANG", "C.UTF-8")) // Use same locale as GitHub Actions
 
 		ext := container.LinuxContainerEnvironmentExtensions{}
-		restrictOptions, err := rc.restrictWorkflowContainerOptions()
+		restrictOptions, restrictJobOptions, err := rc.checkWorkflowContainerVolumes(ctx)
 		if err != nil {
 			return err
-		}
-		if restrictOptions {
-			if c := rc.Run.Job().Container(); c != nil {
-				if err := checkWorkflowVolumes("container.volumes", c.Volumes); err != nil {
-					return err
-				}
-			}
 		}
 		binds, mounts := rc.GetBindsAndMounts()
 
@@ -323,11 +316,6 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			interpolatedVolumes := make([]string, 0, len(spec.Volumes))
 			for _, volume := range spec.Volumes {
 				interpolatedVolumes = append(interpolatedVolumes, rc.ExprEval.Interpolate(ctx, volume))
-			}
-			if restrictOptions {
-				if err := checkWorkflowVolumes(fmt.Sprintf("services.%s.volumes", serviceID), interpolatedVolumes); err != nil {
-					return err
-				}
 			}
 			serviceBinds, serviceMounts := rc.GetServiceBindsAndMounts(interpolatedVolumes)
 
@@ -429,7 +417,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			UsernsMode:      rc.Config.UsernsMode,
 			Platform:        rc.Config.ContainerArchitecture,
 			Options:         rc.options(ctx),
-			RestrictOptions: restrictOptions && rc.Run.Job().Container() != nil,
+			RestrictOptions: restrictJobOptions,
 		})
 		if rc.JobContainer == nil {
 			return errors.New("Failed to create job container")
@@ -822,6 +810,32 @@ func (rc *RunContext) restrictWorkflowContainerOptions() (bool, error) {
 	}
 	return false, fmt.Errorf("unknown container options policy %q, expected %s, %s or %s",
 		rc.Config.ContainerOptionsPolicy, ContainerOptionsPolicyAuto, ContainerOptionsPolicyRestrict, ContainerOptionsPolicyAllow)
+}
+
+// checkWorkflowContainerVolumes reports whether workflow container options
+// are restricted for services and for the job container, and if so rejects
+// host-path volumes on both. Job container options only come from the
+// workflow when the job sets container:.
+func (rc *RunContext) checkWorkflowContainerVolumes(ctx context.Context) (bool, bool, error) {
+	restrict, err := rc.restrictWorkflowContainerOptions()
+	if err != nil || !restrict {
+		return restrict, false, err
+	}
+	job := rc.Run.Job()
+	for serviceID, spec := range job.Services {
+		volumes := make([]string, 0, len(spec.Volumes))
+		for _, v := range spec.Volumes {
+			volumes = append(volumes, rc.ExprEval.Interpolate(ctx, v))
+		}
+		if err := checkWorkflowVolumes(fmt.Sprintf("services.%s.volumes", serviceID), volumes); err != nil {
+			return true, false, err
+		}
+	}
+	c := job.Container()
+	if c == nil {
+		return true, false, nil
+	}
+	return true, true, checkWorkflowVolumes("container.volumes", c.Volumes)
 }
 
 // checkWorkflowVolumes rejects host-path binds. Named and anonymous volumes

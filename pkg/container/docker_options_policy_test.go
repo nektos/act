@@ -99,8 +99,8 @@ func TestUnrestrictedContainerOptionsKeepWorking(t *testing.T) {
 func TestOperatorCapDropSurvivesOptions(t *testing.T) {
 	_, hc, err := mergeOptions(t, "--cap-drop CHOWN --cap-add NET_RAW --cap-add SYS_TIME", false, []string{"NET_RAW", "MKNOD"})
 	assert.NoError(t, err)
-	assert.ElementsMatch(t, []string{"CHOWN", "NET_RAW", "MKNOD"}, []string(hc.CapDrop))
-	assert.ElementsMatch(t, []string{"SYS_TIME"}, []string(hc.CapAdd))
+	assert.ElementsMatch(t, []string{"CHOWN", "NET_RAW", "MKNOD"}, hc.CapDrop)
+	assert.ElementsMatch(t, []string{"SYS_TIME"}, hc.CapAdd)
 
 	_, hc, err = mergeOptions(t, "--cap-add CAP_NET_RAW", false, []string{"ALL"})
 	assert.NoError(t, err)

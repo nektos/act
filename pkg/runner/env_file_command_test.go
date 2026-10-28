@@ -15,7 +15,7 @@ func TestGithubEnvFileRejectsNodeOptions(t *testing.T) {
 	actPath := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(actPath, "workflow"), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(actPath, "workflow", "envs.txt"),
-		[]byte("NODE_OPTIONS=--require /tmp/evil.js\nnode_options=--inspect\nFOO=bar\n"), 0o644))
+		[]byte("NODE_OPTIONS=--require /tmp/evil.js\nnode_options=--inspect\nFOO=bar\n"), 0o600))
 
 	rc := &RunContext{
 		Config:       &Config{},
