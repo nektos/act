@@ -14,8 +14,7 @@ on:
     types:
       - submitted
 
-permissions:
-  actions: write
+permissions: {}
 
 jobs:
   gate:
