@@ -421,15 +421,15 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 
 		log.Debugf("Loading environment from %s", input.Envfile())
 		envs := parseEnvs(input.envs)
-		_ = readEnvs(input.Envfile(), envs)
+		_ = readProjectEnvs(input.Workdir(), input.Envfile(), envs, false)
 
 		log.Debugf("Loading action inputs from %s", input.Inputfile())
 		inputs := parseEnvs(input.inputs)
-		_ = readEnvs(input.Inputfile(), inputs)
+		_ = readProjectEnvs(input.Workdir(), input.Inputfile(), inputs, false)
 
 		log.Debugf("Loading secrets from %s", input.Secretfile())
 		secrets := newSecrets(input.secrets)
-		_ = readEnvsEx(input.Secretfile(), secrets, true)
+		_ = readProjectEnvs(input.Workdir(), input.Secretfile(), secrets, true)
 
 		if _, hasGitHubToken := secrets["GITHUB_TOKEN"]; !hasGitHubToken {
 			ctx, cancel := common.EarlyCancelContext(ctx)
@@ -439,7 +439,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 
 		log.Debugf("Loading vars from %s", input.Varfile())
 		vars := newSecrets(input.vars)
-		_ = readEnvs(input.Varfile(), vars)
+		_ = readProjectEnvs(input.Workdir(), input.Varfile(), vars, false)
 
 		matrixes := parseMatrix(input.matrix)
 		log.Debugf("Evaluated matrix inclusions: %v", matrixes)
