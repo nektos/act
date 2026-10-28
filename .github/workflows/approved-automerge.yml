@@ -17,6 +17,11 @@ name: Approved auto-merge
 # - the latest decisive review from some user is APPROVED, and that user's
 #   collaborator permission is write, maintain, or admin
 # author_association is not consulted.
+#
+# Fork pull_request_review runs leave workflow_run.pull_requests empty. The
+# gate uploads the pull request number. This job reads that artifact and
+# accepts the number only when the pull request's head SHA is
+# workflow_run.head_sha. It does not check out pull request code.
 on:
   workflow_run:
     workflows:
@@ -24,10 +29,12 @@ on:
     types:
       - completed
 
-permissions: {}
+permissions:
+  actions: read
+  pull-requests: read
 
 concurrency:
-  group: approved-automerge-${{ github.event.workflow_run.pull_requests[0].number || github.run_id }}
+  group: approved-automerge-${{ github.event.workflow_run.head_sha }}
   cancel-in-progress: false
 
 jobs:
@@ -41,8 +48,50 @@ jobs:
     timeout-minutes: 5
     environment: promote
     steps:
+      - name: Download pull request number
+        id: artifact
+        continue-on-error: true
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: approved-automerge-pr
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+          path: pr-number
+
+      - name: Resolve pull request
+        id: resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          WORKFLOW_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          EVENT_PR: ${{ github.event.workflow_run.pull_requests[0].number }}
+          ARTIFACT_OK: ${{ steps.artifact.outcome }}
+        run: |
+          set -euo pipefail
+          candidate="${EVENT_PR}"
+          if [ "${ARTIFACT_OK}" = "success" ]; then
+            artifact_file="$(find pr-number -type f -name pr-number.txt -print -quit)"
+            if [ -n "${artifact_file}" ]; then
+              candidate="$(tr -d '[:space:]' < "${artifact_file}")"
+            fi
+          fi
+          case "${candidate}" in
+            ''|*[!0-9]*)
+              echo "No numeric pull request number for this run."
+              exit 0
+              ;;
+          esac
+          head_sha="$(gh api "repos/${GH_REPO}/pulls/${candidate}" --jq .head.sha)"
+          base_repo="$(gh api "repos/${GH_REPO}/pulls/${candidate}" --jq .base.repo.full_name)"
+          if [ "${base_repo}" != "${GH_REPO}" ] || [ "${head_sha}" != "${WORKFLOW_HEAD_SHA}" ]; then
+            echo "Pull request ${candidate} does not match head ${WORKFLOW_HEAD_SHA}."
+            exit 0
+          fi
+          echo "pr_number=${candidate}" >> "${GITHUB_OUTPUT}"
+
       - name: Create GitHub App token
         id: app-token
+        if: steps.resolve.outputs.pr_number != ''
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           app-id: ${{ vars.RELEASE_APP_ID || secrets.RELEASE_APP_ID }}
@@ -51,10 +100,11 @@ jobs:
           permission-pull-requests: write
 
       - name: Enable squash auto-merge
+        if: steps.resolve.outputs.pr_number != ''
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           GH_REPO: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
+          PR_NUMBER: ${{ steps.resolve.outputs.pr_number }}
         run: |
           set -euo pipefail
           if [ -z "${PR_NUMBER}" ]; then
