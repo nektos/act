@@ -3,6 +3,7 @@ package filecollector
 import (
 	"archive/tar"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -71,7 +72,15 @@ func (cc *CopyCollector) WriteFile(fpath string, fi fs.FileInfo, linkName string
 	if linkName != "" {
 		return os.Symlink(linkName, fdestpath)
 	}
-	df, err := os.OpenFile(fdestpath, os.O_CREATE|os.O_WRONLY, fi.Mode())
+	// go-git marks pack files 0444. A later copy of the same action has to
+	// replace those files, which fails if the destination is left read-only.
+	df, err := os.OpenFile(fdestpath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, fi.Mode())
+	if err != nil && errors.Is(err, os.ErrPermission) {
+		if chmodErr := os.Chmod(fdestpath, fi.Mode().Perm()|0o200); chmodErr != nil {
+			return err
+		}
+		df, err = os.OpenFile(fdestpath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, fi.Mode())
+	}
 	if err != nil {
 		return err
 	}
@@ -79,7 +88,7 @@ func (cc *CopyCollector) WriteFile(fpath string, fi fs.FileInfo, linkName string
 	if _, err := io.Copy(df, f); err != nil {
 		return err
 	}
-	return nil
+	return os.Chmod(fdestpath, fi.Mode().Perm())
 }
 
 type FileCollector struct {

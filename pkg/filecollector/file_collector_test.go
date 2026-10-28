@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"context"
 	"io"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -72,6 +73,37 @@ func (mfs *memoryFs) Open(path string) (io.ReadCloser, error) {
 
 func (mfs *memoryFs) Readlink(path string) (string, error) {
 	return mfs.Filesystem.Readlink(path)
+}
+
+func TestCopyCollectorOverwritesReadOnlyFile(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "src")
+	dst := filepath.Join(dir, "dst")
+	assert.NoError(t, os.Mkdir(src, 0o755))
+	srcFile := filepath.Join(src, "pack.idx")
+	assert.NoError(t, os.WriteFile(srcFile, []byte("first"), 0o600))
+	assert.NoError(t, os.Chmod(srcFile, 0o444))
+
+	fc := &FileCollector{
+		Fs:        &DefaultFs{},
+		SrcPath:   src,
+		SrcPrefix: src + string(filepath.Separator),
+		Handler:   &CopyCollector{DstDir: dst},
+	}
+	assert.NoError(t, filepath.Walk(src, fc.CollectFiles(context.Background(), nil)))
+
+	assert.NoError(t, os.Chmod(srcFile, 0o600))
+	assert.NoError(t, os.WriteFile(srcFile, []byte("second"), 0o600))
+	assert.NoError(t, os.Chmod(srcFile, 0o444))
+
+	assert.NoError(t, filepath.Walk(src, fc.CollectFiles(context.Background(), nil)))
+
+	got, err := os.ReadFile(filepath.Join(dst, "pack.idx"))
+	assert.NoError(t, err)
+	assert.Equal(t, "second", string(got))
+	st, err := os.Stat(filepath.Join(dst, "pack.idx"))
+	assert.NoError(t, err)
+	assert.Equal(t, os.FileMode(0o444), st.Mode().Perm())
 }
 
 func TestIgnoredTrackedfile(t *testing.T) {
