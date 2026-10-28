@@ -1,6 +1,8 @@
-![act-logo](https://raw.githubusercontent.com/wiki/nektos/act/img/logo-150.png)
+<p align="center">
+  <img alt="act" src="docs/img/act-logo.svg" width="180" />
+</p>
 
-# Overview [![push](https://github.com/nektos/act/workflows/push/badge.svg?branch=main&event=push)](https://github.com/nektos/act/actions) [![Go Report Card](https://goreportcard.com/badge/github.com/nektos/act)](https://goreportcard.com/report/github.com/nektos/act) [![awesome-runners](https://img.shields.io/badge/listed%20on-awesome--runners-blue.svg)](https://github.com/jonico/awesome-runners)
+# Overview [![checks](https://github.com/nektos/act/actions/workflows/checks.yml/badge.svg?branch=main)](https://github.com/nektos/act/actions/workflows/checks.yml) [![awesome-runners](https://img.shields.io/badge/listed%20on-awesome--runners-blue.svg)](https://github.com/jonico/awesome-runners)
 
 > "Think globally, `act` locally"
 
@@ -19,7 +21,7 @@ When you run `act` it reads in your GitHub Actions from `.github/workflows/` and
 
 Let's see it in action with a [sample repo](https://github.com/cplee/github-actions-demo)!
 
-![Demo](https://raw.githubusercontent.com/wiki/nektos/act/quickstart/act-quickstart-2.gif)
+![Demo](docs/img/act-quickstart.gif)
 
 # Act User Guide
 
