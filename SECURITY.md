@@ -33,5 +33,10 @@ New release archives and their `checksums.txt` carry signed build provenance.
 Older releases do not. Verify a download with the GitHub CLI:
 
 ```sh
-gh attestation verify act_Linux_x86_64.tar.gz --repo nektos/act
+gh attestation verify act_Linux_x86_64.tar.gz --repo nektos/act \
+  --signer-workflow nektos/act/.github/workflows/release.yml \
+  --source-ref refs/tags/v0.2.92
 ```
+
+Replace `v0.2.92` with the release you downloaded. `--signer-workflow` and
+`--source-ref` reject provenance made by any other workflow or for another tag.
