@@ -100,9 +100,11 @@ installer:
 	"$$tmpdir/bin/godownloader" -r nektos/act -o install.sh
 
 .PHONY: promote
-# PROMOTE_BRANCH is the branch that receives the release commit. promote.yml
-# sets it to the repository default branch. A local run uses the current
-# branch. Only master and main are accepted, so this cannot create another ref.
+# promote tags HEAD of PROMOTE_BRANCH and pushes only the tag; it never pushes
+# a commit to the branch. Builds take their version from the tag through
+# ldflags, so the VERSION file is not bumped. promote.yml sets PROMOTE_BRANCH
+# to the repository default branch. A local run uses the current branch.
+# Only master and main are accepted.
 promote:
 	@git fetch origin --tags
 	@if [ -n "$$(git status -s)" ]; then \
@@ -115,6 +117,12 @@ promote:
 		master|main) ;; \
 		*) echo "Unable to promote branch '$$branch' (expected master or main)"; exit 1 ;; \
 	esac; \
+	head_sha=$$(git rev-parse HEAD); \
+	remote_head=$$(git ls-remote origin "refs/heads/$$branch" | awk '{print $$1}'); \
+	if [ "$$remote_head" != "$$head_sha" ]; then \
+		echo "Unable to promote: HEAD $$head_sha is not origin/$$branch ($${remote_head:-missing})"; \
+		exit 1; \
+	fi; \
 	if git describe --tags --exact-match >/dev/null 2>&1; then \
 		tag=$$(git describe --tags --exact-match); \
 		version=$${tag#v}; \
@@ -125,8 +133,7 @@ promote:
 			exit 0; \
 		fi; \
 		echo "Release tag $$tag is not on origin at this commit; pushing"; \
-		git push origin "HEAD:refs/heads/$$branch"; \
-		git push origin "$$tag"; \
+		git push origin "refs/tags/$$tag"; \
 		exit 0; \
 	fi; \
 	if ! git describe --tags >/dev/null 2>&1; then \
@@ -139,12 +146,8 @@ promote:
 	patch=$$(printf '%s\n' "$$version" | cut -d. -f3 | cut -d- -f1); \
 	new_version="$$major.$$minor.$$((patch + 1))"; \
 	echo "VERSION:$$version IS_SNAPSHOT:true NEW_VERSION:$$new_version"; \
-	echo -n "$$new_version" > VERSION; \
-	git add VERSION; \
-	git commit -m "chore: bump VERSION to $$new_version"; \
 	git tag -a -m "releasing v$$new_version" "v$$new_version"; \
-	git push origin "HEAD:refs/heads/$$branch"; \
-	git push origin "v$$new_version"
+	git push origin "refs/tags/v$$new_version"
 
 .PHONY: snapshot
 snapshot:
