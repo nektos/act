@@ -2,6 +2,7 @@ package container
 
 import (
 	"archive/tar"
+	"bytes"
 	"context"
 	"io"
 	"os"
@@ -68,4 +69,36 @@ func TestGetContainerArchive(t *testing.T) {
 	assert.Equal(t, expectedContent, content)
 	_, err = reader.Next()
 	assert.ErrorIs(t, err, io.EOF)
+}
+
+func TestCopyTarStreamRejectsEscapingEntries(t *testing.T) {
+	dir := t.TempDir()
+	e := &HostEnvironment{}
+	for _, name := range []string{"../evil", "a/../../evil", "/evil"} {
+		var buf bytes.Buffer
+		tw := tar.NewWriter(&buf)
+		assert.NoError(t, tw.WriteHeader(&tar.Header{Name: name, Mode: 0o644, Size: 1, Typeflag: tar.TypeReg}))
+		_, err := tw.Write([]byte("x"))
+		assert.NoError(t, err)
+		assert.NoError(t, tw.Close())
+
+		err = e.CopyTarStream(context.Background(), filepath.Join(dir, "dest"), &buf)
+		assert.Error(t, err, name)
+	}
+	_, err := os.Stat(filepath.Join(dir, "evil"))
+	assert.True(t, os.IsNotExist(err))
+}
+
+func TestCopyRejectsEscapingNames(t *testing.T) {
+	dir := t.TempDir()
+	e := &HostEnvironment{}
+	err := e.Copy(filepath.Join(dir, "dest"), &FileEntry{Name: "../evil", Mode: 0o644, Body: "x"})(context.Background())
+	assert.Error(t, err)
+	_, err = os.Stat(filepath.Join(dir, "evil"))
+	assert.True(t, os.IsNotExist(err))
+
+	assert.NoError(t, e.Copy(filepath.Join(dir, "dest"), &FileEntry{Name: "workflow/event.json", Mode: 0o644, Body: "{}"})(context.Background()))
+	got, err := os.ReadFile(filepath.Join(dir, "dest", "workflow", "event.json"))
+	assert.NoError(t, err)
+	assert.Equal(t, "{}", string(got))
 }
