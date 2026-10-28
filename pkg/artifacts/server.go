@@ -554,7 +554,7 @@ func requireRuntimeToken(next http.Handler, authKey []byte) http.Handler {
 		}
 		runID, err := common.ValidateAuthorizationToken(authKey, req)
 		if err != nil {
-			common.Logger(req.Context()).Debugf("Rejected artifact server request %s %s: %v", req.Method, req.URL.Path, err)
+			common.Logger(req.Context()).Debugf("Rejected artifact server request method=%q path=%q: %v", req.Method, req.URL.Path, err)
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
