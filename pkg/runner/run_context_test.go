@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/exprparser"
 	"github.com/nektos/act/pkg/model"
 
@@ -676,6 +677,52 @@ func TestRunContextGetEnv(t *testing.T) {
 			assert.EqualValues(t, test.want, envMap[test.targetEnv])
 		})
 	}
+}
+
+func TestRunContextStartHostEnvironmentNoParentEnv(t *testing.T) {
+	const parentOnly = "ACT_TEST_PARENT_ONLY"
+	t.Setenv(parentOnly, "parent")
+
+	rc := &RunContext{
+		Config: &Config{
+			ActionCacheDir: t.TempDir(),
+			NoHostEnv:      true,
+			Workdir:        t.TempDir(),
+		},
+		Env: map[string]string{
+			"EXPLICIT_ENV": "explicit",
+		},
+	}
+
+	err := rc.startHostEnvironment()(common.WithLogger(t.Context(), log.New()))
+	assert.NoError(t, err)
+	assert.NotContains(t, rc.Env, parentOnly)
+	assert.Equal(t, "explicit", rc.Env["EXPLICIT_ENV"])
+	var path string
+	for key, value := range rc.Env {
+		if strings.EqualFold(key, rc.JobContainer.GetPathVariableName()) {
+			path = value
+			break
+		}
+	}
+	assert.NotEmpty(t, path)
+}
+
+func TestRunContextStartHostEnvironmentDefaultInheritsParentEnv(t *testing.T) {
+	const parentOnly = "ACT_TEST_PARENT_ONLY"
+	t.Setenv(parentOnly, "parent")
+
+	rc := &RunContext{
+		Config: &Config{
+			ActionCacheDir: t.TempDir(),
+			Workdir:        t.TempDir(),
+		},
+		Env: map[string]string{},
+	}
+
+	err := rc.startHostEnvironment()(common.WithLogger(t.Context(), log.New()))
+	assert.NoError(t, err)
+	assert.Equal(t, "parent", rc.Env[parentOnly])
 }
 
 func TestSetRuntimeVariables(t *testing.T) {

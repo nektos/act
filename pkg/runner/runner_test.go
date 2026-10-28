@@ -188,6 +188,7 @@ func (j *TestJobFileInfo) runTest(ctx context.Context, t *testing.T, cfg *Config
 		Platforms:             j.platforms,
 		ReuseContainers:       false,
 		Env:                   cfg.Env,
+		NoHostEnv:             cfg.NoHostEnv,
 		Secrets:               cfg.Secrets,
 		Inputs:                cfg.Inputs,
 		GitHubInstance:        "github.com",
@@ -605,6 +606,45 @@ func TestRunEventHostEnvironment(t *testing.T) {
 			table.runTest(ctx, t, &Config{})
 		})
 	}
+}
+
+func TestRunEventHostEnvironmentNoHostEnv(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	const parentOnly = "ACT_TEST_PARENT_ONLY"
+	t.Setenv(parentOnly, "parent")
+
+	table := TestJobFileInfo{
+		workdir:      workdir,
+		workflowPath: "host-env-explicit",
+		eventName:    "push",
+		platforms:    map[string]string{"self-hosted": "-self-hosted"},
+		secrets:      secrets,
+	}
+	table.runTest(context.Background(), t, &Config{NoHostEnv: true})
+}
+
+func TestRunEventHostEnvironmentNoHostEnvWithExplicitEnv(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	const parentOnly = "ACT_TEST_PARENT_ONLY"
+	t.Setenv(parentOnly, "parent")
+
+	table := TestJobFileInfo{
+		workdir:      workdir,
+		workflowPath: "host-env-explicit-env",
+		eventName:    "push",
+		platforms:    map[string]string{"self-hosted": "-self-hosted"},
+		secrets:      secrets,
+	}
+	table.runTest(context.Background(), t, &Config{
+		Env:       map[string]string{parentOnly: "explicit"},
+		NoHostEnv: true,
+	})
 }
 
 func TestDryrunEvent(t *testing.T) {

@@ -1,0 +1,9 @@
+name: host-env-explicit-env
+on: push
+
+jobs:
+  test:
+    runs-on: self-hosted
+    steps:
+      - name: Verify explicitly supplied environment is preserved
+        run: node -e "if (process.env.ACT_TEST_PARENT_ONLY !== 'explicit' || !process.env.PATH || !process.env.RUNNER_OS) process.exit(1)"
