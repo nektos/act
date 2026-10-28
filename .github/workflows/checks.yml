@@ -223,6 +223,7 @@ jobs:
         if: needs.changes.outputs.heavy != 'true'
         env:
           RUNNER_LABEL: ${{ matrix.os }}
+        shell: bash
         run: echo "Documentation-only change; skipping host tests for ${RUNNER_LABEL}"
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         if: needs.changes.outputs.heavy == 'true'
