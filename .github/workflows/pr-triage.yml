@@ -8,9 +8,7 @@ on:
   pull_request_target: # zizmor: ignore[dangerous-triggers]
     types: [opened, edited, reopened, ready_for_review, synchronize]
 
-permissions:
-  issues: write
-  pull-requests: write
+permissions: {}
 
 concurrency:
   group: pr-triage-${{ github.event.pull_request.number }}
@@ -20,6 +18,12 @@ jobs:
   label:
     name: Label pull request
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      # Creates the triage labels when they are missing.
+      issues: write
+      # Adds and removes labels on the pull request.
+      pull-requests: write
     # Bots, including Dependabot, are not first-time contributors and do not link issues.
     if: github.event.pull_request.user.type != 'Bot'
     steps:

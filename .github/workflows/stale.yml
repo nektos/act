@@ -6,17 +6,20 @@ on:
     - cron: '17 4 * * *'
   workflow_dispatch:
 
-permissions:
-  # actions/stale stores its operations-per-run checkpoint in the Actions cache.
-  actions: write
-  issues: write
-  pull-requests: write
+permissions: {}
 
 jobs:
   stale:
     name: Stale
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      # actions/stale stores its operations-per-run checkpoint in the Actions cache.
+      actions: write
+      # Labels, comments on, and closes stale issues.
+      issues: write
+      # Labels, comments on, and closes stale pull requests.
+      pull-requests: write
     steps:
       - uses: actions/stale@4391f3da665fdf50b6810c1a66712fb9ba21aa93 # v11.0.0
         with:
