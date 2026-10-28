@@ -21,12 +21,24 @@ const (
 
 func TestMain(m *testing.M) {
 	flag.Parse()
-	// Fixture images are Linux containers. Windows and macOS host jobs must not
-	// try to build them; the Windows daemon rejects debian:bookworm-slim.
-	if !testing.Short() && runtime.GOOS == "linux" {
+	// Build when the daemon runs Linux containers, including Docker Desktop on
+	// macOS. A Windows daemon cannot pull debian:bookworm-slim.
+	if !testing.Short() && dockerDaemonOS() == "linux" {
 		ensureCIFixtures()
 	}
 	os.Exit(m.Run())
+}
+
+func dockerDaemonOS() string {
+	if _, err := exec.LookPath("docker"); err != nil {
+		return ""
+	}
+	cmd := exec.Command("docker", "info", "--format", "{{.OSType}}")
+	out, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
 }
 
 func TestHostEnvFixtureTagMatchesAct(t *testing.T) {
@@ -78,7 +90,6 @@ func ensureCIFixtures() {
 }
 
 func dockerImagePresent(tag string) bool {
-	//nolint:gosec // G204: tag is a fixed fixture constant, not user input
 	cmd := exec.Command("docker", "image", "inspect", "--format", "{{.Id}}", tag)
 	cmd.Stdout = nil
 	cmd.Stderr = nil
