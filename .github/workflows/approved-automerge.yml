@@ -23,7 +23,8 @@ name: Approved auto-merge
 # accepts the number only when the pull request's head SHA is
 # workflow_run.head_sha. It does not check out pull request code.
 on:
-  workflow_run:
+  # Runs on the default branch after the gate workflow. Does not check out pull request code.
+  workflow_run: # zizmor: ignore[dangerous-triggers]
     workflows:
       - Approved auto-merge gate
     types:

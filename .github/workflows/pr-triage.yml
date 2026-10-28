@@ -4,7 +4,8 @@
 name: PR triage
 
 on:
-  pull_request_target:
+  # Runs from the default branch and does not check out pull request code.
+  pull_request_target: # zizmor: ignore[dangerous-triggers]
     types: [opened, edited, reopened, ready_for_review, synchronize]
 
 permissions:
