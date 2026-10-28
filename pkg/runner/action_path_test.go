@@ -99,3 +99,33 @@ func TestLocalRepositoryCacheRejectsEscapingPrefix(t *testing.T) {
 	assert.NoError(t, err)
 	r.Close()
 }
+
+func TestRestrictWorkflowContainerOptions(t *testing.T) {
+	for _, tt := range []struct {
+		policy, socket string
+		want, wantErr  bool
+	}{
+		{policy: "", socket: "", want: false},
+		{policy: "auto", socket: "/var/run/docker.sock", want: false},
+		{policy: "auto", socket: "-", want: true},
+		{policy: "", socket: "-", want: true},
+		{policy: "restrict", socket: "/var/run/docker.sock", want: true},
+		{policy: "allow", socket: "-", want: false},
+		{policy: "bogus", wantErr: true},
+	} {
+		rc := &RunContext{Config: &Config{ContainerOptionsPolicy: tt.policy, ContainerDaemonSocket: tt.socket}}
+		got, err := rc.restrictWorkflowContainerOptions()
+		if tt.wantErr {
+			assert.Error(t, err)
+			continue
+		}
+		assert.NoError(t, err)
+		assert.Equal(t, tt.want, got, "%s/%s", tt.policy, tt.socket)
+	}
+}
+
+func TestCheckWorkflowVolumes(t *testing.T) {
+	assert.NoError(t, checkWorkflowVolumes("container.volumes", []string{"data:/data", "/anonymous", "my_docker_volume:/volume_mount"}))
+	assert.Error(t, checkWorkflowVolumes("container.volumes", []string{"/:/host"}))
+	assert.Error(t, checkWorkflowVolumes("services.db.volumes", []string{"/var/run/docker.sock:/var/run/docker.sock"}))
+}
