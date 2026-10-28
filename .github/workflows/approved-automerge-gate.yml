@@ -1,0 +1,33 @@
+name: Approved auto-merge gate
+
+# Records that a pull request received an approval. This job does not merge
+# and does not check out code.
+#
+# pull_request_review from a fork runs with a read-only token, so this job
+# cannot enable auto-merge. The merge step is approved-automerge.yml, started
+# by workflow_run from the default branch. A fork can edit this file, which
+# is why the merge workflow checks the GitHub API again and never trusts
+# this job's conclusion on its own.
+on:
+  pull_request_review:
+    types:
+      - submitted
+
+permissions: {}
+
+jobs:
+  gate:
+    name: gate
+    if: >-
+      github.repository == 'nektos/act' &&
+      github.event.review.state == 'approved' &&
+      github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Record approval
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REVIEWER: ${{ github.event.review.user.login }}
+        run: |
+          echo "Approval recorded for pull request ${PR_NUMBER} from ${REVIEWER}."
