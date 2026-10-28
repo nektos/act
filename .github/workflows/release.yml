@@ -4,9 +4,7 @@ on:
     tags:
       - v*
 
-permissions:
-  contents: write
-  actions: write
+permissions: {}
 
 jobs:
   release:
@@ -14,6 +12,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     environment: release
+    permissions:
+      contents: write
+      actions: write
     steps:
       - uses: actions/checkout@v6
         with:
@@ -40,10 +41,26 @@ jobs:
           version: ${{ github.ref }}
           apiKey: ${{ secrets.CHOCO_APIKEY }}
           push: true
+  gh-act:
+    name: GitHub CLI extension
+    needs: release
+    runs-on: ubuntu-latest
+    environment: promote
+    permissions: {}
+    steps:
+      - name: Create GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          app-id: ${{ vars.RELEASE_APP_ID || secrets.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          owner: nektos
+          repositories: gh-act
+          permission-contents: write
       - name: GitHub CLI extension
         uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.GH_ACT_TOKEN }}
+          github-token: ${{ steps.app-token.outputs.token }}
           script: |
             const mainRef = (await github.rest.git.getRef({
               owner: 'nektos',
@@ -51,7 +68,7 @@ jobs:
               ref: 'heads/main',
             })).data;
             console.log(mainRef);
-            github.rest.git.createRef({
+            await github.rest.git.createRef({
               owner: 'nektos',
               repo: 'gh-act',
               ref: context.ref,
