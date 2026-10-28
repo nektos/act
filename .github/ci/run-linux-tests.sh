@@ -14,13 +14,15 @@ if [ "$index" = "0" ]; then
 fi
 
 status=0
+# --packages is required when --rerun-fails is set. It is a space-separated list.
 go run gotest.tools/gotestsum@v1.13.0 \
+  --rerun-fails=2 \
   --junitfile unit-tests.xml \
   --jsonfile-timing-events "$jsonfile" \
   --format pkgname \
+  --packages="${packages[*]}" \
   -- \
-  -v -cover -coverpkg=./... -coverprofile="$cover" -covermode=atomic -timeout 20m \
-  "${packages[@]}" || status=$?
+  -v -cover -coverpkg=./... -coverprofile="$cover" -covermode=atomic -timeout 20m || status=$?
 
 echo "::group::slowest tests (go test -json timing)"
 go run gotest.tools/gotestsum@v1.13.0 tool slowest --threshold 1s --jsonfile "$jsonfile" || true

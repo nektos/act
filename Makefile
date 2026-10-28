@@ -65,7 +65,7 @@ lint-rest:
 		-v $(PWD):/tmp/lint \
 		-e GITHUB_STATUS_REPORTER=false \
 		-e GITHUB_COMMENT_REPORTER=false \
-		megalinter/megalinter-go:v5
+		oxsecurity/megalinter-go:v8.4.2
 
 .PHONY: lint
 lint: lint-go lint-rest
@@ -88,9 +88,14 @@ install: build
 	@act --version
 
 .PHONY: installer
+# godownloader's go.mod has a replace directive, so `go install` of the module path is rejected.
+# Installing from a checkout makes it the main module, where that directive is allowed.
 installer:
-	@GO111MODULE=off go get github.com/goreleaser/godownloader
-	godownloader -r nektos/act -o install.sh
+	@tmpdir=$$(mktemp -d); \
+	trap 'rm -rf "$$tmpdir"' EXIT; \
+	git clone --depth 1 --branch v0.1.0 https://github.com/goreleaser/godownloader.git "$$tmpdir"; \
+	( cd "$$tmpdir" && go install . ); \
+	"$$(go env GOPATH)/bin/godownloader" -r nektos/act -o install.sh
 
 .PHONY: promote
 promote:

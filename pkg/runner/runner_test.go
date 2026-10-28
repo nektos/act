@@ -242,7 +242,7 @@ func TestRunEvent(t *testing.T) {
 		// {workdir, "shells/custom", "push", "", map[string]string{"ubuntu-latest": "catthehacker/ubuntu:pwsh-latest"}, }, // custom image with pwsh
 		{workdir, "shells/pwsh", "push", "", map[string]string{"ubuntu-latest": "catthehacker/ubuntu:pwsh-latest"}, secrets}, // custom image with pwsh
 		{workdir, "shells/bash", "push", "", platforms, secrets},
-		{workdir, "shells/python", "push", "", map[string]string{"ubuntu-latest": "node:16-buster"}, secrets}, // slim doesn't have python
+		{workdir, "shells/python", "push", "", map[string]string{"ubuntu-latest": "python:3.13-slim-bookworm"}, secrets}, // node slim has no python binary
 		{workdir, "shells/sh", "push", "", platforms, secrets},
 
 		// Local action
@@ -630,7 +630,7 @@ func TestDryrunEvent(t *testing.T) {
 		{workdir, "shells/defaults", "push", "", platforms, secrets},
 		{workdir, "shells/pwsh", "push", "", map[string]string{"ubuntu-latest": "catthehacker/ubuntu:pwsh-latest"}, secrets}, // custom image with pwsh
 		{workdir, "shells/bash", "push", "", platforms, secrets},
-		{workdir, "shells/python", "push", "", map[string]string{"ubuntu-latest": "node:16-buster"}, secrets}, // slim doesn't have python
+		{workdir, "shells/python", "push", "", map[string]string{"ubuntu-latest": "python:3.13-slim-bookworm"}, secrets}, // node slim has no python binary
 		{workdir, "shells/sh", "push", "", platforms, secrets},
 
 		// Local action
