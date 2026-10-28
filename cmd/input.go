@@ -31,6 +31,7 @@ type Input struct {
 	insecureSecrets                    bool
 	defaultBranch                      string
 	privileged                         bool
+	systemd                            bool
 	usernsMode                         string
 	containerArchitecture              string
 	containerDaemonSocket              string
