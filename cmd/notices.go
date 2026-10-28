@@ -79,7 +79,7 @@ func getVersionNotices(version string) []Notice {
 
 	noticeURL.RawQuery = query.Encode()
 
-	client := &http.Client{}
+	client := &http.Client{Timeout: 15 * time.Second}
 	req, err := http.NewRequest("GET", noticeURL.String(), nil)
 	if err != nil {
 		log.Debug(err)
