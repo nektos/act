@@ -28,8 +28,8 @@ jobs:
           stale-issue-label: stale
           stale-pr-label: stale
           # kind/feature-request stays exempt, as in the previous config.
-          # pinned, security, and needs-triage are maintainer hold labels.
-          exempt-issue-labels: stale-exempt,kind/feature-request,pinned,security,needs-triage
+          # pinned, security, needs-triage, and backlog are maintainer hold labels.
+          exempt-issue-labels: stale-exempt,kind/feature-request,pinned,security,needs-triage,backlog
           # actions/stale has no author filter. Dependabot pull requests carry the dependencies label.
           exempt-pr-labels: stale-exempt,pinned,security,needs-triage,dependencies
           days-before-issue-stale: 90
