@@ -6,6 +6,9 @@ on:
 
 permissions: {}
 
+# make promote pushes only the new v* tag, never a commit to the default
+# branch. The app token needs contents: write for the tag ruleset, not a
+# branch ruleset bypass.
 jobs:
   release:
     name: promote
