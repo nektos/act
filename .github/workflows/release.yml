@@ -54,23 +54,16 @@ jobs:
       - name: Create gh-act tag
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
           TAG: ${{ github.ref }}
         run: |
           set -euo pipefail
-          stamp=$(date -u -d '10 seconds ago' +%Y-%m-%dT%H:%M:%SZ)
-          gh workflow run tag-gh-act.yml --ref master -f tag="$TAG"
-          run_id=
-          for _ in $(seq 1 30); do
-            run_id=$(gh run list --workflow=tag-gh-act.yml --event=workflow_dispatch --branch=master --limit=10 \
-              --json databaseId,createdAt \
-              --jq "map(select(.createdAt >= \"$stamp\")) | .[0].databaseId // empty")
-            if [ -n "${run_id}" ]; then
-              break
-            fi
-            sleep 2
-          done
+          # No checkout in this job, so gh needs GH_REPO. The dispatch API returns
+          # the created run URL; watch that id instead of guessing from timestamps.
+          run_url=$(gh workflow run tag-gh-act.yml --ref master -f tag="$TAG")
+          run_id=$(printf '%s\n' "$run_url" | sed -n 's#.*/actions/runs/\([0-9][0-9]*\).*#\1#p' | head -n 1)
           if [ -z "${run_id}" ]; then
-            echo "timed out waiting for the gh-act tag workflow to start" >&2
+            echo "workflow dispatch did not return a run id: ${run_url}" >&2
             exit 1
           fi
           gh run watch "$run_id" --exit-status
