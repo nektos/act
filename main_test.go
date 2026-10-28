@@ -28,9 +28,9 @@ func TestResolveVersion(t *testing.T) {
 		{"ldflags wins", "0.2.92", module("v0.2.93"), true, "0.2.91", "0.2.92"},
 		{"go install of a tag", "", module("v0.2.92"), true, "0.2.91", "0.2.92"},
 		{"go install of a prerelease tag", "", module("v0.3.0-rc.1"), true, "0.2.91", "0.3.0-rc.1"},
-		{"pseudo-version falls back to file", "", module("v0.2.92-0.20261028120000-abcdef123456"), true, "0.2.91\n", "0.2.91"},
-		{"pre-tag pseudo-version falls back to file", "", module("v0.3.0-rc.1.0.20261028120000-abcdef123456"), true, "0.2.91", "0.2.91"},
-		{"dirty build falls back to file", "", module("v0.2.92+dirty"), true, "0.2.91", "0.2.91"},
+		{"go install of a branch", "", module("v0.2.93-0.20261028120000-abcdef123456"), true, "0.2.91", "0.2.93-0.20261028120000-abcdef123456"},
+		{"dirty VCS build", "", module("v0.2.93-0.20261028120000-abcdef123456+dirty"), true, "0.2.91", "0.2.93-0.20261028120000-abcdef123456+dirty"},
+		{"file is trimmed", "", nil, false, "0.2.91\n", "0.2.91"},
 		{"devel build falls back to file", "", module("(devel)"), true, "0.2.91", "0.2.91"},
 		{"no build info", "", nil, false, "0.2.91", "0.2.91"},
 	}
