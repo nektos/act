@@ -1,4 +1,4 @@
-FROM ubuntu:24.04
+FROM ubuntu:24.04@sha256:24737cef17f4e22b1977df7d9a05e77c4e28b7da5b8911f8d8ccda136bf3573c
 
 # Match go.mod and .github/workflows/checks.yml (golangci-lint-action version: v2.11.4).
 ARG GO_VERSION=1.26.0
