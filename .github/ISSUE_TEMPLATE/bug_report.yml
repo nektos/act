@@ -99,7 +99,7 @@ body:
     attributes:
       label: Full `act -v` log
       description: |
-        Paste the full verbose log from `act -v`, not a short excerpt. Redact tokens, passwords, and other secrets.
+        Paste the full verbose log from `act -v`. If it is too large for the issue form, paste the section that shows the failure here and attach the full log to the issue. Redact tokens, passwords, and other secrets.
       render: sh
       placeholder: |
         act -v
