@@ -35,6 +35,8 @@ type Input struct {
 	containerArchitecture              string
 	containerDaemonSocket              string
 	containerOptions                   string
+	dockerDaemonService                bool
+	dockerDaemonServiceImage           string
 	noWorkflowRecurse                  bool
 	useGitIgnore                       bool
 	githubInstance                     string
