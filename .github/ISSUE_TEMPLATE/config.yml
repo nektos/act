@@ -7,5 +7,5 @@ contact_links:
     url: https://nektosact.com
     about: Read the act user guide before opening an issue.
   - name: Want to contribute to act?
-    url: https://github.com/nektos/act/blob/master/CONTRIBUTING.md
+    url: https://github.com/nektos/act/blob/main/CONTRIBUTING.md
     about: Read the contributing guidelines before opening a pull request.

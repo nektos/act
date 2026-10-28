@@ -16,7 +16,7 @@ on:
       - reopened
       - ready_for_review
     branches:
-      - master
+      - main
 
 # One in-flight run per pull request. A newer synchronize cancels the older
 # attempt; that run enables auto-merge again if the update still qualifies.

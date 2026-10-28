@@ -8,7 +8,7 @@ name: Approved auto-merge
 # private key are secrets on the promote environment, and that environment
 # allows protected branches only. A pull_request_review job runs on
 # refs/pull/<n>/merge, so it cannot read those secrets. workflow_run runs
-# with the default branch ref (master), which the environment already allows.
+# with the default branch ref, which the environment already allows.
 #
 # pull_request_target is not used. Neither workflow checks out pull request
 # code. This job repeats the eligibility checks:

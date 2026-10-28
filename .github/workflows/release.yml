@@ -3,8 +3,8 @@ on:
   push:
     tags:
       - v*
-  # Dispatch from master. The release environment must allow that branch; tag pushes
-  # still use the v* tag policy. GoReleaser does not run on this event.
+  # Dispatch from the default branch. The release environment must allow that
+  # branch; tag pushes still use the v* tag policy. GoReleaser does not run on this event.
   workflow_dispatch:
     inputs:
       tag:
@@ -53,7 +53,7 @@ jobs:
   winget:
     name: Winget
     needs: release
-    if: ${{ always() && !cancelled() && (needs.release.result == 'success' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master' && needs.release.result == 'skipped' && inputs.winget)) }}
+    if: ${{ always() && !cancelled() && (needs.release.result == 'success' || (github.event_name == 'workflow_dispatch' && github.ref_name == github.event.repository.default_branch && needs.release.result == 'skipped' && inputs.winget)) }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: release
@@ -99,7 +99,7 @@ jobs:
   chocolatey:
     name: Chocolatey
     needs: release
-    if: ${{ always() && !cancelled() && (needs.release.result == 'success' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master' && needs.release.result == 'skipped' && inputs.chocolatey)) }}
+    if: ${{ always() && !cancelled() && (needs.release.result == 'success' || (github.event_name == 'workflow_dispatch' && github.ref_name == github.event.repository.default_branch && needs.release.result == 'skipped' && inputs.chocolatey)) }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: release
@@ -152,18 +152,19 @@ jobs:
       actions: write
     steps:
       # promote only allows protected branches, so the app token is minted by
-      # tag-gh-act.yml on master. This job waits so a tagging failure still fails the release.
+      # tag-gh-act.yml on the default branch. This job waits so a tagging failure still fails the release.
       # Package publishing is a separate job, so a Winget or Chocolatey failure does not block this tag.
       - name: Create gh-act tag
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
           TAG: ${{ github.ref }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
           set -euo pipefail
           # No checkout in this job, so gh needs GH_REPO. The dispatch API returns
           # the created run URL; watch that id instead of guessing from timestamps.
-          run_url=$(gh workflow run tag-gh-act.yml --ref master -f tag="$TAG")
+          run_url=$(gh workflow run tag-gh-act.yml --ref "$DEFAULT_BRANCH" -f tag="$TAG")
           run_id=$(printf '%s\n' "$run_url" | sed -n 's#.*/actions/runs/\([0-9][0-9]*\).*#\1#p' | head -n 1)
           if [ -z "${run_id}" ]; then
             echo "workflow dispatch did not return a run id: ${run_url}" >&2

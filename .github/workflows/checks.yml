@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - master
+      - main
 
 permissions:
   contents: read
@@ -98,7 +98,7 @@ jobs:
           version: v2.11.4
       - uses: megalinter/megalinter/flavors/go@ec124f7998718d79379a3c5b39f5359952baf21d # v8.4.2
         env:
-          DEFAULT_BRANCH: master
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VALIDATE_ALL_CODEBASE: false
           GITHUB_STATUS_REPORTER: ${{ !env.ACT }}

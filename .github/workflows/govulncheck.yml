@@ -3,7 +3,7 @@ name: govulncheck
 on:
   pull_request:
   push:
-    branches: [master]
+    branches: [main]
   schedule:
     - cron: '11 6 * * 1'
   workflow_dispatch:

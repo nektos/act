@@ -31,7 +31,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: true
-          ref: master
+          ref: ${{ github.event.repository.default_branch }}
           token: ${{ steps.app-token.outputs.token }}
       - uses: fregante/setup-git-user@024bc0b8e177d7e77203b48dab6fb45666854b35 # v2.0.2
         if: steps.checkout.conclusion != 'skipped'
@@ -42,3 +42,5 @@ jobs:
           cache: false
       - run: make promote
         if: steps.checkout.conclusion != 'skipped'
+        env:
+          PROMOTE_BRANCH: ${{ github.event.repository.default_branch }}

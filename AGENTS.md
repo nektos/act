@@ -13,7 +13,7 @@ Act runs GitHub Actions locally. It reads `.github/workflows/`, builds an execut
 - `make format` — `go fmt ./...`
 - `make tidy` — `go mod tidy`
 - `make pr` — tidy, format-all, lint, and test
-- `make promote` — fetch tags, then tag the next patch release when `master` is ahead of the last release. A clean HEAD whose release tag is already on `origin` logs that and exits 0. A dirty worktree (including untracked files), a missing release tag, or a failed push still fails. A release tag that exists only locally is pushed.
+- `make promote` — fetch tags, then tag the next patch release when the current branch is ahead of the last release. `promote.yml` sets `PROMOTE_BRANCH` to the repository default branch (`main` after the rename). A clean HEAD whose release tag is already on `origin` logs that and exits 0. A dirty worktree (including untracked files), a missing release tag, or a failed push still fails. A release tag that exists only locally is pushed.
 - `make snapshot` — local GoReleaser snapshot (`goreleaser build --clean --single-target --snapshot`)
 - `go test ./pkg/runner/ -run TestRunEvent` — run a single test
 
