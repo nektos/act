@@ -203,6 +203,8 @@ func TestLinuxShardHashAssignsEachTestOnce(t *testing.T) {
 }
 
 func TestLinuxShardFromEnv(t *testing.T) {
+	// CI sets ACT_TEST_LINUX_SHARD on the job, so the disabled case must clear it.
+	t.Setenv("ACT_TEST_LINUX_SHARD", "")
 	idx, n, enabled, err := linuxShardFromEnv()
 	assert.NoError(t, err)
 	assert.False(t, enabled)
