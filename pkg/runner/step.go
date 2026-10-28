@@ -92,6 +92,27 @@ func processRunnerEnvFileCommand(ctx context.Context, fileName string, rc *RunCo
 	return nil
 }
 
+// processRunnerGithubEnvFileCommand applies GITHUB_ENV and fails for names
+// that GitHub's runner refuses.
+func processRunnerGithubEnvFileCommand(ctx context.Context, fileName string, rc *RunContext) error {
+	var errs []error
+	err := processRunnerEnvFileCommand(ctx, fileName, rc, func(ctx context.Context, kvPairs map[string]string, arg string) {
+		if name := kvPairs["name"]; isBlockedEnvName(name) {
+			errs = append(errs, fmt.Errorf("Can't store %s output parameter using '$GITHUB_ENV' command", name))
+			return
+		}
+		rc.setEnv(ctx, kvPairs, arg)
+	})
+	return errors.Join(append(errs, err)...)
+}
+
+// isBlockedEnvName reports whether a step may not set name for later steps.
+// GitHub's runner refuses NODE_OPTIONS because it changes how every later
+// JavaScript action starts.
+func isBlockedEnvName(name string) bool {
+	return strings.EqualFold(name, "NODE_OPTIONS")
+}
+
 func runStepExecutor(step step, stage stepStage, executor common.Executor) common.Executor {
 	return func(ctx context.Context) error {
 		logger := common.Logger(ctx)
@@ -206,7 +227,7 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 		}
 		// Process Runner File Commands
 		ferrors := []error{err}
-		ferrors = append(ferrors, processRunnerEnvFileCommand(ctx, envFileCommand, rc, rc.setEnv))
+		ferrors = append(ferrors, processRunnerGithubEnvFileCommand(ctx, envFileCommand, rc))
 		ferrors = append(ferrors, processRunnerEnvFileCommand(ctx, stateFileCommand, rc, rc.saveState))
 		ferrors = append(ferrors, processRunnerEnvFileCommand(ctx, outputFileCommand, rc, rc.setOutput))
 		ferrors = append(ferrors, processRunnerSummaryCommand(ctx, summaryFileCommand, rc))
