@@ -9,7 +9,7 @@
     <title>act (GitHub Actions CLI)</title>
     <authors>nektos</authors>
     <projectUrl>https://github.com/nektos/act</projectUrl>
-    <iconUrl>https://raw.githubusercontent.com/wiki/nektos/act/img/logo-150.png</iconUrl>
+    <iconUrl>https://raw.githubusercontent.com/nektos/act/main/docs/img/act-logo.svg</iconUrl>
     <copyright>Nektos</copyright>
     <licenseUrl>https://raw.githubusercontent.com/nektos/act/main/LICENSE</licenseUrl>
     <requireLicenseAcceptance>true</requireLicenseAcceptance>
