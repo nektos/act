@@ -100,6 +100,9 @@ installer:
 	"$$tmpdir/bin/godownloader" -r nektos/act -o install.sh
 
 .PHONY: promote
+# PROMOTE_BRANCH is the branch that receives the release commit. promote.yml
+# sets it to the repository default branch. A local run uses the current
+# branch. Only master and main are accepted, so this cannot create another ref.
 promote:
 	@git fetch origin --tags
 	@if [ -n "$$(git status -s)" ]; then \
@@ -107,6 +110,11 @@ promote:
 		exit 1; \
 	fi
 	@set -eu; \
+	branch="$${PROMOTE_BRANCH:-$$(git rev-parse --abbrev-ref HEAD)}"; \
+	case "$$branch" in \
+		master|main) ;; \
+		*) echo "Unable to promote branch '$$branch' (expected master or main)"; exit 1 ;; \
+	esac; \
 	if git describe --tags --exact-match >/dev/null 2>&1; then \
 		tag=$$(git describe --tags --exact-match); \
 		version=$${tag#v}; \
@@ -117,7 +125,7 @@ promote:
 			exit 0; \
 		fi; \
 		echo "Release tag $$tag is not on origin at this commit; pushing"; \
-		git push origin master; \
+		git push origin "HEAD:refs/heads/$$branch"; \
 		git push origin "$$tag"; \
 		exit 0; \
 	fi; \
@@ -135,7 +143,7 @@ promote:
 	git add VERSION; \
 	git commit -m "chore: bump VERSION to $$new_version"; \
 	git tag -a -m "releasing v$$new_version" "v$$new_version"; \
-	git push origin master; \
+	git push origin "HEAD:refs/heads/$$branch"; \
 	git push origin "v$$new_version"
 
 .PHONY: snapshot

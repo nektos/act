@@ -9,8 +9,10 @@ reviews:
   auto_review:
     enabled: true
     drafts: false
-    # Patterns are unanchored regexes. Anchor so only master matches.
+    # Patterns are unanchored regexes. Anchor both names so reviews continue
+    # across the default-branch rename. Remove ^master$ once main is default.
     base_branches:
+      - "^main$"
       - "^master$"
   # Exclusions only. A pattern without "!" becomes an allowlist and drops every other file.
   path_filters:
