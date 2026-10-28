@@ -29,7 +29,7 @@ jobs:
     outputs:
       heavy: ${{ steps.filter.outputs.heavy }}
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -81,19 +81,19 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
           cache: true
           cache-dependency-path: go.sum
-      - uses: golangci/golangci-lint-action@1e7e51e771db61008b38414a730f564565cf7c20 # v9.2.0
+      - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
         with:
           version: v2.11.4
-      - uses: megalinter/megalinter/flavors/go@ec124f7998718d79379a3c5b39f5359952baf21d # v8.4.2
+      - uses: megalinter/megalinter/flavors/go@9949bad031045f366be2467e00e8371a7328a2e2 # v10.1.0
         env:
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
           VALIDATE_ALL_CODEBASE: false
@@ -122,7 +122,7 @@ jobs:
         env:
           SHARD: ${{ matrix.shard }}
         run: echo "Documentation-only change; skipping test-linux shard ${SHARD}"
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: needs.changes.outputs.heavy == 'true'
         with:
           fetch-depth: 2
@@ -130,7 +130,7 @@ jobs:
       # QEMU is only required for TestRunDifferentArchitecture, pinned to shard 0.
       - name: Set up QEMU
         if: needs.changes.outputs.heavy == 'true' && matrix.shard == '0'
-        uses: docker/setup-qemu-action@ce360397dd3f832beb865e1373c09c0e9f86d70a # v4.0.0
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
       # Shell steps do not receive the Actions cache token. This action re-exports
       # ACTIONS_RUNTIME_TOKEN and ACTIONS_CACHE_URL / ACTIONS_RESULTS_URL for buildx.
       - name: Expose GitHub Actions runtime
@@ -142,7 +142,7 @@ jobs:
       - name: Cache fixture images
         if: needs.changes.outputs.heavy == 'true'
         run: .github/ci/cache-fixtures.sh
-      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         if: needs.changes.outputs.heavy == 'true'
         with:
           go-version-file: go.mod
@@ -161,7 +161,7 @@ jobs:
         if: needs.changes.outputs.heavy == 'true'
         run: .github/ci/run-linux-tests.sh
       - name: Test Summary
-        uses: test-summary/action@31493c76ec9e7aa675f1585d3ed6f1da69269a86 # v2.4
+        uses: test-summary/action@37b508cfee6d4d080eedd00b5bb240a6a784a6a5 # v2.6
         with:
           paths: unit-tests.xml
         if: always() && needs.changes.outputs.heavy == 'true'
@@ -173,7 +173,7 @@ jobs:
         run: go run -tags WITHOUT_DOCKER main.go -P ubuntu-latest=-self-hosted -C ./pkg/runner/testdata/ -W ./local-action-js/push.yml
       - name: Upload Codecov report
         if: needs.changes.outputs.heavy == 'true'
-        uses: codecov/codecov-action@0fb7174895f61a3b6b78fc075e0cd60383518dac # v5.5.5
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
           files: coverage.txt
           flags: linux-${{ matrix.shard }}
@@ -225,12 +225,12 @@ jobs:
           RUNNER_LABEL: ${{ matrix.os }}
         shell: bash
         run: echo "Documentation-only change; skipping host tests for ${RUNNER_LABEL}"
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: needs.changes.outputs.heavy == 'true'
         with:
           fetch-depth: 2
           persist-credentials: false
-      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         if: needs.changes.outputs.heavy == 'true'
         with:
           go-version-file: go.mod
@@ -248,7 +248,7 @@ jobs:
             -- -v -cover -coverpkg=./... -coverprofile=coverage.txt -covermode=atomic -timeout 20m -run '^TestRunEventHostEnvironment$'
         shell: bash
       - name: Test Summary
-        uses: test-summary/action@31493c76ec9e7aa675f1585d3ed6f1da69269a86 # v2.4
+        uses: test-summary/action@37b508cfee6d4d080eedd00b5bb240a6a784a6a5 # v2.6
         with:
           paths: 'unit-tests.xml'
         if: always() && needs.changes.outputs.heavy == 'true'
@@ -264,11 +264,11 @@ jobs:
       - name: Documentation-only change
         if: needs.changes.outputs.heavy != 'true'
         run: echo "Documentation-only change; skipping snapshot"
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: needs.changes.outputs.heavy == 'true'
         with:
           persist-credentials: false
-      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         if: needs.changes.outputs.heavy == 'true'
         with:
           go-version-file: go.mod
@@ -277,7 +277,7 @@ jobs:
           cache: false
       - name: GoReleaser
         if: needs.changes.outputs.heavy == 'true'
-        uses: goreleaser/goreleaser-action@ec59f474b9834571250b370d4735c50f8e2d1e29 # v7.0.0
+        uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7.3.0
         with:
           version: v2.19.0
           args: release --snapshot --clean
