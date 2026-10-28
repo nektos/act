@@ -55,7 +55,11 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      # Verify a download with: gh attestation verify <file> --repo nektos/act
+      # GoReleaser leaves the release as a draft (.goreleaser.yml) so it is
+      # published only after attestation succeeds. A rerun reuses the draft.
+      # Verify a download with:
+      #   gh attestation verify <file> --repo nektos/act \
+      #     --signer-workflow nektos/act/.github/workflows/release.yml --source-ref refs/tags/<tag>
       - name: Attest build provenance
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
@@ -63,6 +67,12 @@ jobs:
             dist/*.tar.gz
             dist/*.zip
             dist/checksums.txt
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: gh release edit "$TAG" --draft=false
   winget:
     name: Winget
     needs: release
