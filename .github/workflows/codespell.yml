@@ -8,6 +8,10 @@ on:
   pull_request:
     branches: [master]
 
+concurrency:
+  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.ref }}
+
 permissions:
   contents: read
 
@@ -15,6 +19,7 @@ jobs:
   codespell:
     name: Check for spelling errors
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout

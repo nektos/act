@@ -37,6 +37,9 @@ func TestListOptions(t *testing.T) {
 }
 
 func TestRun(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
 	rootCmd := createRootCommand(context.Background(), &Input{}, "")
 	err := newRunCommand(context.Background(), &Input{
 		platforms:     []string{"ubuntu-latest=node:16-buster-slim"},
@@ -47,6 +50,9 @@ func TestRun(t *testing.T) {
 }
 
 func TestRunPush(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
 	rootCmd := createRootCommand(context.Background(), &Input{}, "")
 	err := newRunCommand(context.Background(), &Input{
 		platforms:     []string{"ubuntu-latest=node:16-buster-slim"},
@@ -57,6 +63,9 @@ func TestRunPush(t *testing.T) {
 }
 
 func TestRunPushJsonLogger(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
 	rootCmd := createRootCommand(context.Background(), &Input{}, "")
 	err := newRunCommand(context.Background(), &Input{
 		platforms:     []string{"ubuntu-latest=node:16-buster-slim"},
@@ -70,6 +79,9 @@ func TestRunPushJsonLogger(t *testing.T) {
 func TestFlags(t *testing.T) {
 	for _, f := range []string{"graph", "list", "bug-report", "man-page"} {
 		t.Run("TestFlag-"+f, func(t *testing.T) {
+			if testing.Short() && f == "bug-report" {
+				t.Skip("skipping integration test")
+			}
 			rootCmd := createRootCommand(context.Background(), &Input{}, "")
 			err := rootCmd.Flags().Set(f, "true")
 			assert.NoError(t, err)

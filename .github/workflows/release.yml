@@ -12,6 +12,7 @@ jobs:
   release:
     name: release
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     environment: release
     steps:
       - uses: actions/checkout@v6

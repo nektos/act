@@ -53,6 +53,7 @@ When submitting code, please make every effort to follow existing conventions an
   - Advanced IDEs and code editors (like VSCode) will take care of that, but to be sure, run `go mod tidy` to validate dependencies.
 - For details on the approved style, check out [Effective Go](https://golang.org/doc/effective_go.html).
 - Before running tests, please be aware that they are multi-architecture so for them to not fail, you need to run `docker run --privileged --rm tonistiigi/binfmt --install amd64,arm64` before ([more info available in #765](https://github.com/nektos/act/issues/765)).
+- `make test-fast` runs `go test -short ./...` and skips Docker-dependent integration tests.
 
 Also, consider the original design principles:
 

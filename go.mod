@@ -19,7 +19,6 @@ require (
 	github.com/moby/patternmatcher v0.6.0
 	github.com/opencontainers/image-spec v1.1.1
 	github.com/opencontainers/selinux v1.13.1
-	github.com/pkg/errors v0.9.1
 	github.com/rhysd/actionlint v1.7.7
 	github.com/sabhiram/go-gitignore v0.0.0-20210923224102-525f6e181f06
 	github.com/sirupsen/logrus v1.9.3

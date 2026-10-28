@@ -1,6 +1,9 @@
 name: checks
 on: [pull_request, workflow_dispatch]
 
+permissions:
+  contents: read
+
 concurrency:
   cancel-in-progress: true
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -11,9 +14,68 @@ env:
   CGO_ENABLED: 0
 
 jobs:
+  # Docs-only pull requests skip test-linux, test-host, and snapshot.
+  # Those jobs still run and pass so required check names stay in place.
+  changes:
+    name: changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      heavy: ${{ steps.filter.outputs.heavy }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Detect non-doc changes
+        id: filter
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" != "pull_request" ]; then
+            echo "heavy=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if ! git cat-file -e "$BASE_SHA^{commit}" 2>/dev/null || ! git cat-file -e "$HEAD_SHA^{commit}" 2>/dev/null; then
+            echo "Could not resolve pull request commits; running heavy jobs"
+            echo "heavy=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if ! files="$(git diff --name-only "${BASE_SHA}...${HEAD_SHA}")"; then
+            echo "git diff failed; running heavy jobs"
+            echo "heavy=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ -z "$files" ]; then
+            echo "No changed files detected; running heavy jobs"
+            echo "heavy=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          heavy=false
+          while IFS= read -r f; do
+            [ -z "$f" ] && continue
+            case "$f" in
+              *.md|*.markdown|*.png|*.gif|*.svg|*.jpg|*.jpeg|docs/*|LICENSE*|CODE_OF_CONDUCT*|SECURITY.md|.github/ISSUE_TEMPLATE/*|.github/DISCUSSION_TEMPLATE/*)
+                ;;
+              *)
+                heavy=true
+                break
+                ;;
+            esac
+          done < <(printf '%s\n' "$files")
+          echo "heavy=$heavy" >> "$GITHUB_OUTPUT"
+
   lint:
     name: lint
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+      statuses: write
     steps:
       - uses: actions/checkout@v6
         with:
@@ -34,35 +96,48 @@ jobs:
 
   test-linux:
     name: test-linux
+    needs: changes
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
+      - name: Documentation-only change
+        if: needs.changes.outputs.heavy != 'true'
+        run: echo "Documentation-only change; skipping test-linux"
       - uses: actions/checkout@v6
+        if: needs.changes.outputs.heavy == 'true'
         with:
           fetch-depth: 2
       - name: Set up QEMU
+        if: needs.changes.outputs.heavy == 'true'
         uses: docker/setup-qemu-action@ce360397dd3f832beb865e1373c09c0e9f86d70a # v4
       - uses: actions/setup-go@v6
+        if: needs.changes.outputs.heavy == 'true'
         with:
           go-version-file: go.mod
       - name: Run Tests
-        run: go run gotest.tools/gotestsum@latest --junitfile unit-tests.xml --format pkgname -- -v -cover -coverpkg=./... -coverprofile=coverage.txt -covermode=atomic -timeout 20m ./...
+        if: needs.changes.outputs.heavy == 'true'
+        run: go run gotest.tools/gotestsum@v1.13.0 --junitfile unit-tests.xml --format pkgname -- -v -cover -coverpkg=./... -coverprofile=coverage.txt -covermode=atomic -timeout 20m ./...
       - name: Test Summary
         uses: test-summary/action@31493c76ec9e7aa675f1585d3ed6f1da69269a86 # v2.4
         with:
           paths: 'unit-tests.xml'
-        if: always()
+        if: always() && needs.changes.outputs.heavy == 'true'
       - name: Run act from cli
+        if: needs.changes.outputs.heavy == 'true'
         run: go run main.go -P ubuntu-latest=node:16-buster-slim -C ./pkg/runner/testdata/ -W ./basic/push.yml
       - name: Run act from cli without docker support
+        if: needs.changes.outputs.heavy == 'true'
         run: go run -tags WITHOUT_DOCKER main.go -P ubuntu-latest=-self-hosted -C ./pkg/runner/testdata/ -W ./local-action-js/push.yml
       - name: Upload Codecov report
-        uses: codecov/codecov-action@1af58845a975a7985b0beb0cbe6fbbb71a41dbad # v5
+        if: needs.changes.outputs.heavy == 'true'
+        uses: codecov/codecov-action@0fb7174895f61a3b6b78fc075e0cd60383518dac # v5.5.5
         with:
           files: coverage.txt
           fail_ci_if_error: true # optional (default = false)
           token: ${{ secrets.CODECOV_TOKEN }}
 
   test-host:
+    needs: changes
     strategy:
       matrix:
         os:
@@ -70,108 +145,127 @@ jobs:
           - macos-latest
     name: test-host-${{matrix.os}}
     runs-on: ${{matrix.os}}
+    timeout-minutes: 45
     steps:
+      - name: Documentation-only change
+        if: needs.changes.outputs.heavy != 'true'
+        run: echo "Documentation-only change; skipping host tests for ${{ matrix.os }}"
       - uses: actions/checkout@v6
+        if: needs.changes.outputs.heavy == 'true'
         with:
           fetch-depth: 2
       - uses: actions/setup-go@v6
+        if: needs.changes.outputs.heavy == 'true'
         with:
           go-version-file: go.mod
       - name: Run Tests
-        run: go run gotest.tools/gotestsum@latest --junitfile unit-tests.xml --format pkgname -- -v -cover -coverpkg=./... -coverprofile=coverage.txt -covermode=atomic -timeout 20m -run ^TestRunEventHostEnvironment$ ./...
+        if: needs.changes.outputs.heavy == 'true'
+        run: go run gotest.tools/gotestsum@v1.13.0 --junitfile unit-tests.xml --format pkgname -- -v -cover -coverpkg=./... -coverprofile=coverage.txt -covermode=atomic -timeout 20m -run ^TestRunEventHostEnvironment$ ./...
         shell: bash
       - name: Test Summary
         uses: test-summary/action@31493c76ec9e7aa675f1585d3ed6f1da69269a86 # v2.4
         with:
           paths: 'unit-tests.xml'
-        if: always()
+        if: always() && needs.changes.outputs.heavy == 'true'
 
   snapshot:
     name: snapshot
+    needs: changes
     runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      actions: write
     steps:
+      - name: Documentation-only change
+        if: needs.changes.outputs.heavy != 'true'
+        run: echo "Documentation-only change; skipping snapshot"
       - uses: actions/checkout@v6
+        if: needs.changes.outputs.heavy == 'true'
       - uses: actions/setup-go@v6
+        if: needs.changes.outputs.heavy == 'true'
         with:
           go-version-file: go.mod
       - name: GoReleaser
+        if: needs.changes.outputs.heavy == 'true'
         uses: goreleaser/goreleaser-action@ec59f474b9834571250b370d4735c50f8e2d1e29 # v7
         with:
           version: '~> v2'
           args: release --snapshot --clean
       - name: Capture x86_64 (64-bit) Linux binary
-        if: ${{ !env.ACT }}
+        if: ${{ needs.changes.outputs.heavy == 'true' && !env.ACT }}
         uses: actions/upload-artifact@v7
         with:
           name: act-linux-amd64
           path: dist/act_linux_amd64_v1/act
       - name: Capture i386 (32-bit) Linux binary
-        if: ${{ !env.ACT }}
+        if: ${{ needs.changes.outputs.heavy == 'true' && !env.ACT }}
         uses: actions/upload-artifact@v7
         with:
           name: act-linux-i386
           path: dist/act_linux_386/act
       - name: Capture arm64 (64-bit) Linux binary
-        if: ${{ !env.ACT }}
+        if: ${{ needs.changes.outputs.heavy == 'true' && !env.ACT }}
         uses: actions/upload-artifact@v7
         with:
           name: act-linux-arm64
           path: dist/act_linux_arm64/act
       - name: Capture armv6 (32-bit) Linux binary
-        if: ${{ !env.ACT }}
+        if: ${{ needs.changes.outputs.heavy == 'true' && !env.ACT }}
         uses: actions/upload-artifact@v7
         with:
           name: act-linux-armv6
           path: dist/act_linux_arm_6/act
       - name: Capture armv7 (32-bit) Linux binary
-        if: ${{ !env.ACT }}
+        if: ${{ needs.changes.outputs.heavy == 'true' && !env.ACT }}
         uses: actions/upload-artifact@v7
         with:
           name: act-linux-armv7
           path: dist/act_linux_arm_7/act
       - name: Capture riscv64 (64-bit) Linux binary
-        if: ${{ !env.ACT }}
+        if: ${{ needs.changes.outputs.heavy == 'true' && !env.ACT }}
         uses: actions/upload-artifact@v7
         with:
           name: act-linux-riscv64
           path: dist/act_linux_riscv64/act
       - name: Capture x86_64 (64-bit) Windows binary
-        if: ${{ !env.ACT }}
+        if: ${{ needs.changes.outputs.heavy == 'true' && !env.ACT }}
         uses: actions/upload-artifact@v7
         with:
           name: act-windows-amd64
           path: dist/act_windows_amd64_v1/act.exe
       - name: Capture i386 (32-bit) Windows binary
-        if: ${{ !env.ACT }}
+        if: ${{ needs.changes.outputs.heavy == 'true' && !env.ACT }}
         uses: actions/upload-artifact@v7
         with:
           name: act-windows-i386
           path: dist/act_windows_386/act.exe
       - name: Capture arm64 (64-bit) Windows binary
-        if: ${{ !env.ACT }}
+        if: ${{ needs.changes.outputs.heavy == 'true' && !env.ACT }}
         uses: actions/upload-artifact@v7
         with:
           name: act-windows-arm64
           path: dist/act_windows_arm64/act.exe
       - name: Capture armv7 (32-bit) Windows binary
-        if: ${{ !env.ACT }}
+        if: ${{ needs.changes.outputs.heavy == 'true' && !env.ACT }}
         uses: actions/upload-artifact@v7
         with:
           name: act-windows-armv7
           path: dist/act_windows_arm_7/act.exe
       - name: Capture x86_64 (64-bit) MacOS binary
-        if: ${{ !env.ACT }}
+        if: ${{ needs.changes.outputs.heavy == 'true' && !env.ACT }}
         uses: actions/upload-artifact@v7
         with:
           name: act-macos-amd64
           path: dist/act_darwin_amd64_v1/act
       - name: Capture arm64 (64-bit) MacOS binary
-        if: ${{ !env.ACT }}
+        if: ${{ needs.changes.outputs.heavy == 'true' && !env.ACT }}
         uses: actions/upload-artifact@v7
         with:
           name: act-macos-arm64
           path: dist/act_darwin_arm64/act
       - name: Chocolatey
+        if: needs.changes.outputs.heavy == 'true'
         uses: ./.github/actions/choco
         with:
           version: v0.0.0-pr
