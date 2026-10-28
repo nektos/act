@@ -211,6 +211,32 @@ func TestServerV4SignedURLs(t *testing.T) {
 	assert.True(t, os.IsNotExist(err))
 }
 
+func TestV4SignatureFieldsAreNotInterchangeable(t *testing.T) {
+	route := &artifactV4Routes{
+		rfs:        fstest.MapFS{},
+		baseDir:    t.TempDir(),
+		prefix:     ArtifactV4RouteBase,
+		signingKey: newSigningKey(),
+		AppURL:     "localhost",
+	}
+	signed := route.buildArtifactURL("DownloadArtifact", "a1", 2)
+	untampered := httptest.NewRequest(http.MethodGet, signed, nil)
+	okRR := httptest.NewRecorder()
+	route.downloadArtifact(&ArtifactContext{Req: untampered, Resp: okRR})
+	assert.Equal(t, http.StatusNotFound, okRR.Code)
+
+	parsed, err := url.Parse(signed)
+	require.NoError(t, err)
+	query := parsed.Query()
+	query.Set("artifactName", "a")
+	query.Set("taskID", "12")
+	parsed.RawQuery = query.Encode()
+	tampered := httptest.NewRequest(http.MethodGet, parsed.String(), nil)
+	rr := httptest.NewRecorder()
+	route.downloadArtifact(&ArtifactContext{Req: tampered, Resp: rr})
+	assert.Equal(t, http.StatusUnauthorized, rr.Code)
+}
+
 func TestV4DownloadMissingArtifact(t *testing.T) {
 	route := &artifactV4Routes{
 		rfs:        fstest.MapFS{},

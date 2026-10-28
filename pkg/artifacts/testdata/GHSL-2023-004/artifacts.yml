@@ -15,7 +15,8 @@ jobs:
           code=$(curl --silent --output /dev/null --write-out '%{http_code}' -H "Authorization: Bearer ${ACTIONS_RUNTIME_TOKEN}" --upload-file test.txt "${ACTIONS_RUNTIME_URL}upload/1?itemPath=../../my-artifact/secret.txt")
           [ "$code" = "400" ]
       - name: normal upload
-        run: curl --silent --show-error --fail -H "Authorization: Bearer ${ACTIONS_RUNTIME_TOKEN}" --upload-file test.txt "${ACTIONS_RUNTIME_URL}upload/1?itemPath=my-artifact/secret.txt"
+        run: |
+          curl --silent --show-error --fail -H "Authorization: Bearer ${ACTIONS_RUNTIME_TOKEN}" --upload-file test.txt "${ACTIONS_RUNTIME_URL}upload/1?itemPath=my-artifact/secret.txt"
       - uses: actions/download-artifact@v2
         with:
           name: my-artifact

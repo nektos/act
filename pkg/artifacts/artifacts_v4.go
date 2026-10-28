@@ -225,10 +225,12 @@ func (r *artifactV4Routes) artifactZipPath(runID int64, name string) (string, bo
 
 func (r artifactV4Routes) buildSignature(endp, expires, artifactName string, taskID int64) []byte {
 	mac := hmac.New(sha256.New, r.signingKey)
-	mac.Write([]byte(endp))
-	mac.Write([]byte(expires))
-	mac.Write([]byte(artifactName))
-	mac.Write([]byte(fmt.Sprint(taskID)))
+	// Length-prefix each field so adjacent values cannot be rearranged into the same input.
+	for _, field := range []string{endp, expires, artifactName, strconv.FormatInt(taskID, 10)} {
+		mac.Write([]byte(strconv.Itoa(len(field))))
+		mac.Write([]byte{0})
+		mac.Write([]byte(field))
+	}
 	return mac.Sum(nil)
 }
 
