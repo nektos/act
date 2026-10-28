@@ -14,7 +14,8 @@ endif
 
 ACT ?= go run main.go
 
-HAS_TOKEN = $(if $(test -e ~/.config/github/token),true,false)
+# $(test ...) is not a Make function, so the previous line always expanded to false.
+HAS_TOKEN = $(shell if test -e ~/.config/github/token; then echo true; else echo false; fi)
 ifeq (true,$(HAS_TOKEN))
 	export GITHUB_TOKEN := $(shell cat ~/.config/github/token)
 endif
@@ -39,6 +40,12 @@ format-all:
 test:
 	go test ./...
 	$(ACT)
+
+# Unit tests only. -short skips Docker integration tests (see testing.Short() in
+# pkg/runner and pkg/container). Does not need a Docker daemon.
+.PHONY: test-fast
+test-fast:
+	go test -short ./...
 
 .PHONY: lint-go
 lint-go:
@@ -90,19 +97,20 @@ promote:
 	@git fetch --tags
 	@echo "VERSION:$(VERSION) IS_SNAPSHOT:$(IS_SNAPSHOT) NEW_VERSION:$(NEW_VERSION)"
 ifeq (false,$(IS_SNAPSHOT))
-	@echo "Unable to promote a non-snapshot"
-	@exit 1
-endif
+	@echo "Nothing to promote: $(VERSION) is already a release (no new commits since the last tag)"
+else
 ifneq ($(shell git status -s),)
 	@echo "Unable to promote a dirty workspace"
 	@exit 1
-endif
+else
 	echo -n $(NEW_VERSION) > VERSION
 	git add VERSION
 	git commit -m "chore: bump VERSION to $(NEW_VERSION)"
 	git tag -a -m "releasing v$(NEW_VERSION)" v$(NEW_VERSION)
 	git push origin master
 	git push origin v$(NEW_VERSION)
+endif
+endif
 
 .PHONY: snapshot
 snapshot:

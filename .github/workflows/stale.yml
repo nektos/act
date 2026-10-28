@@ -6,6 +6,7 @@ jobs:
   stale:
     name: Stale
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/stale@v9
         with:

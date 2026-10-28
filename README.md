@@ -35,7 +35,8 @@ Want to contribute to act? Awesome! Check out the [contributing guidelines](CONT
 
 ## Manually building from source
 
-- Install Go tools 1.20+ - (<https://golang.org/doc/install>)
+- Install Go (version in `go.mod`, currently 1.26.0) - (<https://golang.org/doc/install>)
 - Clone this repo `git clone git@github.com:nektos/act.git`
-- Run unit tests with `make test`
+- Run unit tests with `make test` (requires Docker)
+- Run fast tests without Docker with `make test-fast`
 - Build and install: `make install`
