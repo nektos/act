@@ -1,0 +1,15 @@
+name: matrix-container
+on: push
+jobs:
+  test:
+    strategy:
+      matrix:
+        include:
+          - container:
+              image: ghcr.io/catthehacker/ubuntu:act-latest
+          - container:
+              image: ghcr.io/catthehacker/ubuntu:act-latest
+    runs-on: ubuntu-latest
+    container: ${{ matrix.container }}
+    steps:
+      - run: echo "resolved container image OK"

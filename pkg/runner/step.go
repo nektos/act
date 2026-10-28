@@ -272,9 +272,8 @@ func setupEnv(ctx context.Context, step step) error {
 func mergeEnv(ctx context.Context, step step) {
 	env := step.getEnv()
 	rc := step.getRunContext()
-	job := rc.Run.Job()
 
-	c := job.Container()
+	c := rc.resolveJobContainer(ctx)
 	if c != nil {
 		mergeIntoMap(step, env, rc.GetEnv(), c.Env)
 	} else {

@@ -26,6 +26,7 @@ import (
 	"github.com/nektos/act/pkg/exprparser"
 	"github.com/nektos/act/pkg/model"
 	"github.com/opencontainers/selinux/go-selinux"
+	yaml "gopkg.in/yaml.v3"
 )
 
 // RunContext contains info about current job
@@ -53,6 +54,8 @@ type RunContext struct {
 	caller              *caller // job calling this RunContext (reusable workflows)
 	Cancelled           bool
 	nodeToolFullPath    string
+
+	resolvedJobContainer *resolvedContainer // memoized per-cell resolved container
 }
 
 func (rc *RunContext) AddMask(mask string) {
@@ -124,7 +127,7 @@ func getDockerDaemonSocketMountPath(daemonPath string) string {
 }
 
 // Returns the binds and mounts for the container, resolving paths as appropriate
-func (rc *RunContext) GetBindsAndMounts() ([]string, map[string]string) {
+func (rc *RunContext) GetBindsAndMounts(ctx context.Context) ([]string, map[string]string) {
 	name := rc.jobContainerName()
 
 	if rc.Config.ContainerDaemonSocket == "" {
@@ -153,7 +156,7 @@ func (rc *RunContext) GetBindsAndMounts() ([]string, map[string]string) {
 	}
 
 	if job := rc.Run.Job(); job != nil {
-		if container := job.Container(); container != nil {
+		if container := rc.resolveJobContainer(ctx); container != nil {
 			for _, v := range container.Volumes {
 				if !strings.Contains(v, ":") || filepath.IsAbs(v) {
 					// Bind anonymous volume or host file.
@@ -283,7 +286,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 		envList = append(envList, fmt.Sprintf("%s=%s", "LANG", "C.UTF-8")) // Use same locale as GitHub Actions
 
 		ext := container.LinuxContainerEnvironmentExtensions{}
-		binds, mounts := rc.GetBindsAndMounts()
+		binds, mounts := rc.GetBindsAndMounts(ctx)
 
 		// specify the network to which the container will connect when `docker create` stage. (like execute command line: docker create --network <networkName> <image>)
 		// if using service containers, will create a new network for the containers.
@@ -731,12 +734,74 @@ func (rc *RunContext) Executor() (common.Executor, error) {
 	}, nil
 }
 
-func (rc *RunContext) containerImage(ctx context.Context) string {
-	job := rc.Run.Job()
+// resolvedContainer distinguishes a memoized nil spec from a not-yet-resolved container.
+type resolvedContainer struct {
+	spec *model.ContainerSpec
+}
 
-	c := job.Container()
+func deepCopyYamlNode(n *yaml.Node) *yaml.Node {
+	if n == nil {
+		return nil
+	}
+	cp := *n
+	cp.Content = nil
+	if len(n.Content) > 0 {
+		cp.Content = make([]*yaml.Node, len(n.Content))
+		for i, child := range n.Content {
+			cp.Content[i] = deepCopyYamlNode(child)
+		}
+	}
+	if n.Alias != nil {
+		cp.Alias = deepCopyYamlNode(n.Alias)
+	}
+	return &cp
+}
+
+// resolveJobContainer evaluates the job container against this cell's context,
+// deep-copying RawContainer so parallel matrix cells never evaluate the shared node
+// in place. The result is memoized; nil means host execution.
+func (rc *RunContext) resolveJobContainer(ctx context.Context) *model.ContainerSpec {
+	if rc.resolvedJobContainer != nil {
+		return rc.resolvedJobContainer.spec
+	}
+
+	if rc.Run == nil {
+		rc.resolvedJobContainer = &resolvedContainer{spec: nil}
+		return nil
+	}
+	job := rc.Run.Job()
+	if job == nil {
+		rc.resolvedJobContainer = &resolvedContainer{spec: nil}
+		return nil
+	}
+
+	nodeCopy := deepCopyYamlNode(&job.RawContainer)
+	if nodeCopy == nil || nodeCopy.Kind == 0 {
+		rc.resolvedJobContainer = &resolvedContainer{spec: nil}
+		return nil
+	}
+
+	// A nil ExprEval (consumer reached before startJob) falls back to a pure
+	// decode of the un-evaluated node, matching Job.Container().
+	if rc.ExprEval != nil {
+		if err := rc.ExprEval.EvaluateYamlNode(ctx, nodeCopy); err != nil {
+			common.Logger(ctx).Errorf("Error while evaluating container: %v", err)
+			rc.resolvedJobContainer = &resolvedContainer{spec: nil}
+			return nil
+		}
+	}
+
+	spec := model.DecodeContainerNode(nodeCopy)
+	if rc.ExprEval != nil {
+		rc.resolvedJobContainer = &resolvedContainer{spec: spec}
+	}
+	return spec
+}
+
+func (rc *RunContext) containerImage(ctx context.Context) string {
+	c := rc.resolveJobContainer(ctx)
 	if c != nil {
-		return rc.ExprEval.Interpolate(ctx, c.Image)
+		return c.Image
 	}
 
 	return ""
@@ -781,10 +846,9 @@ func (rc *RunContext) platformImage(ctx context.Context) string {
 }
 
 func (rc *RunContext) options(ctx context.Context) string {
-	job := rc.Run.Job()
-	c := job.Container()
+	c := rc.resolveJobContainer(ctx)
 	if c != nil {
-		return rc.ExprEval.Interpolate(ctx, c.Options)
+		return c.Options
 	}
 
 	return rc.Config.ContainerOptions
@@ -1098,7 +1162,7 @@ func (rc *RunContext) handleCredentials(ctx context.Context) (string, string, er
 	username := rc.Config.Secrets["DOCKER_USERNAME"]
 	password := rc.Config.Secrets["DOCKER_PASSWORD"]
 
-	container := rc.Run.Job().Container()
+	container := rc.resolveJobContainer(ctx)
 	if container == nil || container.Credentials == nil {
 		return username, password, nil
 	}
