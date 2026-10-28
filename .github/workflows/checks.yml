@@ -1,6 +1,9 @@
 name: checks
 on: [pull_request, workflow_dispatch]
 
+permissions:
+  contents: read
+
 concurrency:
   cancel-in-progress: true
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -68,6 +71,11 @@ jobs:
     name: lint
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+      statuses: write
     steps:
       - uses: actions/checkout@v6
         with:
@@ -165,6 +173,9 @@ jobs:
     needs: changes
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    permissions:
+      contents: read
+      actions: write
     steps:
       - name: Documentation-only change
         if: needs.changes.outputs.heavy != 'true'

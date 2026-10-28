@@ -4,8 +4,9 @@ FROM ubuntu:24.04
 ARG GO_VERSION=1.26.0
 ARG GOLANGCI_LINT_VERSION=2.11.4
 
+# nodejs and npm provide npx for `make format-all` and `make pr`.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates curl git make gcc libc6-dev \
+    && apt-get install -y --no-install-recommends ca-certificates curl git make gcc libc6-dev nodejs npm \
     && rm -rf /var/lib/apt/lists/* \
     && arch="$(dpkg --print-architecture)" \
     && curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-${arch}.tar.gz" -o /tmp/go.tgz \

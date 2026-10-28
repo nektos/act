@@ -13,7 +13,7 @@ Act runs GitHub Actions locally. It reads `.github/workflows/`, builds an execut
 - `make format` — `go fmt ./...`
 - `make tidy` — `go mod tidy`
 - `make pr` — tidy, format-all, lint, and test
-- `make promote` — tag the next patch release when `master` is a snapshot (`git describe` contains `-`). If HEAD is already a release (no commits since the last tag), it logs that and exits 0. A dirty worktree or a failed push still fails.
+- `make promote` — fetch tags, then tag the next patch release when `master` is ahead of the last release. A clean HEAD whose release tag is already on `origin` logs that and exits 0. A dirty worktree (including untracked files), a missing release tag, or a failed push still fails. A release tag that exists only locally is pushed.
 - `make snapshot` — local GoReleaser snapshot (`goreleaser build --clean --single-target --snapshot`)
 - `go test ./pkg/runner/ -run TestRunEvent` — run a single test
 
@@ -78,4 +78,4 @@ docker run --privileged --rm tonistiigi/binfmt --install amd64,arm64
 
 ## Agent environment
 
-`.cursor/environment.json` builds an image with the Go version from `go.mod` and golangci-lint v2.11.4, matching CI.
+`.cursor/environment.json` builds an image with the Go version from `go.mod`, golangci-lint v2.11.4 (matching CI), and Node.js with npm so `make pr` can run `npx`.

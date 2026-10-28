@@ -94,23 +94,42 @@ installer:
 
 .PHONY: promote
 promote:
-	@git fetch --tags
-	@echo "VERSION:$(VERSION) IS_SNAPSHOT:$(IS_SNAPSHOT) NEW_VERSION:$(NEW_VERSION)"
-ifeq (false,$(IS_SNAPSHOT))
-	@echo "Nothing to promote: $(VERSION) is already a release (no new commits since the last tag)"
-else
-ifneq ($(shell git status -s),)
-	@echo "Unable to promote a dirty workspace"
-	@exit 1
-else
-	echo -n $(NEW_VERSION) > VERSION
-	git add VERSION
-	git commit -m "chore: bump VERSION to $(NEW_VERSION)"
-	git tag -a -m "releasing v$(NEW_VERSION)" v$(NEW_VERSION)
-	git push origin master
-	git push origin v$(NEW_VERSION)
-endif
-endif
+	@git fetch origin --tags
+	@if [ -n "$$(git status -s)" ]; then \
+		echo "Unable to promote a dirty workspace"; \
+		exit 1; \
+	fi
+	@set -eu; \
+	if git describe --tags --exact-match >/dev/null 2>&1; then \
+		tag=$$(git describe --tags --exact-match); \
+		version=$${tag#v}; \
+		local_sha=$$(git rev-parse "$$tag"); \
+		remote_sha=$$(git ls-remote origin "refs/tags/$$tag" | awk '{print $$1}'); \
+		if [ -n "$$remote_sha" ] && [ "$$remote_sha" = "$$local_sha" ]; then \
+			echo "Nothing to promote: $$version is already a release (no new commits since the last tag)"; \
+			exit 0; \
+		fi; \
+		echo "Release tag $$tag is not on origin at this commit; pushing"; \
+		git push origin master; \
+		git push origin "$$tag"; \
+		exit 0; \
+	fi; \
+	if ! git describe --tags >/dev/null 2>&1; then \
+		echo "Unable to promote: no release tag is reachable from HEAD"; \
+		exit 1; \
+	fi; \
+	version=$$(git describe --tags --always | sed -e 's/^v//'); \
+	major=$$(printf '%s\n' "$$version" | cut -d. -f1); \
+	minor=$$(printf '%s\n' "$$version" | cut -d. -f2); \
+	patch=$$(printf '%s\n' "$$version" | cut -d. -f3 | cut -d- -f1); \
+	new_version="$$major.$$minor.$$((patch + 1))"; \
+	echo "VERSION:$$version IS_SNAPSHOT:true NEW_VERSION:$$new_version"; \
+	echo -n "$$new_version" > VERSION; \
+	git add VERSION; \
+	git commit -m "chore: bump VERSION to $$new_version"; \
+	git tag -a -m "releasing v$$new_version" "v$$new_version"; \
+	git push origin master; \
+	git push origin "v$$new_version"
 
 .PHONY: snapshot
 snapshot:
