@@ -26,6 +26,7 @@ import (
 	"github.com/nektos/act/pkg/exprparser"
 	"github.com/nektos/act/pkg/model"
 	"github.com/opencontainers/selinux/go-selinux"
+	"gopkg.in/yaml.v3"
 )
 
 // RunContext contains info about current job
@@ -764,12 +765,66 @@ func (rc *RunContext) runsOnPlatformNames(ctx context.Context) []string {
 		return []string{}
 	}
 
-	if err := rc.ExprEval.EvaluateYamlNode(ctx, &job.RawRunsOn); err != nil {
+	// Use EvaluateYamlNodeGetResult to avoid modifying the shared yaml.Node.
+	// This is important when multiple matrix jobs run in parallel - they share
+	// the same Job object, and modifying RawRunsOn would cause race conditions.
+	evaluatedNode, err := rc.ExprEval.EvaluateYamlNodeGetResult(ctx, &job.RawRunsOn)
+	if err != nil {
 		common.Logger(ctx).Errorf("Error while evaluating runs-on: %v", err)
 		return []string{}
 	}
 
-	return job.RunsOn()
+	if evaluatedNode == nil {
+		return []string{}
+	}
+
+	return extractRunsOnFromNode(*evaluatedNode)
+}
+
+// extractRunsOnFromNode extracts the runs-on labels from a yaml.Node.
+// This mirrors the logic in (*Job).RunsOn() but works on any yaml.Node.
+func extractRunsOnFromNode(node yaml.Node) []string {
+	switch node.Kind {
+	case yaml.MappingNode:
+		var val struct {
+			Group  string
+			Labels yaml.Node
+		}
+
+		if err := node.Decode(&val); err != nil {
+			return nil
+		}
+
+		labels := extractRunsOnFromNode(val.Labels)
+
+		if val.Group != "" {
+			labels = append(labels, val.Group)
+		}
+
+		return labels
+	default:
+		return nodeAsStringSlice(node)
+	}
+}
+
+// nodeAsStringSlice converts a yaml.Node to a []string.
+// This is a copy of the function from model/workflow.go to avoid export issues.
+func nodeAsStringSlice(node yaml.Node) []string {
+	switch node.Kind {
+	case yaml.ScalarNode:
+		var val string
+		if err := node.Decode(&val); err != nil {
+			return nil
+		}
+		return []string{val}
+	case yaml.SequenceNode:
+		var val []string
+		if err := node.Decode(&val); err != nil {
+			return nil
+		}
+		return val
+	}
+	return nil
 }
 
 func (rc *RunContext) platformImage(ctx context.Context) string {
