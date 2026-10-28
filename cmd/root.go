@@ -131,7 +131,8 @@ func createRootCommand(ctx context.Context, input *Input, version string) *cobra
 	rootCmd.PersistentFlags().StringArrayVarP(&input.localRepository, "local-repository", "", []string{}, "Replaces the specified repository and ref with a local folder (e.g. https://github.com/test/test@v0=/home/act/test or test/test@v0=/home/act/test, the latter matches any hosts or protocols)")
 	rootCmd.PersistentFlags().BoolVar(&input.listOptions, "list-options", false, "Print a json structure of compatible options")
 	rootCmd.PersistentFlags().IntVar(&input.concurrentJobs, "concurrent-jobs", 0, "Maximum number of concurrent jobs to run. Default is the number of CPUs available.")
-	rootCmd.SetArgs(args())
+	rootCmd.PersistentFlags().Bool(trustProjectActrcFlag, false, "Apply every flag in ./.actrc. Without it, ./.actrc may only set flags that do not reach host resources, and $VAR references in it are not expanded. Set it on the command line or in your user config.")
+	rootCmd.SetArgs(args(rootCmd))
 	return rootCmd
 }
 
@@ -153,16 +154,10 @@ func configLocations() []string {
 	return []string{specPath, homePath, invocationPath}
 }
 
-func args() []string {
+func args(rootCmd *cobra.Command) []string {
 	actrc := configLocations()
-
-	args := make([]string, 0)
-	for _, f := range actrc {
-		args = append(args, readArgsFile(f, true)...)
-	}
-
-	args = append(args, os.Args[1:]...)
-	return args
+	flags := []*pflag.FlagSet{rootCmd.Flags(), rootCmd.PersistentFlags()}
+	return actrcArgs(flags, actrc[:len(actrc)-1], actrc[len(actrc)-1], os.Args[1:])
 }
 
 func bugReport(ctx context.Context, version string) error {
