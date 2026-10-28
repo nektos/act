@@ -10,6 +10,20 @@ cd "$root"
 shard="${ACT_TEST_LINUX_SHARD:-0/4}"
 index="${shard%%/*}"
 
+# type=gha reads the cache URL and ACTIONS_RUNTIME_TOKEN from the environment.
+# Shell steps do not receive them. The workflow exports them with
+# crazy-max/ghaction-github-runtime before this script runs. Cache v2 uses
+# ACTIONS_RESULTS_URL when ACTIONS_CACHE_URL is unset.
+if [ -n "${GITHUB_ACTIONS:-}" ]; then
+  if { [ -z "${ACTIONS_CACHE_URL:-}" ] && [ -z "${ACTIONS_RESULTS_URL:-}" ]; } || [ -z "${ACTIONS_RUNTIME_TOKEN:-}" ]; then
+    echo "ACTIONS_RUNTIME_TOKEN and ACTIONS_CACHE_URL or ACTIONS_RESULTS_URL are required for type=gha" >&2
+    exit 1
+  fi
+  [ -n "${ACTIONS_CACHE_URL:-}" ] && export ACTIONS_CACHE_URL
+  [ -n "${ACTIONS_RESULTS_URL:-}" ] && export ACTIONS_RESULTS_URL
+  export ACTIONS_RUNTIME_TOKEN
+fi
+
 build() {
   local scope="$1"
   shift
