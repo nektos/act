@@ -34,6 +34,7 @@ func TestFindGitSlug(t *testing.T) {
 		{"http://github.com/nektos/act", "GitHub", "nektos/act"},
 		{"git+ssh://git@github.com/owner/repo.git", "GitHub", "owner/repo"},
 		{"http://myotherrepo.com/act.git", "", "http://myotherrepo.com/act.git"},
+		// secretlint-disable-next-line @secretlint/secretlint-rule-basicauth
 		{"https://x-access-token:abc@github.com/owner/repo.git", "GitHub", "owner/repo"},
 		{"ssh://git@github.com/owner/repo", "GitHub", "owner/repo"},
 		{"https://evilgithub.com/owner/repo", "", "https://evilgithub.com/owner/repo"},
