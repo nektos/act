@@ -9,6 +9,7 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/nektos/act/pkg/common"
@@ -91,14 +92,27 @@ func processRunnerEnvFileCommand(ctx context.Context, fileName string, rc *RunCo
 	return nil
 }
 
+// stepFileCommandSeq makes the runner file command paths unique per step
+// execution, so steps running concurrently because of `background: true` do
+// not read each other's commands
+var stepFileCommandSeq atomic.Int64
+
 func runStepExecutor(step step, stage stepStage, executor common.Executor) common.Executor {
 	return func(ctx context.Context) error {
 		logger := common.Logger(ctx)
 		rc := step.getRunContext()
 		stepModel := step.getStepModel()
 
+		// the shared job state is locked during the setup and the result
+		// processing of the step, but not while the step itself runs, so
+		// background steps run concurrently with other steps
+		lock := rc.stepStateLock()
+		lock.Lock()
+
 		ifExpression := step.getIfExpression(ctx, stage)
-		rc.CurrentStep = stepModel.ID
+		rc.setCurrentStep(stepModel.ID)
+
+		dataLock := rc.stateDataLock()
 
 		stepResult := &model.StepResult{
 			Outcome:    model.StepStatusSuccess,
@@ -106,28 +120,39 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 			Outputs:    make(map[string]string),
 		}
 		if stage == stepStageMain {
-			rc.StepResults[rc.CurrentStep] = stepResult
+			dataLock.Lock()
+			rc.StepResults[stepModel.ID] = stepResult
+			dataLock.Unlock()
 		}
 
 		err := setupEnv(ctx, step)
 		if err != nil {
+			lock.Unlock()
 			return err
 		}
 
 		cctx := common.JobCancelContext(ctx)
+		dataLock.Lock()
 		rc.Cancelled = cctx != nil && cctx.Err() != nil
+		dataLock.Unlock()
 
 		runStep, err := isStepEnabled(ctx, ifExpression, step, stage)
 		if err != nil {
+			dataLock.Lock()
 			stepResult.Conclusion = model.StepStatusFailure
 			stepResult.Outcome = model.StepStatusFailure
+			dataLock.Unlock()
+			lock.Unlock()
 			return err
 		}
 
 		if !runStep {
+			dataLock.Lock()
 			stepResult.Conclusion = model.StepStatusSkipped
 			stepResult.Outcome = model.StepStatusSkipped
+			dataLock.Unlock()
 			logger.WithField("stepResult", stepResult.Outcome).Debugf("Skipping step '%s' due to '%s'", stepModel, ifExpression)
+			lock.Unlock()
 			return nil
 		}
 
@@ -139,20 +164,21 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 
 		// Prepare and clean Runner File Commands
 		actPath := rc.JobContainer.GetActPath()
+		cmdDir := path.Join("workflow", fmt.Sprintf("cmds-%d-%s", stepFileCommandSeq.Add(1), stage.String()))
 
-		outputFileCommand := path.Join("workflow", "outputcmd.txt")
+		outputFileCommand := path.Join(cmdDir, "outputcmd.txt")
 		(*step.getEnv())["GITHUB_OUTPUT"] = path.Join(actPath, outputFileCommand)
 
-		stateFileCommand := path.Join("workflow", "statecmd.txt")
+		stateFileCommand := path.Join(cmdDir, "statecmd.txt")
 		(*step.getEnv())["GITHUB_STATE"] = path.Join(actPath, stateFileCommand)
 
-		pathFileCommand := path.Join("workflow", "pathcmd.txt")
+		pathFileCommand := path.Join(cmdDir, "pathcmd.txt")
 		(*step.getEnv())["GITHUB_PATH"] = path.Join(actPath, pathFileCommand)
 
-		envFileCommand := path.Join("workflow", "envs.txt")
+		envFileCommand := path.Join(cmdDir, "envs.txt")
 		(*step.getEnv())["GITHUB_ENV"] = path.Join(actPath, envFileCommand)
 
-		summaryFileCommand := path.Join("workflow", "SUMMARY.md")
+		summaryFileCommand := path.Join(cmdDir, "SUMMARY.md")
 		(*step.getEnv())["GITHUB_STEP_SUMMARY"] = path.Join(actPath, summaryFileCommand)
 
 		_ = rc.JobContainer.Copy(actPath, &container.FileEntry{
@@ -172,27 +198,39 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 			Mode: 0o666,
 		})(ctx)
 
+		timeout := rc.ExprEval.Interpolate(ctx, stepModel.TimeoutMinutes)
+		lock.Unlock()
+
 		stepCtx, cancelStepCtx := context.WithCancel(ctx)
 		defer cancelStepCtx()
 		var cancelTimeOut context.CancelFunc
-		stepCtx, cancelTimeOut = evaluateStepTimeout(stepCtx, rc.ExprEval, stepModel)
+		stepCtx, cancelTimeOut = evaluateStepTimeout(stepCtx, timeout)
 		defer cancelTimeOut()
 		monitorJobCancellation(ctx, stepCtx, cctx, rc, logger, ifExpression, step, stage, cancelStepCtx)
 		startTime := time.Now()
 		err = executor(stepCtx)
 		executionTime := time.Since(startTime)
 
+		lock.Lock()
+		defer lock.Unlock()
+		rc.setCurrentStep(stepModel.ID)
+
 		if err == nil {
 			logger.WithFields(logrus.Fields{"executionTime": executionTime, "stepResult": stepResult.Outcome}).Infof("  \u2705  Success - %s %s [%s]", stage, stepString, executionTime)
 		} else {
+			dataLock.Lock()
 			stepResult.Outcome = model.StepStatusFailure
+			dataLock.Unlock()
 
 			continueOnError, parseErr := isContinueOnError(ctx, stepModel.RawContinueOnError, step, stage)
 			if parseErr != nil {
+				dataLock.Lock()
 				stepResult.Conclusion = model.StepStatusFailure
+				dataLock.Unlock()
 				return parseErr
 			}
 
+			dataLock.Lock()
 			if continueOnError {
 				logger.Infof("Failed but continue next step")
 				err = nil
@@ -200,14 +238,20 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 			} else {
 				stepResult.Conclusion = model.StepStatusFailure
 			}
+			dataLock.Unlock()
 
 			logger.WithFields(logrus.Fields{"executionTime": executionTime, "stepResult": stepResult.Outcome}).Infof("  \u274C  Failure - %s %s [%s]", stage, stepString, executionTime)
 		}
 		// Process Runner File Commands
+		stepID := stepModel.ID
 		ferrors := []error{err}
 		ferrors = append(ferrors, processRunnerEnvFileCommand(ctx, envFileCommand, rc, rc.setEnv))
-		ferrors = append(ferrors, processRunnerEnvFileCommand(ctx, stateFileCommand, rc, rc.saveState))
-		ferrors = append(ferrors, processRunnerEnvFileCommand(ctx, outputFileCommand, rc, rc.setOutput))
+		ferrors = append(ferrors, processRunnerEnvFileCommand(ctx, stateFileCommand, rc, func(ctx context.Context, kvPairs map[string]string, arg string) {
+			rc.saveStateForStep(ctx, stepID, kvPairs, arg)
+		}))
+		ferrors = append(ferrors, processRunnerEnvFileCommand(ctx, outputFileCommand, rc, func(ctx context.Context, kvPairs map[string]string, arg string) {
+			rc.setOutputForStep(ctx, stepID, kvPairs, arg)
+		}))
 		ferrors = append(ferrors, processRunnerSummaryCommand(ctx, summaryFileCommand, rc))
 		ferrors = append(ferrors, rc.UpdateExtraPath(ctx, path.Join(actPath, pathFileCommand)))
 		return errors.Join(ferrors...)
@@ -219,9 +263,15 @@ func monitorJobCancellation(ctx context.Context, stepCtx context.Context, jobCan
 		go func() {
 			select {
 			case <-jobCancellationCtx.Done():
+				lock := rc.stepStateLock()
+				lock.Lock()
+				dataLock := rc.stateDataLock()
+				dataLock.Lock()
 				rc.Cancelled = true
+				dataLock.Unlock()
 				logger.Infof("Reevaluate condition %v due to cancellation", ifExpression)
 				keepStepRunning, err := isStepEnabled(ctx, ifExpression, step, stage)
+				lock.Unlock()
 				logger.Infof("Result condition keepStepRunning=%v", keepStepRunning)
 				if !keepStepRunning || err != nil {
 					cancelStepCtx()
@@ -232,8 +282,7 @@ func monitorJobCancellation(ctx context.Context, stepCtx context.Context, jobCan
 	}
 }
 
-func evaluateStepTimeout(ctx context.Context, exprEval ExpressionEvaluator, stepModel *model.Step) (context.Context, context.CancelFunc) {
-	timeout := exprEval.Interpolate(ctx, stepModel.TimeoutMinutes)
+func evaluateStepTimeout(ctx context.Context, timeout string) (context.Context, context.CancelFunc) {
 	if timeout != "" {
 		if timeOutMinutes, err := strconv.ParseInt(timeout, 10, 64); err == nil {
 			return context.WithTimeout(ctx, time.Duration(timeOutMinutes)*time.Minute)

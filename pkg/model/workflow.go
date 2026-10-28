@@ -580,6 +580,56 @@ type Step struct {
 	With               map[string]string `yaml:"with"`
 	RawContinueOnError string            `yaml:"continue-on-error"`
 	TimeoutMinutes     string            `yaml:"timeout-minutes"`
+	Background         string            `yaml:"background"`
+	RawWait            yaml.Node         `yaml:"wait"`
+	RawWaitAll         yaml.Node         `yaml:"wait-all"`
+	Cancel             string            `yaml:"cancel"`
+	RawParallel        yaml.Node         `yaml:"parallel"`
+}
+
+// IsBackground returns true if the step runs asynchronously while the job
+// continues with the next step
+func (s *Step) IsBackground() bool {
+	background, _ := strconv.ParseBool(s.Background)
+	return background
+}
+
+// Wait returns the ids of the background steps a `wait` step waits for
+func (s *Step) Wait() []string {
+	switch s.RawWait.Kind {
+	case yaml.ScalarNode:
+		var id string
+		if !decodeNode(s.RawWait, &id) || id == "" {
+			return nil
+		}
+		return []string{id}
+	case yaml.SequenceNode:
+		var ids []string
+		if !decodeNode(s.RawWait, &ids) {
+			return nil
+		}
+		return ids
+	}
+	return nil
+}
+
+// IsBackgroundControl returns true for `wait`, `wait-all` and `cancel` steps
+// that synchronize with or stop background steps
+func (s *Step) IsBackgroundControl() bool {
+	stepType := s.Type()
+	return stepType == StepTypeWait || stepType == StepTypeWaitAll || stepType == StepTypeCancel
+}
+
+// ParallelSteps returns the nested steps of a `parallel` step group
+func (s *Step) ParallelSteps() []*Step {
+	if s.RawParallel.Kind != yaml.SequenceNode {
+		return nil
+	}
+	var steps []*Step
+	if !decodeNode(s.RawParallel, &steps) {
+		return nil
+	}
+	return steps
 }
 
 // String gets the name of step
@@ -590,6 +640,14 @@ func (s *Step) String() string {
 		return s.Uses
 	} else if s.Run != "" {
 		return s.Run
+	} else if s.RawWait.Kind != 0 {
+		return fmt.Sprintf("wait: %s", strings.Join(s.Wait(), ", "))
+	} else if s.RawWaitAll.Kind != 0 {
+		return "wait-all"
+	} else if s.Cancel != "" {
+		return fmt.Sprintf("cancel: %s", s.Cancel)
+	} else if s.RawParallel.Kind != 0 {
+		return "parallel"
 	}
 	return s.ID
 }
@@ -665,6 +723,18 @@ const (
 
 	// StepTypeInvalid is for steps that have invalid step action
 	StepTypeInvalid
+
+	// StepTypeWait is a step with a `wait` attribute that waits for one or more background steps
+	StepTypeWait
+
+	// StepTypeWaitAll is a step with a `wait-all` attribute that waits for all active background steps
+	StepTypeWaitAll
+
+	// StepTypeCancel is a step with a `cancel` attribute that gracefully terminates a background step
+	StepTypeCancel
+
+	// StepTypeParallel is a step with a `parallel` attribute containing a group of steps that run concurrently
+	StepTypeParallel
 )
 
 func (s StepType) String() string {
@@ -683,12 +753,33 @@ func (s StepType) String() string {
 		return "local-reusable-workflow"
 	case StepTypeReusableWorkflowRemote:
 		return "remote-reusable-workflow"
+	case StepTypeWait:
+		return "wait"
+	case StepTypeWaitAll:
+		return "wait-all"
+	case StepTypeCancel:
+		return "cancel"
+	case StepTypeParallel:
+		return "parallel"
 	}
 	return "unknown"
 }
 
 // Type returns the type of the step
 func (s *Step) Type() StepType {
+	if s.RawWait.Kind != 0 {
+		return StepTypeWait
+	}
+	if s.RawWaitAll.Kind != 0 {
+		return StepTypeWaitAll
+	}
+	if s.Cancel != "" {
+		return StepTypeCancel
+	}
+	if s.RawParallel.Kind != 0 {
+		return StepTypeParallel
+	}
+
 	if s.Run == "" && s.Uses == "" {
 		return StepTypeInvalid
 	}

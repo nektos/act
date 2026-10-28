@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/nektos/act/pkg/common"
+	"github.com/nektos/act/pkg/container"
 	"github.com/nektos/act/pkg/model"
 )
 
@@ -51,6 +52,13 @@ func newCompositeRunContext(ctx context.Context, parent *RunContext, step action
 	configCopy := *(parent.Config)
 	configCopy.Secrets = nil
 
+	// snapshot the parent state that may be mutated by steps running
+	// concurrently in the background
+	lock := parent.stepStateLock()
+	lock.Lock()
+	extraPath := append([]string{}, parent.ExtraPath...)
+	lock.Unlock()
+
 	// create a run context for the composite action to run in
 	compositerc := &RunContext{
 		Name:    parent.Name,
@@ -70,9 +78,10 @@ func newCompositeRunContext(ctx context.Context, parent *RunContext, step action
 		ActionPath:       actionPath,
 		Env:              env,
 		GlobalEnv:        parent.GlobalEnv,
-		Masks:            parent.Masks,
-		ExtraPath:        parent.ExtraPath,
+		Masks:            parent.masksSnapshot(),
+		ExtraPath:        extraPath,
 		Parent:           parent,
+		parentStepID:     step.getStepModel().ID,
 		EventJSON:        parent.EventJSON,
 		nodeToolFullPath: parent.nodeToolFullPath,
 	}
@@ -100,14 +109,43 @@ func execAsComposite(step actionStep) common.Executor {
 
 		// Map outputs from composite RunContext to job RunContext
 		eval := compositeRC.NewExpressionEvaluator(ctx)
+		outputs := make(map[string]string, len(action.Outputs))
 		for outputName, output := range action.Outputs {
-			rc.setOutput(ctx, map[string]string{
-				"name": outputName,
-			}, eval.Interpolate(ctx, output.Value))
+			outputs[outputName] = eval.Interpolate(ctx, output.Value)
 		}
 
-		rc.Masks = append(rc.Masks, compositeRC.Masks...)
-		rc.ExtraPath = compositeRC.ExtraPath
+		for _, mask := range compositeRC.masksSnapshot() {
+			rc.AddMask(mask)
+		}
+
+		stepID := step.getStepModel().ID
+		lock := rc.stepStateLock()
+		lock.Lock()
+		defer lock.Unlock()
+
+		for outputName, value := range outputs {
+			rc.setOutputForStep(ctx, stepID, map[string]string{
+				"name": outputName,
+			}, value)
+		}
+
+		// merge the PATH additions of the composite action into the current
+		// extra path instead of overwriting it, other steps may have added
+		// entries while the composite action ran
+		mergedPath := append([]string{}, compositeRC.ExtraPath...)
+		for _, entry := range rc.ExtraPath {
+			exists := false
+			for _, merged := range mergedPath {
+				if merged == entry {
+					exists = true
+					break
+				}
+			}
+			if !exists {
+				mergedPath = append(mergedPath, entry)
+			}
+		}
+		rc.ExtraPath = mergedPath
 		// compositeRC.Env is dirty, contains INPUT_ and merged step env, only rely on compositeRC.GlobalEnv
 		mergeIntoMap := mergeIntoMapCaseSensitive
 		if rc.JobContainer.IsEnvironmentCaseInsensitive() {
@@ -212,8 +250,11 @@ func (rc *RunContext) newCompositeCommandExecutor(executor common.Executor) comm
 			return true
 		})
 
-		oldout, olderr := rc.JobContainer.ReplaceLogWriter(logWriter, logWriter)
-		defer rc.JobContainer.ReplaceLogWriter(oldout, olderr)
+		// the handler is published on the context, which the execution
+		// environments prefer over their global writer slot; a step running
+		// this composite action has its own writers on the context and they
+		// must not swallow the commands of the composite's inner steps
+		ctx = container.WithLogWriters(ctx, logWriter, logWriter)
 
 		return executor(ctx)
 	}

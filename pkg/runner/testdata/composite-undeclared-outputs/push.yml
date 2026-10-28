@@ -1,0 +1,25 @@
+name: composite-undeclared-outputs
+on: push
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - id: plain
+        uses: ./composite-undeclared-outputs/composite
+      - name: a declared output is visible on the step that used the action
+        run: |
+          [ "${{ steps.plain.outputs.declared }}" = "declared-value" ]
+      - name: outputs the action does not declare stay scoped to the inner step
+        run: |
+          [ -z "${{ steps.plain.outputs.undeclared }}" ]
+          [ -z "${{ steps.plain.outputs['undeclared-legacy'] }}" ]
+
+      - id: nested
+        uses: ./composite-undeclared-outputs/nested
+      - name: the same holds one level of nesting deeper
+        run: |
+          [ "${{ steps.nested.outputs.declared }}" = "declared-value" ]
+          [ -z "${{ steps.nested.outputs.undeclared }}" ]
+          [ -z "${{ steps.nested.outputs['undeclared-legacy'] }}" ]

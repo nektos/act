@@ -41,6 +41,11 @@ type masksContextKey string
 
 const masksContextKeyVal = masksContextKey("logrus.FieldLogger")
 
+// masksMutex guards the masks slices of all jobs, they are appended to by
+// running steps and read whenever a log line is formatted. With background
+// steps both can happen concurrently.
+var masksMutex sync.RWMutex
+
 // Logger returns the appropriate logger for current context
 func Masks(ctx context.Context) *[]string {
 	val := ctx.Value(masksContextKeyVal)
@@ -153,7 +158,15 @@ func valueMasker(insecureSecrets bool, secrets map[string]string) entryProcessor
 			return entry
 		}
 
-		masks := Masks(entry.Context)
+		// copied rather than held under the lock for the whole rewrite, so a
+		// step adding a mask is not blocked by unrelated log formatting. The
+		// common case is no masks at all, which allocates nothing.
+		var masks []string
+		masksMutex.RLock()
+		if current := *Masks(entry.Context); len(current) > 0 {
+			masks = append(make([]string, 0, len(current)), current...)
+		}
+		masksMutex.RUnlock()
 
 		for _, v := range ssecrets {
 			if v != "" {
@@ -161,7 +174,7 @@ func valueMasker(insecureSecrets bool, secrets map[string]string) entryProcessor
 			}
 		}
 
-		for _, v := range *masks {
+		for _, v := range masks {
 			if v != "" {
 				entry.Message = strings.ReplaceAll(entry.Message, v, "***")
 			}

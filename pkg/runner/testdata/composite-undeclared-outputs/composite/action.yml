@@ -1,0 +1,18 @@
+name: 'composite with an undeclared inner output'
+description: |
+  The inner step writes an output that the action does not declare. GitHub
+  scopes it to the inner step, so it must not appear on the step that used
+  this action.
+outputs:
+  declared:
+    description: 'an output the action does declare'
+    value: ${{ steps.inner.outputs.declared }}
+runs:
+  using: composite
+  steps:
+    - id: inner
+      shell: bash
+      run: |
+        echo "declared=declared-value" >> "$GITHUB_OUTPUT"
+        echo "undeclared=undeclared-value" >> "$GITHUB_OUTPUT"
+        echo "::set-output name=undeclared-legacy::undeclared-legacy-value"
