@@ -321,6 +321,14 @@ func runTestJobFile(ctx context.Context, t *testing.T, tjfi TestJobFileInfo, aut
 	})
 }
 
+func TestArtifactWorkflowParses(t *testing.T) {
+	workflow, err := os.Open(filepath.Join("testdata", "GHSL-2023-004", "artifacts.yml"))
+	assert.NoError(t, err)
+	defer workflow.Close()
+	_, err = model.ReadWorkflow(workflow, false)
+	assert.NoError(t, err)
+}
+
 func TestMkdirFsImplSafeResolve(t *testing.T) {
 	baseDir := "/foo/bar"
 
