@@ -91,11 +91,13 @@ install: build
 # godownloader's go.mod has a replace directive, so `go install` of the module path is rejected.
 # Installing from a checkout makes it the main module, where that directive is allowed.
 installer:
-	@tmpdir=$$(mktemp -d); \
+	@set -e; \
+	tmpdir=$$(mktemp -d); \
 	trap 'rm -rf "$$tmpdir"' EXIT; \
-	git clone --depth 1 --branch v0.1.0 https://github.com/goreleaser/godownloader.git "$$tmpdir"; \
-	( cd "$$tmpdir" && go install . ); \
-	"$$(go env GOPATH)/bin/godownloader" -r nektos/act -o install.sh
+	git clone --depth 1 --branch v0.1.0 https://github.com/goreleaser/godownloader.git "$$tmpdir/src"; \
+	mkdir -p "$$tmpdir/bin"; \
+	( cd "$$tmpdir/src" && GOBIN="$$tmpdir/bin" go install . ); \
+	"$$tmpdir/bin/godownloader" -r nektos/act -o install.sh
 
 .PHONY: promote
 promote:

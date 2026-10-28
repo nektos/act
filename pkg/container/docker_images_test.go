@@ -37,8 +37,9 @@ func TestImageExistsLocally(t *testing.T) {
 	cli, err := client.New(client.FromEnv)
 	assert.Nil(t, err)
 
-	// Current multi-arch image. Avoid EOL Debian tags that Docker Hub may drop.
-	readerDefault, err := cli.ImagePull(ctx, "node:24-bookworm-slim", client.ImagePullOptions{
+	// A current multi-arch image that the runner fixtures do not also use as
+	// ubuntu-latest, so a platform-specific pull cannot retag the job image.
+	readerDefault, err := cli.ImagePull(ctx, "alpine:3.21", client.ImagePullOptions{
 		Platforms: []specs.Platform{{OS: "linux", Architecture: "amd64"}},
 	})
 	assert.Nil(t, err)
@@ -46,12 +47,12 @@ func TestImageExistsLocally(t *testing.T) {
 	_, err = io.ReadAll(readerDefault)
 	assert.Nil(t, err)
 
-	imageDefaultArchExists, err := ImageExistsLocally(ctx, "node:24-bookworm-slim", "linux/amd64")
+	imageDefaultArchExists, err := ImageExistsLocally(ctx, "alpine:3.21", "linux/amd64")
 	assert.Nil(t, err)
 	assert.Equal(t, true, imageDefaultArchExists)
 
 	// Validate if another architecture platform can be pulled
-	readerArm64, err := cli.ImagePull(ctx, "node:24-bookworm-slim", client.ImagePullOptions{
+	readerArm64, err := cli.ImagePull(ctx, "alpine:3.21", client.ImagePullOptions{
 		Platforms: []specs.Platform{{OS: "linux", Architecture: "arm64"}},
 	})
 	assert.Nil(t, err)
@@ -59,7 +60,7 @@ func TestImageExistsLocally(t *testing.T) {
 	_, err = io.ReadAll(readerArm64)
 	assert.Nil(t, err)
 
-	imageArm64Exists, err := ImageExistsLocally(ctx, "node:24-bookworm-slim", "linux/arm64")
+	imageArm64Exists, err := ImageExistsLocally(ctx, "alpine:3.21", "linux/arm64")
 	assert.Nil(t, err)
 	assert.Equal(t, true, imageArm64Exists)
 }
