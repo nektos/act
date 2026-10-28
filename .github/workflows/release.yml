@@ -33,7 +33,12 @@ jobs:
     timeout-minutes: 45
     environment: release
     permissions:
+      # Creates the GitHub release and uploads its assets.
       contents: write
+      # Mints the OIDC token that signs the build provenance attestation.
+      id-token: write
+      # Stores the attestation on the repository.
+      attestations: write
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
@@ -46,10 +51,18 @@ jobs:
       - name: GoReleaser
         uses: goreleaser/goreleaser-action@ec59f474b9834571250b370d4735c50f8e2d1e29 # v7.0.0
         with:
-          version: '~> v2'
+          version: v2.19.0
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Verify a download with: gh attestation verify <file> --repo nektos/act
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            dist/*.tar.gz
+            dist/*.zip
+            dist/checksums.txt
   winget:
     name: Winget
     needs: release
@@ -149,6 +162,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
+      # Dispatches tag-gh-act.yml on the default branch.
       actions: write
     steps:
       # promote only allows protected branches, so the app token is minted by
