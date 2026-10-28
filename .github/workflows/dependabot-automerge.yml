@@ -8,6 +8,13 @@ name: Dependabot auto-merge
 # refuses the step unless the pull request commits were created by Dependabot.
 on:
   pull_request:
+    # ready_for_review is not a default type. A draft that later becomes
+    # ready must rerun this workflow or auto-merge stays off.
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
     branches:
       - master
 

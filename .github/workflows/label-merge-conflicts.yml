@@ -12,12 +12,14 @@ name: Label merge conflicts
 #   forks, and adds or removes `conflict`. A push to any other branch does
 #   not run it, so a branch cannot publish a modified copy with a write token.
 # - pull_request (opened, reopened, synchronize) targeting master: same-repo
-#   pull requests are labeled immediately. Fork pull requests receive a
-#   read-only token, so the action cannot edit labels; continueOnMissingPermissions
-#   keeps that run green, and the next push to master (or the schedule) fixes
-#   the label.
-# - schedule: fork pull requests are not left unlabeled until the next commit
-#   on master.
+#   pull requests that GitHub can merge are labeled immediately. GitHub does
+#   not run pull_request workflows while a pull request has a merge conflict,
+#   so a push that introduces a conflict waits for the schedule or the next
+#   push to master. Fork pull requests receive a read-only token, so the
+#   action cannot edit labels; continueOnMissingPermissions keeps that run
+#   green, and the next write-capable scan fixes the label.
+# - schedule, hourly: backstop for conflicted pull requests and forks.
+#   pull_request_target would run in that case, and it stays unused.
 #
 # The only step is a SHA-pinned action. It calls the pull request API and
 # does not check out code. The job token is limited to pull-requests: write.
@@ -33,12 +35,13 @@ on:
       - reopened
       - synchronize
   schedule:
-    - cron: "17 */6 * * *"
+    - cron: "17 * * * *"
 
-# One scan at a time. Each run lists every open pull request, so an older
-# scan is safe to cancel when a newer push, pull request, or schedule starts.
+# Write-capable scans (push, schedule, same-repo pull requests) share one
+# group and cancel older scans. Fork pull_request runs are read-only and use
+# a separate group so they cannot cancel a scan that is allowed to edit labels.
 concurrency:
-  group: label-merge-conflicts
+  group: label-merge-conflicts-${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'fork' || 'write' }}
   cancel-in-progress: true
 
 permissions: {}
