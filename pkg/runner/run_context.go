@@ -21,11 +21,14 @@ import (
 	"time"
 
 	"github.com/docker/go-connections/nat"
+	log "github.com/sirupsen/logrus"
+
+	"github.com/opencontainers/selinux/go-selinux"
+
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/container"
 	"github.com/nektos/act/pkg/exprparser"
 	"github.com/nektos/act/pkg/model"
-	"github.com/opencontainers/selinux/go-selinux"
 )
 
 // RunContext contains info about current job
@@ -1088,7 +1091,11 @@ func setActionRuntimeVars(rc *RunContext, env map[string]string) {
 		if rid, ok := rc.Config.Env["GITHUB_RUN_ID"]; ok {
 			runID, _ = strconv.ParseInt(rid, 10, 64)
 		}
-		actionsRuntimeToken, _ = common.CreateAuthorizationToken(runID, runID, runID)
+		var tokenErr error
+		actionsRuntimeToken, tokenErr = common.CreateSignedAuthorizationToken(rc.Config.ArtifactServerAuthKey, runID, runID, runID)
+		if tokenErr != nil {
+			log.Errorf("failed to create artifact runtime token: %v", tokenErr)
+		}
 	}
 	env["ACTIONS_RUNTIME_TOKEN"] = actionsRuntimeToken
 }

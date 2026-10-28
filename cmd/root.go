@@ -115,7 +115,7 @@ func createRootCommand(ctx context.Context, input *Input, version string) *cobra
 	rootCmd.PersistentFlags().StringVarP(&input.containerOptions, "container-options", "", "", "Custom docker container options for the job container without an options property in the job definition")
 	rootCmd.PersistentFlags().StringVarP(&input.githubInstance, "github-instance", "", "github.com", "GitHub instance to use. Only use this when using GitHub Enterprise Server.")
 	rootCmd.PersistentFlags().StringVarP(&input.artifactServerPath, "artifact-server-path", "", "", "Defines the path where the artifact server stores uploads and retrieves downloads from. If not specified the artifact server will not start.")
-	rootCmd.PersistentFlags().StringVarP(&input.artifactServerAddr, "artifact-server-addr", "", common.GetOutboundIP().String(), "Defines the address to which the artifact server binds.")
+	rootCmd.PersistentFlags().StringVarP(&input.artifactServerAddr, "artifact-server-addr", "", "127.0.0.1", "Address the artifact server binds to. When omitted, Linux host-network jobs use 127.0.0.1 and every other container network uses the outbound address.")
 	rootCmd.PersistentFlags().StringVarP(&input.artifactServerPort, "artifact-server-port", "", "34567", "Defines the port where the artifact server listens.")
 	rootCmd.PersistentFlags().BoolVarP(&input.noSkipCheckout, "no-skip-checkout", "", false, "Use actions/checkout instead of copying local files into container")
 	rootCmd.PersistentFlags().BoolVarP(&input.noCacheServer, "no-cache-server", "", false, "Disable cache server")
@@ -602,6 +602,11 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			log.Warnf(deprecationWarning, "container-cap-drop", fmt.Sprintf("--cap-drop=%s", input.containerCapDrop))
 		}
 
+		artifactAddr, artifactServerAuthKey, err := prepareArtifactServer(cmd, input, plan)
+		if err != nil {
+			return err
+		}
+
 		// run the plan
 		config := &runner.Config{
 			Actor:                              input.actor,
@@ -636,8 +641,9 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			ContainerCapDrop:                   input.containerCapDrop,
 			AutoRemove:                         input.autoRemove,
 			ArtifactServerPath:                 input.artifactServerPath,
-			ArtifactServerAddr:                 input.artifactServerAddr,
+			ArtifactServerAddr:                 artifactAddr,
 			ArtifactServerPort:                 input.artifactServerPort,
+			ArtifactServerAuthKey:              artifactServerAuthKey,
 			NoSkipCheckout:                     input.noSkipCheckout,
 			RemoteName:                         input.remoteName,
 			ReplaceGheActionWithGithubCom:      input.replaceGheActionWithGithubCom,
@@ -676,7 +682,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			return err
 		}
 
-		cancel := artifacts.Serve(ctx, input.artifactServerPath, input.artifactServerAddr, input.artifactServerPort)
+		cancel := artifacts.Serve(ctx, input.artifactServerPath, artifactAddr, input.artifactServerPort, artifactServerAuthKey)
 
 		const cacheURLKey = "ACTIONS_CACHE_URL"
 		var cacheHandler *artifactcache.Handler
@@ -711,6 +717,40 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 		}
 		return plannerErr
 	}
+}
+
+func prepareArtifactServer(cmd *cobra.Command, input *Input, plan *model.Plan) (string, []byte, error) {
+	if input.artifactServerPath == "" {
+		return input.artifactServerAddr, nil, nil
+	}
+	key, err := artifacts.NewAuthKey()
+	if err != nil {
+		return "", nil, err
+	}
+	explicit := cmd != nil && cmd.PersistentFlags().Changed("artifact-server-addr")
+	addr := artifacts.ListenAddress(runtime.GOOS, input.networkName, planHasServiceContainers(plan), input.artifactServerAddr, explicit)
+	return addr, key, nil
+}
+
+func planHasServiceContainers(plan *model.Plan) bool {
+	if plan == nil {
+		return false
+	}
+	for _, stage := range plan.Stages {
+		if stage == nil {
+			continue
+		}
+		for _, run := range stage.Runs {
+			if run == nil || run.Workflow == nil {
+				continue
+			}
+			job := run.Job()
+			if job != nil && len(job.Services) > 0 {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func defaultImageSurvey(actrc string) error {

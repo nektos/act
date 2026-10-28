@@ -20,11 +20,11 @@ package artifacts
 //     "ok": true,
 //     "signedUploadUrl": "http://localhost:3000/twirp/github.actions.results.api.v1.ArtifactService/UploadArtifact?sig=mO7y35r4GyjN7fwg0DTv3-Fv1NDXD84KLEgLpoPOtDI=&expires=2024-01-23+21%3A48%3A37.20833956+%2B0100+CET&artifactName=test&taskID=75"
 // }
-// 1.2. Upload Zip Content to Blobstorage (unauthenticated request)
+// 1.2. Upload Zip Content to Blobstorage (authorized by the URL signature)
 // PUT: http://localhost:3000/twirp/github.actions.results.api.v1.ArtifactService/UploadArtifact?sig=mO7y35r4GyjN7fwg0DTv3-Fv1NDXD84KLEgLpoPOtDI=&expires=2024-01-23+21%3A48%3A37.20833956+%2B0100+CET&artifactName=test&taskID=75&comp=block
-// 1.3. Continue Upload Zip Content to Blobstorage (unauthenticated request), repeat until everything is uploaded
+// 1.3. Continue Upload Zip Content to Blobstorage (authorized by the URL signature), repeat until everything is uploaded
 // PUT: http://localhost:3000/twirp/github.actions.results.api.v1.ArtifactService/UploadArtifact?sig=mO7y35r4GyjN7fwg0DTv3-Fv1NDXD84KLEgLpoPOtDI=&expires=2024-01-23+21%3A48%3A37.20833956+%2B0100+CET&artifactName=test&taskID=75&comp=appendBlock
-// 1.4. Unknown xml payload to Blobstorage (unauthenticated request), ignored for now
+// 1.4. Unknown xml payload to Blobstorage (authorized by the URL signature), ignored for now
 // PUT: http://localhost:3000/twirp/github.actions.results.api.v1.ArtifactService/UploadArtifact?sig=mO7y35r4GyjN7fwg0DTv3-Fv1NDXD84KLEgLpoPOtDI=&expires=2024-01-23+21%3A48%3A37.20833956+%2B0100+CET&artifactName=test&taskID=75&comp=blockList
 // 1.5. FinalizeArtifact
 // Post: /twirp/github.actions.results.api.v1.ArtifactService/FinalizeArtifact
@@ -75,11 +75,12 @@ package artifacts
 // {
 //     "signedUrl": "http://localhost:3000/twirp/github.actions.results.api.v1.ArtifactService/DownloadArtifact?sig=wHzFOwpF-6220-5CA0CIRmAX9VbiTC2Mji89UOqo1E8=&expires=2024-01-23+21%3A51%3A56.872846295+%2B0100+CET&artifactName=test&taskID=76"
 // }
-// 2.3. Download Zip from Blobstorage (unauthenticated request)
+// 2.3. Download Zip from Blobstorage (authorized by the URL signature)
 // GET: http://localhost:3000/twirp/github.actions.results.api.v1.ArtifactService/DownloadArtifact?sig=wHzFOwpF-6220-5CA0CIRmAX9VbiTC2Mji89UOqo1E8=&expires=2024-01-23+21%3A51%3A56.872846295+%2B0100+CET&artifactName=test&taskID=76
 
 import (
 	"crypto/hmac"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
 	"errors"
@@ -113,6 +114,17 @@ type artifactV4Routes struct {
 	rfs     fs.FS
 	AppURL  string
 	baseDir string
+	// signingKey is the HMAC key for signed upload and download URLs.
+	// It is generated per process so a signature cannot be produced without a token from this server.
+	signingKey []byte
+}
+
+func newSigningKey() []byte {
+	key := make([]byte, 32)
+	if _, err := rand.Read(key); err != nil {
+		panic(fmt.Errorf("generate artifact url signing key: %w", err))
+	}
+	return key
 }
 
 type ArtifactContext struct {
@@ -146,10 +158,11 @@ func validateRunIDV4(ctx *ArtifactContext, rawRunID string) (interface{}, int64,
 
 func RoutesV4(router *httprouter.Router, baseDir string, fsys WriteFS, rfs fs.FS) {
 	route := &artifactV4Routes{
-		fs:      fsys,
-		rfs:     rfs,
-		baseDir: baseDir,
-		prefix:  ArtifactV4RouteBase,
+		fs:         fsys,
+		rfs:        rfs,
+		baseDir:    baseDir,
+		prefix:     ArtifactV4RouteBase,
+		signingKey: newSigningKey(),
 	}
 	router.POST(path.Join(ArtifactV4RouteBase, "CreateArtifact"), func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		route.AppURL = r.Host
@@ -198,8 +211,20 @@ func RoutesV4(router *httprouter.Router, baseDir string, fsys WriteFS, rfs fs.FS
 	})
 }
 
+func (r *artifactV4Routes) artifactZipPath(runID int64, name string) (string, bool) {
+	if !validArtifactName(name) {
+		return "", false
+	}
+	runDir := safeResolve(r.baseDir, strconv.FormatInt(runID, 10))
+	dir, ok := pathUnder(runDir, name)
+	if !ok {
+		return "", false
+	}
+	return pathUnder(dir, name+".zip")
+}
+
 func (r artifactV4Routes) buildSignature(endp, expires, artifactName string, taskID int64) []byte {
-	mac := hmac.New(sha256.New, []byte{0xba, 0xdb, 0xee, 0xf0})
+	mac := hmac.New(sha256.New, r.signingKey)
 	mac.Write([]byte(endp))
 	mac.Write([]byte(expires))
 	mac.Write([]byte(artifactName))
@@ -277,10 +302,11 @@ func (r *artifactV4Routes) createArtifact(ctx *ArtifactContext) {
 	}
 
 	artifactName := req.Name
-
-	safeRunPath := safeResolve(r.baseDir, fmt.Sprint(runID))
-	safePath := safeResolve(safeRunPath, artifactName)
-	safePath = safeResolve(safePath, artifactName+".zip")
+	safePath, ok := r.artifactZipPath(runID, artifactName)
+	if !ok {
+		ctx.Error(http.StatusBadRequest, "invalid path")
+		return
+	}
 	file, err := r.fs.OpenWritable(safePath)
 
 	if err != nil {
@@ -301,14 +327,15 @@ func (r *artifactV4Routes) uploadArtifact(ctx *ArtifactContext) {
 		return
 	}
 
+	safePath, pathOK := r.artifactZipPath(task, artifactName)
+	if !pathOK {
+		ctx.Error(http.StatusBadRequest, "invalid path")
+		return
+	}
+
 	comp := ctx.Req.URL.Query().Get("comp")
 	switch comp {
 	case "block", "appendBlock":
-
-		safeRunPath := safeResolve(r.baseDir, fmt.Sprint(task))
-		safePath := safeResolve(safeRunPath, artifactName)
-		safePath = safeResolve(safePath, artifactName+".zip")
-
 		file, err := r.fs.OpenAppendable(safePath)
 
 		if err != nil {
@@ -411,6 +438,10 @@ func (r *artifactV4Routes) getSignedArtifactURL(ctx *ArtifactContext) {
 	}
 
 	artifactName := req.Name
+	if !validArtifactName(artifactName) {
+		ctx.Error(http.StatusBadRequest, "invalid path")
+		return
+	}
 
 	respData := GetSignedArtifactURLResponse{}
 
@@ -424,11 +455,19 @@ func (r *artifactV4Routes) downloadArtifact(ctx *ArtifactContext) {
 		return
 	}
 
-	safeRunPath := safeResolve(r.baseDir, fmt.Sprint(task))
-	safePath := safeResolve(safeRunPath, artifactName)
-	safePath = safeResolve(safePath, artifactName+".zip")
+	safePath, pathOK := r.artifactZipPath(task, artifactName)
+	if !pathOK {
+		ctx.Error(http.StatusBadRequest, "invalid path")
+		return
+	}
 
-	file, _ := r.rfs.Open(safePath)
+	file, err := r.rfs.Open(safePath)
+	if err != nil {
+		log.Errorf("Error open artifact: %v", err)
+		ctx.Error(http.StatusNotFound, "artifact not found")
+		return
+	}
+	defer file.Close()
 
 	_, _ = io.Copy(ctx.Resp, file)
 }
@@ -443,8 +482,15 @@ func (r *artifactV4Routes) deleteArtifact(ctx *ArtifactContext) {
 	if !ok {
 		return
 	}
-	safeRunPath := safeResolve(r.baseDir, fmt.Sprint(runID))
-	safePath := safeResolve(safeRunPath, req.Name)
+	if !validArtifactName(req.Name) {
+		ctx.Error(http.StatusBadRequest, "invalid path")
+		return
+	}
+	safePath, pathOK := pathUnder(safeResolve(r.baseDir, strconv.FormatInt(runID, 10)), req.Name)
+	if !pathOK {
+		ctx.Error(http.StatusBadRequest, "invalid path")
+		return
+	}
 
 	_ = os.RemoveAll(safePath)
 
