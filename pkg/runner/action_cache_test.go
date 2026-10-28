@@ -13,6 +13,7 @@ import (
 
 //nolint:gosec
 func TestActionCache(t *testing.T) {
+	shardSkip(t)
 	a := assert.New(t)
 	cache := &GoGitActionCache{
 		Path: os.TempDir(),
@@ -77,6 +78,7 @@ func TestActionCache(t *testing.T) {
 }
 
 func TestActionCacheFailures(t *testing.T) {
+	shardSkip(t)
 	a := assert.New(t)
 	cache := &GoGitActionCache{
 		Path: os.TempDir(),
