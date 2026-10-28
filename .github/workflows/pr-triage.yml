@@ -73,8 +73,13 @@ jobs:
             }
 
             const association = pr.author_association;
+            // FIRST_TIMER: no prior commit on GitHub.
+            // FIRST_TIME_CONTRIBUTOR: no prior commit to this repository.
+            // NONE: no association with this repository.
             const firstTime =
-              association === 'FIRST_TIME_CONTRIBUTOR' || association === 'NONE';
+              association === 'FIRST_TIMER' ||
+              association === 'FIRST_TIME_CONTRIBUTOR' ||
+              association === 'NONE';
 
             const linked = await github.graphql(
               `query ($owner: String!, $repo: String!, $number: Int!) {
