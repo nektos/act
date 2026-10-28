@@ -14,7 +14,7 @@ endif
 
 ACT ?= go run main.go
 
-HAS_TOKEN = $(if $(test -e ~/.config/github/token),true,false)
+HAS_TOKEN = $(if $(shell test -e ~/.config/github/token && echo 1),true,false)
 ifeq (true,$(HAS_TOKEN))
 	export GITHUB_TOKEN := $(shell cat ~/.config/github/token)
 endif
@@ -54,7 +54,7 @@ lint-md:
 
 .PHONY: lint-rest
 lint-rest:
-	docker run --rm -it \
+	docker run --rm \
 		-v $(PWD):/tmp/lint \
 		-e GITHUB_STATUS_REPORTER=false \
 		-e GITHUB_COMMENT_REPORTER=false \
@@ -79,11 +79,6 @@ install: build
 	@cp dist/local/act $(PREFIX)/bin/act
 	@chmod 755 $(PREFIX)/bin/act
 	@act --version
-
-.PHONY: installer
-installer:
-	@GO111MODULE=off go get github.com/goreleaser/godownloader
-	godownloader -r nektos/act -o install.sh
 
 .PHONY: promote
 promote:
@@ -115,15 +110,9 @@ snapshot:
 
 .PHONY: upgrade
 upgrade:
-	go get -u
+	go get -u=patch
 	go mod tidy
 
-# "$(shell go env GOROOT)/bin/go" allows us to use an outdated global go tool and use the build toolchain defined by the project
-# go build auto upgrades to the same toolchain version as defined in the go.mod file
-.PHONY: deps-tools
-deps-tools: ## install tool dependencies
-	"$(shell go env GOROOT)/bin/go" install $(GOVULNCHECK_PACKAGE)
-
 .PHONY: security-check
-security-check: deps-tools
-	GOEXPERIMENT= "$(shell go env GOROOT)/bin/go" run $(GOVULNCHECK_PACKAGE) -show color ./...
+security-check:
+	go run $(GOVULNCHECK_PACKAGE) -show color ./...
