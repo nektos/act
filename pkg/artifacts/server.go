@@ -59,26 +59,68 @@ type WriteFS interface {
 	OpenAppendable(name string) (WritableFile, error)
 }
 
+// readWriteFSImpl serves paths below base through an os.Root, so a symlink
+// inside the artifact directory cannot redirect a read or write outside it.
+// Names are full paths that start with base.
 type readWriteFSImpl struct {
+	base string
+}
+
+func (fwfs readWriteFSImpl) open() (*os.Root, error) {
+	if err := os.MkdirAll(fwfs.base, os.ModePerm); err != nil {
+		return nil, err
+	}
+	return os.OpenRoot(fwfs.base)
+}
+
+func (fwfs readWriteFSImpl) rel(name string) (string, error) {
+	rel, err := filepath.Rel(fwfs.base, name)
+	if err != nil {
+		return "", err
+	}
+	if !filepath.IsLocal(rel) {
+		return "", &fs.PathError{Op: "open", Path: name, Err: fs.ErrPermission}
+	}
+	return rel, nil
 }
 
 func (fwfs readWriteFSImpl) Open(name string) (fs.File, error) {
-	return os.Open(name)
+	rel, err := fwfs.rel(name)
+	if err != nil {
+		return nil, err
+	}
+	root, err := fwfs.open()
+	if err != nil {
+		return nil, err
+	}
+	defer root.Close()
+	return root.Open(rel)
+}
+
+func (fwfs readWriteFSImpl) openFile(name string, flag int) (*os.File, error) {
+	rel, err := fwfs.rel(name)
+	if err != nil {
+		return nil, err
+	}
+	root, err := fwfs.open()
+	if err != nil {
+		return nil, err
+	}
+	defer root.Close()
+	if dir := filepath.Dir(rel); dir != "." {
+		if err := root.MkdirAll(dir, os.ModePerm); err != nil {
+			return nil, err
+		}
+	}
+	return root.OpenFile(rel, flag, 0o644)
 }
 
 func (fwfs readWriteFSImpl) OpenWritable(name string) (WritableFile, error) {
-	if err := os.MkdirAll(filepath.Dir(name), os.ModePerm); err != nil {
-		return nil, err
-	}
-	return os.OpenFile(name, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0o644)
+	return fwfs.openFile(name, os.O_CREATE|os.O_RDWR|os.O_TRUNC)
 }
 
 func (fwfs readWriteFSImpl) OpenAppendable(name string) (WritableFile, error) {
-	if err := os.MkdirAll(filepath.Dir(name), os.ModePerm); err != nil {
-		return nil, err
-	}
-	file, err := os.OpenFile(name, os.O_CREATE|os.O_RDWR, 0o644)
-
+	file, err := fwfs.openFile(name, os.O_CREATE|os.O_RDWR)
 	if err != nil {
 		return nil, err
 	}
@@ -89,6 +131,19 @@ func (fwfs readWriteFSImpl) OpenAppendable(name string) (WritableFile, error) {
 		return nil, err
 	}
 	return file, nil
+}
+
+func (fwfs readWriteFSImpl) RemoveAll(name string) error {
+	rel, err := fwfs.rel(name)
+	if err != nil {
+		return err
+	}
+	root, err := fwfs.open()
+	if err != nil {
+		return err
+	}
+	defer root.Close()
+	return root.RemoveAll(rel)
 }
 
 var gzipExtension = ".gz__"
@@ -521,7 +576,7 @@ func NewAuthKey() ([]byte, error) {
 
 func newHandler(artifactPath string, authKey []byte) http.Handler {
 	router := httprouter.New()
-	fsys := readWriteFSImpl{}
+	fsys := readWriteFSImpl{base: artifactPath}
 	uploads(router, artifactPath, fsys)
 	downloads(router, artifactPath, fsys)
 	RoutesV4(router, artifactPath, fsys, fsys)

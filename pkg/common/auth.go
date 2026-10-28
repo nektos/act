@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	log "github.com/sirupsen/logrus"
 )
 
 type actionsClaims struct {
@@ -36,7 +35,9 @@ const (
 )
 
 // CreateAuthorizationToken creates an ACTIONS_RUNTIME_TOKEN style JWT signed with an empty key.
-// Callers that talk to the artifact server must use CreateSignedAuthorizationToken instead.
+// The artifact server rejects these tokens.
+//
+// Deprecated: use CreateSignedAuthorizationToken.
 func CreateAuthorizationToken(taskID, runID, jobID int64) (string, error) {
 	return CreateSignedAuthorizationToken(nil, taskID, runID, jobID)
 }
@@ -75,36 +76,6 @@ func CreateSignedAuthorizationToken(key []byte, taskID, runID, jobID int64) (str
 	}
 
 	return tokenString, nil
-}
-
-func ParseAuthorizationToken(req *http.Request) (int64, error) {
-	h := req.Header.Get("Authorization")
-	if h == "" {
-		return 0, nil
-	}
-
-	parts := strings.SplitN(h, " ", 2)
-	if len(parts) != 2 {
-		log.Error("split token failed")
-		return 0, fmt.Errorf("split token failed")
-	}
-
-	token, err := jwt.ParseWithClaims(parts[1], &actionsClaims{}, func(t *jwt.Token) (any, error) {
-		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
-		}
-		return []byte{}, nil
-	})
-	if err != nil {
-		return 0, err
-	}
-
-	c, ok := token.Claims.(*actionsClaims)
-	if !token.Valid || !ok {
-		return 0, fmt.Errorf("invalid token claim")
-	}
-
-	return c.TaskID, nil
 }
 
 // ValidateAuthorizationToken checks that req carries an "Authorization: Bearer" JWT

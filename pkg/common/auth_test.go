@@ -39,29 +39,6 @@ func TestCreateAuthorizationToken(t *testing.T) {
 	assert.GreaterOrEqual(t, len(scopes), 1, "Expected at least one action cache scope for buildx gha cache")
 }
 
-func TestParseAuthorizationToken(t *testing.T) {
-	var taskID int64 = 23
-	token, err := CreateAuthorizationToken(taskID, 1, 2)
-	assert.Nil(t, err)
-	assert.NotEqual(t, "", token)
-	headers := http.Header{}
-	headers.Set("Authorization", "Bearer "+token)
-	rTaskID, err := ParseAuthorizationToken(&http.Request{
-		Header: headers,
-	})
-	assert.Nil(t, err)
-	assert.Equal(t, taskID, rTaskID)
-}
-
-func TestParseAuthorizationTokenNoAuthHeader(t *testing.T) {
-	headers := http.Header{}
-	rTaskID, err := ParseAuthorizationToken(&http.Request{
-		Header: headers,
-	})
-	assert.Nil(t, err)
-	assert.Equal(t, int64(0), rTaskID)
-}
-
 func TestValidateAuthorizationToken(t *testing.T) {
 	key := []byte("0123456789abcdef0123456789abcdef")
 	valid, err := CreateSignedAuthorizationToken(key, 1, 2, 3)

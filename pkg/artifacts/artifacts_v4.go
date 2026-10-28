@@ -108,10 +108,14 @@ const (
 	ArtifactV4ContentEncoding = "application/zip"
 )
 
+const signedURLLifetime = 60 * time.Minute
+
 type artifactV4Routes struct {
-	prefix  string
-	fs      WriteFS
-	rfs     fs.FS
+	prefix string
+	fs     WriteFS
+	rfs    fs.FS
+	// AppURL, when set, is the host[:port] used in signed URLs instead of the
+	// request's Host header.
 	AppURL  string
 	baseDir string
 	// signingKey is the HMAC key for signed upload and download URLs.
@@ -165,7 +169,6 @@ func RoutesV4(router *httprouter.Router, baseDir string, fsys WriteFS, rfs fs.FS
 		signingKey: newSigningKey(),
 	}
 	router.POST(path.Join(ArtifactV4RouteBase, "CreateArtifact"), func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-		route.AppURL = r.Host
 		route.createArtifact(&ArtifactContext{
 			Req:  r,
 			Resp: w,
@@ -184,14 +187,12 @@ func RoutesV4(router *httprouter.Router, baseDir string, fsys WriteFS, rfs fs.FS
 		})
 	})
 	router.POST(path.Join(ArtifactV4RouteBase, "GetSignedArtifactURL"), func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-		route.AppURL = r.Host
 		route.getSignedArtifactURL(&ArtifactContext{
 			Req:  r,
 			Resp: w,
 		})
 	})
 	router.POST(path.Join(ArtifactV4RouteBase, "DeleteArtifact"), func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-		route.AppURL = r.Host
 		route.deleteArtifact(&ArtifactContext{
 			Req:  r,
 			Resp: w,
@@ -234,9 +235,23 @@ func (r artifactV4Routes) buildSignature(endp, expires, artifactName string, tas
 	return mac.Sum(nil)
 }
 
-func (r artifactV4Routes) buildArtifactURL(endp, artifactName string, taskID int64) string {
-	expires := time.Now().Add(60 * time.Minute).Format("2006-01-02 15:04:05.999999999 -0700 MST")
-	uploadURL := "http://" + strings.TrimSuffix(r.AppURL, "/") + strings.TrimSuffix(r.prefix, "/") +
+// signedURLHost returns the host[:port] for signed URLs. The request Host is
+// only used when it is a bare authority, and is read per request so concurrent
+// requests cannot change each other's URLs.
+func (r artifactV4Routes) signedURLHost(req *http.Request) (string, bool) {
+	if r.AppURL != "" {
+		return strings.TrimSuffix(r.AppURL, "/"), true
+	}
+	u, err := url.Parse("http://" + req.Host)
+	if err != nil || req.Host == "" || u.Host != req.Host || u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" {
+		return "", false
+	}
+	return req.Host, true
+}
+
+func (r artifactV4Routes) buildArtifactURL(host, endp, artifactName string, taskID int64) string {
+	expires := time.Now().Add(signedURLLifetime).Format("2006-01-02 15:04:05.999999999 -0700 MST")
+	uploadURL := "http://" + host + strings.TrimSuffix(r.prefix, "/") +
 		"/" + endp + "?sig=" + base64.URLEncoding.EncodeToString(r.buildSignature(endp, expires, artifactName, taskID)) + "&expires=" + url.QueryEscape(expires) + "&artifactName=" + url.QueryEscape(artifactName) + "&taskID=" + fmt.Sprint(taskID)
 	return uploadURL
 }
@@ -256,7 +271,7 @@ func (r artifactV4Routes) verifySignature(ctx *ArtifactContext, endp string) (in
 		return -1, "", false
 	}
 	t, err := time.Parse("2006-01-02 15:04:05.999999999 -0700 MST", expires)
-	if err != nil || t.Before(time.Now()) {
+	if now := time.Now(); err != nil || t.Before(now) || t.After(now.Add(signedURLLifetime+time.Minute)) {
 		log.Error("Error link expired")
 		ctx.Error(http.StatusUnauthorized, "Error link expired")
 		return -1, "", false
@@ -309,6 +324,11 @@ func (r *artifactV4Routes) createArtifact(ctx *ArtifactContext) {
 		ctx.Error(http.StatusBadRequest, "invalid path")
 		return
 	}
+	host, ok := r.signedURLHost(ctx.Req)
+	if !ok {
+		ctx.Error(http.StatusBadRequest, "invalid host")
+		return
+	}
 	file, err := r.fs.OpenWritable(safePath)
 
 	if err != nil {
@@ -318,7 +338,7 @@ func (r *artifactV4Routes) createArtifact(ctx *ArtifactContext) {
 
 	respData := CreateArtifactResponse{
 		Ok:              true,
-		SignedUploadUrl: r.buildArtifactURL("UploadArtifact", artifactName, runID),
+		SignedUploadUrl: r.buildArtifactURL(host, "UploadArtifact", artifactName, runID),
 	}
 	r.sendProtbufBody(ctx, &respData)
 }
@@ -445,9 +465,15 @@ func (r *artifactV4Routes) getSignedArtifactURL(ctx *ArtifactContext) {
 		return
 	}
 
+	host, ok := r.signedURLHost(ctx.Req)
+	if !ok {
+		ctx.Error(http.StatusBadRequest, "invalid host")
+		return
+	}
+
 	respData := GetSignedArtifactURLResponse{}
 
-	respData.SignedUrl = r.buildArtifactURL("DownloadArtifact", artifactName, runID)
+	respData.SignedUrl = r.buildArtifactURL(host, "DownloadArtifact", artifactName, runID)
 	r.sendProtbufBody(ctx, &respData)
 }
 
@@ -494,7 +520,11 @@ func (r *artifactV4Routes) deleteArtifact(ctx *ArtifactContext) {
 		return
 	}
 
-	_ = os.RemoveAll(safePath)
+	if rfs, ok := r.fs.(interface{ RemoveAll(string) error }); ok {
+		_ = rfs.RemoveAll(safePath)
+	} else {
+		_ = os.RemoveAll(safePath)
+	}
 
 	respData := DeleteArtifactResponse{
 		Ok:         true,

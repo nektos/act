@@ -66,7 +66,7 @@ func TestServerRejectsRequestsWithoutValidRuntimeToken(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Join(baseDir, "1", "art"), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(baseDir, "1", "art", "secret.txt"), []byte("secret"), 0o600))
 
-	emptyKeyToken, err := common.CreateAuthorizationToken(1, 1, 1)
+	emptyKeyToken, err := common.CreateSignedAuthorizationToken(nil, 1, 1, 1)
 	require.NoError(t, err)
 	otherKeyToken, err := common.CreateSignedAuthorizationToken([]byte("some other key"), 1, 1, 1)
 	require.NoError(t, err)
@@ -111,7 +111,7 @@ func TestServerRejectsEmptyAuthKey(t *testing.T) {
 	baseDir := t.TempDir()
 	srv := httptest.NewServer(newHandler(baseDir, nil))
 	t.Cleanup(srv.Close)
-	token, err := common.CreateAuthorizationToken(1, 1, 1)
+	token, err := common.CreateSignedAuthorizationToken(nil, 1, 1, 1)
 	require.NoError(t, err)
 	status, _ := doRequest(t, http.MethodGet, srv.URL+"/_apis/pipelines/workflows/1/artifacts", token, "")
 	assert.Equal(t, http.StatusUnauthorized, status)
@@ -219,7 +219,7 @@ func TestV4SignatureFieldsAreNotInterchangeable(t *testing.T) {
 		signingKey: newSigningKey(),
 		AppURL:     "localhost",
 	}
-	signed := route.buildArtifactURL("DownloadArtifact", "a1", 2)
+	signed := route.buildArtifactURL("localhost", "DownloadArtifact", "a1", 2)
 	untampered := httptest.NewRequest(http.MethodGet, signed, nil)
 	okRR := httptest.NewRecorder()
 	route.downloadArtifact(&ArtifactContext{Req: untampered, Resp: okRR})
@@ -245,7 +245,7 @@ func TestV4DownloadMissingArtifact(t *testing.T) {
 		signingKey: newSigningKey(),
 		AppURL:     "localhost",
 	}
-	signedURL := route.buildArtifactURL("DownloadArtifact", "missing", 1)
+	signedURL := route.buildArtifactURL("localhost", "DownloadArtifact", "missing", 1)
 	req := httptest.NewRequest(http.MethodGet, signedURL, nil)
 	rr := httptest.NewRecorder()
 	route.downloadArtifact(&ArtifactContext{Req: req, Resp: rr})
@@ -347,4 +347,82 @@ func TestDownloadArtifactFileClosesFile(t *testing.T) {
 	require.Equal(t, http.StatusOK, rr.Code)
 	assert.Equal(t, "content", rr.Body.String())
 	assert.Equal(t, 0, open, "file handle leaked")
+}
+
+func TestReadWriteFSStaysInsideBase(t *testing.T) {
+	dir := t.TempDir()
+	base := filepath.Join(dir, "artifacts")
+	outside := filepath.Join(dir, "outside")
+	require.NoError(t, os.MkdirAll(filepath.Join(base, "1"), 0o755))
+	require.NoError(t, os.MkdirAll(outside, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(outside, "secret"), []byte("s"), 0o600))
+	require.NoError(t, os.Symlink(outside, filepath.Join(base, "1", "link")))
+
+	fsys := readWriteFSImpl{base: base}
+	_, err := fsys.OpenWritable(filepath.Join(base, "1", "link", "evil"))
+	assert.Error(t, err)
+	_, err = os.Stat(filepath.Join(outside, "evil"))
+	assert.True(t, os.IsNotExist(err))
+
+	_, err = fsys.Open(filepath.Join(base, "1", "link", "secret"))
+	assert.Error(t, err)
+	_, err = fsys.Open(filepath.Join(dir, "outside", "secret"))
+	assert.Error(t, err)
+
+	assert.NoError(t, fsys.RemoveAll(filepath.Join(base, "1", "link")))
+	_, err = os.Stat(filepath.Join(outside, "secret"))
+	assert.NoError(t, err)
+
+	f, err := fsys.OpenWritable(filepath.Join(base, "1", "art", "file"))
+	require.NoError(t, err)
+	_, err = f.Write([]byte("ok"))
+	assert.NoError(t, err)
+	assert.NoError(t, f.Close())
+	got, err := os.ReadFile(filepath.Join(base, "1", "art", "file"))
+	assert.NoError(t, err)
+	assert.Equal(t, "ok", string(got))
+}
+
+func TestV4SignatureRejectsFarFutureExpiry(t *testing.T) {
+	route := &artifactV4Routes{
+		rfs:        fstest.MapFS{},
+		baseDir:    t.TempDir(),
+		prefix:     ArtifactV4RouteBase,
+		signingKey: newSigningKey(),
+	}
+	expires := time.Now().Add(24 * 365 * time.Hour).Format("2006-01-02 15:04:05.999999999 -0700 MST")
+	sig := base64.URLEncoding.EncodeToString(route.buildSignature("DownloadArtifact", expires, "a1", 1))
+	target := fmt.Sprintf("http://localhost%s/DownloadArtifact?sig=%s&expires=%s&artifactName=a1&taskID=1",
+		ArtifactV4RouteBase, url.QueryEscape(sig), url.QueryEscape(expires))
+	rr := httptest.NewRecorder()
+	route.downloadArtifact(&ArtifactContext{Req: httptest.NewRequest(http.MethodGet, target, nil), Resp: rr})
+	assert.Equal(t, http.StatusUnauthorized, rr.Code)
+}
+
+func TestV4SignedURLHost(t *testing.T) {
+	route := artifactV4Routes{}
+	for host, want := range map[string]bool{
+		"127.0.0.1:34567":  true,
+		"act.local":        true,
+		"[::1]:8080":       true,
+		"":                 false,
+		"evil.test/path":   false,
+		"user@evil.test":   false,
+		"evil.test?x=1":    false,
+		"evil.test#frag":   false,
+		"evil.test:80/../": false,
+	} {
+		req := httptest.NewRequest(http.MethodPost, "http://placeholder/", nil)
+		req.Host = host
+		got, ok := route.signedURLHost(req)
+		assert.Equal(t, want, ok, host)
+		if want {
+			assert.Equal(t, host, got)
+		}
+	}
+
+	fixed := artifactV4Routes{AppURL: "10.0.0.5:34567/"}
+	got, ok := fixed.signedURLHost(httptest.NewRequest(http.MethodPost, "http://evil.test/", nil))
+	assert.True(t, ok)
+	assert.Equal(t, "10.0.0.5:34567", got)
 }
