@@ -3,6 +3,7 @@ package common
 import (
 	"context"
 	"fmt"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -79,37 +80,40 @@ func TestNewParallelExecutor(t *testing.T) {
 
 	ctx := context.Background()
 
-	count := 0
-	activeCount := 0
-	maxCount := 0
+	var count atomic.Int32
+	var activeCount atomic.Int32
+	var maxCount atomic.Int32
 	emptyWorkflow := NewPipelineExecutor(func(_ context.Context) error {
-		count++
+		count.Add(1)
 
-		activeCount++
-		if activeCount > maxCount {
-			maxCount = activeCount
+		current := activeCount.Add(1)
+		for {
+			seen := maxCount.Load()
+			if current <= seen || maxCount.CompareAndSwap(seen, current) {
+				break
+			}
 		}
 		time.Sleep(2 * time.Second)
-		activeCount--
+		activeCount.Add(-1)
 
 		return nil
 	})
 
 	err := NewParallelExecutor(2, emptyWorkflow, emptyWorkflow, emptyWorkflow)(ctx)
 
-	assert.Equal(3, count, "should run all 3 executors")
-	assert.Equal(2, maxCount, "should run at most 2 executors in parallel")
+	assert.Equal(int32(3), count.Load(), "should run all 3 executors")
+	assert.Equal(int32(2), maxCount.Load(), "should run at most 2 executors in parallel")
 	assert.Nil(err)
 
 	// Reset to test running the executor with 0 parallelism
-	count = 0
-	activeCount = 0
-	maxCount = 0
+	count.Store(0)
+	activeCount.Store(0)
+	maxCount.Store(0)
 
 	errSingle := NewParallelExecutor(0, emptyWorkflow, emptyWorkflow, emptyWorkflow)(ctx)
 
-	assert.Equal(3, count, "should run all 3 executors")
-	assert.Equal(1, maxCount, "should run at most 1 executors in parallel")
+	assert.Equal(int32(3), count.Load(), "should run all 3 executors")
+	assert.Equal(int32(1), maxCount.Load(), "should run at most 1 executors in parallel")
 	assert.Nil(errSingle)
 }
 
@@ -137,16 +141,16 @@ func TestNewParallelExecutorCanceled(t *testing.T) {
 
 	errExpected := fmt.Errorf("fake error")
 
-	count := 0
+	var count atomic.Int32
 	successWorkflow := NewPipelineExecutor(func(_ context.Context) error {
-		count++
+		count.Add(1)
 		return nil
 	})
 	errorWorkflow := NewPipelineExecutor(func(_ context.Context) error {
-		count++
+		count.Add(1)
 		return errExpected
 	})
 	err := NewParallelExecutor(3, errorWorkflow, successWorkflow, successWorkflow)(ctx)
-	assert.Equal(3, count)
+	assert.Equal(int32(3), count.Load())
 	assert.Error(errExpected, err)
 }
