@@ -23,10 +23,10 @@ import (
 )
 
 var (
-	codeCommitHTTPRegex = regexp.MustCompile(`^https?://git-codecommit\.(.+)\.amazonaws.com/v1/repos/(.+)$`)
-	codeCommitSSHRegex  = regexp.MustCompile(`ssh://git-codecommit\.(.+)\.amazonaws.com/v1/repos/(.+)$`)
-	githubHTTPRegex     = regexp.MustCompile(`^https?://.*github.com.*/(.+)/(.+?)(?:.git)?$`)
-	githubSSHRegex      = regexp.MustCompile(`github.com[:/](.+)/(.+?)(?:.git)?$`)
+	codeCommitHTTPRegex = regexp.MustCompile(`^https?://git-codecommit\.([^./]+)\.amazonaws\.com/v1/repos/(.+)$`)
+	codeCommitSSHRegex  = regexp.MustCompile(`^ssh://(?:[^@/]+@)?git-codecommit\.([^./]+)\.amazonaws\.com/v1/repos/(.+)$`)
+	githubHTTPRegex     = gitHostHTTPRegex("github.com")
+	githubSSHRegex      = gitHostSSHRegex("github.com")
 
 	cloneLock sync.Mutex
 
@@ -198,6 +198,19 @@ func findGitRemoteURL(_ context.Context, file, remoteName string) (string, error
 	return remote.Config().URLs[0], nil
 }
 
+// gitHostHTTPRegex matches http(s)://[userinfo@]host/owner/repo[.git] for
+// exactly host.
+func gitHostHTTPRegex(host string) *regexp.Regexp {
+	return regexp.MustCompile(`^https?://(?:[^@/]+@)?` + regexp.QuoteMeta(host) + `/([^/]+)/([^/]+?)(?:\.git)?/?$`)
+}
+
+// gitHostSSHRegex matches [git+]ssh://[user@]host/owner/repo and
+// [user@]host:owner/repo for exactly host.
+func gitHostSSHRegex(host string) *regexp.Regexp {
+	h := regexp.QuoteMeta(host)
+	return regexp.MustCompile(`^(?:(?:git\+)?ssh://(?:[^@/]+@)?` + h + `/|(?:[^@/:]+@)?` + h + `:)([^/]+)/([^/]+?)(?:\.git)?/?$`)
+}
+
 func findGitSlug(url string, githubInstance string) (string, string, error) {
 	if matches := codeCommitHTTPRegex.FindStringSubmatch(url); matches != nil {
 		return "CodeCommit", matches[2], nil
@@ -208,8 +221,8 @@ func findGitSlug(url string, githubInstance string) (string, string, error) {
 	} else if matches := githubSSHRegex.FindStringSubmatch(url); matches != nil {
 		return "GitHub", fmt.Sprintf("%s/%s", matches[1], matches[2]), nil
 	} else if githubInstance != "github.com" {
-		gheHTTPRegex := regexp.MustCompile(fmt.Sprintf(`^https?://%s/(.+)/(.+?)(?:.git)?$`, githubInstance))
-		gheSSHRegex := regexp.MustCompile(fmt.Sprintf(`%s[:/](.+)/(.+?)(?:.git)?$`, githubInstance))
+		gheHTTPRegex := gitHostHTTPRegex(githubInstance)
+		gheSSHRegex := gitHostSSHRegex(githubInstance)
 		if matches := gheHTTPRegex.FindStringSubmatch(url); matches != nil {
 			return "GitHubEnterprise", fmt.Sprintf("%s/%s", matches[1], matches[2]), nil
 		} else if matches := gheSSHRegex.FindStringSubmatch(url); matches != nil {
