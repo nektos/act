@@ -82,11 +82,13 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"hash/fnv"
 	"io"
 	"io/fs"
+	"mime"
 	"net/http"
 	"net/url"
 	"os"
@@ -105,7 +107,12 @@ import (
 const (
 	ArtifactV4RouteBase       = "/twirp/github.actions.results.api.v1.ArtifactService"
 	ArtifactV4ContentEncoding = "application/zip"
+	artifactV4MetadataFile    = ".metadata.json"
 )
+
+type artifactV4Metadata struct {
+	ContentType string `json:"contentType"`
+}
 
 type artifactV4Routes struct {
 	prefix  string
@@ -219,7 +226,8 @@ func (r artifactV4Routes) verifySignature(ctx *ArtifactContext, endp string) (in
 	sig := ctx.Req.URL.Query().Get("sig")
 	expires := ctx.Req.URL.Query().Get("expires")
 	artifactName := ctx.Req.URL.Query().Get("artifactName")
-	dsig, _ := base64.URLEncoding.DecodeString(sig)
+	// Azure blob clients may strip base64 padding when adding block parameters.
+	dsig, _ := base64.RawURLEncoding.DecodeString(strings.TrimRight(sig, "="))
 	taskID, _ := strconv.ParseInt(rawTaskID, 10, 64)
 
 	expecedsig := r.buildSignature(endp, expires, artifactName, taskID)
@@ -237,20 +245,73 @@ func (r artifactV4Routes) verifySignature(ctx *ArtifactContext, endp string) (in
 	return taskID, artifactName, true
 }
 
-func (r *artifactV4Routes) parseProtbufBody(ctx *ArtifactContext, req protoreflect.ProtoMessage) bool {
+func (r *artifactV4Routes) parseProtbufBody(ctx *ArtifactContext, req protoreflect.ProtoMessage) ([]byte, bool) {
 	body, err := io.ReadAll(ctx.Req.Body)
 	if err != nil {
 		log.Errorf("Error decode request body: %v", err)
 		ctx.Error(http.StatusInternalServerError, "Error decode request body")
-		return false
+		return nil, false
 	}
-	err = protojson.Unmarshal(body, req)
+	// Artifact clients may add optional fields before act updates its schema.
+	err = protojson.UnmarshalOptions{DiscardUnknown: true}.Unmarshal(body, req)
 	if err != nil {
 		log.Errorf("Error decode request body: %v", err)
 		ctx.Error(http.StatusInternalServerError, "Error decode request body")
-		return false
+		return nil, false
 	}
-	return true
+	return body, true
+}
+
+func artifactV4ContentType(body []byte) string {
+	var request struct {
+		MimeType string `json:"mime_type"`
+	}
+	if err := json.Unmarshal(body, &request); err != nil || request.MimeType == "" {
+		return ArtifactV4ContentEncoding
+	}
+	if _, _, err := mime.ParseMediaType(request.MimeType); err != nil {
+		return ArtifactV4ContentEncoding
+	}
+	return request.MimeType
+}
+
+func (r artifactV4Routes) artifactV4Path(runID int64, artifactName string) string {
+	safeRunPath := safeResolve(r.baseDir, fmt.Sprint(runID))
+	safePath := safeResolve(safeRunPath, artifactName)
+	return safeResolve(safePath, artifactName+".zip")
+}
+
+func (r artifactV4Routes) artifactV4MetadataPath(runID int64, artifactName string) string {
+	safeRunPath := safeResolve(r.baseDir, fmt.Sprint(runID))
+	safePath := safeResolve(safeRunPath, artifactName)
+	return safeResolve(safePath, artifactV4MetadataFile)
+}
+
+func (r artifactV4Routes) writeArtifactV4Metadata(runID int64, artifactName string, metadata artifactV4Metadata) error {
+	file, err := r.fs.OpenWritable(r.artifactV4MetadataPath(runID, artifactName))
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	return json.NewEncoder(file).Encode(metadata)
+}
+
+func (r artifactV4Routes) readArtifactV4Metadata(runID int64, artifactName string) artifactV4Metadata {
+	metadata := artifactV4Metadata{ContentType: ArtifactV4ContentEncoding}
+	file, err := r.rfs.Open(r.artifactV4MetadataPath(runID, artifactName))
+	if err != nil {
+		return metadata
+	}
+	defer file.Close()
+
+	var stored artifactV4Metadata
+	if err := json.NewDecoder(file).Decode(&stored); err != nil {
+		return metadata
+	}
+	if _, _, err := mime.ParseMediaType(stored.ContentType); err != nil {
+		return metadata
+	}
+	return stored
 }
 
 func (r *artifactV4Routes) sendProtbufBody(ctx *ArtifactContext, req protoreflect.ProtoMessage) {
@@ -268,7 +329,8 @@ func (r *artifactV4Routes) sendProtbufBody(ctx *ArtifactContext, req protoreflec
 func (r *artifactV4Routes) createArtifact(ctx *ArtifactContext) {
 	var req CreateArtifactRequest
 
-	if ok := r.parseProtbufBody(ctx, &req); !ok {
+	body, ok := r.parseProtbufBody(ctx, &req)
+	if !ok {
 		return
 	}
 	_, runID, ok := validateRunIDV4(ctx, req.WorkflowRunBackendId)
@@ -278,15 +340,17 @@ func (r *artifactV4Routes) createArtifact(ctx *ArtifactContext) {
 
 	artifactName := req.Name
 
-	safeRunPath := safeResolve(r.baseDir, fmt.Sprint(runID))
-	safePath := safeResolve(safeRunPath, artifactName)
-	safePath = safeResolve(safePath, artifactName+".zip")
-	file, err := r.fs.OpenWritable(safePath)
+	file, err := r.fs.OpenWritable(r.artifactV4Path(runID, artifactName))
 
 	if err != nil {
 		panic(err)
 	}
 	file.Close()
+	if err := r.writeArtifactV4Metadata(runID, artifactName, artifactV4Metadata{
+		ContentType: artifactV4ContentType(body),
+	}); err != nil {
+		panic(err)
+	}
 
 	respData := CreateArtifactResponse{
 		Ok:              true,
@@ -304,12 +368,7 @@ func (r *artifactV4Routes) uploadArtifact(ctx *ArtifactContext) {
 	comp := ctx.Req.URL.Query().Get("comp")
 	switch comp {
 	case "block", "appendBlock":
-
-		safeRunPath := safeResolve(r.baseDir, fmt.Sprint(task))
-		safePath := safeResolve(safeRunPath, artifactName)
-		safePath = safeResolve(safePath, artifactName+".zip")
-
-		file, err := r.fs.OpenAppendable(safePath)
+		file, err := r.fs.OpenAppendable(r.artifactV4Path(task, artifactName))
 
 		if err != nil {
 			panic(err)
@@ -339,7 +398,7 @@ func (r *artifactV4Routes) uploadArtifact(ctx *ArtifactContext) {
 func (r *artifactV4Routes) finalizeArtifact(ctx *ArtifactContext) {
 	var req FinalizeArtifactRequest
 
-	if ok := r.parseProtbufBody(ctx, &req); !ok {
+	if _, ok := r.parseProtbufBody(ctx, &req); !ok {
 		return
 	}
 	_, _, ok := validateRunIDV4(ctx, req.WorkflowRunBackendId)
@@ -357,7 +416,7 @@ func (r *artifactV4Routes) finalizeArtifact(ctx *ArtifactContext) {
 func (r *artifactV4Routes) listArtifacts(ctx *ArtifactContext) {
 	var req ListArtifactsRequest
 
-	if ok := r.parseProtbufBody(ctx, &req); !ok {
+	if _, ok := r.parseProtbufBody(ctx, &req); !ok {
 		return
 	}
 	_, runID, ok := validateRunIDV4(ctx, req.WorkflowRunBackendId)
@@ -402,7 +461,7 @@ func (r *artifactV4Routes) listArtifacts(ctx *ArtifactContext) {
 func (r *artifactV4Routes) getSignedArtifactURL(ctx *ArtifactContext) {
 	var req GetSignedArtifactURLRequest
 
-	if ok := r.parseProtbufBody(ctx, &req); !ok {
+	if _, ok := r.parseProtbufBody(ctx, &req); !ok {
 		return
 	}
 	_, runID, ok := validateRunIDV4(ctx, req.WorkflowRunBackendId)
@@ -424,19 +483,27 @@ func (r *artifactV4Routes) downloadArtifact(ctx *ArtifactContext) {
 		return
 	}
 
-	safeRunPath := safeResolve(r.baseDir, fmt.Sprint(task))
-	safePath := safeResolve(safeRunPath, artifactName)
-	safePath = safeResolve(safePath, artifactName+".zip")
+	file, err := r.rfs.Open(r.artifactV4Path(task, artifactName))
+	if err != nil {
+		ctx.Error(http.StatusNotFound, "Artifact not found")
+		return
+	}
+	defer file.Close()
 
-	file, _ := r.rfs.Open(safePath)
-
+	metadata := r.readArtifactV4Metadata(task, artifactName)
+	filename := artifactName
+	if metadata.ContentType == ArtifactV4ContentEncoding {
+		filename += ".zip"
+	}
+	ctx.Resp.Header().Set("Content-Type", metadata.ContentType)
+	ctx.Resp.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": filename}))
 	_, _ = io.Copy(ctx.Resp, file)
 }
 
 func (r *artifactV4Routes) deleteArtifact(ctx *ArtifactContext) {
 	var req DeleteArtifactRequest
 
-	if ok := r.parseProtbufBody(ctx, &req); !ok {
+	if _, ok := r.parseProtbufBody(ctx, &req); !ok {
 		return
 	}
 	_, runID, ok := validateRunIDV4(ctx, req.WorkflowRunBackendId)
