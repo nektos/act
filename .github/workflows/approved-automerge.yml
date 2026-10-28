@@ -34,7 +34,7 @@ permissions:
   pull-requests: read
 
 concurrency:
-  group: approved-automerge-${{ github.event.workflow_run.head_sha }}
+  group: approved-automerge-${{ github.event.workflow_run.pull_requests[0].number || github.event.workflow_run.id }}
   cancel-in-progress: false
 
 jobs:
