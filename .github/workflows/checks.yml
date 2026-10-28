@@ -122,7 +122,7 @@ jobs:
         run: go run -tags WITHOUT_DOCKER main.go -P ubuntu-latest=-self-hosted -C ./pkg/runner/testdata/ -W ./local-action-js/push.yml
       - name: Upload Codecov report
         if: needs.changes.outputs.heavy == 'true'
-        uses: codecov/codecov-action@1af58845a975a7985b0beb0cbe6fbbb71a41dbad # v5
+        uses: codecov/codecov-action@0fb7174895f61a3b6b78fc075e0cd60383518dac # v5.5.5
         with:
           files: coverage.txt
           fail_ci_if_error: true # optional (default = false)
