@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -368,7 +369,11 @@ func symlinkJoin(filename, sym, parent string) (string, error) {
 	dir := path.Dir(filename)
 	dest := path.Join(dir, sym)
 	prefix := path.Clean(parent) + "/"
-	if strings.HasPrefix(dest, prefix) || prefix == "./" {
+	if prefix == "./" {
+		if filepath.IsLocal(filepath.FromSlash(dest)) {
+			return dest, nil
+		}
+	} else if strings.HasPrefix(dest, prefix) {
 		return dest, nil
 	}
 	return "", fmt.Errorf("symlink tries to access file '%s' outside of '%s'", strings.ReplaceAll(dest, "'", "''"), strings.ReplaceAll(parent, "'", "''"))

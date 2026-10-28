@@ -102,8 +102,14 @@ func (sar *stepActionRemote) prepareActionExecutor() common.Executor {
 			}
 
 			actionModel, err := sar.readAction(ctx, sar.Step, sar.resolvedSha, sar.remoteAction.Path, remoteReader(ctx), os.WriteFile)
+			if err != nil {
+				return err
+			}
+			if err := validateRemoteActionPaths(actionModel, sar.remoteAction.Path); err != nil {
+				return err
+			}
 			sar.action = actionModel
-			return err
+			return nil
 		}
 
 		actionDir := fmt.Sprintf("%s/%s", sar.RunContext.ActionCacheDir(), safeFilename(sar.Step.Uses))
@@ -128,8 +134,16 @@ func (sar *stepActionRemote) prepareActionExecutor() common.Executor {
 
 		remoteReader := func(_ context.Context) actionYamlReader {
 			return func(filename string) (io.Reader, io.Closer, error) {
-				f, err := os.Open(filepath.Join(actionDir, sar.remoteAction.Path, filename))
-				return f, f, err
+				root, err := os.OpenRoot(actionDir)
+				if err != nil {
+					return nil, nil, err
+				}
+				defer root.Close()
+				f, err := root.Open(filepath.Join(filepath.FromSlash(sar.remoteAction.Path), filename))
+				if err != nil {
+					return nil, nil, err
+				}
+				return f, f, nil
 			}
 		}
 
@@ -137,8 +151,14 @@ func (sar *stepActionRemote) prepareActionExecutor() common.Executor {
 			ntErr,
 			func(ctx context.Context) error {
 				actionModel, err := sar.readAction(ctx, sar.Step, actionDir, sar.remoteAction.Path, remoteReader(ctx), os.WriteFile)
+				if err != nil {
+					return err
+				}
+				if err := validateRemoteActionPaths(actionModel, sar.remoteAction.Path); err != nil {
+					return err
+				}
 				sar.action = actionModel
-				return err
+				return nil
 			},
 		)(ctx)
 	}
@@ -280,6 +300,9 @@ func newRemoteAction(action string) *remoteAction {
 	if len(matches) < 7 || matches[6] == "" {
 		return nil
 	}
+	if !isRepoSegment(matches[1]) || !isRepoSegment(matches[2]) || !isLocalActionPath(matches[4]) {
+		return nil
+	}
 	return &remoteAction{
 		Org:  matches[1],
 		Repo: matches[2],
@@ -287,6 +310,43 @@ func newRemoteAction(action string) *remoteAction {
 		Ref:  matches[6],
 		URL:  "https://github.com",
 	}
+}
+
+func isRepoSegment(s string) bool {
+	return s != "." && s != ".." && !strings.Contains(s, `\`)
+}
+
+// isLocalActionPath reports whether p, a slash-separated path inside an action
+// repository, stays inside that repository.
+func isLocalActionPath(p string) bool {
+	return p == "" || filepath.IsLocal(filepath.FromSlash(p))
+}
+
+// validateRemoteActionPaths rejects action files that resolve outside the
+// action repository.
+func validateRemoteActionPaths(action *model.Action, actionPath string) error {
+	if action == nil {
+		return nil
+	}
+	files := map[string]string{
+		"runs.main": action.Runs.Main,
+		"runs.pre":  action.Runs.Pre,
+		"runs.post": action.Runs.Post,
+	}
+	if !strings.HasPrefix(action.Runs.Image, "docker://") {
+		files["runs.image"] = action.Runs.Image
+	}
+	for key, file := range files {
+		if file == "" {
+			continue
+		}
+		// Action files are joined onto the action directory, so a leading slash
+		// does not make them absolute.
+		if !isLocalActionPath(path.Join(actionPath, strings.TrimLeft(file, "/"))) {
+			return fmt.Errorf("%s %q resolves outside of the action repository", key, file)
+		}
+	}
+	return nil
 }
 
 func safeFilename(s string) string {
