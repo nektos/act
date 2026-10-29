@@ -4,26 +4,46 @@ on:
     - cron: '0 2 1 * *'
   workflow_dispatch: {}
 
+permissions: {}
+
+# make promote pushes only the new v* tag, never a commit to the default
+# branch. The app token needs contents: write for the tag ruleset, not a
+# branch ruleset bypass.
 jobs:
   release:
     name: promote
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     environment: promote
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v6
-        id: checkout
+      - name: Create GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         env:
-          has_promote_token: ${{ secrets.PROMOTE_TOKEN && '1' || '' }}
-        if: env.has_promote_token
+          has_release_app: ${{ (vars.RELEASE_APP_ID || secrets.RELEASE_APP_ID) && secrets.RELEASE_APP_PRIVATE_KEY && '1' || '' }}
+        if: env.has_release_app
+        with:
+          app-id: ${{ vars.RELEASE_APP_ID || secrets.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          permission-contents: write
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0 zizmor: ignore[artipacked]
+        id: checkout
+        if: steps.app-token.conclusion == 'success'
         with:
           fetch-depth: 0
-          ref: master
-          token: ${{ secrets.PROMOTE_TOKEN }}
+          persist-credentials: true
+          ref: ${{ github.event.repository.default_branch }}
+          token: ${{ steps.app-token.outputs.token }}
       - uses: fregante/setup-git-user@024bc0b8e177d7e77203b48dab6fb45666854b35 # v2.0.2
         if: steps.checkout.conclusion != 'skipped'
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         if: steps.checkout.conclusion != 'skipped'
         with:
           go-version-file: go.mod
+          cache: false
       - run: make promote
         if: steps.checkout.conclusion != 'skipped'
+        env:
+          PROMOTE_BRANCH: ${{ github.event.repository.default_branch }}

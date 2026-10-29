@@ -29,6 +29,10 @@ func TestJobExecutor(t *testing.T) {
 	ctx := common.WithDryrun(context.Background(), true)
 	for _, table := range tables {
 		t.Run(table.workflowPath, func(t *testing.T) {
+			// Dry-run still asks the daemon whether the job image exists.
+			if testing.Short() && table.errorMessage == "" {
+				t.Skip("skipping integration test")
+			}
 			table.runTest(ctx, t, &Config{})
 		})
 	}

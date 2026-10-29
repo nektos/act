@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 420" width="640" height="420" role="img" aria-label="act">
+  <title>act</title>
+  <!-- laptop lid -->
+  <rect x="88" y="20" width="464" height="330" rx="22" fill="#24292f"/>
+  <!-- screen -->
+  <rect x="108" y="40" width="424" height="290" rx="6" fill="#ffffff"/>
+  <!-- camera -->
+  <circle cx="320" cy="30" r="4" fill="#57606a"/>
+  <!-- GitHub Actions mark, scaled to fill the screen -->
+  <g transform="translate(174 36) scale(0.66)" fill="none" stroke="#2088ff" stroke-width="22" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="96" cy="96" r="72"/>
+    <path d="M72 58 L134 96 L72 134 Z" stroke-width="18"/>
+    <path d="M96 168 V340 Q96 380 140 380 H170"/>
+    <path d="M96 196 Q96 237 140 237 H170"/>
+    <circle cx="215" cy="237" r="45"/>
+    <circle cx="380" cy="237" r="45"/>
+    <path d="M260 237 H335"/>
+    <path d="M193 239 L208 254 L238 222" stroke-width="17"/>
+    <path d="M358 239 L373 254 L403 222" stroke-width="17"/>
+    <circle cx="215" cy="380" r="45"/>
+    <circle cx="198" cy="381" r="9" fill="#2088ff" stroke="none"/>
+    <circle cx="232" cy="381" r="9" fill="#2088ff" stroke="none"/>
+    <circle cx="380" cy="380" r="45" stroke="#79b8ff"/>
+    <path d="M305 380 H320" stroke="#79b8ff"/>
+  </g>
+  <!-- base -->
+  <path d="M20 360 H620 L600 400 Q596 410 584 410 H56 Q44 410 40 400 Z" fill="#424a53"/>
+  <rect x="20" y="350" width="600" height="14" rx="4" fill="#57606a"/>
+  <rect x="270" y="350" width="100" height="8" rx="4" fill="#8c959f"/>
+</svg>

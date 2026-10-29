@@ -8,7 +8,7 @@ inputs:
     default: World
 runs:
   using: docker
-  image: docker://node:16-buster-slim
+  image: docker://node:24-bookworm-slim
   entrypoint: /bin/sh -c
   env:
     TEST: enabled

@@ -1,0 +1,65 @@
+name: Label merge conflicts
+
+# Replaces the Mergify rules that add and remove the `conflict` label.
+#
+# pull_request_target is not used. zizmor's dangerous-triggers audit rates
+# that event as high severity even for a job that never checks out pull
+# request code, because the run still executes in this repository with a
+# write token. Fork labeling is handled by the push and schedule events below.
+#
+# What runs instead:
+# - push to main: this file from main lists open pull requests, including
+#   forks, and adds or removes `conflict`. A push to any other branch does
+#   not run it, so a branch cannot publish a modified copy with a write token.
+# - pull_request (opened, reopened, synchronize) targeting main: same-repo
+#   pull requests that GitHub can merge are labeled immediately. GitHub does
+#   not run pull_request workflows while a pull request has a merge conflict,
+#   so a push that introduces a conflict waits for the schedule or the next
+#   push to main. Fork pull requests receive a read-only token, so the
+#   action cannot edit labels; continueOnMissingPermissions keeps that run
+#   green, and the next write-capable scan fixes the label.
+# - schedule, hourly: backstop for conflicted pull requests and forks.
+#   pull_request_target would run in that case, and it stays unused.
+#
+# The only step is a SHA-pinned action. It calls the pull request API and
+# does not check out code. The job token is limited to pull-requests: write.
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - reopened
+      - synchronize
+  schedule:
+    - cron: "17 * * * *"
+
+# Write-capable scans (push, schedule, same-repo pull requests) share one
+# group and cancel older scans. Fork pull_request runs are read-only and use
+# a separate group so they cannot cancel a scan that is allowed to edit labels.
+concurrency:
+  group: label-merge-conflicts-${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'fork' || 'write' }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  label-conflicts:
+    name: label-conflicts
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: github.repository == 'nektos/act'
+    permissions:
+      pull-requests: write # add or remove the conflict label
+    steps:
+      - name: Label pull requests that have merge conflicts
+        uses: eps1lon/actions-label-merge-conflict@0273be72a0bbd58fcd71d0d6c02c209b50d1e5e1 # v3.1.0
+        with:
+          dirtyLabel: conflict
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          continueOnMissingPermissions: true
+          retryAfter: 30
+          retryMax: 10

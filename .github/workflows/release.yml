@@ -3,56 +3,195 @@ on:
   push:
     tags:
       - v*
+  # Dispatch from the default branch. The release environment must allow that
+  # branch; tag pushes still use the v* tag policy. GoReleaser does not run on this event.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag matching ^v\d (for example v0.2.90)
+        required: true
+        type: string
+      winget:
+        description: Publish to Winget
+        required: false
+        type: boolean
+        default: true
+      chocolatey:
+        description: Publish to Chocolatey
+        required: false
+        type: boolean
+        default: true
 
-permissions:
-  contents: write
-  actions: write
+permissions: {}
 
 jobs:
   release:
     name: release
+    # Manual dispatch republishes packages for an existing tag and must not run GoReleaser.
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     environment: release
+    permissions:
+      # Creates the GitHub release and uploads its assets.
+      contents: write
+      # Mints the OIDC token that signs the build provenance attestation.
+      id-token: write
+      # Stores the attestation on the repository.
+      attestations: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           fetch-depth: 0
-      - uses: actions/setup-go@v6
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version-file: go.mod
+          cache: false
       - name: GoReleaser
-        uses: goreleaser/goreleaser-action@ec59f474b9834571250b370d4735c50f8e2d1e29 # v7
+        uses: goreleaser/goreleaser-action@ec59f474b9834571250b370d4735c50f8e2d1e29 # v7.0.0
         with:
-          version: '~> v2'
+          version: v2.19.0
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # GoReleaser leaves the release as a draft (.goreleaser.yml) so it is
+      # published only after attestation succeeds. A rerun reuses the draft.
+      # Verify a download with:
+      #   gh attestation verify <file> --repo nektos/act \
+      #     --signer-workflow nektos/act/.github/workflows/release.yml --source-ref refs/tags/<tag>
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            dist/*.tar.gz
+            dist/*.zip
+            dist/checksums.txt
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: gh release edit "$TAG" --draft=false
+  winget:
+    name: Winget
+    needs: release
+    if: ${{ always() && !cancelled() && (needs.release.result == 'success' || (github.event_name == 'workflow_dispatch' && github.ref_name == github.event.repository.default_branch && needs.release.result == 'skipped' && inputs.winget)) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: release
+    permissions:
+      contents: read
+    steps:
+      - name: Validate tag
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          TAG: ${{ inputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # ^v\d, restricted to a version token so it cannot break out of the action script.
+          if [[ ! "$TAG" =~ ^v[0-9] ]]; then
+            echo "tag must match ^v\\d" >&2
+            exit 1
+          fi
+          if [[ ! "$TAG" =~ ^v[0-9][0-9A-Za-z._+-]*$ ]]; then
+            echo "tag must match ^v\\d and contain only [0-9A-Za-z._+-]" >&2
+            exit 1
+          fi
+      - name: Sync winget-pkgs fork
+        env:
+          GH_TOKEN: ${{ secrets.WINGET_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # komac creates its branch from upstream HEAD. A lagging fork fails CreateRef
+          # and names the token user, which looks like a missing permission.
+          gh repo sync cplee/winget-pkgs --branch master
       - name: Winget
-        uses: vedantmgoyal2009/winget-releaser@4ffc7888bffd451b357355dc214d43bb9f23917e # v2
+        uses: vedantmgoyal2009/winget-releaser@4ffc7888bffd451b357355dc214d43bb9f23917e # v2 zizmor: ignore[ref-version-mismatch]
         with:
           identifier: nektos.act
           installers-regex: '_Windows_\w+\.zip$'
+          # Push events have no release payload; dispatch must not fall back to the branch name.
+          release-tag: ${{ inputs.tag || github.ref_name }}
+          # WINGET_TOKEN belongs to cplee. nektos/winget-pkgs is too far behind upstream
+          # for komac to branch, which surfaces as a CreateRef error naming the token user.
+          fork-user: cplee
           token: ${{ secrets.WINGET_TOKEN }}
-      - name: Chocolatey
-        uses: ./.github/actions/choco
+  chocolatey:
+    name: Chocolatey
+    needs: release
+    if: ${{ always() && !cancelled() && (needs.release.result == 'success' || (github.event_name == 'workflow_dispatch' && github.ref_name == github.event.repository.default_branch && needs.release.result == 'skipped' && inputs.chocolatey)) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: release
+    permissions:
+      contents: read
+    steps:
+      - name: Validate tag
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          TAG: ${{ inputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "$TAG" =~ ^v[0-9] ]]; then
+            echo "tag must match ^v\\d" >&2
+            exit 1
+          fi
+          if [[ ! "$TAG" =~ ^v[0-9][0-9A-Za-z._+-]*$ ]]; then
+            echo "tag must match ^v\\d and contain only [0-9A-Za-z._+-]" >&2
+            exit 1
+          fi
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
-          version: ${{ github.ref }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', inputs.tag) || github.ref }}
+          persist-credentials: false
+      - name: Download Windows binary
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ inputs.tag || github.ref_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release download "$TAG" --pattern 'act_Windows_x86_64.zip' --output act_Windows_x86_64.zip
+          mkdir -p dist/act_windows_amd64_v1
+          unzip -j -o act_Windows_x86_64.zip act.exe -d dist/act_windows_amd64_v1
+          test -s dist/act_windows_amd64_v1/act.exe
+      - name: Chocolatey
+        uses: ./.github/actions/choco # zizmor: ignore[self-repository]
+        with:
+          version: ${{ inputs.tag || github.ref_name }}
           apiKey: ${{ secrets.CHOCO_APIKEY }}
           push: true
-      - name: GitHub CLI extension
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.GH_ACT_TOKEN }}
-          script: |
-            const mainRef = (await github.rest.git.getRef({
-              owner: 'nektos',
-              repo: 'gh-act',
-              ref: 'heads/main',
-            })).data;
-            console.log(mainRef);
-            github.rest.git.createRef({
-              owner: 'nektos',
-              repo: 'gh-act',
-              ref: context.ref,
-              sha: mainRef.object.sha,
-            });
+  gh-act:
+    name: GitHub CLI extension
+    needs: release
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      # Dispatches tag-gh-act.yml on the default branch.
+      actions: write
+    steps:
+      # promote only allows protected branches, so the app token is minted by
+      # tag-gh-act.yml on the default branch. This job waits so a tagging failure still fails the release.
+      # Package publishing is a separate job, so a Winget or Chocolatey failure does not block this tag.
+      - name: Create gh-act tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          # No checkout in this job, so gh needs GH_REPO. The dispatch API returns
+          # the created run URL; watch that id instead of guessing from timestamps.
+          run_url=$(gh workflow run tag-gh-act.yml --ref "$DEFAULT_BRANCH" -f tag="$TAG")
+          run_id=$(printf '%s\n' "$run_url" | sed -n 's#.*/actions/runs/\([0-9][0-9]*\).*#\1#p' | head -n 1)
+          if [ -z "${run_id}" ]; then
+            echo "workflow dispatch did not return a run id: ${run_url}" >&2
+            exit 1
+          fi
+          gh run watch "$run_id" --exit-status

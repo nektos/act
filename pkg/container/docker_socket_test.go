@@ -43,6 +43,9 @@ func TestGetSocketAndHostNoSocket(t *testing.T) {
 }
 
 func TestGetSocketAndHostOnlySocket(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
 	// Arrange
 	socketURI := "/path/to/my.socket"
 	os.Unsetenv("DOCKER_HOST")
@@ -74,6 +77,9 @@ func TestGetSocketAndHostDontMount(t *testing.T) {
 }
 
 func TestGetSocketAndHostNoHostNoSocket(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
 	// Arrange
 	CommonSocketLocations = originalCommonSocketLocations
 	os.Unsetenv("DOCKER_HOST")

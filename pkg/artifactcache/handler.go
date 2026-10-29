@@ -116,7 +116,7 @@ func StartHandler(dir, customExternalURL string, outboundIP string, port uint16,
 		Handler:           router,
 	}
 	go func() {
-		if err := server.Serve(listener); err != nil && errors.Is(err, net.ErrClosed) {
+		if err := server.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) && !errors.Is(err, net.ErrClosed) {
 			logger.Errorf("http serve: %v", err)
 		}
 	}()
@@ -281,6 +281,7 @@ func (h *Handler) upload(w http.ResponseWriter, r *http.Request, params httprout
 	}
 	if err := h.storage.Write(cache.ID, start, r.Body); err != nil {
 		h.responseJSON(w, r, 500, err)
+		return
 	}
 	h.useCache(id)
 	h.responseJSON(w, r, 200)

@@ -4,9 +4,11 @@ import (
 	"archive/tar"
 	"context"
 	"io"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/memfs"
@@ -73,6 +75,75 @@ func (mfs *memoryFs) Open(path string) (io.ReadCloser, error) {
 func (mfs *memoryFs) Readlink(path string) (string, error) {
 	return mfs.Filesystem.Readlink(path)
 }
+
+func TestCopyCollectorOverwritesReadOnlyFile(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "src")
+	dst := filepath.Join(dir, "dst")
+	assert.NoError(t, os.Mkdir(src, 0o755))
+	srcFile := filepath.Join(src, "pack.idx")
+	assert.NoError(t, os.WriteFile(srcFile, []byte("first"), 0o600))
+	assert.NoError(t, os.Chmod(srcFile, 0o444))
+
+	fc := &FileCollector{
+		Fs:        &DefaultFs{},
+		SrcPath:   src,
+		SrcPrefix: src + string(filepath.Separator),
+		Handler:   &CopyCollector{DstDir: dst},
+	}
+	assert.NoError(t, filepath.Walk(src, fc.CollectFiles(context.Background(), nil)))
+
+	assert.NoError(t, os.Chmod(srcFile, 0o600))
+	assert.NoError(t, os.WriteFile(srcFile, []byte("second"), 0o600))
+	assert.NoError(t, os.Chmod(srcFile, 0o444))
+
+	assert.NoError(t, filepath.Walk(src, fc.CollectFiles(context.Background(), nil)))
+
+	got, err := os.ReadFile(filepath.Join(dst, "pack.idx"))
+	assert.NoError(t, err)
+	assert.Equal(t, "second", string(got))
+	st, err := os.Stat(filepath.Join(dst, "pack.idx"))
+	assert.NoError(t, err)
+	assert.Equal(t, os.FileMode(0o444), st.Mode().Perm())
+}
+
+func TestCopyCollectorRejectsEscapingPaths(t *testing.T) {
+	dir := t.TempDir()
+	dst := filepath.Join(dir, "dst")
+	outside := filepath.Join(dir, "outside")
+	assert.NoError(t, os.Mkdir(outside, 0o755))
+	fi := fakeFileInfo{name: "f", mode: 0o644}
+
+	cc := &CopyCollector{DstDir: dst}
+	for _, name := range []string{"../outside/evil", "a/../../outside/evil", "/abs/evil", ""} {
+		err := cc.WriteFile(name, fi, "", strings.NewReader("x"))
+		assert.Error(t, err, name)
+	}
+	_, err := os.Stat(filepath.Join(outside, "evil"))
+	assert.True(t, os.IsNotExist(err))
+
+	assert.NoError(t, cc.WriteFile("link", fakeFileInfo{name: "link", mode: os.ModeSymlink | 0o777}, outside, nil))
+	assert.Error(t, cc.WriteFile("link/evil", fi, "", strings.NewReader("x")))
+	_, err = os.Stat(filepath.Join(outside, "evil"))
+	assert.True(t, os.IsNotExist(err))
+
+	assert.NoError(t, cc.WriteFile("ok/nested/file", fi, "", strings.NewReader("x")))
+	got, err := os.ReadFile(filepath.Join(dst, "ok", "nested", "file"))
+	assert.NoError(t, err)
+	assert.Equal(t, "x", string(got))
+}
+
+type fakeFileInfo struct {
+	name string
+	mode os.FileMode
+}
+
+func (f fakeFileInfo) Name() string       { return f.name }
+func (f fakeFileInfo) Size() int64        { return 0 }
+func (f fakeFileInfo) Mode() os.FileMode  { return f.mode }
+func (f fakeFileInfo) ModTime() time.Time { return time.Time{} }
+func (f fakeFileInfo) IsDir() bool        { return false }
+func (f fakeFileInfo) Sys() any           { return nil }
 
 func TestIgnoredTrackedfile(t *testing.T) {
 	fs := memfs.New()

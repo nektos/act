@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/moby/go-archive"
+	"github.com/moby/go-archive/compression"
 	"github.com/moby/moby/client"
 	specs "github.com/opencontainers/image-spec/specs-go/v1"
 
@@ -109,9 +110,8 @@ func createBuildContext(ctx context.Context, contextDir string, relDockerfile st
 		includes = append(includes, ".dockerignore", relDockerfile)
 	}
 
-	compression := archive.Uncompressed
 	buildCtx, err := archive.TarWithOptions(contextDir, &archive.TarOptions{
-		Compression:     compression,
+		Compression:     compression.None,
 		ExcludePatterns: excludes,
 		IncludeFiles:    includes,
 	})

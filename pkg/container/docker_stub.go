@@ -4,11 +4,11 @@ package container
 
 import (
 	"context"
+	"errors"
 	"runtime"
 
 	"github.com/moby/moby/api/types/system"
 	"github.com/nektos/act/pkg/common"
-	"github.com/pkg/errors"
 )
 
 // ImageExistsLocally returns a boolean indicating if an image with the
