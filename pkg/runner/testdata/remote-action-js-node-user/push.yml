@@ -5,7 +5,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     container:
-      image: node:16-buster-slim
+      image: node:24-bookworm-slim
       options: --user node
     steps:
     - name: check permissions of env files

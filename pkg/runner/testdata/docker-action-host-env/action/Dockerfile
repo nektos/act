@@ -1,4 +1,4 @@
-FROM debian:bullseye-slim
+FROM debian:bookworm-slim
 
 # Install dependencies
 RUN apt-get update && apt-get install -y \

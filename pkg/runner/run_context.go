@@ -21,11 +21,14 @@ import (
 	"time"
 
 	"github.com/docker/go-connections/nat"
+	log "github.com/sirupsen/logrus"
+
+	"github.com/opencontainers/selinux/go-selinux"
+
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/container"
 	"github.com/nektos/act/pkg/exprparser"
 	"github.com/nektos/act/pkg/model"
-	"github.com/opencontainers/selinux/go-selinux"
 )
 
 // RunContext contains info about current job
@@ -283,6 +286,10 @@ func (rc *RunContext) startJobContainer() common.Executor {
 		envList = append(envList, fmt.Sprintf("%s=%s", "LANG", "C.UTF-8")) // Use same locale as GitHub Actions
 
 		ext := container.LinuxContainerEnvironmentExtensions{}
+		restrictOptions, restrictJobOptions, err := rc.checkWorkflowContainerVolumes(ctx)
+		if err != nil {
+			return err
+		}
 		binds, mounts := rc.GetBindsAndMounts()
 
 		// specify the network to which the container will connect when `docker create` stage. (like execute command line: docker create --network <networkName> <image>)
@@ -329,24 +336,25 @@ func (rc *RunContext) startJobContainer() common.Executor {
 
 			serviceContainerName := createContainerName(rc.jobContainerName(), serviceID)
 			c := container.NewContainer(&container.NewContainerInput{
-				Name:           serviceContainerName,
-				WorkingDir:     ext.ToContainerPath(rc.Config.Workdir),
-				Image:          imageName,
-				Username:       username,
-				Password:       password,
-				Env:            envs,
-				Mounts:         serviceMounts,
-				Binds:          serviceBinds,
-				Stdout:         logWriter,
-				Stderr:         logWriter,
-				Privileged:     rc.Config.Privileged,
-				UsernsMode:     rc.Config.UsernsMode,
-				Platform:       rc.Config.ContainerArchitecture,
-				Options:        rc.ExprEval.Interpolate(ctx, spec.Options),
-				NetworkMode:    networkName,
-				NetworkAliases: []string{serviceID},
-				ExposedPorts:   exposedPorts,
-				PortBindings:   portBindings,
+				Name:            serviceContainerName,
+				WorkingDir:      ext.ToContainerPath(rc.Config.Workdir),
+				Image:           imageName,
+				Username:        username,
+				Password:        password,
+				Env:             envs,
+				Mounts:          serviceMounts,
+				Binds:           serviceBinds,
+				Stdout:          logWriter,
+				Stderr:          logWriter,
+				Privileged:      rc.Config.Privileged,
+				UsernsMode:      rc.Config.UsernsMode,
+				Platform:        rc.Config.ContainerArchitecture,
+				Options:         rc.ExprEval.Interpolate(ctx, spec.Options),
+				RestrictOptions: restrictOptions,
+				NetworkMode:     networkName,
+				NetworkAliases:  []string{serviceID},
+				ExposedPorts:    exposedPorts,
+				PortBindings:    portBindings,
 			})
 			rc.ServiceContainers = append(rc.ServiceContainers, c)
 		}
@@ -391,24 +399,25 @@ func (rc *RunContext) startJobContainer() common.Executor {
 		}
 
 		rc.JobContainer = container.NewContainer(&container.NewContainerInput{
-			Cmd:            nil,
-			Entrypoint:     []string{"tail", "-f", "/dev/null"},
-			WorkingDir:     ext.ToContainerPath(rc.Config.Workdir),
-			Image:          image,
-			Username:       username,
-			Password:       password,
-			Name:           name,
-			Env:            envList,
-			Mounts:         mounts,
-			NetworkMode:    jobContainerNetwork,
-			NetworkAliases: []string{rc.Name},
-			Binds:          binds,
-			Stdout:         logWriter,
-			Stderr:         logWriter,
-			Privileged:     rc.Config.Privileged,
-			UsernsMode:     rc.Config.UsernsMode,
-			Platform:       rc.Config.ContainerArchitecture,
-			Options:        rc.options(ctx),
+			Cmd:             nil,
+			Entrypoint:      []string{"tail", "-f", "/dev/null"},
+			WorkingDir:      ext.ToContainerPath(rc.Config.Workdir),
+			Image:           image,
+			Username:        username,
+			Password:        password,
+			Name:            name,
+			Env:             envList,
+			Mounts:          mounts,
+			NetworkMode:     jobContainerNetwork,
+			NetworkAliases:  []string{rc.Name},
+			Binds:           binds,
+			Stdout:          logWriter,
+			Stderr:          logWriter,
+			Privileged:      rc.Config.Privileged,
+			UsernsMode:      rc.Config.UsernsMode,
+			Platform:        rc.Config.ContainerArchitecture,
+			Options:         rc.options(ctx),
+			RestrictOptions: restrictJobOptions,
 		})
 		if rc.JobContainer == nil {
 			return errors.New("Failed to create job container")
@@ -811,6 +820,66 @@ func (rc *RunContext) platformImage(ctx context.Context) string {
 	return rc.runsOnImage(ctx)
 }
 
+const (
+	ContainerOptionsPolicyAuto     = "auto"
+	ContainerOptionsPolicyRestrict = "restrict"
+	ContainerOptionsPolicyAllow    = "allow"
+)
+
+// restrictWorkflowContainerOptions reports whether container options and
+// host-path volumes from the workflow are restricted. The auto policy
+// restricts them only when the Docker socket is not mounted into the job,
+// because a mounted socket already gives the job full control of the daemon.
+func (rc *RunContext) restrictWorkflowContainerOptions() (bool, error) {
+	switch rc.Config.ContainerOptionsPolicy {
+	case "", ContainerOptionsPolicyAuto:
+		return rc.Config.ContainerDaemonSocket == "-", nil
+	case ContainerOptionsPolicyRestrict:
+		return true, nil
+	case ContainerOptionsPolicyAllow:
+		return false, nil
+	}
+	return false, fmt.Errorf("unknown container options policy %q, expected %s, %s or %s",
+		rc.Config.ContainerOptionsPolicy, ContainerOptionsPolicyAuto, ContainerOptionsPolicyRestrict, ContainerOptionsPolicyAllow)
+}
+
+// checkWorkflowContainerVolumes reports whether workflow container options
+// are restricted for services and for the job container, and if so rejects
+// host-path volumes on both. Job container options only come from the
+// workflow when the job sets container:.
+func (rc *RunContext) checkWorkflowContainerVolumes(ctx context.Context) (bool, bool, error) {
+	restrict, err := rc.restrictWorkflowContainerOptions()
+	if err != nil || !restrict {
+		return restrict, false, err
+	}
+	job := rc.Run.Job()
+	for serviceID, spec := range job.Services {
+		volumes := make([]string, 0, len(spec.Volumes))
+		for _, v := range spec.Volumes {
+			volumes = append(volumes, rc.ExprEval.Interpolate(ctx, v))
+		}
+		if err := checkWorkflowVolumes(fmt.Sprintf("services.%s.volumes", serviceID), volumes); err != nil {
+			return true, false, err
+		}
+	}
+	c := job.Container()
+	if c == nil {
+		return true, false, nil
+	}
+	return true, true, checkWorkflowVolumes("container.volumes", c.Volumes)
+}
+
+// checkWorkflowVolumes rejects host-path binds. Named and anonymous volumes
+// are allowed.
+func checkWorkflowVolumes(key string, volumes []string) error {
+	for _, v := range volumes {
+		if strings.Contains(v, ":") && (filepath.IsAbs(v) || strings.HasPrefix(v, "/")) {
+			return fmt.Errorf("%s: host path volume %q is not allowed (%s)", key, v, container.UnsafeOptionsHint)
+		}
+	}
+	return nil
+}
+
 func (rc *RunContext) options(ctx context.Context) string {
 	job := rc.Run.Job()
 	c := job.Container()
@@ -1119,7 +1188,11 @@ func setActionRuntimeVars(rc *RunContext, env map[string]string) {
 		if rid, ok := rc.Config.Env["GITHUB_RUN_ID"]; ok {
 			runID, _ = strconv.ParseInt(rid, 10, 64)
 		}
-		actionsRuntimeToken, _ = common.CreateAuthorizationToken(runID, runID, runID)
+		var tokenErr error
+		actionsRuntimeToken, tokenErr = common.CreateSignedAuthorizationToken(rc.Config.ArtifactServerAuthKey, runID, runID, runID)
+		if tokenErr != nil {
+			log.Errorf("failed to create artifact runtime token: %v", tokenErr)
+		}
 	}
 	env["ACTIONS_RUNTIME_TOKEN"] = actionsRuntimeToken
 }

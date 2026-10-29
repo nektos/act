@@ -46,6 +46,9 @@ func (l *LocalRepositoryCache) GetTarArchive(ctx context.Context, cacheDir, sha,
 	// sha is mapped to ref in fetch if there is a local override
 	if dest, ok := l.CacheDirCache[fmt.Sprintf("%s@%s", cacheDir, sha)]; ok {
 		logger.Infof("LocalRepositoryCache read cachedir %s with ref %s and subpath '%s' from %s", cacheDir, sha, includePrefix, dest)
+		if includePrefix != "" && !filepath.IsLocal(filepath.FromSlash(includePrefix)) {
+			return nil, fmt.Errorf("refusing to read %q outside of %q", includePrefix, dest)
+		}
 		srcPath := filepath.Join(dest, includePrefix)
 		buf := &bytes.Buffer{}
 		tw := tar.NewWriter(buf)

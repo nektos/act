@@ -1,28 +1,56 @@
 name: Feature request
-description: Use this template for requesting a feature/enhancement.
+description: Use this template for requesting a feature or enhancement.
 labels:
   - 'kind/feature-request'
 body:
   - type: markdown
     attributes:
       value: |
-        Please note that incompatibility with GitHub Actions should be opened as a bug report, not a new feature.
+        Incompatibility with GitHub Actions should be opened as a bug report, not a feature request.
+
+        Questions about how to use act belong in [GitHub Discussions](https://github.com/nektos/act/discussions/new/choose).
+  - type: checkboxes
+    id: searched
+    attributes:
+      label: Checks
+      options:
+        - label: I searched existing issues and discussions and did not find this request.
+          required: true
   - type: input
     id: act-version
     attributes:
       label: Act version
       description: |
-        What version of `act` are you using? Version can be obtained via `act --version`
-        If you've built it from source, please provide commit hash
+        What version of act are you using? `act --version` prints it. If you built from source, include the commit.
       placeholder: |
-        act --version
+        act version 0.2.89
     validations:
       required: true
   - type: textarea
-    id: feature
+    id: problem
     attributes:
-      label: Feature description
-      description: Describe feature that you would like to see
-      placeholder: ...
+      label: Problem or use case
+      description: |
+        What are you trying to do, and what is missing today?
+      placeholder: |
+        When I run a workflow that uses ..., act cannot ...
     validations:
       required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: |
+        Describe the feature you want, including acceptance criteria if you have them.
+      placeholder: |
+        act should ...
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: |
+        Other approaches you tried, or other ways this could work.
+    validations:
+      required: false

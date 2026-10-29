@@ -9,12 +9,12 @@
     <title>act (GitHub Actions CLI)</title>
     <authors>nektos</authors>
     <projectUrl>https://github.com/nektos/act</projectUrl>
-    <iconUrl>https://raw.githubusercontent.com/wiki/nektos/act/img/logo-150.png</iconUrl>
+    <iconUrl>https://raw.githubusercontent.com/nektos/act/main/docs/img/act-logo.svg</iconUrl>
     <copyright>Nektos</copyright>
-    <licenseUrl>https://raw.githubusercontent.com/nektos/act/master/LICENSE</licenseUrl>
+    <licenseUrl>https://raw.githubusercontent.com/nektos/act/main/LICENSE</licenseUrl>
     <requireLicenseAcceptance>true</requireLicenseAcceptance>
     <projectSourceUrl>https://github.com/nektos/act</projectSourceUrl>
-    <docsUrl>https://raw.githubusercontent.com/nektos/act/master/README.md</docsUrl>
+    <docsUrl>https://raw.githubusercontent.com/nektos/act/main/README.md</docsUrl>
     <bugTrackerUrl>https://github.com/nektos/act/issues</bugTrackerUrl>
     <tags>act github-actions actions golang ci devops</tags>
     <summary>Run your GitHub Actions locally 🚀</summary>

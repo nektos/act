@@ -113,9 +113,10 @@ func createRootCommand(ctx context.Context, input *Input, version string) *cobra
 	rootCmd.PersistentFlags().StringVarP(&input.containerArchitecture, "container-architecture", "", "", "Architecture which should be used to run containers, e.g.: linux/amd64. If not specified, will use host default architecture. Requires Docker server API Version 1.41+. Ignored on earlier Docker server platforms.")
 	rootCmd.PersistentFlags().StringVarP(&input.containerDaemonSocket, "container-daemon-socket", "", "", "URI to Docker Engine socket (e.g.: unix://~/.docker/run/docker.sock or - to disable bind mounting the socket)")
 	rootCmd.PersistentFlags().StringVarP(&input.containerOptions, "container-options", "", "", "Custom docker container options for the job container without an options property in the job definition")
+	rootCmd.PersistentFlags().StringVarP(&input.containerOptionsPolicy, "container-options-policy", "", runner.ContainerOptionsPolicyAuto, "Policy for container options and host path volumes set by workflows: auto restricts them when --container-daemon-socket is -, restrict always restricts them, allow permits them")
 	rootCmd.PersistentFlags().StringVarP(&input.githubInstance, "github-instance", "", "github.com", "GitHub instance to use. Only use this when using GitHub Enterprise Server.")
 	rootCmd.PersistentFlags().StringVarP(&input.artifactServerPath, "artifact-server-path", "", "", "Defines the path where the artifact server stores uploads and retrieves downloads from. If not specified the artifact server will not start.")
-	rootCmd.PersistentFlags().StringVarP(&input.artifactServerAddr, "artifact-server-addr", "", common.GetOutboundIP().String(), "Defines the address to which the artifact server binds.")
+	rootCmd.PersistentFlags().StringVarP(&input.artifactServerAddr, "artifact-server-addr", "", "127.0.0.1", "Address the artifact server binds to. When omitted, Linux host-network jobs use 127.0.0.1 and every other container network uses the outbound address.")
 	rootCmd.PersistentFlags().StringVarP(&input.artifactServerPort, "artifact-server-port", "", "34567", "Defines the port where the artifact server listens.")
 	rootCmd.PersistentFlags().BoolVarP(&input.noSkipCheckout, "no-skip-checkout", "", false, "Use actions/checkout instead of copying local files into container")
 	rootCmd.PersistentFlags().BoolVarP(&input.noCacheServer, "no-cache-server", "", false, "Disable cache server")
@@ -130,7 +131,8 @@ func createRootCommand(ctx context.Context, input *Input, version string) *cobra
 	rootCmd.PersistentFlags().StringArrayVarP(&input.localRepository, "local-repository", "", []string{}, "Replaces the specified repository and ref with a local folder (e.g. https://github.com/test/test@v0=/home/act/test or test/test@v0=/home/act/test, the latter matches any hosts or protocols)")
 	rootCmd.PersistentFlags().BoolVar(&input.listOptions, "list-options", false, "Print a json structure of compatible options")
 	rootCmd.PersistentFlags().IntVar(&input.concurrentJobs, "concurrent-jobs", 0, "Maximum number of concurrent jobs to run. Default is the number of CPUs available.")
-	rootCmd.SetArgs(args())
+	rootCmd.PersistentFlags().Bool(trustProjectActrcFlag, false, "Apply every flag in ./.actrc. Without it, ./.actrc may only set flags that do not reach host resources, and $VAR references in it are not expanded. Set it on the command line or in your user config.")
+	rootCmd.SetArgs(args(rootCmd))
 	return rootCmd
 }
 
@@ -152,16 +154,10 @@ func configLocations() []string {
 	return []string{specPath, homePath, invocationPath}
 }
 
-func args() []string {
+func args(rootCmd *cobra.Command) []string {
 	actrc := configLocations()
-
-	args := make([]string, 0)
-	for _, f := range actrc {
-		args = append(args, readArgsFile(f, true)...)
-	}
-
-	args = append(args, os.Args[1:]...)
-	return args
+	flags := []*pflag.FlagSet{rootCmd.Flags(), rootCmd.PersistentFlags()}
+	return actrcArgs(flags, actrc[:len(actrc)-1], actrc[len(actrc)-1], os.Args[1:])
 }
 
 func bugReport(ctx context.Context, version string) error {
@@ -425,15 +421,15 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 
 		log.Debugf("Loading environment from %s", input.Envfile())
 		envs := parseEnvs(input.envs)
-		_ = readEnvs(input.Envfile(), envs)
+		_ = readProjectEnvs(input.Workdir(), input.Envfile(), envs, false)
 
 		log.Debugf("Loading action inputs from %s", input.Inputfile())
 		inputs := parseEnvs(input.inputs)
-		_ = readEnvs(input.Inputfile(), inputs)
+		_ = readProjectEnvs(input.Workdir(), input.Inputfile(), inputs, false)
 
 		log.Debugf("Loading secrets from %s", input.Secretfile())
 		secrets := newSecrets(input.secrets)
-		_ = readEnvsEx(input.Secretfile(), secrets, true)
+		_ = readProjectEnvs(input.Workdir(), input.Secretfile(), secrets, true)
 
 		if _, hasGitHubToken := secrets["GITHUB_TOKEN"]; !hasGitHubToken {
 			ctx, cancel := common.EarlyCancelContext(ctx)
@@ -443,7 +439,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 
 		log.Debugf("Loading vars from %s", input.Varfile())
 		vars := newSecrets(input.vars)
-		_ = readEnvs(input.Varfile(), vars)
+		_ = readProjectEnvs(input.Workdir(), input.Varfile(), vars, false)
 
 		matrixes := parseMatrix(input.matrix)
 		log.Debugf("Evaluated matrix inclusions: %v", matrixes)
@@ -602,6 +598,11 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			log.Warnf(deprecationWarning, "container-cap-drop", fmt.Sprintf("--cap-drop=%s", input.containerCapDrop))
 		}
 
+		artifactAddr, artifactServerAuthKey, err := prepareArtifactServer(cmd, input, plan)
+		if err != nil {
+			return err
+		}
+
 		// run the plan
 		config := &runner.Config{
 			Actor:                              input.actor,
@@ -630,14 +631,16 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			ContainerArchitecture:              input.containerArchitecture,
 			ContainerDaemonSocket:              input.containerDaemonSocket,
 			ContainerOptions:                   input.containerOptions,
+			ContainerOptionsPolicy:             input.containerOptionsPolicy,
 			UseGitIgnore:                       input.useGitIgnore,
 			GitHubInstance:                     input.githubInstance,
 			ContainerCapAdd:                    input.containerCapAdd,
 			ContainerCapDrop:                   input.containerCapDrop,
 			AutoRemove:                         input.autoRemove,
 			ArtifactServerPath:                 input.artifactServerPath,
-			ArtifactServerAddr:                 input.artifactServerAddr,
+			ArtifactServerAddr:                 artifactAddr,
 			ArtifactServerPort:                 input.artifactServerPort,
+			ArtifactServerAuthKey:              artifactServerAuthKey,
 			NoSkipCheckout:                     input.noSkipCheckout,
 			RemoteName:                         input.remoteName,
 			ReplaceGheActionWithGithubCom:      input.replaceGheActionWithGithubCom,
@@ -676,7 +679,7 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 			return err
 		}
 
-		cancel := artifacts.Serve(ctx, input.artifactServerPath, input.artifactServerAddr, input.artifactServerPort)
+		cancel := artifacts.Serve(ctx, input.artifactServerPath, artifactAddr, input.artifactServerPort, artifactServerAuthKey)
 
 		const cacheURLKey = "ACTIONS_CACHE_URL"
 		var cacheHandler *artifactcache.Handler
@@ -711,6 +714,40 @@ func newRunCommand(ctx context.Context, input *Input) func(*cobra.Command, []str
 		}
 		return plannerErr
 	}
+}
+
+func prepareArtifactServer(cmd *cobra.Command, input *Input, plan *model.Plan) (string, []byte, error) {
+	if input.artifactServerPath == "" {
+		return input.artifactServerAddr, nil, nil
+	}
+	key, err := artifacts.NewAuthKey()
+	if err != nil {
+		return "", nil, err
+	}
+	explicit := cmd != nil && cmd.PersistentFlags().Changed("artifact-server-addr")
+	addr := artifacts.ListenAddress(runtime.GOOS, input.networkName, planHasServiceContainers(plan), input.artifactServerAddr, explicit)
+	return addr, key, nil
+}
+
+func planHasServiceContainers(plan *model.Plan) bool {
+	if plan == nil {
+		return false
+	}
+	for _, stage := range plan.Stages {
+		if stage == nil {
+			continue
+		}
+		for _, run := range stage.Runs {
+			if run == nil || run.Workflow == nil {
+				continue
+			}
+			job := run.Job()
+			if job != nil && len(job.Services) > 0 {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func defaultImageSurvey(actrc string) error {

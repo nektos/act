@@ -35,7 +35,7 @@ New issues can be created with in our [GitHub repo](https://github.com/nektos/ac
 
 ### <a id="pr"></a>Pull Requests
 
-Pull requests should target the `master` branch. Please also reference the issue from the description of the pull request using [special keyword syntax](https://help.github.com/articles/closing-issues-via-commit-messages/) to auto close the issue when the PR is merged. For example, include the phrase `fixes #14` in the PR description to have issue #14 auto close. Please send documentation updates for the [act user guide](https://nektosact.com) to [nektos/act-docs](https://github.com/nektos/act-docs).
+Pull requests should target the `main` branch. Please also reference the issue from the description of the pull request using [special keyword syntax](https://help.github.com/articles/closing-issues-via-commit-messages/) to auto close the issue when the PR is merged. For example, include the phrase `fixes #14` in the PR description to have issue #14 auto close. Please send documentation updates for the [act user guide](https://nektosact.com) to [nektos/act-docs](https://github.com/nektos/act-docs).
 
 ### <a id="style"></a> Styleguide
 
@@ -53,6 +53,7 @@ When submitting code, please make every effort to follow existing conventions an
   - Advanced IDEs and code editors (like VSCode) will take care of that, but to be sure, run `go mod tidy` to validate dependencies.
 - For details on the approved style, check out [Effective Go](https://golang.org/doc/effective_go.html).
 - Before running tests, please be aware that they are multi-architecture so for them to not fail, you need to run `docker run --privileged --rm tonistiigi/binfmt --install amd64,arm64` before ([more info available in #765](https://github.com/nektos/act/issues/765)).
+- `make test-fast` runs `go test -short ./...` and skips Docker-dependent integration tests.
 
 Also, consider the original design principles:
 

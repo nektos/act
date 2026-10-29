@@ -3,6 +3,7 @@ package filecollector
 import (
 	"archive/tar"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -63,15 +64,38 @@ type CopyCollector struct {
 	DstDir string
 }
 
+// WriteFile writes fpath below DstDir. Paths that are not local, and paths
+// that would resolve through a symlink to a location outside DstDir, fail.
 func (cc *CopyCollector) WriteFile(fpath string, fi fs.FileInfo, linkName string, f io.Reader) error {
-	fdestpath := filepath.Join(cc.DstDir, fpath)
-	if err := os.MkdirAll(filepath.Dir(fdestpath), 0o777); err != nil {
+	rel := filepath.FromSlash(fpath)
+	if !filepath.IsLocal(rel) {
+		return fmt.Errorf("refusing to write %q outside of %q", fpath, cc.DstDir)
+	}
+	if err := os.MkdirAll(cc.DstDir, 0o777); err != nil {
 		return err
 	}
-	if linkName != "" {
-		return os.Symlink(linkName, fdestpath)
+	root, err := os.OpenRoot(cc.DstDir)
+	if err != nil {
+		return err
 	}
-	df, err := os.OpenFile(fdestpath, os.O_CREATE|os.O_WRONLY, fi.Mode())
+	defer root.Close()
+	if dir := filepath.Dir(rel); dir != "." {
+		if err := root.MkdirAll(dir, 0o777); err != nil {
+			return err
+		}
+	}
+	if linkName != "" {
+		return root.Symlink(linkName, rel)
+	}
+	// go-git marks pack files 0444. A later copy of the same action has to
+	// replace those files, which fails if the destination is left read-only.
+	df, err := root.OpenFile(rel, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, fi.Mode())
+	if err != nil && errors.Is(err, os.ErrPermission) {
+		if chmodErr := root.Chmod(rel, fi.Mode().Perm()|0o200); chmodErr != nil {
+			return err
+		}
+		df, err = root.OpenFile(rel, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, fi.Mode())
+	}
 	if err != nil {
 		return err
 	}
@@ -79,7 +103,7 @@ func (cc *CopyCollector) WriteFile(fpath string, fi fs.FileInfo, linkName string
 	if _, err := io.Copy(df, f); err != nil {
 		return err
 	}
-	return nil
+	return root.Chmod(rel, fi.Mode().Perm())
 }
 
 type FileCollector struct {

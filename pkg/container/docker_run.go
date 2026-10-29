@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -373,6 +374,12 @@ func (cr *containerReference) mergeContainerConfigs(ctx context.Context, config 
 		return nil, nil, fmt.Errorf("Cannot parse container options: '%s': '%w'", input.Options, err)
 	}
 
+	if input.RestrictOptions {
+		if err := checkRestrictedFileOptions(copts); err != nil {
+			return nil, nil, fmt.Errorf("container options %q are not allowed (%s): %w", input.Options, UnsafeOptionsHint, err)
+		}
+	}
+
 	if len(copts.netMode.Value()) == 0 {
 		if err = copts.netMode.Set(cr.input.NetworkMode); err != nil {
 			return nil, nil, fmt.Errorf("Cannot parse networkmode=%s. This is an internal error and should not happen: '%w'", cr.input.NetworkMode, err)
@@ -382,6 +389,12 @@ func (cr *containerReference) mergeContainerConfigs(ctx context.Context, config 
 	containerConfig, err := parse(flags, copts, runtime.GOOS)
 	if err != nil {
 		return nil, nil, fmt.Errorf("Cannot process container options: '%s': '%w'", input.Options, err)
+	}
+
+	if input.RestrictOptions {
+		if err := checkRestrictedHostConfig(containerConfig.HostConfig, cr.input.NetworkMode); err != nil {
+			return nil, nil, fmt.Errorf("container options %q are not allowed (%s): %w", input.Options, UnsafeOptionsHint, err)
+		}
 	}
 
 	logger.Debugf("Custom container.Config from options ==> %+v", containerConfig.Config)
@@ -398,12 +411,14 @@ func (cr *containerReference) mergeContainerConfigs(ctx context.Context, config 
 	hostConfig.Mounts = append(hostConfig.Mounts, containerConfig.HostConfig.Mounts...)
 	binds := hostConfig.Binds
 	mounts := hostConfig.Mounts
+	operatorCapDrop := slices.Clone(hostConfig.CapDrop)
 	err = mergo.Merge(hostConfig, containerConfig.HostConfig, mergo.WithOverride)
 	if err != nil {
 		return nil, nil, fmt.Errorf("Cannot merge container.HostConfig options: '%s': '%w'", input.Options, err)
 	}
 	hostConfig.Binds = binds
 	hostConfig.Mounts = mounts
+	keepOperatorCapDrop(hostConfig, operatorCapDrop)
 	logger.Debugf("Merged container.HostConfig ==> %+v", hostConfig)
 
 	return config, hostConfig, nil
@@ -664,7 +679,9 @@ func (cr *containerReference) tryReadGID() common.Executor {
 func (cr *containerReference) waitForCommand(ctx context.Context, isTerminal bool, resp client.HijackedResponse) error {
 	logger := common.Logger(ctx)
 
-	cmdResponse := make(chan error)
+	// Buffer the result so a cancelled caller does not leave this goroutine
+	// blocked forever on send after the hijacked connection is closed.
+	cmdResponse := make(chan error, 1)
 
 	go func() {
 		var outWriter io.Writer
@@ -862,13 +879,15 @@ func (cr *containerReference) attach() common.Executor {
 			errWriter = os.Stderr
 		}
 		go func() {
+			defer out.Close()
+			var copyErr error
 			if !isTerminal || os.Getenv("NORAW") != "" {
-				_, err = stdcopy.StdCopy(outWriter, errWriter, out.Reader)
+				_, copyErr = stdcopy.StdCopy(outWriter, errWriter, out.Reader)
 			} else {
-				_, err = io.Copy(outWriter, out.Reader)
+				_, copyErr = io.Copy(outWriter, out.Reader)
 			}
-			if err != nil {
-				common.Logger(ctx).Error(err)
+			if copyErr != nil {
+				common.Logger(ctx).Error(copyErr)
 			}
 		}()
 		return nil

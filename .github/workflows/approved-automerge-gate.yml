@@ -1,0 +1,49 @@
+name: Approved auto-merge gate
+
+# Records that a pull request received an approval. This job does not merge
+# and does not check out code.
+#
+# pull_request_review from a fork runs with a read-only token, so this job
+# cannot enable auto-merge. The merge step is approved-automerge.yml, started
+# by workflow_run from the default branch. workflow_run.pull_requests is empty
+# for fork pull requests, so this job uploads the pull request number. A fork
+# can edit this file, which is why the merge workflow checks the number
+# against workflow_run.head_sha and never trusts this job on its own.
+on:
+  pull_request_review:
+    types:
+      - submitted
+
+permissions: {}
+
+jobs:
+  gate:
+    name: gate
+    if: >-
+      github.repository == 'nektos/act' &&
+      github.event.review.state == 'approved' &&
+      github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Record approval
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REVIEWER: ${{ github.event.review.user.login }}
+        run: |
+          set -euo pipefail
+          case "${PR_NUMBER}" in
+            ''|*[!0-9]*)
+              echo "Refusing to record a non-numeric pull request number."
+              exit 1
+              ;;
+          esac
+          printf '%s\n' "${PR_NUMBER}" > pr-number.txt
+          echo "Approval recorded for pull request ${PR_NUMBER} from ${REVIEWER}."
+      - name: Upload pull request number
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: approved-automerge-pr
+          path: pr-number.txt
+          retention-days: 1
+          if-no-files-found: error

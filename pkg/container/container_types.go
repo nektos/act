@@ -10,27 +10,35 @@ import (
 
 // NewContainerInput the input for the New function
 type NewContainerInput struct {
-	Image          string
-	Username       string
-	Password       string
-	Entrypoint     []string
-	Cmd            []string
-	WorkingDir     string
-	Env            []string
-	Binds          []string
-	Mounts         map[string]string
-	Name           string
-	Stdout         io.Writer
-	Stderr         io.Writer
-	NetworkMode    string
-	Privileged     bool
-	UsernsMode     string
-	Platform       string
-	Options        string
-	NetworkAliases []string
-	ExposedPorts   nat.PortSet
-	PortBindings   nat.PortMap
+	Image       string
+	Username    string
+	Password    string
+	Entrypoint  []string
+	Cmd         []string
+	WorkingDir  string
+	Env         []string
+	Binds       []string
+	Mounts      map[string]string
+	Name        string
+	Stdout      io.Writer
+	Stderr      io.Writer
+	NetworkMode string
+	Privileged  bool
+	UsernsMode  string
+	Platform    string
+	Options     string
+	// RestrictOptions rejects Options that reach host files, devices, or
+	// namespaces, or that weaken container isolation. Set it when Options
+	// come from a workflow rather than from the operator.
+	RestrictOptions bool
+	NetworkAliases  []string
+	ExposedPorts    nat.PortSet
+	PortBindings    nat.PortMap
 }
+
+// UnsafeOptionsHint names the flag that lifts the restrictions on
+// workflow-supplied container options.
+const UnsafeOptionsHint = "pass --container-options-policy=allow to permit it"
 
 // FileEntry is a file to copy to a container
 type FileEntry struct {

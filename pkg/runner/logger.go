@@ -199,13 +199,16 @@ func (f *jobLogFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 }
 
 func (f *jobLogFormatter) printColored(b *bytes.Buffer, entry *logrus.Entry) {
-	entry.Message = strings.TrimSuffix(entry.Message, "\n")
+	entry.Message = sanitizeTerminal(strings.TrimSuffix(entry.Message, "\n"))
 
 	var job any
 	if f.logPrefixJobID {
 		job = entry.Data["jobID"]
 	} else {
 		job = entry.Data["job"]
+	}
+	if name, ok := job.(string); ok {
+		job = sanitizeTerminal(name)
 	}
 
 	debugFlag := ""
@@ -223,13 +226,16 @@ func (f *jobLogFormatter) printColored(b *bytes.Buffer, entry *logrus.Entry) {
 }
 
 func (f *jobLogFormatter) print(b *bytes.Buffer, entry *logrus.Entry) {
-	entry.Message = strings.TrimSuffix(entry.Message, "\n")
+	entry.Message = sanitizeTerminal(strings.TrimSuffix(entry.Message, "\n"))
 
 	var job any
 	if f.logPrefixJobID {
 		job = entry.Data["jobID"]
 	} else {
 		job = entry.Data["job"]
+	}
+	if name, ok := job.(string); ok {
+		job = sanitizeTerminal(name)
 	}
 
 	debugFlag := ""

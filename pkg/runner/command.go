@@ -55,6 +55,10 @@ func (rc *RunContext) commandHandler(ctx context.Context) common.LineHandler {
 				defCommandLogger.Errorf("The `set-env` command is disabled. Please upgrade to using Environment Files or opt into unsafe commands by setting the `ACTIONS_ALLOW_UNSECURE_COMMANDS` environment variable to `true`.")
 				break
 			}
+			if isBlockedEnvName(kvPairs["name"]) {
+				defCommandLogger.Errorf("Can't store %s output parameter using the `set-env` command.", kvPairs["name"])
+				break
+			}
 			rc.setEnv(ctx, kvPairs, arg)
 		case "set-output":
 			rc.setOutput(ctx, kvPairs, arg)

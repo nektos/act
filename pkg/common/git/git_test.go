@@ -34,6 +34,17 @@ func TestFindGitSlug(t *testing.T) {
 		{"http://github.com/nektos/act", "GitHub", "nektos/act"},
 		{"git+ssh://git@github.com/owner/repo.git", "GitHub", "owner/repo"},
 		{"http://myotherrepo.com/act.git", "", "http://myotherrepo.com/act.git"},
+		// secretlint-disable-next-line @secretlint/secretlint-rule-basicauth
+		{"https://x-access-token:abc@github.com/owner/repo.git", "GitHub", "owner/repo"},
+		{"ssh://git@github.com/owner/repo", "GitHub", "owner/repo"},
+		{"https://evilgithub.com/owner/repo", "", "https://evilgithub.com/owner/repo"},
+		{"https://github.com.evil.test/owner/repo", "", "https://github.com.evil.test/owner/repo"},
+		{"https://evil.test/github.com/owner/repo", "", "https://evil.test/github.com/owner/repo"},
+		{"https://githubXcom/owner/repo", "", "https://githubXcom/owner/repo"},
+		{"git@evil.test:github.com/owner/repo", "", "git@evil.test:github.com/owner/repo"},
+		{"git@github.com.evil.test:owner/repo", "", "git@github.com.evil.test:owner/repo"},
+		{"https://git-codecommit.us-east-1Xamazonaws.com/v1/repos/r", "", "https://git-codecommit.us-east-1Xamazonaws.com/v1/repos/r"},
+		{"https://git-codecommit.us-east-1.amazonaws.com.evil.test/v1/repos/r", "", "https://git-codecommit.us-east-1.amazonaws.com.evil.test/v1/repos/r"},
 	}
 
 	for _, tt := range slugTests {
@@ -42,6 +53,25 @@ func TestFindGitSlug(t *testing.T) {
 		assert.NoError(err)
 		assert.Equal(tt.provider, provider)
 		assert.Equal(tt.slug, slug)
+	}
+}
+
+func TestFindGitSlugEnterprise(t *testing.T) {
+	for url, want := range map[string]string{
+		"https://ghe.example.com/owner/repo.git":     "owner/repo",
+		"git@ghe.example.com:owner/repo.git":         "owner/repo",
+		"https://gheXexample.com/owner/repo":         "",
+		"https://ghe.example.com.evil.test/owner/re": "",
+	} {
+		provider, slug, err := findGitSlug(url, "ghe.example.com")
+		assert.NoError(t, err)
+		if want == "" {
+			assert.Equal(t, "", provider, url)
+			assert.Equal(t, url, slug)
+		} else {
+			assert.Equal(t, "GitHubEnterprise", provider, url)
+			assert.Equal(t, want, slug, url)
+		}
 	}
 }
 

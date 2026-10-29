@@ -1,0 +1,171 @@
+name: Approved auto-merge
+
+# Enables squash auto-merge after an approval from a user with write,
+# maintain, or admin on nektos/act.
+#
+# The merge uses the nektos-release-bot app token, not GITHUB_TOKEN. A merge
+# performed by GITHUB_TOKEN does not start later workflows. The app id and
+# private key are secrets on the promote environment, and that environment
+# allows protected branches only. A pull_request_review job runs on
+# refs/pull/<n>/merge, so it cannot read those secrets. workflow_run runs
+# with the default branch ref, which the environment already allows.
+#
+# pull_request_target is not used. Neither workflow checks out pull request
+# code. This job repeats the eligibility checks:
+# - the pull request is open and not a draft
+# - GitHub's review decision is not CHANGES_REQUESTED
+# - the latest decisive review from some user is APPROVED, and that user's
+#   collaborator permission is write, maintain, or admin
+# author_association is not consulted.
+#
+# Fork pull_request_review runs leave workflow_run.pull_requests empty. The
+# gate uploads the pull request number. This job reads that artifact and
+# accepts the number only when the pull request's head SHA is
+# workflow_run.head_sha. It does not check out pull request code.
+on:
+  # Runs on the default branch after the gate workflow. Does not check out pull request code.
+  workflow_run: # zizmor: ignore[dangerous-triggers]
+    workflows:
+      - Approved auto-merge gate
+    types:
+      - completed
+
+permissions:
+  actions: read
+  pull-requests: read
+
+concurrency:
+  group: approved-automerge-${{ github.event.workflow_run.pull_requests[0].number || github.event.workflow_run.id }}
+  cancel-in-progress: false
+
+jobs:
+  merge:
+    name: auto-merge
+    if: >-
+      github.repository == 'nektos/act' &&
+      github.event.workflow_run.event == 'pull_request_review' &&
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: promote
+    steps:
+      - name: Download pull request number
+        id: artifact
+        continue-on-error: true
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: approved-automerge-pr
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+          path: pr-number
+
+      - name: Resolve pull request
+        id: resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          WORKFLOW_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          EVENT_PR: ${{ github.event.workflow_run.pull_requests[0].number }}
+          ARTIFACT_OK: ${{ steps.artifact.outcome }}
+        run: |
+          set -euo pipefail
+          candidate="${EVENT_PR}"
+          if [ "${ARTIFACT_OK}" = "success" ]; then
+            artifact_file="$(find pr-number -type f -name pr-number.txt -print -quit)"
+            if [ -n "${artifact_file}" ]; then
+              candidate="$(tr -d '[:space:]' < "${artifact_file}")"
+            fi
+          fi
+          case "${candidate}" in
+            ''|*[!0-9]*)
+              echo "No numeric pull request number for this run."
+              exit 0
+              ;;
+          esac
+          head_sha="$(gh api "repos/${GH_REPO}/pulls/${candidate}" --jq .head.sha)"
+          base_repo="$(gh api "repos/${GH_REPO}/pulls/${candidate}" --jq .base.repo.full_name)"
+          if [ "${base_repo}" != "${GH_REPO}" ] || [ "${head_sha}" != "${WORKFLOW_HEAD_SHA}" ]; then
+            echo "Pull request ${candidate} does not match head ${WORKFLOW_HEAD_SHA}."
+            exit 0
+          fi
+          echo "pr_number=${candidate}" >> "${GITHUB_OUTPUT}"
+
+      - name: Create GitHub App token
+        id: app-token
+        if: steps.resolve.outputs.pr_number != ''
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          app-id: ${{ vars.RELEASE_APP_ID || secrets.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Enable squash auto-merge
+        if: steps.resolve.outputs.pr_number != ''
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ steps.resolve.outputs.pr_number }}
+        run: |
+          set -euo pipefail
+          if [ -z "${PR_NUMBER}" ]; then
+            echo "The triggering run has no associated pull request."
+            exit 0
+          fi
+
+          state="$(gh api "repos/${GH_REPO}/pulls/${PR_NUMBER}" --jq .state)"
+          draft="$(gh api "repos/${GH_REPO}/pulls/${PR_NUMBER}" --jq .draft)"
+          if [ "${state}" != "open" ] || [ "${draft}" = "true" ]; then
+            echo "Pull request ${PR_NUMBER} is not an open non-draft."
+            exit 0
+          fi
+
+          decision="$(gh pr view "${PR_NUMBER}" --json reviewDecision --jq '.reviewDecision // ""')"
+          if [ "${decision}" = "CHANGES_REQUESTED" ]; then
+            echo "Changes were requested; not enabling auto-merge."
+            exit 0
+          fi
+
+          allowed=false
+          while IFS= read -r login; do
+            [ -z "${login}" ] && continue
+            if ! perm="$(gh api "repos/${GH_REPO}/collaborators/${login}/permission" --jq .permission)"; then
+              echo "No collaborator permission for ${login}."
+              continue
+            fi
+            case "${perm}" in
+              admin|maintain|write)
+                echo "Approver ${login} has ${perm}."
+                allowed=true
+                ;;
+              *)
+                echo "Approver ${login} has ${perm}; ignored."
+                ;;
+            esac
+          done < <(
+            gh api "repos/${GH_REPO}/pulls/${PR_NUMBER}/reviews?per_page=100" --jq '
+              [
+                .[]
+                | select(.state == "APPROVED" or .state == "CHANGES_REQUESTED" or .state == "DISMISSED")
+              ]
+              | group_by(.user.login)
+              | map(max_by(.submitted_at))
+              | .[]
+              | select(.state == "APPROVED")
+              | .user.login
+            '
+          )
+
+          if [ "${allowed}" != "true" ]; then
+            echo "No approval from a user with write, maintain, or admin."
+            exit 0
+          fi
+
+          if ! gh pr merge --auto --squash "${PR_NUMBER}"; then
+            method="$(gh pr view "${PR_NUMBER}" --json autoMergeRequest --jq '.autoMergeRequest.mergeMethod // ""')"
+            if [ "${method}" = "SQUASH" ]; then
+              echo "Squash auto-merge is already enabled."
+              exit 0
+            fi
+            exit 1
+          fi

@@ -5,18 +5,11 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "ncc build index.js"
+    "build": "node -e \"const fs=require('fs'); fs.mkdirSync('dist',{recursive:true}); fs.copyFileSync('index.js','dist/index.js');\""
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "dependencies": {
-    "@actions/core": "^1.2.6",
-    "@actions/github": "^6.0.1"
-  },
-  "devDependencies": {
-    "@vercel/ncc": "^0.38.4"
-  },
   "engines": {
     "node": ">=12"
   }

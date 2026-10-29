@@ -1,7 +1,0 @@
-{
-  "version": 3,
-  "sources": ["../../src/index.ts"],
-  "sourcesContent": ["import type { Octokit } from \"@octokit/core\";\n\nexport type { RestEndpointMethodTypes } from \"./generated/parameters-and-response-types.js\";\nimport { VERSION } from \"./version.js\";\nimport type { Api } from \"./types.js\";\nimport { endpointsToMethods } from \"./endpoints-to-methods.js\";\n\n// Export the type for downstream users in order to fix a TypeScript error\n// The inferred type of 'Octokit' cannot be named without a reference to '../node_modules/@octokit/plugin-rest-endpoint-methods/dist-types/types.js'. This is likely not portable. A type annotation is necessary.\nexport type { Api };\n\nexport function restEndpointMethods(octokit: Octokit): Api {\n  const api = endpointsToMethods(octokit);\n  return {\n    rest: api,\n  };\n}\nrestEndpointMethods.VERSION = VERSION;\n\nexport function legacyRestEndpointMethods(octokit: Octokit): Api[\"rest\"] & Api {\n  const api = endpointsToMethods(octokit);\n  return {\n    ...api,\n    rest: api,\n  };\n}\nlegacyRestEndpointMethods.VERSION = VERSION;\n"],
-  "mappings": "AAGA,SAAS,eAAe;AAExB,SAAS,0BAA0B;AAM5B,SAAS,oBAAoB,SAAuB;AACzD,QAAM,MAAM,mBAAmB,OAAO;AACtC,SAAO;AAAA,IACL,MAAM;AAAA,EACR;AACF;AACA,oBAAoB,UAAU;AAEvB,SAAS,0BAA0B,SAAqC;AAC7E,QAAM,MAAM,mBAAmB,OAAO;AACtC,SAAO;AAAA,IACL,GAAG;AAAA,IACH,MAAM;AAAA,EACR;AACF;AACA,0BAA0B,UAAU;",
-  "names": []
-}
