@@ -46,6 +46,10 @@ func TestFindGitSlug(t *testing.T) {
 		{"https://github.com:evil.test/owner/repo", "", "https://github.com:evil.test/owner/repo"},
 		{"ssh://git@github.com:22.evil.test/owner/repo", "", "ssh://git@github.com:22.evil.test/owner/repo"},
 		{"git://evil.test/github.com/owner/repo", "", "git://evil.test/github.com/owner/repo"},
+		{"https://evil.test?x=@github.com:443/owner/repo", "", "https://evil.test?x=@github.com:443/owner/repo"},
+		{"https://evil.test#@github.com/owner/repo", "", "https://evil.test#@github.com/owner/repo"},
+		{"ssh://evil.test?x=@github.com/owner/repo", "", "ssh://evil.test?x=@github.com/owner/repo"},
+		{"evil.test?x=@github.com:owner/repo", "", "evil.test?x=@github.com:owner/repo"},
 		{"https://evilgithub.com/owner/repo", "", "https://evilgithub.com/owner/repo"},
 		{"https://github.com.evil.test/owner/repo", "", "https://github.com.evil.test/owner/repo"},
 		{"https://evil.test/github.com/owner/repo", "", "https://evil.test/github.com/owner/repo"},
@@ -76,13 +80,31 @@ func TestFindGitSlugEnterprise(t *testing.T) {
 	} {
 		provider, slug, err := findGitSlug(url, "ghe.example.com")
 		assert.NoError(t, err)
-		if want == "" {
-			assert.Equal(t, "", provider, url)
-			assert.Equal(t, url, slug)
-		} else {
-			assert.Equal(t, "GitHubEnterprise", provider, url)
-			assert.Equal(t, want, slug, url)
-		}
+		assertEnterpriseSlug(t, url, want, provider, slug)
+	}
+
+	// The instance can include the HTTPS port; SSH remotes use their own port.
+	for url, want := range map[string]string{
+		"https://ghe.example.com:8443/owner/repo":    "owner/repo",
+		"ssh://git@ghe.example.com:2222/owner/repo":  "owner/repo",
+		"ssh://git@ghe.example.com/owner/repo.git":   "owner/repo",
+		"git@ghe.example.com:owner/repo.git":         "owner/repo",
+		"https://ghe.example.com:8443.evil.test/o/r": "",
+	} {
+		provider, slug, err := findGitSlug(url, "ghe.example.com:8443")
+		assert.NoError(t, err)
+		assertEnterpriseSlug(t, url, want, provider, slug)
+	}
+}
+
+func assertEnterpriseSlug(t *testing.T, url, want, provider, slug string) {
+	t.Helper()
+	if want == "" {
+		assert.Equal(t, "", provider, url)
+		assert.Equal(t, url, slug)
+	} else {
+		assert.Equal(t, "GitHubEnterprise", provider, url)
+		assert.Equal(t, want, slug, url)
 	}
 }
 
