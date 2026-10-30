@@ -37,6 +37,15 @@ func TestFindGitSlug(t *testing.T) {
 		// secretlint-disable-next-line @secretlint/secretlint-rule-basicauth
 		{"https://x-access-token:abc@github.com/owner/repo.git", "GitHub", "owner/repo"},
 		{"ssh://git@github.com/owner/repo", "GitHub", "owner/repo"},
+		{"https://github.com:443/owner/repo.git", "GitHub", "owner/repo"},
+		{"git://github.com/owner/repo.git", "GitHub", "owner/repo"},
+		{"ssh://git@github.com:22/owner/repo.git", "GitHub", "owner/repo"},
+		{"ssh://git@ssh.github.com:443/owner/repo.git", "GitHub", "owner/repo"},
+		{"git@ssh.github.com:owner/repo.git", "GitHub", "owner/repo"},
+		{"https://ssh.github.com/owner/repo", "", "https://ssh.github.com/owner/repo"},
+		{"https://github.com:evil.test/owner/repo", "", "https://github.com:evil.test/owner/repo"},
+		{"ssh://git@github.com:22.evil.test/owner/repo", "", "ssh://git@github.com:22.evil.test/owner/repo"},
+		{"git://evil.test/github.com/owner/repo", "", "git://evil.test/github.com/owner/repo"},
 		{"https://evilgithub.com/owner/repo", "", "https://evilgithub.com/owner/repo"},
 		{"https://github.com.evil.test/owner/repo", "", "https://github.com.evil.test/owner/repo"},
 		{"https://evil.test/github.com/owner/repo", "", "https://evil.test/github.com/owner/repo"},
@@ -60,6 +69,8 @@ func TestFindGitSlugEnterprise(t *testing.T) {
 	for url, want := range map[string]string{
 		"https://ghe.example.com/owner/repo.git":     "owner/repo",
 		"git@ghe.example.com:owner/repo.git":         "owner/repo",
+		"https://ghe.example.com:8443/owner/repo":    "owner/repo",
+		"ssh://git@ghe.example.com:2222/owner/repo":  "owner/repo",
 		"https://gheXexample.com/owner/repo":         "",
 		"https://ghe.example.com.evil.test/owner/re": "",
 	} {
