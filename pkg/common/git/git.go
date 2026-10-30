@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"path"
 	"regexp"
@@ -201,9 +202,10 @@ func findGitRemoteURL(_ context.Context, file, remoteName string) (string, error
 }
 
 // gitHostHTTPRegex matches http(s)://[userinfo@]host[:port]/owner/repo[.git]
-// for exactly host.
+// for exactly host. The userinfo may not contain '?' or '#', so a host that
+// only appears in the query or fragment does not match.
 func gitHostHTTPRegex(host string) *regexp.Regexp {
-	return regexp.MustCompile(`^https?://(?:[^@/]+@)?` + regexp.QuoteMeta(host) + `(?::\d+)?/([^/]+)/([^/]+?)(?:\.git)?/?$`)
+	return regexp.MustCompile(`^https?://(?:[^@/?#]+@)?` + regexp.QuoteMeta(host) + `(?::\d+)?/([^/]+)/([^/]+?)(?:\.git)?/?$`)
 }
 
 // gitHostSSHRegex matches [git+]ssh://[user@]host[:port]/owner/repo,
@@ -215,7 +217,7 @@ func gitHostSSHRegex(hosts ...string) *regexp.Regexp {
 		quoted[i] = regexp.QuoteMeta(host)
 	}
 	h := `(?:` + strings.Join(quoted, `|`) + `)`
-	return regexp.MustCompile(`^(?:(?:(?:git\+)?ssh|git)://(?:[^@/]+@)?` + h + `(?::\d+)?/|(?:[^@/:]+@)?` + h + `:)([^/]+)/([^/]+?)(?:\.git)?/?$`)
+	return regexp.MustCompile(`^(?:(?:(?:git\+)?ssh|git)://(?:[^@/?#]+@)?` + h + `(?::\d+)?/|(?:[^@/:?#]+@)?` + h + `:)([^/]+)/([^/]+?)(?:\.git)?/?$`)
 }
 
 func findGitSlug(url string, githubInstance string) (string, string, error) {
@@ -229,7 +231,13 @@ func findGitSlug(url string, githubInstance string) (string, string, error) {
 		return "GitHub", fmt.Sprintf("%s/%s", matches[1], matches[2]), nil
 	} else if githubInstance != "github.com" {
 		gheHTTPRegex := gitHostHTTPRegex(githubInstance)
-		gheSSHRegex := gitHostSSHRegex(githubInstance)
+		// The instance may carry the HTTPS port (ghe.example.com:8443), which
+		// SSH remotes do not use, so match SSH remotes on the hostname only.
+		sshHost := githubInstance
+		if host, _, err := net.SplitHostPort(githubInstance); err == nil {
+			sshHost = host
+		}
+		gheSSHRegex := gitHostSSHRegex(sshHost)
 		if matches := gheHTTPRegex.FindStringSubmatch(url); matches != nil {
 			return "GitHubEnterprise", fmt.Sprintf("%s/%s", matches[1], matches[2]), nil
 		} else if matches := gheSSHRegex.FindStringSubmatch(url); matches != nil {
