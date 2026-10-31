@@ -483,6 +483,9 @@ func getEvaluatorInputs(ctx context.Context, rc *RunContext, step step, ghc *mod
 	inputs := map[string]interface{}{}
 
 	setupWorkflowInputs(ctx, &inputs, rc)
+	for name, value := range rc.ActionInputs {
+		inputs[name] = value
+	}
 
 	var env map[string]string
 	if step != nil {
