@@ -155,7 +155,11 @@ func rootedActionReader(actionDir, subPath string) actionYamlReader {
 }
 
 func (sar *stepActionRemote) readRemoteAction(ctx context.Context, actionDir string, reader actionYamlReader) error {
-	actionModel, err := sar.readAction(ctx, sar.Step, actionDir, sar.remoteAction.Path, reader, os.WriteFile)
+	writer := fileWriter(os.WriteFile)
+	if info, statErr := os.Lstat(actionDir); statErr == nil && info.IsDir() {
+		writer = rootedWriter(actionDir)
+	}
+	actionModel, err := sar.readAction(ctx, sar.Step, actionDir, sar.remoteAction.Path, reader, writer)
 	if err != nil {
 		return err
 	}
