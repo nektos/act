@@ -141,6 +141,11 @@ func TestOperatorsCompare(t *testing.T) {
 		{`fromJSON('{}') < 2 }}`, false, "object-with-less"},
 		{`fromJSON('{}') < fromJSON('[]') }}`, false, "object/arr-with-lt"},
 		{`fromJSON('{}') > fromJSON('[]') }}`, false, "object/arr-with-gt"},
+		{`' ' == 0 }}`, true, "string-whitespace-coercion"},
+		{`'007' == 7 }}`, true, "string-leading-zeros-coercion"},
+		{`'+3' == 3 }}`, true, "string-leading-sign-coercion"},
+		{`'3000000000' > 1 }}`, true, "string-above-int32-coercion"},
+		{`'0 || 5' == 5 }}`, false, "string-is-not-an-expression"},
 	}
 
 	env := &EvaluationEnvironment{
@@ -155,6 +160,66 @@ func TestOperatorsCompare(t *testing.T) {
 			assert.Nil(t, err)
 
 			assert.Equal(t, tt.expected, output)
+		})
+	}
+}
+
+func TestParseNumber(t *testing.T) {
+	table := []struct {
+		input    string
+		expected float64
+		name     string
+	}{
+		{"", 0, "empty"},
+		{"   ", 0, "whitespace-only"},
+		{"\t\n", 0, "whitespace-only-control"},
+		{"  1  ", 1, "surrounding-whitespace"},
+		{"0", 0, "zero"},
+		{"-1", -1, "negative"},
+		{"+1", 1, "leading-plus"},
+		{".5", 0.5, "leading-decimal-point"},
+		{"1.", 1, "trailing-decimal-point"},
+		{"007", 7, "leading-zeros"},
+		{"1e3", 1000, "exponent"},
+		{"1e+3", 1000, "exponent-signed"},
+		{"3000000000", 3000000000, "above-int32"},
+		{"0x11", 17, "hexadecimal"},
+		{"0o17", 15, "octal"},
+		{"Infinity", math.Inf(1), "infinity"},
+		{"-Infinity", math.Inf(-1), "negative-infinity"},
+
+		// The runner matches the radix prefix case-sensitively and knows no
+		// binary literal.
+		{"0X11", math.NaN(), "uppercase-hexadecimal"},
+		{"0b11", math.NaN(), "binary"},
+		{"-0x10", math.NaN(), "signed-hexadecimal"},
+		{"0xfffffffff", math.NaN(), "hexadecimal-above-int32"},
+
+		// Forms strconv.ParseFloat would accept but the runner does not.
+		{"inf", math.NaN(), "go-infinity-spelling"},
+		{"infinity", math.NaN(), "go-infinity-spelling-long"},
+		{"0x1p-2", math.NaN(), "hexadecimal-float"},
+
+		{"1,000", math.NaN(), "thousands-separator"},
+		{"1.2.3", math.NaN(), "two-decimal-points"},
+		{"1e", math.NaN(), "empty-exponent"},
+		{"abc", math.NaN(), "word"},
+		{"true", math.NaN(), "boolean-spelling"},
+
+		// A string is a number or it is NaN; it is never an expression to run.
+		{"(1)", math.NaN(), "parenthesised-expression"},
+		{"0 || 5", math.NaN(), "logical-expression"},
+		{"fromJSON('3')", math.NaN(), "function-call"},
+	}
+
+	for _, tt := range table {
+		t.Run(tt.name, func(t *testing.T) {
+			actual := parseNumber(tt.input)
+			if math.IsNaN(tt.expected) {
+				assert.True(t, math.IsNaN(actual), "expected NaN, got %v", actual)
+				return
+			}
+			assert.Equal(t, tt.expected, actual)
 		})
 	}
 }
