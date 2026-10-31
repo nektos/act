@@ -4,6 +4,8 @@ import (
 	"context"
 	"io"
 	"io/fs"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -49,6 +51,7 @@ runs:
 					PreIf:  "always()",
 					PostIf: "always()",
 				},
+				ActionPath: "actionPath",
 			},
 		},
 		{
@@ -64,6 +67,7 @@ runs:
 					PreIf:  "always()",
 					PostIf: "always()",
 				},
+				ActionPath: "actionPath",
 			},
 		},
 		{
@@ -77,6 +81,7 @@ runs:
 					Using: "docker",
 					Image: "Dockerfile",
 				},
+				ActionPath: "actionPath",
 			},
 		},
 		{
@@ -104,6 +109,7 @@ runs:
 					Using: "node12",
 					Main:  "trampoline.js",
 				},
+				ActionPath: "actionPath",
 			},
 		},
 	}
@@ -138,6 +144,38 @@ runs:
 			closerMock.AssertExpectations(t)
 		})
 	}
+}
+
+func TestActionReaderDiscoverSubdir(t *testing.T) {
+	yaml := `
+name: 'name'
+runs:
+  using: 'node16'
+  main: 'main.js'
+`
+
+	baseDir := t.TempDir()
+	subdir := filepath.Join(baseDir, "github-action")
+	if err := os.MkdirAll(subdir, 0o755); err != nil {
+		t.Fatalf("failed to create subdir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(subdir, "action.yml"), []byte(yaml), 0o644); err != nil {
+		t.Fatalf("failed to write action.yml: %v", err)
+	}
+
+	readFile := func(filename string) (io.Reader, io.Closer, error) {
+		return nil, nil, fs.ErrNotExist
+	}
+
+	writeFile := func(filename string, _ []byte, perm fs.FileMode) error {
+		t.Fatalf("unexpected writeFile call: %s %v", filename, perm)
+		return nil
+	}
+
+	action, err := readActionImpl(context.Background(), &model.Step{}, baseDir, "", readFile, writeFile)
+
+	assert.Nil(t, err)
+	assert.Equal(t, "github-action", action.ActionPath)
 }
 
 func TestActionRunner(t *testing.T) {
@@ -247,5 +285,72 @@ func TestActionRunner(t *testing.T) {
 			assert.Nil(t, err)
 			cm.AssertExpectations(t)
 		})
+	}
+}
+
+func TestActionReaderDiscoverSubdirMultipleMatches(t *testing.T) {
+	yaml := `
+name: 'name'
+runs:
+  using: 'node16'
+  main: 'main.js'
+`
+	baseDir := t.TempDir()
+	for _, dir := range []string{"github-action", "nested-action"} {
+		subdir := filepath.Join(baseDir, dir)
+		if err := os.MkdirAll(subdir, 0o755); err != nil {
+			t.Fatalf("failed to create subdir %q: %v", dir, err)
+		}
+		if err := os.WriteFile(filepath.Join(subdir, "action.yml"), []byte(yaml), 0o644); err != nil {
+			t.Fatalf("failed to write action.yml in %q: %v", dir, err)
+		}
+	}
+
+	readFile := func(filename string) (io.Reader, io.Closer, error) {
+		return nil, nil, fs.ErrNotExist
+	}
+
+	writeFile := func(filename string, _ []byte, perm fs.FileMode) error {
+		t.Fatalf("unexpected writeFile call: %s %v", filename, perm)
+		return nil
+	}
+
+	action, err := readActionImpl(context.Background(), &model.Step{}, baseDir, "", readFile, writeFile)
+
+	assert.Nil(t, action)
+	if assert.Error(t, err) {
+		assert.True(t,
+			strings.Contains(strings.ToLower(err.Error()), "multiple") ||
+				strings.Contains(strings.ToLower(err.Error()), "ambiguous"),
+			"expected a clear error for multiple discovered action subdirectories, got: %v", err,
+		)
+	}
+}
+
+func TestActionReaderDiscoverSubdirActionCacheUnsupported(t *testing.T) {
+	// When ActionCache is enabled, actionDir is a SHA hash (not a real path).
+	// Discovery should fail with a clear, actionable error — not silently.
+	nonExistentDir := filepath.Join(t.TempDir(), "sha-abc123def456")
+
+	readFile := func(filename string) (io.Reader, io.Closer, error) {
+		return nil, nil, fs.ErrNotExist
+	}
+
+	writeFile := func(filename string, _ []byte, perm fs.FileMode) error {
+		t.Fatalf("unexpected writeFile call: %s %v", filename, perm)
+		return nil
+	}
+
+	action, err := readActionImpl(context.Background(), &model.Step{}, nonExistentDir, "", readFile, writeFile)
+
+	assert.Nil(t, action)
+	if assert.Error(t, err) {
+		assert.True(t,
+			strings.Contains(strings.ToLower(err.Error()), "actioncache") ||
+				strings.Contains(strings.ToLower(err.Error()), "tar") ||
+				strings.Contains(strings.ToLower(err.Error()), "subdir") ||
+				strings.Contains(strings.ToLower(err.Error()), "accessible"),
+			"expected a clear error about ActionCache/discovery failure, got: %v", err,
+		)
 	}
 }
