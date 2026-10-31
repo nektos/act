@@ -231,11 +231,17 @@ func findGitSlug(url string, githubInstance string) (string, string, error) {
 		return "GitHub", fmt.Sprintf("%s/%s", matches[1], matches[2]), nil
 	} else if githubInstance != "github.com" {
 		gheHTTPRegex := gitHostHTTPRegex(githubInstance)
-		// The instance may carry the HTTPS port (ghe.example.com:8443), which
-		// SSH remotes do not use, so match SSH remotes on the hostname only.
+		// The instance may carry the HTTPS port (ghe.example.com:8443 or
+		// [2001:db8::1]:8443). SSH remotes use their own port, so match them
+		// on the host only. Enterprise API URLs still use githubInstance,
+		// port included. SplitHostPort removes the brackets from an IPv6
+		// literal; put them back so ssh://git@[2001:db8::1]:2222/... matches.
 		sshHost := githubInstance
 		if host, _, err := net.SplitHostPort(githubInstance); err == nil {
 			sshHost = host
+			if strings.Contains(host, ":") {
+				sshHost = "[" + host + "]"
+			}
 		}
 		gheSSHRegex := gitHostSSHRegex(sshHost)
 		if matches := gheHTTPRegex.FindStringSubmatch(url); matches != nil {
