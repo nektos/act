@@ -42,11 +42,7 @@ func lexicalInside(root, target string) error {
 // resolveLocalActionDir returns the host directory of a local action
 // (uses: ./...). The directory stays inside workdir.
 func resolveLocalActionDir(workdir, uses string) (string, error) {
-	rel := uses
-	if strings.HasPrefix(rel, "./") {
-		rel = rel[len("./"):]
-	}
-	return joinUnder(workdir, rel)
+	return joinUnder(workdir, strings.TrimPrefix(uses, "./"))
 }
 
 // rootedWriter writes filename, which must stay inside root, without
