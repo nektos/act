@@ -188,9 +188,9 @@ func TestDockerContextSymlinkStaysInCheckout(t *testing.T) {
 	assert.Equal(t, "host-secret", string(body))
 	assert.Error(t, rejectHostContextEscape(checkout, host))
 
-	real := filepath.Join(checkout, "real")
-	require.NoError(t, os.Mkdir(real, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(real, "Dockerfile"), []byte("FROM scratch\n"), 0o644))
+	realDir := filepath.Join(checkout, "real")
+	require.NoError(t, os.Mkdir(realDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(realDir, "Dockerfile"), []byte("FROM scratch\n"), 0o600))
 	require.NoError(t, os.Symlink("real", filepath.Join(checkout, "link")))
 	assert.NoError(t, rejectHostContextEscape(checkout, filepath.Join(checkout, "link")))
 }
