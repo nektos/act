@@ -40,6 +40,7 @@ type GithubContext struct {
 	ServerURL        string                 `json:"server_url"`
 	APIURL           string                 `json:"api_url"`
 	GraphQLURL       string                 `json:"graphql_url"`
+	Permissions      map[string]string      `json:"permissions"`
 }
 
 func asString(v interface{}) string {
