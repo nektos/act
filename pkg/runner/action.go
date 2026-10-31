@@ -277,7 +277,7 @@ func execAsDocker(ctx context.Context, step actionStep, actionName, basedir, sub
 			}
 		}
 		if localAction {
-			err = rejectHostContextEscape(rc.Config.Workdir, contextDir)
+			err = rejectHostContextEscape(localActionWorkspace(rc), contextDir)
 		} else if rc.Config.ActionCache == nil {
 			err = rejectHostContextEscape(basedir, hostContext)
 		}

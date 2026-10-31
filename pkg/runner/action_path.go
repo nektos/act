@@ -45,6 +45,19 @@ func resolveLocalActionDir(workdir, uses string) (string, error) {
 	return joinUnder(workdir, strings.TrimPrefix(uses, "./"))
 }
 
+// localActionWorkspace is the directory a local action is executed from.
+// A job container uses the workdir. The host executor copies that workdir
+// and the action path is relative to the copy, so the copy is the root.
+func localActionWorkspace(rc *RunContext) string {
+	if rc == nil || rc.Config == nil {
+		return ""
+	}
+	if rc.JobContainer != nil {
+		return rc.JobContainer.ToContainerPath(rc.Config.Workdir)
+	}
+	return rc.Config.Workdir
+}
+
 // rootedWriter writes filename, which must stay inside root, without
 // following a symlink out of root.
 func rootedWriter(root string) fileWriter {
