@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/nektos/act/pkg/container"
 	"github.com/nektos/act/pkg/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -193,6 +194,69 @@ func TestDockerContextSymlinkStaysInCheckout(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(realDir, "Dockerfile"), []byte("FROM scratch\n"), 0o600))
 	require.NoError(t, os.Symlink("real", filepath.Join(checkout, "link")))
 	assert.NoError(t, rejectHostContextEscape(checkout, filepath.Join(checkout, "link")))
+}
+
+func TestLocalDockerContextRoot(t *testing.T) {
+	outside := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(outside, "SECRET.txt"), []byte("host-secret"), 0o600))
+
+	t.Run("host executor", func(t *testing.T) {
+		workdir := t.TempDir()
+		copied := t.TempDir()
+		action := filepath.Join(copied, "docker-action-host-env", "action")
+		require.NoError(t, os.MkdirAll(action, 0o755))
+		require.NoError(t, os.WriteFile(filepath.Join(action, "Dockerfile"), []byte("FROM scratch\n"), 0o600))
+		require.NoError(t, os.Symlink(outside, filepath.Join(copied, "escape")))
+
+		rc := &RunContext{
+			Config: &Config{Workdir: workdir},
+			JobContainer: &container.HostEnvironment{
+				Path:    copied,
+				Workdir: workdir,
+			},
+		}
+		root := localActionWorkspace(rc)
+		assert.Equal(t, copied, root)
+
+		// The action lives in the copied workspace, not the original workdir.
+		assert.NoError(t, rejectHostContextEscape(root, action))
+		assert.Error(t, rejectHostContextEscape(workdir, action))
+
+		// A plain read follows the symlink. Containment must still reject it,
+		// and a ../ image path must still fail lexically.
+		body, err := os.ReadFile(filepath.Join(copied, "escape", "SECRET.txt"))
+		require.NoError(t, err)
+		assert.Equal(t, "host-secret", string(body))
+		assert.Error(t, rejectHostContextEscape(root, filepath.Join(copied, "escape")))
+		_, _, err = resolveDockerContext(action, "../../../../../../tmp/secret/Dockerfile", true)
+		assert.Error(t, err)
+		_, err = resolveLocalActionDir(workdir, "./../../..")
+		assert.Error(t, err)
+	})
+
+	t.Run("container executor", func(t *testing.T) {
+		workdir := t.TempDir()
+		action := filepath.Join(workdir, "action")
+		require.NoError(t, os.Mkdir(action, 0o755))
+		require.NoError(t, os.WriteFile(filepath.Join(action, "Dockerfile"), []byte("FROM scratch\n"), 0o600))
+		require.NoError(t, os.Symlink(outside, filepath.Join(workdir, "escape")))
+
+		rc := &RunContext{
+			Config:       &Config{Workdir: workdir},
+			JobContainer: &containerMock{},
+		}
+		root := localActionWorkspace(rc)
+		assert.Equal(t, workdir, root)
+		assert.NoError(t, rejectHostContextEscape(root, action))
+		body, err := os.ReadFile(filepath.Join(workdir, "escape", "SECRET.txt"))
+		require.NoError(t, err)
+		assert.Equal(t, "host-secret", string(body))
+		assert.Error(t, rejectHostContextEscape(root, filepath.Join(workdir, "escape")))
+		_, _, err = resolveDockerContext(action, "../../../../../../tmp/secret/Dockerfile", true)
+		assert.Error(t, err)
+		_, err = resolveLocalActionDir(workdir, "./../../..")
+		assert.Error(t, err)
+	})
 }
 
 func TestRestrictWorkflowContainerOptions(t *testing.T) {
