@@ -136,6 +136,176 @@ jobs:
 	assert.Contains(t, workflow.Jobs["test2"].Container().Env["foo"], "bar")
 }
 
+func TestReadWorkflow_Concurrency(t *testing.T) {
+	yaml := `
+name: concurrency
+on: push
+
+concurrency:
+  group: workflow-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scalar:
+    runs-on: ubuntu-latest
+    concurrency: job-group
+    steps:
+    - run: echo
+  mapping:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: job-group-${{ github.event_name }}
+      cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+    steps:
+    - run: echo
+  none:
+    runs-on: ubuntu-latest
+    steps:
+    - run: echo
+`
+
+	workflow, err := ReadWorkflow(strings.NewReader(yaml), false)
+	assert.NoError(t, err, "read workflow should succeed")
+
+	concurrency := workflow.Concurrency()
+	require.NotNil(t, concurrency)
+	assert.Equal(t, "workflow-${{ github.ref }}", concurrency.Group)
+	assert.Equal(t, "true", concurrency.CancelInProgress)
+
+	concurrency = workflow.GetJob("scalar").Concurrency()
+	require.NotNil(t, concurrency)
+	assert.Equal(t, "job-group", concurrency.Group)
+	assert.Equal(t, "", concurrency.CancelInProgress)
+
+	concurrency = workflow.GetJob("mapping").Concurrency()
+	require.NotNil(t, concurrency)
+	assert.Equal(t, "job-group-${{ github.event_name }}", concurrency.Group)
+	assert.Equal(t, "${{ github.ref != 'refs/heads/main' }}", concurrency.CancelInProgress)
+
+	assert.Nil(t, workflow.GetJob("none").Concurrency())
+}
+
+func TestReadWorkflow_ConcurrencyQueue(t *testing.T) {
+	yaml := `
+name: concurrency-queue
+on: push
+
+concurrency:
+  group: workflow-group
+  queue: max
+
+jobs:
+  queued:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: job-group
+      queue: single
+    steps:
+    - run: echo
+  defaulted:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: other-group
+    steps:
+    - run: echo
+  expression:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: expr-group
+      queue: ${{ vars.QUEUE_MODE }}
+    steps:
+    - run: echo
+`
+
+	workflow, err := ReadWorkflow(strings.NewReader(yaml), false)
+	assert.NoError(t, err, "read workflow should succeed")
+
+	concurrency := workflow.Concurrency()
+	require.NotNil(t, concurrency)
+	assert.Equal(t, "max", concurrency.Queue)
+
+	concurrency = workflow.GetJob("queued").Concurrency()
+	require.NotNil(t, concurrency)
+	assert.Equal(t, "single", concurrency.Queue)
+
+	concurrency = workflow.GetJob("defaulted").Concurrency()
+	require.NotNil(t, concurrency)
+	assert.Equal(t, "", concurrency.Queue, "queue defaults to single and is left empty when not set")
+
+	concurrency = workflow.GetJob("expression").Concurrency()
+	require.NotNil(t, concurrency)
+	assert.Equal(t, "${{ vars.QUEUE_MODE }}", concurrency.Queue, "expressions are kept for later evaluation")
+}
+
+func TestReadWorkflow_ConcurrencyQueueInvalid(t *testing.T) {
+	invalidValue := `
+name: invalid-queue-value
+on: push
+concurrency:
+  group: g
+  queue: enormous
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - run: echo
+`
+	_, err := ReadWorkflow(strings.NewReader(invalidValue), false)
+	assert.ErrorContains(t, err, "Expected one of single,max got enormous")
+
+	// GitHub refuses this combination, so the workflow must not plan at all
+	workflowLevel := `
+name: invalid-combination
+on: push
+concurrency:
+  group: g
+  queue: max
+  cancel-in-progress: true
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - run: echo
+`
+	_, err = ReadWorkflow(strings.NewReader(workflowLevel), false)
+	assert.ErrorContains(t, err, "invalid workflow level 'concurrency'")
+	assert.ErrorContains(t, err, "'queue: max' and 'cancel-in-progress: true' is not allowed")
+
+	jobLevel := `
+name: invalid-combination-job
+on: push
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: g
+      queue: max
+      cancel-in-progress: true
+    steps:
+    - run: echo
+`
+	_, err = ReadWorkflow(strings.NewReader(jobLevel), false)
+	assert.ErrorContains(t, err, "invalid 'concurrency' for job 'test'")
+
+	// an expression is only known after evaluation, so it must not be
+	// rejected while reading the workflow
+	expression := `
+name: deferred-combination
+on: push
+concurrency:
+  group: g
+  queue: max
+  cancel-in-progress: ${{ github.ref == 'refs/heads/main' }}
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - run: echo
+`
+	_, err = ReadWorkflow(strings.NewReader(expression), false)
+	assert.NoError(t, err)
+}
+
 func TestReadWorkflow_ObjectContainer(t *testing.T) {
 	yaml := `
 name: local-action-docker-url
