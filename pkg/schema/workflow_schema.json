@@ -1280,6 +1280,10 @@
             "type": "permission-level-any",
             "description": "Actions workflows, workflow runs, and artifacts."
           },
+          "artifact-metadata": {
+            "type": "permission-level-any",
+            "description": "Artifact metadata."
+          },
           "attestations": {
             "type": "permission-level-any",
             "description": "Artifact attestations."
