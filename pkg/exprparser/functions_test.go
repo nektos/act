@@ -257,6 +257,38 @@ func TestFunctionFormat(t *testing.T) {
 	}
 }
 
+func TestFunctionCase(t *testing.T) {
+	table := []struct {
+		input    string
+		expected interface{}
+		error    interface{}
+		name     string
+	}{
+		{"case(true, 'a', 'b')", "a", nil, "case-single-predicate"},
+		{"case(true, 1, false, 2, 3)", 1, nil, "case-multiple-predicate"},
+		{"CASE(true, 1, 2)", 1, nil, "case-case-insensitivity"},
+		{"case(startsWith('hello', 'he'), 'yes', 'no')", "yes", nil, "case-expression-predicate"},
+		{"case(false, 'a', false, 'b', false, 'c', true, 'd', 'default')", "d", nil, "case-many-predicate"},
+		{"case(false, 'a')", "", "Too few parameters supplied: 'case'", "case-not-enough-inputs"},
+		{"case(false, 'a', true, 'b')", "", "Even number of parameters supplied, requires an odd number of parameters: 'case'", "case-even-inputs"},
+		{"case(true, null, 'b')", "", nil, "case-null-value"},
+	}
+
+	env := &EvaluationEnvironment{}
+
+	for _, tt := range table {
+		t.Run(tt.name, func(t *testing.T) {
+			output, err := NewInterpeter(env, Config{}).Evaluate(tt.input, DefaultStatusCheckNone)
+			if tt.error != nil {
+				assert.Equal(t, tt.error, err.Error())
+			} else {
+				assert.Nil(t, err)
+				assert.Equal(t, tt.expected, output)
+			}
+		})
+	}
+}
+
 func TestMapContains(t *testing.T) {
 	env := &EvaluationEnvironment{
 		Needs: map[string]Needs{
