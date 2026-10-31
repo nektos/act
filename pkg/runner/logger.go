@@ -96,6 +96,8 @@ func WithJobLogger(ctx context.Context, jobID string, jobName string, config *Co
 		logger.SetFormatter(formatter)
 	}
 
+	// If the main logger is reporting caller, this inner one should too
+	logger.SetReportCaller(logrus.StandardLogger().ReportCaller)
 	logger.SetFormatter(&maskedFormatter{
 		Formatter: logger.Formatter,
 		masker:    valueMasker(config.InsecureSecrets, config.Secrets),
