@@ -1,0 +1,21 @@
+name: Main Reusable Workflow
+on:
+  workflow_call:
+    inputs:
+      message:
+        type: string
+        required: true
+
+jobs:
+  pre-task:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print message
+        run: echo "${{ inputs.message }}"
+  
+  nested-call:
+    needs: pre-task
+    uses: ./.github/workflows/nested.yml
+    with:
+      parent_message: "${{ inputs.message }}"
+    secrets: inherit
