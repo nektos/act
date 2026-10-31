@@ -180,6 +180,18 @@ func runActionImpl(step actionStep, actionDir string, remoteAction *remoteAction
 			if err := maybeCopyToActionDir(ctx, step, actionDir, actionPath, containerActionDir); err != nil {
 				return err
 			}
+
+			// Check if the main file exists in the local action directory
+			mainFilePath := filepath.Join(actionDir, actionPath, action.Runs.Main)
+			if _, err := os.Stat(mainFilePath); os.IsNotExist(err) {
+				// Check if package.json exists to provide build suggestion
+				packageJsonPath := filepath.Join(actionDir, actionPath, "package.json")
+				if _, pkgErr := os.Stat(packageJsonPath); pkgErr == nil {
+					return fmt.Errorf("the action '%s' is missing the required main file '%s'. This is likely because the action was built with TypeScript/JavaScript and the 'dist/' folder was not included in the git repository (excluded by .gitignore). Please build the action by running 'npm install && npm run build' in the action directory '%s', or contact the action maintainer to include the pre-built files in the release", stepModel.Uses, action.Runs.Main, filepath.Join(actionDir, actionPath))
+				}
+				return fmt.Errorf("the action '%s' is missing the required main file '%s'. Please check the action's action.yml file and ensure the file exists", stepModel.Uses, action.Runs.Main)
+			}
+
 			containerArgs := []string{rc.GetNodeToolFullPath(ctx), path.Join(containerActionDir, action.Runs.Main)}
 			logger.Debugf("executing remote job container: %s", containerArgs)
 
@@ -555,6 +567,17 @@ func runPreStep(step actionStep) common.Executor {
 				return err
 			}
 
+			// Check if the pre script file exists in the local action directory
+			preFilePath := filepath.Join(actionDir, actionPath, action.Runs.Pre)
+			if _, err := os.Stat(preFilePath); os.IsNotExist(err) {
+				// Check if package.json exists to provide build suggestion
+				packageJsonPath := filepath.Join(actionDir, actionPath, "package.json")
+				if _, pkgErr := os.Stat(packageJsonPath); pkgErr == nil {
+					return fmt.Errorf("the action '%s' is missing the required pre script file '%s'. This is likely because the action was built with TypeScript/JavaScript and the 'dist/' folder was not included in the git repository (excluded by .gitignore). Please build the action by running 'npm install && npm run build' in the action directory '%s', or contact the action maintainer to include the pre-built files in the release", stepModel.Uses, action.Runs.Pre, filepath.Join(actionDir, actionPath))
+				}
+				return fmt.Errorf("the action '%s' is missing the required pre script file '%s'. Please check the action's action.yml file and ensure the file exists", stepModel.Uses, action.Runs.Pre)
+			}
+
 			containerArgs := []string{rc.GetNodeToolFullPath(ctx), path.Join(containerActionDir, action.Runs.Pre)}
 			logger.Debugf("executing remote job container: %s", containerArgs)
 
@@ -657,6 +680,17 @@ func runPostStep(step actionStep) common.Executor {
 		case x.IsNode():
 			populateEnvsFromSavedState(step.getEnv(), step, rc)
 			populateEnvsFromInput(ctx, step.getEnv(), step.getActionModel(), rc)
+
+			// Check if the post script file exists in the local action directory
+			postFilePath := filepath.Join(actionDir, actionPath, action.Runs.Post)
+			if _, err := os.Stat(postFilePath); os.IsNotExist(err) {
+				// Check if package.json exists to provide build suggestion
+				packageJsonPath := filepath.Join(actionDir, actionPath, "package.json")
+				if _, pkgErr := os.Stat(packageJsonPath); pkgErr == nil {
+					return fmt.Errorf("the action '%s' is missing the required post script file '%s'. This is likely because the action was built with TypeScript/JavaScript and the 'dist/' folder was not included in the git repository (excluded by .gitignore). Please build the action by running 'npm install && npm run build' in the action directory '%s', or contact the action maintainer to include the pre-built files in the release", stepModel.Uses, action.Runs.Post, filepath.Join(actionDir, actionPath))
+				}
+				return fmt.Errorf("the action '%s' is missing the required post script file '%s'. Please check the action's action.yml file and ensure the file exists", stepModel.Uses, action.Runs.Post)
+			}
 
 			containerArgs := []string{rc.GetNodeToolFullPath(ctx), path.Join(containerActionDir, action.Runs.Post)}
 			logger.Debugf("executing remote job container: %s", containerArgs)
