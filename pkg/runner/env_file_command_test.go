@@ -42,6 +42,8 @@ func TestSetEnvCommandRejectsNodeOptions(t *testing.T) {
 	assert.Equal(t, "bar", rc.Env["FOO"])
 }
 
+// writeUTF16LE writes content to name as UTF-16LE with a BOM, as Windows
+// PowerShell 5.1's `>>` does.
 func writeUTF16LE(t *testing.T, name, content string) {
 	t.Helper()
 	encoded, err := unicode.UTF16(unicode.LittleEndian, unicode.UseBOM).NewEncoder().String(content)

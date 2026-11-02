@@ -11,6 +11,9 @@ import (
 	"github.com/nektos/act/pkg/common"
 )
 
+// parseEnvFile reads a KEY=value / KEY<<DELIM file command (GITHUB_ENV,
+// GITHUB_OUTPUT, GITHUB_STATE) from the container at srcPath into env,
+// decoding it by BOM first.
 func parseEnvFile(e Container, srcPath string, env *map[string]string) common.Executor {
 	localEnv := *env
 	return func(ctx context.Context) error {

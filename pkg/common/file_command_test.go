@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// utf16le encodes s as UTF-16LE, optionally with a leading BOM.
 func utf16le(s string, bom bool) []byte {
 	var b []byte
 	if bom {
@@ -20,6 +21,8 @@ func utf16le(s string, bom bool) []byte {
 	return b
 }
 
+// TestNewFileCommandReader checks that BOM-marked UTF-8 and UTF-16 decode to
+// UTF-8 and that content without a BOM passes through unchanged.
 func TestNewFileCommandReader(t *testing.T) {
 	tests := []struct {
 		name  string

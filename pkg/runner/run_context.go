@@ -524,6 +524,8 @@ func (rc *RunContext) ApplyExtraPath(ctx context.Context, env *map[string]string
 	}
 }
 
+// UpdateExtraPath reads the GITHUB_PATH file command at githubEnvPath,
+// decoding it by BOM, and prepends each non-empty line to rc.ExtraPath.
 func (rc *RunContext) UpdateExtraPath(ctx context.Context, githubEnvPath string) error {
 	if common.Dryrun(ctx) {
 		return nil
