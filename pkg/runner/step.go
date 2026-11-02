@@ -69,7 +69,7 @@ func processRunnerSummaryCommand(ctx context.Context, fileName string, rc *RunCo
 	if err != nil && err != io.EOF {
 		return err
 	}
-	summary, err := io.ReadAll(reader)
+	summary, err := io.ReadAll(common.NewFileCommandReader(reader))
 	if err != nil {
 		return err
 	}

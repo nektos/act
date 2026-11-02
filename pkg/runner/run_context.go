@@ -539,18 +539,10 @@ func (rc *RunContext) UpdateExtraPath(ctx context.Context, githubEnvPath string)
 	if err != nil && err != io.EOF {
 		return err
 	}
-	s := bufio.NewScanner(reader)
+	s := bufio.NewScanner(common.NewFileCommandReader(reader))
 	s.Buffer(nil, 1024*1024*1024) // increase buffer to 1GB to avoid scanner buffer overflow
-	firstLine := true
 	for s.Scan() {
 		line := s.Text()
-		if firstLine {
-			firstLine = false
-			// skip utf8 bom, powershell 5 legacy uses it for utf8
-			if len(line) >= 3 && line[0] == 239 && line[1] == 187 && line[2] == 191 {
-				line = line[3:]
-			}
-		}
 		if len(line) > 0 {
 			rc.addPath(ctx, line)
 		}
