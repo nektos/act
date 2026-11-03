@@ -1,0 +1,9 @@
+name: Test Local Nested Reusable Workflows
+on: push
+
+jobs:
+  call-local-workflow:
+    uses: ./.github/workflows/main.yml
+    with:
+      message: "Hello from local caller"
+    secrets: inherit

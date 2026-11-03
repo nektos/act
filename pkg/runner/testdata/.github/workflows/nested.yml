@@ -1,0 +1,16 @@
+name: Nested Reusable Workflow
+on:
+  workflow_call:
+    inputs:
+      parent_message:
+        type: string
+        required: true
+
+jobs:
+  nested-job:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print nested message
+        run: |
+          echo "Parent message: ${{ inputs.parent_message }}"
+          echo "This is from the nested workflow"
