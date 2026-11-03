@@ -105,6 +105,38 @@ func TestLocalRepositoryCacheRejectsEscapingPrefix(t *testing.T) {
 	r.Close()
 }
 
+func TestLocalRepositoryCacheRejectsSymlinkPrefix(t *testing.T) {
+	dir := t.TempDir()
+	repo := filepath.Join(dir, "repo")
+	outside := filepath.Join(dir, "outside")
+	require.NoError(t, os.MkdirAll(filepath.Join(outside, "sub"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(outside, "sub", "SECRET.txt"), []byte("host-secret"), 0o600))
+	require.NoError(t, os.MkdirAll(filepath.Join(repo, "real", "sub"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(repo, "real", "sub", "ok.txt"), []byte("ok"), 0o600))
+	require.NoError(t, os.Symlink(filepath.Join("..", "outside"), filepath.Join(repo, "escape")))
+	require.NoError(t, os.Symlink("real", filepath.Join(repo, "link")))
+
+	// A plain read follows the intermediate symlink and can see the marker.
+	body, err := os.ReadFile(filepath.Join(repo, "escape", "sub", "SECRET.txt"))
+	require.NoError(t, err)
+	assert.Equal(t, "host-secret", string(body))
+
+	c := &LocalRepositoryCache{CacheDirCache: map[string]string{"org/repo@sha": repo}}
+	ctx := context.Background()
+	_, err = c.GetTarArchive(ctx, "org/repo", "sha", "escape/sub")
+	assert.ErrorContains(t, err, "refusing to read")
+	_, err = c.GetTarArchive(ctx, "org/repo", "sha", "escape/sub/SECRET.txt")
+	assert.ErrorContains(t, err, "refusing to read")
+
+	r, err := c.GetTarArchive(ctx, "org/repo", "sha", "real/sub")
+	require.NoError(t, err)
+	r.Close()
+
+	r, err = c.GetTarArchive(ctx, "org/repo", "sha", "link/sub")
+	require.NoError(t, err)
+	r.Close()
+}
+
 func TestLocalTrampolineStaysInWorkspace(t *testing.T) {
 	workdir := t.TempDir()
 	outside := t.TempDir()

@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
-	"path"
 	"regexp"
+	"strings"
 	"sync"
 
 	"github.com/nektos/act/pkg/common"
@@ -115,7 +115,11 @@ func cloneIfRequired(rc *RunContext, remoteReusableWorkflow remoteReusableWorkfl
 
 func newReusableWorkflowExecutor(rc *RunContext, directory string, workflow string) common.Executor {
 	return func(ctx context.Context) error {
-		planner, err := model.NewWorkflowPlanner(path.Join(directory, workflow), true, false)
+		workflowPath, err := joinUnder(directory, strings.TrimPrefix(workflow, "./"))
+		if err != nil {
+			return err
+		}
+		planner, err := model.NewWorkflowPlanner(workflowPath, true, false)
 		if err != nil {
 			return err
 		}
