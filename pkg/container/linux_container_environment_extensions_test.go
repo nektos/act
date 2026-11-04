@@ -1,6 +1,7 @@
 package container
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"runtime"
@@ -59,6 +60,22 @@ func TestContainerPath(t *testing.T) {
 		} {
 			assert.Equal(t, v.destinationPath, linuxcontainerext.ToContainerPath(v.sourcePath))
 		}
+	}
+}
+
+func TestRunnerArchUsesContainerArchitecture(t *testing.T) {
+	tests := map[string]string{
+		"linux/amd64":    "X64",
+		"linux/386":      "X86",
+		"linux/arm64":    "ARM64",
+		"linux/arm64/v8": "ARM64",
+		"linux/arm/v7":   "ARM",
+	}
+
+	for platform, expected := range tests {
+		t.Run(platform, func(t *testing.T) {
+			assert.Equal(t, expected, RunnerArchForPlatform(context.Background(), platform))
+		})
 	}
 }
 
