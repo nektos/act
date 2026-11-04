@@ -1288,6 +1288,14 @@
             "type": "permission-level-any",
             "description": "Check runs and check suites."
           },
+          "artifact-metadata": {
+            "type": "permission-level-any",
+            "description": "Work with artifact metadata. For example, artifact-metadata: write permits an action to create storage records on behalf of a build artifact."
+          },
+          "code-quality": {
+            "type": "permission-level-any",
+            "description": "Work with code quality. For example, code-quality: write permits an action to upload code coverage reports."
+          },
           "contents": {
             "type": "permission-level-any",
             "description": "Repository contents, commits, branches, downloads, releases, and merges."
@@ -1335,6 +1343,10 @@
           "statuses": {
             "type": "permission-level-any",
             "description": "Commit statuses."
+          },
+          "vulnerability-alerts": {
+            "type": "permission-level-read-or-no-access",
+            "description": "Read Dependabot alerts."
           }
         }
       }
