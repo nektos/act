@@ -54,6 +54,8 @@ func (s stepStage) String() string {
 	return "Unknown"
 }
 
+// processRunnerSummaryCommand logs the GITHUB_STEP_SUMMARY file command,
+// decoded by BOM, if the step wrote one.
 func processRunnerSummaryCommand(ctx context.Context, fileName string, rc *RunContext) error {
 	if common.Dryrun(ctx) {
 		return nil
@@ -69,7 +71,7 @@ func processRunnerSummaryCommand(ctx context.Context, fileName string, rc *RunCo
 	if err != nil && err != io.EOF {
 		return err
 	}
-	summary, err := io.ReadAll(reader)
+	summary, err := io.ReadAll(common.NewFileCommandReader(reader))
 	if err != nil {
 		return err
 	}
