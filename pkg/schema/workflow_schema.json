@@ -1643,9 +1643,16 @@
           "cancel-in-progress": {
             "type": "boolean",
             "description": "To cancel any currently running job or workflow in the same concurrency group, specify cancel-in-progress: true."
+          },
+          "queue": {
+            "type": "concurrency-queue",
+            "description": "Controls how pending jobs or workflow runs are queued in the concurrency group. `single` (default): at most one job or workflow run can be pending. `max`: up to 100 jobs or workflow runs can be pending. The combination of `queue: max` and `cancel-in-progress: true` is not allowed and will result in a workflow validation error.\n\n[Documentation](https://docs.github.com/actions/using-workflows/workflow-syntax-for-github-actions#concurrency)"
           }
         }
       }
+    },
+    "concurrency-queue": {
+      "allowed-values": ["single", "max"]
     },
     "job-environment": {
       "description": "The environment that the job references. All environment protection rules must pass before a job referencing the environment is sent to a runner.",
