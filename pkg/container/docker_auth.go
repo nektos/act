@@ -29,6 +29,9 @@ func LoadDockerAuthConfig(ctx context.Context, image string) (registry.AuthConfi
 	if index > -1 && (strings.ContainsAny(image[:index], ".:") || image[:index] == "localhost") {
 		hostName = image[:index]
 	}
+	if hostName == "docker.io" {
+		hostName = "index.docker.io"
+	}
 
 	authConfig, err := config.GetAuthConfig(hostName)
 	if err != nil {
