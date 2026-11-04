@@ -25,13 +25,13 @@ All feature requests should start with [submitting an issue](#issue) documenting
 
 ### <a id="issue"></a> Create an issue
 
-Before submitting a new issue, please search the issues to make sure there isn't a similar issue doesn't already exist.
+Before submitting a new issue, please search the issues to make sure a similar issue doesn't already exist.
 
 Assuming no existing issues exist, please ensure you include required information when submitting the issue to ensure we can quickly reproduce your issue.
 
 We may have additional questions and will communicate through the GitHub issue, so please respond back to our questions to help reproduce and resolve the issue as quickly as possible.
 
-New issues can be created with in our [GitHub repo](https://github.com/nektos/act/issues/new).
+New issues can be created within our [GitHub repo](https://github.com/nektos/act/issues/new).
 
 ### <a id="pr"></a>Pull Requests
 
@@ -44,7 +44,7 @@ When submitting code, please make every effort to follow existing conventions an
 - Please run `go fmt ./...` before committing to ensure code aligns with go standards.
 - We use [`golangci-lint`](https://golangci-lint.run/) for linting Go code, run `golangci-lint run --fix` before submitting PR. Editors such as Visual Studio Code or JetBrains IntelliJ; with Go support plugin will offer `golangci-lint` automatically.
 - There are additional linters and formatters for files such as Markdown documents or YAML/JSON:
-  - Please refer to the [Makefile](Makefile) or [`lint` job in our workflow](.github/workflows/checks.yml) to see how to those linters/formatters work.
+  - Please refer to the [Makefile](Makefile) or [`lint` job in our workflow](.github/workflows/checks.yml) to see how those linters/formatters work.
   - You can lint codebase by running `go run main.go -j lint --env RUN_LOCAL=true` or `act -j lint --env RUN_LOCAL=true`
   - In `Makefile`, there are tools that require `npx` which is shipped with `nodejs`.
   - Our `Makefile` exports `GITHUB_TOKEN` from `~/.config/github/token`, you have been warned.
@@ -59,7 +59,7 @@ Also, consider the original design principles:
 
 - **Polyglot** - There will be no prescribed language or framework for developing the microservices. The only requirement will be that the service will be run inside a container and exposed via an HTTP endpoint.
 - **Cloud Provider** - At this point, the tool will assume AWS for the cloud provider and will not be written in a cloud agnostic manner. However, this does not preclude refactoring to add support for other providers at a later time.
-- **Declarative** - All resource administration will be handled in a declarative vs. imperative manner. A file will be used to declared the desired state of the resources and the tool will simply assert the actual state matches the desired state. The tool will accomplish this by generating CloudFormation templates.
+- **Declarative** - All resource administration will be handled in a declarative vs. imperative manner. A file will be used to declare the desired state of the resources and the tool will simply assert the actual state matches the desired state. The tool will accomplish this by generating CloudFormation templates.
 - **Stateless** - The tool will not maintain its own state. Rather, it will rely on the CloudFormation stacks to determine the state of the platform.
 - **Secure** - All security will be managed by AWS IAM credentials. No additional authentication or authorization mechanisms will be introduced.
 
