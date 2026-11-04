@@ -638,6 +638,8 @@ func (impl *interperterImpl) evaluateFuncCall(funcCallNode *actionlint.FuncCallN
 		return impl.toJSON(args[0])
 	case "fromjson":
 		return impl.fromJSON(args[0])
+	case "case":
+		return impl.caseFunc(args)
 	case "hashfiles":
 		if impl.env.HashFiles != nil {
 			return impl.env.HashFiles(args)
