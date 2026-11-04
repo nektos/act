@@ -173,6 +173,7 @@ func (s *Node) GetFunctions() *[]FunctionInfo {
 	AddFunction(funcs, "startsWith", 2, 2)
 	AddFunction(funcs, "toJson", 1, 1)
 	AddFunction(funcs, "fromJson", 1, 1)
+	AddFunction(funcs, "case", 3, 255)
 	for _, v := range s.Context {
 		i := strings.Index(v, "(")
 		if i == -1 {
