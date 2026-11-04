@@ -1,0 +1,46 @@
+name: composite input context on Windows
+on: push
+
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+      - name: Create a local composite action
+        shell: pwsh
+        run: |
+          $action = @'
+          name: Composite input context
+          description: Validates composite input context and environment isolation
+          inputs:
+            explicit:
+              description: Explicit input
+              required: true
+            derived:
+              description: Input with a default value
+              default: fallback-value
+            enabled:
+              description: Enables the conditional step
+              default: "true"
+          runs:
+            using: composite
+            steps:
+              - name: Read inputs without automatic environment variables
+                shell: pwsh
+                env:
+                  RESOLVED_EXPLICIT: __EXPRESSION__ inputs.explicit }}
+                  RESOLVED_DERIVED: __EXPRESSION__ inputs.derived }}
+                run: |
+                  if ($env:RESOLVED_EXPLICIT -ne "from-workflow") { throw "unexpected explicit input" }
+                  if ($env:RESOLVED_DERIVED -ne "fallback-value") { throw "unexpected derived input" }
+                  if (Get-ChildItem Env: | Where-Object Name -Like "INPUT_*") {
+                    throw "composite inputs leaked into the process environment"
+                  }
+              - name: Evaluate inputs in a step condition
+                if: __EXPRESSION__ inputs.enabled == 'true' }}
+                shell: pwsh
+                run: if ("__EXPRESSION__ inputs.explicit }}" -ne "from-workflow") { exit 1 }
+          '@
+          $action.Replace('__EXPRESSION__', '$' + '{{') | Set-Content -Path action.yml
+      - uses: ./
+        with:
+          explicit: from-workflow

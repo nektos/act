@@ -10,17 +10,24 @@ import (
 	"github.com/nektos/act/pkg/model"
 )
 
-func evaluateCompositeInputAndEnv(ctx context.Context, parent *RunContext, step actionStep) map[string]string {
+func evaluateCompositeEnv(ctx context.Context, step actionStep) map[string]string {
 	env := make(map[string]string)
 	stepEnv := *step.getEnv()
 	for k, v := range stepEnv {
-		// do not set current inputs into composite action
-		// the required inputs are added in the second loop
 		if !strings.HasPrefix(k, "INPUT_") {
 			env[k] = v
 		}
 	}
+	gh := step.getGithubContext(ctx)
+	env["GITHUB_ACTION_REPOSITORY"] = gh.ActionRepository
+	env["GITHUB_ACTION_REF"] = gh.ActionRef
 
+	return env
+}
+
+func evaluateCompositeInputs(ctx context.Context, parent *RunContext, step actionStep) map[string]interface{} {
+	inputs := make(map[string]interface{})
+	stepEnv := *step.getEnv()
 	ee := parent.NewStepExpressionEvaluator(ctx, step)
 
 	for inputID, input := range step.getActionModel().Inputs {
@@ -31,21 +38,19 @@ func evaluateCompositeInputAndEnv(ctx context.Context, parent *RunContext, step 
 		// evaluated value from the environment
 		_, defined := step.getStepModel().With[inputID]
 		if value, ok := stepEnv[envKey]; defined && ok {
-			env[envKey] = value
+			inputs[strings.ToLower(inputID)] = value
 		} else {
 			// defaults could contain expressions
-			env[envKey] = ee.Interpolate(ctx, input.Default)
+			inputs[strings.ToLower(inputID)] = ee.Interpolate(ctx, input.Default)
 		}
 	}
-	gh := step.getGithubContext(ctx)
-	env["GITHUB_ACTION_REPOSITORY"] = gh.ActionRepository
-	env["GITHUB_ACTION_REF"] = gh.ActionRef
 
-	return env
+	return inputs
 }
 
 func newCompositeRunContext(ctx context.Context, parent *RunContext, step actionStep, actionPath string) *RunContext {
-	env := evaluateCompositeInputAndEnv(ctx, parent, step)
+	env := evaluateCompositeEnv(ctx, step)
+	inputs := evaluateCompositeInputs(ctx, parent, step)
 
 	// run with the global config but without secrets
 	configCopy := *(parent.Config)
@@ -69,6 +74,7 @@ func newCompositeRunContext(ctx context.Context, parent *RunContext, step action
 		JobContainer:     parent.JobContainer,
 		ActionPath:       actionPath,
 		Env:              env,
+		ActionInputs:     inputs,
 		GlobalEnv:        parent.GlobalEnv,
 		Masks:            parent.Masks,
 		ExtraPath:        parent.ExtraPath,
@@ -108,7 +114,7 @@ func execAsComposite(step actionStep) common.Executor {
 
 		rc.Masks = append(rc.Masks, compositeRC.Masks...)
 		rc.ExtraPath = compositeRC.ExtraPath
-		// compositeRC.Env is dirty, contains INPUT_ and merged step env, only rely on compositeRC.GlobalEnv
+		// compositeRC.Env contains merged step env, only rely on compositeRC.GlobalEnv
 		mergeIntoMap := mergeIntoMapCaseSensitive
 		if rc.JobContainer.IsEnvironmentCaseInsensitive() {
 			mergeIntoMap = mergeIntoMapCaseInsensitive
