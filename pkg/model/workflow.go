@@ -17,12 +17,44 @@ import (
 
 // Workflow is the structure of the files in .github/workflows
 type Workflow struct {
-	File     string
-	Name     string            `yaml:"name"`
-	RawOn    yaml.Node         `yaml:"on"`
-	Env      map[string]string `yaml:"env"`
-	Jobs     map[string]*Job   `yaml:"jobs"`
-	Defaults Defaults          `yaml:"defaults"`
+	File           string
+	Name           string            `yaml:"name"`
+	RawOn          yaml.Node         `yaml:"on"`
+	Env            map[string]string `yaml:"env"`
+	Jobs           map[string]*Job   `yaml:"jobs"`
+	Defaults       Defaults          `yaml:"defaults"`
+	RawConcurrency yaml.Node         `yaml:"concurrency"`
+}
+
+// Concurrency for a workflow or job. Group, CancelInProgress and Queue may
+// contain expressions that have to be evaluated before use.
+type Concurrency struct {
+	Group            string `yaml:"group"`
+	CancelInProgress string `yaml:"cancel-in-progress"`
+	Queue            string `yaml:"queue"`
+}
+
+// Concurrency returns the workflow level concurrency settings or nil if none are defined
+func (w *Workflow) Concurrency() *Concurrency {
+	return parseConcurrency(w.RawConcurrency)
+}
+
+func parseConcurrency(node yaml.Node) *Concurrency {
+	switch node.Kind {
+	case yaml.ScalarNode:
+		var group string
+		if !decodeNode(node, &group) || group == "" {
+			return nil
+		}
+		return &Concurrency{Group: group}
+	case yaml.MappingNode:
+		var concurrency Concurrency
+		if !decodeNode(node, &concurrency) || concurrency.Group == "" {
+			return nil
+		}
+		return &concurrency
+	}
+	return nil
 }
 
 // On events for the workflow
@@ -81,7 +113,43 @@ func (w *Workflow) UnmarshalYAML(node *yaml.Node) error {
 		return errors.Join(err, fmt.Errorf("Actions YAML Schema Validation Error detected:\nFor more information, see: https://nektosact.com/usage/schema.html"))
 	}
 	type WorkflowDefault Workflow
-	return node.Decode((*WorkflowDefault)(w))
+	if err := node.Decode((*WorkflowDefault)(w)); err != nil {
+		return err
+	}
+	return w.validateConcurrency()
+}
+
+// validateConcurrency rejects concurrency blocks GitHub refuses to run before
+// the workflow is planned, so no job runs and produces side effects first.
+// Only literal values can be checked here, expression values are validated
+// once they are evaluated.
+func (w *Workflow) validateConcurrency() error {
+	if err := invalidConcurrencyCombination(w.Concurrency()); err != nil {
+		return fmt.Errorf("invalid workflow level 'concurrency': %w", err)
+	}
+	for id, job := range w.Jobs {
+		if job == nil {
+			continue
+		}
+		if err := invalidConcurrencyCombination(job.Concurrency()); err != nil {
+			return fmt.Errorf("invalid 'concurrency' for job '%s': %w", id, err)
+		}
+	}
+	return nil
+}
+
+func invalidConcurrencyCombination(concurrency *Concurrency) error {
+	if concurrency == nil {
+		return nil
+	}
+	// `${{ }}` values are only known after evaluation
+	if strings.Contains(concurrency.Queue, "${{") || strings.Contains(concurrency.CancelInProgress, "${{") {
+		return nil
+	}
+	if concurrency.Queue == "max" && concurrency.CancelInProgress == "true" {
+		return errors.New("the combination of 'queue: max' and 'cancel-in-progress: true' is not allowed")
+	}
+	return nil
 }
 
 type WorkflowStrict Workflow
@@ -99,7 +167,10 @@ func (w *WorkflowStrict) UnmarshalYAML(node *yaml.Node) error {
 		return errors.Join(err, fmt.Errorf("Actions YAML Strict Schema Validation Error detected:\nFor more information, see: https://nektosact.com/usage/schema.html"))
 	}
 	type WorkflowDefault Workflow
-	return node.Decode((*WorkflowDefault)(w))
+	if err := node.Decode((*WorkflowDefault)(w)); err != nil {
+		return err
+	}
+	return (*Workflow)(w).validateConcurrency()
 }
 
 type WorkflowDispatchInput struct {
@@ -209,7 +280,13 @@ type Job struct {
 	Uses           string                    `yaml:"uses"`
 	With           map[string]interface{}    `yaml:"with"`
 	RawSecrets     yaml.Node                 `yaml:"secrets"`
+	RawConcurrency yaml.Node                 `yaml:"concurrency"`
 	Result         string
+}
+
+// Concurrency returns the job level concurrency settings or nil if none are defined
+func (j *Job) Concurrency() *Concurrency {
+	return parseConcurrency(j.RawConcurrency)
 }
 
 // Strategy for the job
