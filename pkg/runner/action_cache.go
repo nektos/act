@@ -11,6 +11,7 @@ import (
 	"io/fs"
 	"path"
 	"strings"
+	"sync"
 	"time"
 
 	git "github.com/go-git/go-git/v5"
@@ -28,15 +29,27 @@ type ActionCache interface {
 }
 
 type GoGitActionCache struct {
-	Path string
+	Path  string
+	locks sync.Map
 }
 
-func (c GoGitActionCache) Fetch(ctx context.Context, cacheDir, url, ref, token string) (string, error) {
+// repoMu returns a per-gitPath mutex to serialize concurrent access to the
+// same bare git repository. Different repos are not contended.
+func (c *GoGitActionCache) repoMu(gitPath string) *sync.Mutex {
+	v, _ := c.locks.LoadOrStore(gitPath, &sync.Mutex{})
+	return v.(*sync.Mutex)
+}
+
+func (c *GoGitActionCache) Fetch(ctx context.Context, cacheDir, url, ref, token string) (string, error) {
 	logger := common.Logger(ctx)
 
 	gitPath := path.Join(c.Path, safeFilename(cacheDir)+".git")
 
 	logger.Infof("GoGitActionCache fetch %s with ref %s at %s", url, ref, gitPath)
+
+	mu := c.repoMu(gitPath)
+	mu.Lock()
+	defer mu.Unlock()
 
 	gogitrepo, err := git.PlainInit(gitPath, true)
 	if errors.Is(err, git.ErrRepositoryAlreadyExists) {
@@ -127,12 +140,16 @@ func (g *GitFileInfo) Sys() any {
 	return nil
 }
 
-func (c GoGitActionCache) GetTarArchive(ctx context.Context, cacheDir, sha, includePrefix string) (io.ReadCloser, error) {
+func (c *GoGitActionCache) GetTarArchive(ctx context.Context, cacheDir, sha, includePrefix string) (io.ReadCloser, error) {
 	logger := common.Logger(ctx)
 
 	gitPath := path.Join(c.Path, safeFilename(cacheDir)+".git")
 
 	logger.Infof("GoGitActionCache get content %s with sha %s subpath '%s' at %s", cacheDir, sha, includePrefix, gitPath)
+
+	mu := c.repoMu(gitPath)
+	mu.Lock()
+	defer mu.Unlock()
 
 	gogitrepo, err := git.PlainOpen(gitPath)
 	if err != nil {

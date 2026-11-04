@@ -11,7 +11,7 @@ import (
 )
 
 type GoGitActionCacheOfflineMode struct {
-	Parent GoGitActionCache
+	Parent *GoGitActionCache
 }
 
 func (c GoGitActionCacheOfflineMode) Fetch(ctx context.Context, cacheDir, url, ref, token string) (string, error) {
