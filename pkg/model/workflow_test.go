@@ -286,6 +286,16 @@ jobs:
 	assert.Error(t, err, "read workflow should fail")
 }
 
+func TestSelfRepositoryUsesTypes(t *testing.T) {
+	job := &Job{Uses: "$/.github/workflows/build.yml"}
+	jobType, err := job.Type()
+	assert.NoError(t, err)
+	assert.Equal(t, JobTypeReusableWorkflowLocal, jobType)
+
+	step := &Step{Uses: "$/actions/local-action"}
+	assert.Equal(t, StepTypeUsesActionLocal, step.Type())
+}
+
 // See: https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#jobsjob_idoutputs
 func TestReadWorkflow_JobOutputs(t *testing.T) {
 	yaml := `
