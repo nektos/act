@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sort"
 	"strings"
 	"sync"
 
@@ -144,7 +145,7 @@ func withStepLogger(ctx context.Context, stepID string, stepName string, stageNa
 type entryProcessor func(entry *logrus.Entry) *logrus.Entry
 
 func valueMasker(insecureSecrets bool, secrets map[string]string) entryProcessor {
-	ssecrets := []string{}
+	ssecrets := make([]string, 0, len(secrets))
 	for _, v := range secrets {
 		ssecrets = append(ssecrets, v)
 	}
@@ -154,21 +155,44 @@ func valueMasker(insecureSecrets bool, secrets map[string]string) entryProcessor
 		}
 
 		masks := Masks(entry.Context)
-
-		for _, v := range ssecrets {
-			if v != "" {
-				entry.Message = strings.ReplaceAll(entry.Message, v, "***")
-			}
-		}
-
-		for _, v := range *masks {
-			if v != "" {
-				entry.Message = strings.ReplaceAll(entry.Message, v, "***")
-			}
-		}
-
+		entry.Message = maskValues(entry.Message, ssecrets, *masks)
 		return entry
 	}
+}
+
+// maskValues redacts secrets and ::add-mask:: values in one pass.
+// Longer values are applied first so a short value nested inside a longer one
+// cannot be replaced early and leave the rest of the longer value visible.
+// Equal lengths break ties lexically so the result does not depend on map iteration.
+func maskValues(message string, secrets, masks []string) string {
+	values := make([]string, 0, len(secrets)+len(masks))
+	seen := make(map[string]struct{}, len(secrets)+len(masks))
+	for _, group := range [][]string{secrets, masks} {
+		for _, v := range group {
+			if v == "" {
+				continue
+			}
+			if _, ok := seen[v]; ok {
+				continue
+			}
+			seen[v] = struct{}{}
+			values = append(values, v)
+		}
+	}
+	sort.Slice(values, func(i, j int) bool {
+		if len(values[i]) != len(values[j]) {
+			return len(values[i]) > len(values[j])
+		}
+		return values[i] < values[j]
+	})
+	if len(values) == 0 {
+		return message
+	}
+	oldnew := make([]string, 0, len(values)*2)
+	for _, v := range values {
+		oldnew = append(oldnew, v, "***")
+	}
+	return strings.NewReplacer(oldnew...).Replace(message)
 }
 
 type maskedFormatter struct {
