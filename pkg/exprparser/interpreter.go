@@ -2,9 +2,11 @@ package exprparser
 
 import (
 	"encoding"
+	"errors"
 	"fmt"
 	"math"
 	"reflect"
+	"strconv"
 	"strings"
 
 	"github.com/nektos/act/pkg/model"
@@ -435,22 +437,123 @@ func (impl *interperterImpl) coerceToNumber(value reflect.Value) reflect.Value {
 		}
 
 	case reflect.String:
-		if value.String() == "" {
-			return reflect.ValueOf(0)
-		}
-
-		// try to parse the string as a number
-		evaluated, err := impl.Evaluate(value.String(), DefaultStatusCheckNone)
-		if err != nil {
-			return reflect.ValueOf(math.NaN())
-		}
-
-		if value := reflect.ValueOf(evaluated); impl.isNumber(value) {
-			return value
-		}
+		return reflect.ValueOf(parseNumber(value.String()))
 	}
 
 	return reflect.ValueOf(math.NaN())
+}
+
+// parseNumber converts a string to a number the way the GitHub Actions runner
+// does. See ExpressionUtility.ParseNumber in actions/runner, which documents its
+// intent as "follow Javascript rules for coercing a string into a number for
+// comparison. That is, the Number() function in Javascript.":
+//
+//	trim, then "" -> 0, a decimal literal, 0x<hex>, 0o<octal>, "Infinity",
+//	"-Infinity", and anything else -> NaN.
+func parseNumber(str string) float64 {
+	str = strings.TrimSpace(str)
+
+	switch {
+	case str == "":
+		return 0
+
+	case isDecimalLiteral(str):
+		// ParseFloat also accepts forms the runner does not ("inf", "nan",
+		// hexadecimal floats), which is why the input is validated first.
+		// A value too large for float64 overflows to ±Inf, as it does in
+		// JavaScript, so ErrRange is not a failure here.
+		f, err := strconv.ParseFloat(str, 64)
+		if err == nil || errors.Is(err, strconv.ErrRange) {
+			return f
+		}
+
+	case hasRadixPrefix(str, 'x') && isDigitsOfBase(str[2:], 16):
+		// The runner parses these into an Int32, so out-of-range is NaN.
+		if i, err := strconv.ParseInt(str[2:], 16, 32); err == nil {
+			return float64(i)
+		}
+
+	case hasRadixPrefix(str, 'o') && isDigitsOfBase(str[2:], 8):
+		if i, err := strconv.ParseInt(str[2:], 8, 32); err == nil {
+			return float64(i)
+		}
+
+	case str == "Infinity":
+		return math.Inf(1)
+
+	case str == "-Infinity":
+		return math.Inf(-1)
+	}
+
+	return math.NaN()
+}
+
+// isDecimalLiteral reports whether str is [+-]?(digits[.digits?]|.digits)([eE][+-]?digits)?,
+// the set of decimal forms the runner accepts (a leading sign, a decimal point
+// and an exponent).
+func isDecimalLiteral(str string) bool {
+	i := 0
+	if i < len(str) && (str[i] == '+' || str[i] == '-') {
+		i++
+	}
+
+	mantissa := 0
+	for ; i < len(str) && isASCIIDigit(str[i]); i++ {
+		mantissa++
+	}
+	if i < len(str) && str[i] == '.' {
+		for i++; i < len(str) && isASCIIDigit(str[i]); i++ {
+			mantissa++
+		}
+	}
+	if mantissa == 0 {
+		return false
+	}
+
+	if i < len(str) && (str[i] == 'e' || str[i] == 'E') {
+		i++
+		if i < len(str) && (str[i] == '+' || str[i] == '-') {
+			i++
+		}
+		exponent := 0
+		for ; i < len(str) && isASCIIDigit(str[i]); i++ {
+			exponent++
+		}
+		if exponent == 0 {
+			return false
+		}
+	}
+
+	return i == len(str)
+}
+
+// hasRadixPrefix reports whether str starts with a "0" followed by the given
+// lower-case radix letter and at least one more character. The runner matches
+// the letter case-sensitively, so "0X11" is not a hexadecimal literal.
+func hasRadixPrefix(str string, radix byte) bool {
+	return len(str) > 2 && str[0] == '0' && str[1] == radix
+}
+
+// isDigitsOfBase reports whether every character of str is a digit of the given
+// base. strconv would additionally accept a sign and underscores.
+func isDigitsOfBase(str string, base int) bool {
+	for i := 0; i < len(str); i++ {
+		if strings.IndexByte("0123456789abcdef"[:base], lowerASCII(str[i])) < 0 {
+			return false
+		}
+	}
+	return true
+}
+
+func isASCIIDigit(c byte) bool {
+	return c >= '0' && c <= '9'
+}
+
+func lowerASCII(c byte) byte {
+	if c >= 'A' && c <= 'Z' {
+		return c + ('a' - 'A')
+	}
+	return c
 }
 
 func (impl *interperterImpl) coerceToString(value reflect.Value) reflect.Value {
