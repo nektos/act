@@ -102,3 +102,23 @@ func TestCopyRejectsEscapingNames(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "{}", string(got))
 }
+
+func TestGoArchToActionArch(t *testing.T) {
+	tests := []struct {
+		name string
+		arch string
+		want string
+	}{
+		{"amd64", "amd64", "X64"},
+		{"x86_64", "x86_64", "X64"},
+		{"386", "386", "X86"},
+		{"aarch64", "aarch64", "ARM64"},
+		{"arm64", "arm64", "ARM64"},
+		{"unknown passes through", "riscv64", "riscv64"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, goArchToActionArch(tt.arch))
+		})
+	}
+}
