@@ -392,7 +392,10 @@ func (impl *interperterImpl) compareValues(leftValue reflect.Value, rightValue r
 	case reflect.Bool:
 		return impl.compareNumber(float64(impl.coerceToNumber(leftValue).Int()), float64(impl.coerceToNumber(rightValue).Int()), kind)
 	case reflect.String:
-		return impl.compareString(strings.ToLower(leftValue.String()), strings.ToLower(rightValue.String()), kind)
+		// GitHub compares strings with .NET's OrdinalIgnoreCase, which compares
+		// the upper-cased strings, so `_` and the other characters between `Z`
+		// and `a` sort after letters, not before them.
+		return impl.compareString(strings.ToUpper(leftValue.String()), strings.ToUpper(rightValue.String()), kind)
 
 	case reflect.Int:
 		if rightValue.Kind() == reflect.Float64 {
