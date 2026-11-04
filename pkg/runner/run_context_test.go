@@ -14,6 +14,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 
 	"github.com/nektos/act/pkg/common"
+	"github.com/nektos/act/pkg/container"
 	"github.com/nektos/act/pkg/exprparser"
 	"github.com/nektos/act/pkg/model"
 
@@ -708,6 +709,49 @@ func TestSetRuntimeVariables(t *testing.T) {
 	assert.Equal(t, int64(1), gotRunID)
 	_, err = common.ValidateAuthorizationToken([]byte("another key"), req)
 	assert.Error(t, err)
+}
+
+func TestStartHostEnvironmentSetsWritableHome(t *testing.T) {
+	var runsOn yaml.Node
+	assert.NoError(t, runsOn.Encode("ubuntu-latest"))
+
+	rc := &RunContext{
+		Config: &Config{
+			Workdir:   ".",
+			LogOutput: false,
+			Platforms: map[string]string{"ubuntu-latest": "-self-hosted"},
+			Secrets:   map[string]string{},
+			Env:       map[string]string{},
+		},
+		Run: &model.Run{
+			JobID: "test",
+			Workflow: &model.Workflow{
+				Name: "test-workflow",
+				Jobs: map[string]*model.Job{
+					"test": {Name: "test", RawRunsOn: runsOn},
+				},
+			},
+		},
+		Env:       map[string]string{},
+		EventJSON: "{}",
+	}
+
+	err := rc.startHostEnvironment()(context.Background())
+	assert.NoError(t, err)
+
+	home := rc.Env["HOME"]
+	assert.NotEmpty(t, home, "self-hosted jobs must have a HOME set")
+	info, err := os.Stat(home)
+	assert.NoError(t, err)
+	assert.True(t, info.IsDir(), "HOME must point to an existing directory")
+
+	// the host environment should be a real HostEnvironment whose workspace exists
+	hostEnv, ok := rc.JobContainer.(*container.HostEnvironment)
+	assert.True(t, ok)
+	assert.NotEmpty(t, hostEnv.TmpDir)
+	tmpInfo, err := os.Stat(hostEnv.TmpDir)
+	assert.NoError(t, err)
+	assert.True(t, tmpInfo.IsDir())
 }
 
 func TestSetRuntimeVariablesWithRunID(t *testing.T) {
