@@ -152,6 +152,32 @@ func TestEvaluateRunContext(t *testing.T) {
 	}
 }
 
+func TestStrategyJobIndexAndTotal(t *testing.T) {
+	rc := createRunContext(t)
+	rc.JobIndex = 3
+	rc.JobTotal = 5
+
+	ee := rc.NewExpressionEvaluator(context.Background())
+
+	tables := []struct {
+		in  string
+		out interface{}
+	}{
+		{"strategy.job-index", 3},
+		{"strategy.job-total", 5},
+		{"strategy.fail-fast", false},
+		{"strategy.max-parallel", 0},
+	}
+
+	for _, table := range tables {
+		t.Run(table.in, func(t *testing.T) {
+			out, err := ee.evaluate(context.Background(), table.in, exprparser.DefaultStatusCheckNone)
+			assert.NoError(t, err, table.in)
+			assert.Equal(t, table.out, out, table.in)
+		})
+	}
+}
+
 func TestEvaluateStep(t *testing.T) {
 	rc := createRunContext(t)
 	step := &stepRun{
