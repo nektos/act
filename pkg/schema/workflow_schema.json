@@ -1662,6 +1662,10 @@
           "url": {
             "type": "string-runner-context-no-secrets",
             "description": "The environment URL, which maps to `environment_url` in the deployments API."
+          },
+          "deployment": {
+            "type": "boolean",
+            "description": "Whether to create a deployment record for this environment. Defaults to true."
           }
         }
       }
