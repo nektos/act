@@ -229,6 +229,20 @@ func (fc *FileCollector) CollectFiles(ctx context.Context, submodulePath []strin
 			}()
 		}
 
+		// Windows file systems have no executable bit, so Go reports every
+		// file there as non-executable. The git index still has the bit.
+		if entry != nil && entry.Mode == filemode.Executable && fi.Mode()&0o111 == 0 {
+			fi = executableFileInfo{fi}
+		}
+
 		return fc.Handler.WriteFile(path, fi, "", f)
 	}
+}
+
+type executableFileInfo struct {
+	fs.FileInfo
+}
+
+func (fi executableFileInfo) Mode() fs.FileMode {
+	return fi.FileInfo.Mode() | 0o111
 }
