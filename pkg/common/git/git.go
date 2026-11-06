@@ -169,7 +169,7 @@ func FindGithubRepo(ctx context.Context, file, githubInstance, remoteName string
 		remoteName = "origin"
 	}
 
-	url, err := findGitRemoteURL(ctx, file, remoteName)
+	url, err := findGitRemoteURL(ctx, file, githubInstance, remoteName)
 	if err != nil {
 		return "", err
 	}
@@ -177,7 +177,7 @@ func FindGithubRepo(ctx context.Context, file, githubInstance, remoteName string
 	return slug, err
 }
 
-func findGitRemoteURL(_ context.Context, file, remoteName string) (string, error) {
+func findGitRemoteURL(_ context.Context, file, githubInstance, remoteName string) (string, error) {
 	repo, err := git.PlainOpenWithOptions(
 		file,
 		&git.PlainOpenOptions{
@@ -189,16 +189,31 @@ func findGitRemoteURL(_ context.Context, file, remoteName string) (string, error
 		return "", err
 	}
 
-	remote, err := repo.Remote(remoteName)
+	cfg, err := repo.Config()
 	if err != nil {
 		return "", err
 	}
 
-	if len(remote.Config().URLs) < 1 {
+	remote, ok := cfg.Remotes[remoteName]
+	if !ok {
+		return "", git.ErrRemoteNotFound
+	}
+	if len(remote.URLs) < 1 {
 		return "", fmt.Errorf("remote '%s' exists but has no URL", remoteName)
 	}
 
-	return remote.Config().URLs[0], nil
+	// insteadOf rules change the transport endpoint, not the repository identity.
+	urls := cfg.Raw.Section("remote").Subsection(remoteName).OptionAll("url")
+	if len(urls) > 0 {
+		provider, _, err := findGitSlug(urls[0], githubInstance)
+		if err != nil {
+			return "", err
+		}
+		if provider != "" {
+			return urls[0], nil
+		}
+	}
+	return remote.URLs[0], nil
 }
 
 // gitHostHTTPRegex matches http(s)://[userinfo@]host[:port]/owner/repo[.git]
