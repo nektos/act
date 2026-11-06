@@ -188,16 +188,44 @@ func TestFindGitRemoteURL(t *testing.T) {
 	err = gitCmd("-C", basedir, "remote", "add", "origin", remoteURL)
 	assert.NoError(err)
 
-	u, err := findGitRemoteURL(context.Background(), basedir, "origin")
+	u, err := findGitRemoteURL(context.Background(), basedir, "github.com", "origin")
 	assert.NoError(err)
 	assert.Equal(remoteURL, u)
 
 	remoteURL = "git@github.com/AwesomeOwner/MyAwesomeRepo.git"
 	err = gitCmd("-C", basedir, "remote", "add", "upstream", remoteURL)
 	assert.NoError(err)
-	u, err = findGitRemoteURL(context.Background(), basedir, "upstream")
+	u, err = findGitRemoteURL(context.Background(), basedir, "github.com", "upstream")
 	assert.NoError(err)
 	assert.Equal(remoteURL, u)
+}
+
+func TestFindGithubRepoWithURLRewrite(t *testing.T) {
+	for _, tt := range []struct {
+		name, url, insteadOf, replacement, instance, remote string
+	}{
+		{"ssh_alias", "git@github.com:owner/repo.git", "git@github.com:", "git@company.github.com:", "github.com", "origin"},
+		{"ssh_url_alias", "ssh://git@github.com/owner/repo.git", "ssh://git@github.com/", "ssh://git@gh-work/", "github.com", "origin"},
+		{"https_mirror", "https://github.com/owner/repo.git", "https://github.com/", "https://mirror.example.com/", "github.com", "origin"},
+		{"rewritten_owner", "https://github.com/owner/repo.git", "https://github.com/owner/", "git@github.com:other-owner/", "github.com", "upstream"},
+		{"enterprise", "https://ghe.example.com/owner/repo.git", "https://ghe.example.com/", "git@gh-work:", "ghe.example.com", "origin"},
+		{"shorthand", "gh:owner/repo.git", "gh:", "git@github.com:", "github.com", "origin"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			require.NoError(t, gitCmd("init", dir))
+			require.NoError(t, gitCmd("-C", dir, "remote", "add", tt.remote, tt.url))
+			require.NoError(t, gitCmd("-C", dir, "config", "url."+tt.replacement+".insteadOf", tt.insteadOf))
+
+			remote := tt.remote
+			if remote == "origin" {
+				remote = ""
+			}
+			slug, err := FindGithubRepo(context.Background(), dir, tt.instance, remote)
+			require.NoError(t, err)
+			assert.Equal(t, "owner/repo", slug)
+		})
+	}
 }
 
 func TestGitFindRef(t *testing.T) {
