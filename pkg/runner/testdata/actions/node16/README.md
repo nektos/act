@@ -1,3 +1,5 @@
 ### Updating
 
-If an update to this app is required, it must be done manually via `npm run-script build` since the `node_modules` are not shared.
+This fixture reads `who-to-greet`, writes the `time` output, and prints the workflow event payload. It uses the Node standard library, so the sample action has no npm dependencies.
+
+`action.yml` runs `dist/index.js`. After editing `index.js`, refresh that file with `npm run build`.

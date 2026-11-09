@@ -1,0 +1,153 @@
+# Labels pull requests for triage.
+# pull_request_target runs the workflow from the base branch so fork pull
+# requests can be labeled. This job must not check out pull request code.
+name: PR triage
+
+on:
+  # Runs from the default branch and does not check out pull request code.
+  pull_request_target: # zizmor: ignore[dangerous-triggers]
+    types: [opened, edited, reopened, ready_for_review, synchronize]
+
+permissions: {}
+
+concurrency:
+  group: pr-triage-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  label:
+    name: Label pull request
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      # Creates the triage labels when they are missing.
+      issues: write
+      # Adds and removes labels on the pull request.
+      pull-requests: write
+    # Bots, including Dependabot, are not first-time contributors and do not link issues.
+    if: github.event.pull_request.user.type != 'Bot'
+    steps:
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            if (!pr) {
+              core.setFailed('pull_request payload is missing');
+              return;
+            }
+
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const firstTimeLabel = 'meta/first-time-contributor';
+            const needsIssueLabel = 'meta/needs-linked-issue';
+
+            // Same-line closing keyword, matching GitHub's "fixes #123" autolink.
+            // The body is only tested against this pattern and is never evaluated.
+            function mentionsClosingIssue(body) {
+              const keyword = '\\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\\b';
+              const ref =
+                '(?:[\\w.-]+\\/[\\w.-]+)?#\\d+\\b|https:\\/\\/github\\.com\\/[\\w.-]+\\/[\\w.-]+\\/issues\\/\\d+\\b';
+              const pattern = new RegExp(
+                keyword + '[ \\t]*:?[ \\t]+(?:' + ref + ')',
+                'i'
+              );
+              return pattern.test(body || '');
+            }
+
+            async function ensureLabel(name, color, description) {
+              try {
+                await github.rest.issues.getLabel({owner, repo, name});
+              } catch (error) {
+                if (error.status !== 404) {
+                  throw error;
+                }
+                try {
+                  await github.rest.issues.createLabel({
+                    owner,
+                    repo,
+                    name,
+                    color,
+                    description,
+                  });
+                } catch (createError) {
+                  if (createError.status !== 422) {
+                    throw createError;
+                  }
+                }
+              }
+            }
+
+            const association = pr.author_association;
+            // FIRST_TIMER: no prior commit on GitHub.
+            // FIRST_TIME_CONTRIBUTOR: no prior commit to this repository.
+            // NONE: no association with this repository.
+            const firstTime =
+              association === 'FIRST_TIMER' ||
+              association === 'FIRST_TIME_CONTRIBUTOR' ||
+              association === 'NONE';
+
+            const linked = await github.graphql(
+              `query ($owner: String!, $repo: String!, $number: Int!) {
+                repository(owner: $owner, name: $repo) {
+                  pullRequest(number: $number) {
+                    closingIssuesReferences(first: 1) {
+                      totalCount
+                    }
+                  }
+                }
+              }`,
+              {owner, repo, number: pr.number}
+            );
+            const total =
+              linked.repository?.pullRequest?.closingIssuesReferences?.totalCount ??
+              0;
+            const hasLinkedIssue = total > 0 || mentionsClosingIssue(pr.body);
+
+            const specs = {};
+            specs[firstTimeLabel] = [
+              '0E8A16',
+              'Pull request author has not contributed to this repository before',
+            ];
+            specs[needsIssueLabel] = [
+              'D93F0B',
+              'Pull request does not link an issue with a closing keyword',
+            ];
+
+            const labels = [];
+            if (firstTime) {
+              labels.push(firstTimeLabel);
+            }
+            if (!hasLinkedIssue) {
+              labels.push(needsIssueLabel);
+            }
+
+            for (const name of labels) {
+              const [color, description] = specs[name];
+              await ensureLabel(name, color, description);
+            }
+
+            if (labels.length > 0) {
+              await github.rest.issues.addLabels({
+                owner,
+                repo,
+                issue_number: pr.number,
+                labels,
+              });
+              core.info('Added labels: ' + labels.join(', '));
+            }
+
+            if (hasLinkedIssue) {
+              try {
+                await github.rest.issues.removeLabel({
+                  owner,
+                  repo,
+                  issue_number: pr.number,
+                  name: needsIssueLabel,
+                });
+                core.info('Removed label: ' + needsIssueLabel);
+              } catch (error) {
+                if (error.status !== 404) {
+                  throw error;
+                }
+              }
+            }

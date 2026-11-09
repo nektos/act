@@ -49,11 +49,25 @@ func (e *HostEnvironment) Close() common.Executor {
 
 func (e *HostEnvironment) Copy(destPath string, files ...*FileEntry) common.Executor {
 	return func(_ context.Context) error {
+		if err := os.MkdirAll(destPath, 0o777); err != nil {
+			return err
+		}
+		root, err := os.OpenRoot(destPath)
+		if err != nil {
+			return err
+		}
+		defer root.Close()
 		for _, f := range files {
-			if err := os.MkdirAll(filepath.Dir(filepath.Join(destPath, f.Name)), 0o777); err != nil {
-				return err
+			name := filepath.FromSlash(f.Name)
+			if !filepath.IsLocal(name) {
+				return fmt.Errorf("refusing to write %q outside of %q", f.Name, destPath)
 			}
-			if err := os.WriteFile(filepath.Join(destPath, f.Name), []byte(f.Body), fs.FileMode(f.Mode)); err != nil {
+			if dir := filepath.Dir(name); dir != "." {
+				if err := root.MkdirAll(dir, 0o777); err != nil {
+					return err
+				}
+			}
+			if err := root.WriteFile(name, []byte(f.Body), fs.FileMode(f.Mode)); err != nil {
 				return err
 			}
 		}

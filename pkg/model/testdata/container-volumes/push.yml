@@ -5,7 +5,7 @@ jobs:
   with-volumes:
     runs-on: ubuntu-latest
     container:
-      image: node:16-buster-slim
+      image: node:24-bookworm-slim
       volumes:
         - my_docker_volume:/path/to/volume
         - /path/to/nonexist/directory

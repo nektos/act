@@ -1,0 +1,8 @@
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Test fixture bundled dependencies"
+paths = [
+	'''pkg/runner/testdata/actions/.*/dist/.*\.js''',
+]

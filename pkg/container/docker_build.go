@@ -7,9 +7,12 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
-	"github.com/docker/docker/api/types/build"
 	"github.com/moby/go-archive"
+	"github.com/moby/go-archive/compression"
+	"github.com/moby/moby/client"
+	specs "github.com/opencontainers/image-spec/specs-go/v1"
 
 	"github.com/moby/patternmatcher"
 	"github.com/moby/patternmatcher/ignorefile"
@@ -39,12 +42,17 @@ func NewDockerBuildExecutor(input NewDockerBuildExecutorInput) common.Executor {
 		logger.Debugf("Building image from '%v'", input.ContextDir)
 
 		tags := []string{input.ImageTag}
-		options := build.ImageBuildOptions{
+		options := client.ImageBuildOptions{
 			Tags:        tags,
 			Remove:      true,
-			Platform:    input.Platform,
 			AuthConfigs: LoadDockerAuthConfigs(ctx),
 			Dockerfile:  input.Dockerfile,
+		}
+		if input.Platform != "" {
+			parts := strings.SplitN(input.Platform, "/", 2)
+			if len(parts) == 2 {
+				options.Platforms = []specs.Platform{{OS: parts[0], Architecture: parts[1]}}
+			}
 		}
 		var buildContext io.ReadCloser
 		if input.BuildContext != nil {
@@ -102,9 +110,8 @@ func createBuildContext(ctx context.Context, contextDir string, relDockerfile st
 		includes = append(includes, ".dockerignore", relDockerfile)
 	}
 
-	compression := archive.Uncompressed
 	buildCtx, err := archive.TarWithOptions(contextDir, &archive.TarOptions{
-		Compression:     compression,
+		Compression:     compression.None,
 		ExcludePatterns: excludes,
 		IncludeFiles:    includes,
 	})

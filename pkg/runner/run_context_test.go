@@ -3,6 +3,7 @@ package runner
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"regexp"
 	"runtime"
@@ -11,6 +12,8 @@ import (
 	"testing"
 
 	"github.com/golang-jwt/jwt/v5"
+
+	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/exprparser"
 	"github.com/nektos/act/pkg/model"
 
@@ -681,8 +684,9 @@ func TestRunContextGetEnv(t *testing.T) {
 func TestSetRuntimeVariables(t *testing.T) {
 	rc := &RunContext{
 		Config: &Config{
-			ArtifactServerAddr: "myhost",
-			ArtifactServerPort: "8000",
+			ArtifactServerAddr:    "myhost",
+			ArtifactServerPort:    "8000",
+			ArtifactServerAuthKey: []byte("artifact server auth key"),
 		},
 	}
 	v := "http://myhost:8000/"
@@ -697,13 +701,21 @@ func TestSetRuntimeVariables(t *testing.T) {
 	tkn, _, err := jwt.NewParser().ParseUnverified(runtimeToken, jwt.MapClaims{})
 	assert.NotNil(t, tkn)
 	assert.Nil(t, err)
+
+	req := &http.Request{Header: http.Header{"Authorization": []string{"Bearer " + runtimeToken}}}
+	gotRunID, err := common.ValidateAuthorizationToken(rc.Config.ArtifactServerAuthKey, req)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(1), gotRunID)
+	_, err = common.ValidateAuthorizationToken([]byte("another key"), req)
+	assert.Error(t, err)
 }
 
 func TestSetRuntimeVariablesWithRunID(t *testing.T) {
 	rc := &RunContext{
 		Config: &Config{
-			ArtifactServerAddr: "myhost",
-			ArtifactServerPort: "8000",
+			ArtifactServerAddr:    "myhost",
+			ArtifactServerPort:    "8000",
+			ArtifactServerAuthKey: []byte("artifact server auth key"),
 			Env: map[string]string{
 				"GITHUB_RUN_ID": "45",
 			},
@@ -725,4 +737,9 @@ func TestSetRuntimeVariablesWithRunID(t *testing.T) {
 	scp, ok := claims["scp"]
 	assert.True(t, ok, "scp claim exists")
 	assert.Equal(t, "Actions.Results:45:45", scp, "contains expected scp claim")
+
+	req := &http.Request{Header: http.Header{"Authorization": []string{"Bearer " + runtimeToken}}}
+	gotRunID, err := common.ValidateAuthorizationToken(rc.Config.ArtifactServerAuthKey, req)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(45), gotRunID)
 }

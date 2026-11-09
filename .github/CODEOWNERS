@@ -1,0 +1,3 @@
+# Default reviewers. @nektos/act-committers is the team named in the removed
+# Mergify queue rule (approved-reviews-by=@nektos/act-committers).
+* @nektos/act-committers

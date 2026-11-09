@@ -56,6 +56,7 @@ func init() {
 }
 
 func TestNoWorkflowsFoundByPlanner(t *testing.T) {
+	shardSkip(t)
 	planner, err := model.NewWorkflowPlanner("res", true, false)
 	assert.NoError(t, err)
 
@@ -76,6 +77,7 @@ func TestNoWorkflowsFoundByPlanner(t *testing.T) {
 }
 
 func TestGraphMissingEvent(t *testing.T) {
+	shardSkip(t)
 	planner, err := model.NewWorkflowPlanner("testdata/issue-1595/no-event.yml", true, false)
 	assert.NoError(t, err)
 
@@ -94,6 +96,7 @@ func TestGraphMissingEvent(t *testing.T) {
 }
 
 func TestGraphMissingFirst(t *testing.T) {
+	shardSkip(t)
 	planner, err := model.NewWorkflowPlanner("testdata/issue-1595/no-first.yml", true, false)
 	assert.NoError(t, err)
 
@@ -104,6 +107,7 @@ func TestGraphMissingFirst(t *testing.T) {
 }
 
 func TestGraphWithMissing(t *testing.T) {
+	shardSkip(t)
 	planner, err := model.NewWorkflowPlanner("testdata/issue-1595/missing.yml", true, false)
 	assert.NoError(t, err)
 
@@ -121,6 +125,7 @@ func TestGraphWithMissing(t *testing.T) {
 }
 
 func TestGraphWithSomeMissing(t *testing.T) {
+	shardSkip(t)
 	log.SetLevel(log.DebugLevel)
 
 	planner, err := model.NewWorkflowPlanner("testdata/issue-1595/", true, false)
@@ -141,6 +146,7 @@ func TestGraphWithSomeMissing(t *testing.T) {
 }
 
 func TestGraphEvent(t *testing.T) {
+	shardSkip(t)
 	planner, err := model.NewWorkflowPlanner("testdata/basic", true, false)
 	assert.NoError(t, err)
 
@@ -236,7 +242,7 @@ func TestRunEvent(t *testing.T) {
 		// {workdir, "shells/custom", "push", "", map[string]string{"ubuntu-latest": "catthehacker/ubuntu:pwsh-latest"}, }, // custom image with pwsh
 		{workdir, "shells/pwsh", "push", "", map[string]string{"ubuntu-latest": "catthehacker/ubuntu:pwsh-latest"}, secrets}, // custom image with pwsh
 		{workdir, "shells/bash", "push", "", platforms, secrets},
-		{workdir, "shells/python", "push", "", map[string]string{"ubuntu-latest": "node:16-buster"}, secrets}, // slim doesn't have python
+		{workdir, "shells/python", "push", "", map[string]string{"ubuntu-latest": "python:3.13-slim-bookworm"}, secrets}, // node slim has no python binary
 		{workdir, "shells/sh", "push", "", platforms, secrets},
 
 		// Local action
@@ -325,7 +331,7 @@ func TestRunEvent(t *testing.T) {
 		// services
 		{workdir, "services", "push", "", platforms, secrets},
 		{workdir, "services-empty-image", "push", "", platforms, secrets},
-		{workdir, "services-host-network", "push", "", platforms, secrets},
+		{workdir, "services-host-network", "push", "", map[string]string{"ubuntu-latest": bookwormCurlTag}, secrets},
 		{workdir, "services-with-container", "push", "", platforms, secrets},
 		{workdir, "mysql-service-container-with-health-check", "push", "", platforms, secrets},
 
@@ -338,6 +344,7 @@ func TestRunEvent(t *testing.T) {
 
 	for _, table := range tables {
 		t.Run(table.workflowPath, func(t *testing.T) {
+			shardSkip(t)
 			config := &Config{
 				Secrets: table.secrets,
 			}
@@ -381,6 +388,7 @@ func (factory *captureJobLoggerFactory) WithJobLogger() *logrus.Logger {
 }
 
 func TestPullAndPostStepFailureIsJobFailure(t *testing.T) {
+	shardSkip(t)
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}
@@ -462,6 +470,7 @@ func (c mockCache) GetTarArchive(ctx context.Context, cacheDir string, sha strin
 }
 
 func TestFetchFailureIsJobFailure(t *testing.T) {
+	shardSkip(t)
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}
@@ -508,6 +517,7 @@ func TestFetchFailureIsJobFailure(t *testing.T) {
 }
 
 func TestRunEventHostEnvironment(t *testing.T) {
+	shardSkip(t)
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}
@@ -608,6 +618,7 @@ func TestRunEventHostEnvironment(t *testing.T) {
 }
 
 func TestDryrunEvent(t *testing.T) {
+	shardSkip(t)
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}
@@ -619,7 +630,7 @@ func TestDryrunEvent(t *testing.T) {
 		{workdir, "shells/defaults", "push", "", platforms, secrets},
 		{workdir, "shells/pwsh", "push", "", map[string]string{"ubuntu-latest": "catthehacker/ubuntu:pwsh-latest"}, secrets}, // custom image with pwsh
 		{workdir, "shells/bash", "push", "", platforms, secrets},
-		{workdir, "shells/python", "push", "", map[string]string{"ubuntu-latest": "node:16-buster"}, secrets}, // slim doesn't have python
+		{workdir, "shells/python", "push", "", map[string]string{"ubuntu-latest": "python:3.13-slim-bookworm"}, secrets}, // node slim has no python binary
 		{workdir, "shells/sh", "push", "", platforms, secrets},
 
 		// Local action
@@ -637,6 +648,7 @@ func TestDryrunEvent(t *testing.T) {
 }
 
 func TestDockerActionForcePullForceRebuild(t *testing.T) {
+	shardSkip(t)
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}
@@ -661,6 +673,7 @@ func TestDockerActionForcePullForceRebuild(t *testing.T) {
 }
 
 func TestRunDifferentArchitecture(t *testing.T) {
+	shardSkip(t)
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}
@@ -688,6 +701,7 @@ func (f *maskJobLoggerFactory) WithJobLogger() *log.Logger {
 }
 
 func TestMaskValues(t *testing.T) {
+	shardSkip(t)
 	assertNoSecret := func(text string, _ string) {
 		index := strings.Index(text, "composite secret")
 		if index > -1 {
@@ -719,6 +733,7 @@ func TestMaskValues(t *testing.T) {
 }
 
 func TestRunEventSecrets(t *testing.T) {
+	shardSkip(t)
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}
@@ -741,6 +756,7 @@ func TestRunEventSecrets(t *testing.T) {
 }
 
 func TestRunActionInputs(t *testing.T) {
+	shardSkip(t)
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}
@@ -762,6 +778,7 @@ func TestRunActionInputs(t *testing.T) {
 }
 
 func TestRunEventPullRequest(t *testing.T) {
+	shardSkip(t)
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}
@@ -780,6 +797,7 @@ func TestRunEventPullRequest(t *testing.T) {
 }
 
 func TestRunMatrixWithUserDefinedInclusions(t *testing.T) {
+	shardSkip(t)
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}

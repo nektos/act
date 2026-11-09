@@ -5,8 +5,8 @@ import (
 	"io"
 	"testing"
 
-	"github.com/docker/docker/api/types/image"
-	"github.com/docker/docker/client"
+	"github.com/moby/moby/client"
+	specs "github.com/opencontainers/image-spec/specs-go/v1"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 )
@@ -34,34 +34,33 @@ func TestImageExistsLocally(t *testing.T) {
 	assert.Equal(t, false, invalidImagePlatform)
 
 	// pull an image
-	cli, err := client.NewClientWithOpts(client.FromEnv)
+	cli, err := client.New(client.FromEnv)
 	assert.Nil(t, err)
-	cli.NegotiateAPIVersion(context.Background())
 
-	// Chose alpine latest because it's so small
-	// maybe we should build an image instead so that tests aren't reliable on dockerhub
-	readerDefault, err := cli.ImagePull(ctx, "node:16-buster-slim", image.PullOptions{
-		Platform: "linux/amd64",
+	// A current multi-arch image that the runner fixtures do not also use as
+	// ubuntu-latest, so a platform-specific pull cannot retag the job image.
+	readerDefault, err := cli.ImagePull(ctx, "alpine:3.21", client.ImagePullOptions{
+		Platforms: []specs.Platform{{OS: "linux", Architecture: "amd64"}},
 	})
 	assert.Nil(t, err)
 	defer readerDefault.Close()
 	_, err = io.ReadAll(readerDefault)
 	assert.Nil(t, err)
 
-	imageDefaultArchExists, err := ImageExistsLocally(ctx, "node:16-buster-slim", "linux/amd64")
+	imageDefaultArchExists, err := ImageExistsLocally(ctx, "alpine:3.21", "linux/amd64")
 	assert.Nil(t, err)
 	assert.Equal(t, true, imageDefaultArchExists)
 
 	// Validate if another architecture platform can be pulled
-	readerArm64, err := cli.ImagePull(ctx, "node:16-buster-slim", image.PullOptions{
-		Platform: "linux/arm64",
+	readerArm64, err := cli.ImagePull(ctx, "alpine:3.21", client.ImagePullOptions{
+		Platforms: []specs.Platform{{OS: "linux", Architecture: "arm64"}},
 	})
 	assert.Nil(t, err)
 	defer readerArm64.Close()
 	_, err = io.ReadAll(readerArm64)
 	assert.Nil(t, err)
 
-	imageArm64Exists, err := ImageExistsLocally(ctx, "node:16-buster-slim", "linux/arm64")
+	imageArm64Exists, err := ImageExistsLocally(ctx, "alpine:3.21", "linux/arm64")
 	assert.Nil(t, err)
 	assert.Equal(t, true, imageArm64Exists)
 }

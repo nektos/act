@@ -4,6 +4,8 @@ on: push
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      ACTIONS_ALLOW_UNSECURE_COMMANDS: "true"
     steps:
       - name: TEST set-env
         run: echo "::set-env name=foo::bar"

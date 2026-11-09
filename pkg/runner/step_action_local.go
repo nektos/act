@@ -9,7 +9,6 @@ import (
 	"io/fs"
 	"os"
 	"path"
-	"path/filepath"
 
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/model"
@@ -40,7 +39,10 @@ func (sal *stepActionLocal) main() common.Executor {
 			return nil
 		}
 
-		actionDir := filepath.Join(sal.getRunContext().Config.Workdir, sal.Step.Uses)
+		actionDir, err := resolveLocalActionDir(sal.getRunContext().Config.Workdir, sal.Step.Uses)
+		if err != nil {
+			return err
+		}
 
 		localReader := func(ctx context.Context) actionYamlReader {
 			_, cpath := getContainerActionPaths(sal.Step, path.Join(actionDir, ""), sal.RunContext)
@@ -73,7 +75,7 @@ func (sal *stepActionLocal) main() common.Executor {
 			}
 		}
 
-		actionModel, err := sal.readAction(ctx, sal.Step, actionDir, "", localReader(ctx), os.WriteFile)
+		actionModel, err := sal.readAction(ctx, sal.Step, actionDir, "", localReader(ctx), rootedWriter(sal.getRunContext().Config.Workdir))
 		if err != nil {
 			return err
 		}
@@ -120,7 +122,10 @@ func (sal *stepActionLocal) getActionModel() *model.Action {
 
 func (sal *stepActionLocal) getCompositeRunContext(ctx context.Context) *RunContext {
 	if sal.compositeRunContext == nil {
-		actionDir := filepath.Join(sal.RunContext.Config.Workdir, sal.Step.Uses)
+		actionDir, err := resolveLocalActionDir(sal.RunContext.Config.Workdir, sal.Step.Uses)
+		if err != nil {
+			actionDir = sal.RunContext.Config.Workdir
+		}
 		_, containerActionDir := getContainerActionPaths(sal.getStepModel(), actionDir, sal.RunContext)
 
 		sal.compositeRunContext = newCompositeRunContext(ctx, sal.RunContext, sal, containerActionDir)

@@ -46,6 +46,9 @@ func (l *LocalRepositoryCache) GetTarArchive(ctx context.Context, cacheDir, sha,
 	// sha is mapped to ref in fetch if there is a local override
 	if dest, ok := l.CacheDirCache[fmt.Sprintf("%s@%s", cacheDir, sha)]; ok {
 		logger.Infof("LocalRepositoryCache read cachedir %s with ref %s and subpath '%s' from %s", cacheDir, sha, includePrefix, dest)
+		if includePrefix != "" && !filepath.IsLocal(filepath.FromSlash(includePrefix)) {
+			return nil, fmt.Errorf("refusing to read %q outside of %q", includePrefix, dest)
+		}
 		srcPath := filepath.Join(dest, includePrefix)
 		buf := &bytes.Buffer{}
 		tw := tar.NewWriter(buf)
@@ -57,6 +60,13 @@ func (l *LocalRepositoryCache) GetTarArchive(ctx context.Context, cacheDir, sha,
 		}
 		tc := &filecollector.TarCollector{
 			TarWriter: tw,
+		}
+		// Stat through OpenRoot before reading file contents. Lstat follows an
+		// intermediate symlink, so a prefix such as escape/sub can sit outside dest.
+		if fi.Mode()&fs.ModeSymlink == 0 {
+			if err := localPrefixWithinRoot(dest, includePrefix); err != nil {
+				return nil, err
+			}
 		}
 		if fi.IsDir() {
 			srcPrefix := srcPath
@@ -97,4 +107,22 @@ func (l *LocalRepositoryCache) GetTarArchive(ctx context.Context, cacheDir, sha,
 	}
 	logger.Infof("LocalRepositoryCache not matched cachedir %s with Ref %s and subpath '%s'", cacheDir, sha, includePrefix)
 	return l.Parent.GetTarArchive(ctx, cacheDir, sha, includePrefix)
+}
+
+// localPrefixWithinRoot rejects includePrefix when symlink resolution leaves dest.
+// An empty prefix is the repository root and is not checked.
+func localPrefixWithinRoot(dest, includePrefix string) error {
+	rel := strings.TrimSuffix(filepath.ToSlash(includePrefix), "/")
+	if rel == "" || rel == "." {
+		return nil
+	}
+	root, err := os.OpenRoot(dest)
+	if err != nil {
+		return err
+	}
+	defer root.Close()
+	if _, err := root.Stat(filepath.FromSlash(rel)); err != nil {
+		return fmt.Errorf("refusing to read %q outside of %q: %w", includePrefix, dest, err)
+	}
+	return nil
 }

@@ -1,21 +1,49 @@
 name: Bug report
-description: Use this template for reporting bugs/issues.
+description: Use this template for reporting bugs.
 labels:
   - 'kind/bug'
 body:
   - type: markdown
     attributes:
       value: |
-        Thanks for taking the time to fill out this bug report!
-  - type: textarea
-    id: act-debug
+        Thanks for taking the time to fill out this bug report.
+
+        Questions about how to use act belong in [GitHub Discussions](https://github.com/nektos/act/discussions/new/choose). The user guide is at [nektosact.com](https://nektosact.com).
+  - type: checkboxes
+    id: searched
     attributes:
-      label: Bug report info
-      render: plain text
+      label: Checks
+      options:
+        - label: I searched existing issues and discussions and did not find this report.
+          required: true
+  - type: input
+    id: act-version
+    attributes:
+      label: Act version
       description: |
-        Output of `act --bug-report`
+        Output of `act --version`. If you built from source, include the commit.
       placeholder: |
-        act --bug-report
+        act version 0.2.89
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      description: |
+        The OS you ran act on, for example Ubuntu 24.04, macOS 15, or Windows 11.
+      placeholder: |
+        Ubuntu 24.04
+    validations:
+      required: true
+  - type: input
+    id: docker-engine
+    attributes:
+      label: Docker Engine
+      description: |
+        Server version from `docker version`, or the Docker Engine section of `act --bug-report`. If you use Podman or another runtime, name it and its version. Use `n/a` for a host run without a container engine.
+      placeholder: |
+        Docker Engine 28.0.4
     validations:
       required: true
   - type: textarea
@@ -23,20 +51,69 @@ body:
     attributes:
       label: Command used with act
       description: |
-        Please paste your whole command
+        Paste the whole command.
       placeholder: |
-        act -P ubuntu-latest=node:12 -v -d ...
+        act -P ubuntu-latest=node:16-buster-slim -v
       render: sh
     validations:
       required: true
   - type: textarea
-    id: what-happened
+    id: workflow
     attributes:
-      label: Describe issue
+      label: Workflow snippet
       description: |
-        Also tell us what did you expect to happen?
+        Paste the workflow, or the jobs that reproduce the bug. Redact secrets.
       placeholder: |
-        Describe issue
+        name: My workflow
+        on: [push]
+        jobs:
+          test:
+            runs-on: ubuntu-latest
+            steps:
+              - run: echo hello
+      render: yml
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: |
+        What did you expect act to do?
+      placeholder: |
+        The job runs and exits 0.
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: |
+        What happened instead?
+      placeholder: |
+        The job fails with this error.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Full `act -v` log
+      description: |
+        Paste the full verbose log from `act -v`. If it is too large for the issue form, paste the section that shows the failure here and attach the full log to the issue. Redact tokens, passwords, and other secrets.
+      render: sh
+      placeholder: |
+        act -v
+    validations:
+      required: true
+  - type: textarea
+    id: act-debug
+    attributes:
+      label: Output of `act --bug-report`
+      description: |
+        This adds the host, Docker socket, config, and build details that the fields above do not capture.
+      render: plain text
+      placeholder: |
+        act --bug-report
     validations:
       required: true
   - type: input
@@ -44,45 +121,16 @@ body:
     attributes:
       label: Link to GitHub repository
       description: |
-        Provide link to GitHub repository, you can skip it if the repository is private or you don't have it on GitHub, otherwise please provide it as it might help us troubleshoot problem
+        A link helps us reproduce the problem. Skip this if the repository is private or is not on GitHub.
       placeholder: |
         https://github.com/nektos/act
     validations:
       required: false
   - type: textarea
-    id: workflow
-    attributes:
-      label: Workflow content
-      description: |
-        Please paste your **whole** workflow here
-      placeholder: |
-        name: My workflow
-        on: ['push', 'schedule']
-        jobs:
-          test:
-            runs-on: ubuntu-latest
-          env:
-            KEY: VAL
-        [...]
-      render: yml
-    validations:
-      required: true
-  - type: textarea
-    id: logs
-    attributes:
-      label: Relevant log output
-      description: |
-        Please copy and paste any relevant log output. This will be automatically formatted into code, so no need for backticks. Please verify that the log output doesn't contain any sensitive data.
-      render: sh
-      placeholder: |
-        Use `act -v` for verbose output
-    validations:
-      required: true
-  - type: textarea
     id: additional-info
     attributes:
       label: Additional information
       placeholder: |
-        Additional information that doesn't fit elsewhere
+        Anything else that does not fit above.
     validations:
       required: false

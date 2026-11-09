@@ -1,22 +1,44 @@
-name: 'Close stale issues'
+name: Close stale issues and pull requests
+
 on:
+  schedule:
+    # Daily, off the hour. The previous workflow only ran on workflow_dispatch.
+    - cron: '17 4 * * *'
   workflow_dispatch:
+
+permissions: {}
 
 jobs:
   stale:
     name: Stale
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      # actions/stale stores its operations-per-run checkpoint in the Actions cache.
+      actions: write
+      # Labels, comments on, and closes stale issues.
+      issues: write
+      # Labels, comments on, and closes stale pull requests.
+      pull-requests: write
     steps:
-      - uses: actions/stale@v9
+      - uses: actions/stale@4391f3da665fdf50b6810c1a66712fb9ba21aa93 # v11.0.0
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
-          stale-issue-message: 'Issue is stale and will be closed in 14 days unless there is new activity'
-          stale-pr-message: 'PR is stale and will be closed in 14 days unless there is new activity'
-          stale-issue-label: 'stale'
-          exempt-issue-labels: 'stale-exempt,kind/feature-request'
-          stale-pr-label: 'stale'
-          exempt-pr-labels: 'stale-exempt'
-          remove-stale-when-updated: 'True'
-          operations-per-run: 500
-          days-before-stale: 180
-          days-before-close: 14
+          stale-issue-message: 'This issue has had no activity for 90 days and is now stale. It will be closed in 14 days unless there is new activity.'
+          stale-pr-message: 'This pull request has had no activity for 60 days and is now stale. It will be closed in 14 days unless there is new activity.'
+          close-issue-message: 'This issue was closed because it stayed stale for 14 days. Comment or reopen it if it is still relevant.'
+          close-pr-message: 'This pull request was closed because it stayed stale for 14 days. Comment or reopen it if it is still relevant.'
+          stale-issue-label: stale
+          stale-pr-label: stale
+          # kind/feature-request stays exempt, as in the previous config.
+          # pinned, security, needs-triage, and backlog are maintainer hold labels.
+          exempt-issue-labels: stale-exempt,kind/feature-request,pinned,security,needs-triage,backlog
+          # actions/stale has no author filter. Dependabot pull requests carry the dependencies label.
+          exempt-pr-labels: stale-exempt,pinned,security,needs-triage,dependencies
+          days-before-issue-stale: 90
+          days-before-issue-close: 14
+          days-before-pr-stale: 60
+          days-before-pr-close: 14
+          remove-stale-when-updated: true
+          # Cap API writes so a daily pass stays modest. The previous limit was 500.
+          operations-per-run: 100

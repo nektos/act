@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"path"
 	"regexp"
@@ -23,10 +24,12 @@ import (
 )
 
 var (
-	codeCommitHTTPRegex = regexp.MustCompile(`^https?://git-codecommit\.(.+)\.amazonaws.com/v1/repos/(.+)$`)
-	codeCommitSSHRegex  = regexp.MustCompile(`ssh://git-codecommit\.(.+)\.amazonaws.com/v1/repos/(.+)$`)
-	githubHTTPRegex     = regexp.MustCompile(`^https?://.*github.com.*/(.+)/(.+?)(?:.git)?$`)
-	githubSSHRegex      = regexp.MustCompile(`github.com[:/](.+)/(.+?)(?:.git)?$`)
+	codeCommitHTTPRegex = regexp.MustCompile(`^https?://git-codecommit\.([^./]+)\.amazonaws\.com/v1/repos/(.+)$`)
+	codeCommitSSHRegex  = regexp.MustCompile(`^ssh://(?:[^@/]+@)?git-codecommit\.([^./]+)\.amazonaws\.com/v1/repos/(.+)$`)
+	githubHTTPRegex     = gitHostHTTPRegex("github.com")
+	// ssh.github.com is GitHub's SSH-over-HTTPS-port host
+	// (ssh://git@ssh.github.com:443/owner/repo.git).
+	githubSSHRegex = gitHostSSHRegex("github.com", "ssh.github.com")
 
 	cloneLock sync.Mutex
 
@@ -198,6 +201,25 @@ func findGitRemoteURL(_ context.Context, file, remoteName string) (string, error
 	return remote.Config().URLs[0], nil
 }
 
+// gitHostHTTPRegex matches http(s)://[userinfo@]host[:port]/owner/repo[.git]
+// for exactly host. The userinfo may not contain '?' or '#', so a host that
+// only appears in the query or fragment does not match.
+func gitHostHTTPRegex(host string) *regexp.Regexp {
+	return regexp.MustCompile(`^https?://(?:[^@/?#]+@)?` + regexp.QuoteMeta(host) + `(?::\d+)?/([^/]+)/([^/]+?)(?:\.git)?/?$`)
+}
+
+// gitHostSSHRegex matches [git+]ssh://[user@]host[:port]/owner/repo,
+// git://host[:port]/owner/repo and [user@]host:owner/repo for exactly one of
+// hosts.
+func gitHostSSHRegex(hosts ...string) *regexp.Regexp {
+	quoted := make([]string, len(hosts))
+	for i, host := range hosts {
+		quoted[i] = regexp.QuoteMeta(host)
+	}
+	h := `(?:` + strings.Join(quoted, `|`) + `)`
+	return regexp.MustCompile(`^(?:(?:(?:git\+)?ssh|git)://(?:[^@/?#]+@)?` + h + `(?::\d+)?/|(?:[^@/:?#]+@)?` + h + `:)([^/]+)/([^/]+?)(?:\.git)?/?$`)
+}
+
 func findGitSlug(url string, githubInstance string) (string, string, error) {
 	if matches := codeCommitHTTPRegex.FindStringSubmatch(url); matches != nil {
 		return "CodeCommit", matches[2], nil
@@ -208,8 +230,20 @@ func findGitSlug(url string, githubInstance string) (string, string, error) {
 	} else if matches := githubSSHRegex.FindStringSubmatch(url); matches != nil {
 		return "GitHub", fmt.Sprintf("%s/%s", matches[1], matches[2]), nil
 	} else if githubInstance != "github.com" {
-		gheHTTPRegex := regexp.MustCompile(fmt.Sprintf(`^https?://%s/(.+)/(.+?)(?:.git)?$`, githubInstance))
-		gheSSHRegex := regexp.MustCompile(fmt.Sprintf(`%s[:/](.+)/(.+?)(?:.git)?$`, githubInstance))
+		gheHTTPRegex := gitHostHTTPRegex(githubInstance)
+		// The instance may carry the HTTPS port (ghe.example.com:8443 or
+		// [2001:db8::1]:8443). SSH remotes use their own port, so match them
+		// on the host only. Enterprise API URLs still use githubInstance,
+		// port included. SplitHostPort removes the brackets from an IPv6
+		// literal; put them back so ssh://git@[2001:db8::1]:2222/... matches.
+		sshHost := githubInstance
+		if host, _, err := net.SplitHostPort(githubInstance); err == nil {
+			sshHost = host
+			if strings.Contains(host, ":") {
+				sshHost = "[" + host + "]"
+			}
+		}
+		gheSSHRegex := gitHostSSHRegex(sshHost)
 		if matches := gheHTTPRegex.FindStringSubmatch(url); matches != nil {
 			return "GitHubEnterprise", fmt.Sprintf("%s/%s", matches[1], matches[2]), nil
 		} else if matches := gheSSHRegex.FindStringSubmatch(url); matches != nil {

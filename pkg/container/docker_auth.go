@@ -8,7 +8,7 @@ import (
 
 	"github.com/docker/cli/cli/config"
 	"github.com/docker/cli/cli/config/credentials"
-	"github.com/docker/docker/api/types/registry"
+	"github.com/moby/moby/api/types/registry"
 	"github.com/nektos/act/pkg/common"
 )
 

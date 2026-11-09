@@ -1,32 +1,41 @@
-// This file is exact copy of https://github.com/docker/cli/blob/9ac8584acfd501c3f4da0e845e3a40ed15c85041/cli/command/container/opts_test.go with:
-// * appended with license information
-// * commented out case 'invalid-mixed-network-types' in test TestParseNetworkConfig
+// This file is adapted from https://github.com/docker/cli/blob/v29.3.0/cli/command/container/opts_test.go with:
+// * import paths adjusted for the act codebase
 //
 // docker/cli is licensed under the Apache License, Version 2.0.
 // See DOCKER_LICENSE for the full license text.
 //
 
-//nolint:unparam,whitespace,depguard,dupl,gocritic
+//nolint:unparam,depguard,dupl
 package container
 
 import (
+	"errors"
 	"fmt"
 	"io"
+	"net"
+	"net/netip"
 	"os"
 	"runtime"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/docker/docker/api/types/container"
-	networktypes "github.com/docker/docker/api/types/network"
-	"github.com/docker/go-connections/nat"
-	"github.com/pkg/errors"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/moby/moby/api/types/container"
+	networktypes "github.com/moby/moby/api/types/network"
 	"github.com/spf13/pflag"
 	"gotest.tools/v3/assert"
 	is "gotest.tools/v3/assert/cmp"
 	"gotest.tools/v3/skip"
 )
+
+func mustParseMAC(s string) networktypes.HardwareAddr {
+	mac, err := net.ParseMAC(s)
+	if err != nil {
+		panic(err)
+	}
+	return networktypes.HardwareAddr(mac)
+}
 
 func TestValidateAttach(t *testing.T) {
 	valid := []string{
@@ -57,12 +66,12 @@ func parseRun(args []string) (*container.Config, *container.HostConfig, *network
 	if err := flags.Parse(args); err != nil {
 		return nil, nil, nil, err
 	}
-	// TODO: fix tests to accept ContainerConfig
-	containerConfig, err := parse(flags, copts, runtime.GOOS)
+	// TODO(dnephin): fix tests to accept ContainerConfig; see https://github.com/moby/moby/pull/31621
+	containerCfg, err := parse(flags, copts, runtime.GOOS)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	return containerConfig.Config, containerConfig.HostConfig, containerConfig.NetworkingConfig, err
+	return containerCfg.Config, containerCfg.HostConfig, containerCfg.NetworkingConfig, err
 }
 
 func setupRunFlags() (*pflag.FlagSet, *containerOptions) {
@@ -75,20 +84,81 @@ func setupRunFlags() (*pflag.FlagSet, *containerOptions) {
 
 func mustParse(t *testing.T, args string) (*container.Config, *container.HostConfig, *networktypes.NetworkingConfig) {
 	t.Helper()
-	config, hostConfig, networkingConfig, err := parseRun(append(strings.Split(args, " "), "ubuntu", "bash"))
+	config, hostConfig, nwConfig, err := parseRun(append(strings.Split(args, " "), "ubuntu", "bash"))
 	assert.NilError(t, err)
-	return config, hostConfig, networkingConfig
+	return config, hostConfig, nwConfig
 }
 
 func TestParseRunLinks(t *testing.T) {
-	if _, hostConfig, _ := mustParse(t, "--link a:b"); len(hostConfig.Links) == 0 || hostConfig.Links[0] != "a:b" {
-		t.Fatalf("Error parsing links. Expected []string{\"a:b\"}, received: %v", hostConfig.Links)
+	tests := []struct {
+		name               string
+		input              string
+		expHostConfigLinks []string
+		expNetConfigLinks  map[string][]string
+	}{
+		// Default bridge - legacy links ...
+		{
+			name:               "default/onelink",
+			input:              "--link a:b",
+			expHostConfigLinks: []string{"a:b"},
+			expNetConfigLinks:  map[string][]string{"default": nil},
+		},
+		{
+			name:               "default/twolinks",
+			input:              "--link a:b --link c:d",
+			expHostConfigLinks: []string{"a:b", "c:d"},
+			expNetConfigLinks:  map[string][]string{"default": nil},
+		},
+		{
+			name:               "bridge/onelink",
+			input:              "--network bridge --link a:b",
+			expHostConfigLinks: []string{"a:b"},
+			// expNetConfigLinks - no EndpointsConfig is created for a single named network with no options set.
+			// See the "For backward compatibility" comment in parseNetworkOpts().
+		},
+		{
+			name:              "default/nolinks",
+			expNetConfigLinks: map[string][]string{"default": nil},
+		},
+
+		// User-defined bridge - links become DNS aliases ...
+		{
+			name:               "userdefnet/onelink",
+			input:              "--network userdefnet --link a:b",
+			expHostConfigLinks: []string{"a:b"},
+			expNetConfigLinks:  map[string][]string{"userdefnet": {"a:b"}},
+		},
+		{
+			name:               "userdefnet/twolinks",
+			input:              "--network userdefnet --link a:b --link c:d",
+			expHostConfigLinks: []string{"a:b", "c:d"},
+			expNetConfigLinks:  map[string][]string{"userdefnet": {"a:b", "c:d"}},
+		},
+		{
+			name:  "userdefnet/nolinks",
+			input: "--network userdefnet",
+		},
+		{
+			// Link options are applied to the first network (and there's no "advanced syntax"
+			// link key, like "--network name=userdefnet,link=a:b").
+			name:               "links apply to the first network",
+			input:              "--network userdefnet --link a:b --network bar --link c:d",
+			expHostConfigLinks: []string{"a:b", "c:d"},
+			expNetConfigLinks:  map[string][]string{"userdefnet": {"a:b", "c:d"}, "bar": nil},
+		},
 	}
-	if _, hostConfig, _ := mustParse(t, "--link a:b --link c:d"); len(hostConfig.Links) < 2 || hostConfig.Links[0] != "a:b" || hostConfig.Links[1] != "c:d" {
-		t.Fatalf("Error parsing links. Expected []string{\"a:b\", \"c:d\"}, received: %v", hostConfig.Links)
-	}
-	if _, hostConfig, _ := mustParse(t, ""); len(hostConfig.Links) != 0 {
-		t.Fatalf("Error parsing links. No link expected, received: %v", hostConfig.Links)
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			_, hostConfig, netConfig := mustParse(t, tc.input)
+			assert.Check(t, is.DeepEqual(hostConfig.Links, tc.expHostConfigLinks))
+			assert.Check(t, is.Len(netConfig.EndpointsConfig, len(tc.expNetConfigLinks)))
+			for netName, expLinks := range tc.expNetConfigLinks {
+				nc, ok := netConfig.EndpointsConfig[netName]
+				assert.Assert(t, ok)
+				assert.Check(t, is.DeepEqual(nc.Links, expLinks))
+			}
+		})
 	}
 }
 
@@ -192,7 +262,6 @@ func TestParseRunWithInvalidArgs(t *testing.T) {
 
 //nolint:gocyclo
 func TestParseWithVolumes(t *testing.T) {
-
 	// A single volume
 	arr, tryit := setupPlatformVolume([]string{`/tmp`}, []string{`c:\tmp`})
 	if config, hostConfig, _ := mustParse(t, tryit); hostConfig.Binds != nil {
@@ -260,7 +329,6 @@ func TestParseWithVolumes(t *testing.T) {
 			t.Fatalf("Error parsing %s. Should have a single bind mount and no volumes", arr[0])
 		}
 	}
-
 }
 
 // setupPlatformVolume takes two arrays of volume specs - a Unix style
@@ -290,7 +358,7 @@ func compareRandomizedStrings(a, b, c, d string) error {
 	if a == d && b == c {
 		return nil
 	}
-	return errors.Errorf("strings don't match")
+	return errors.New("strings don't match")
 }
 
 // Simple parse with MacAddress validation
@@ -300,9 +368,11 @@ func TestParseWithMacAddress(t *testing.T) {
 	if _, _, _, err := parseRun([]string{invalidMacAddress, "img", "cmd"}); err != nil && err.Error() != "invalidMacAddress is not a valid mac address" {
 		t.Fatalf("Expected an error with %v mac-address, got %v", invalidMacAddress, err)
 	}
-	config, hostConfig, _ := mustParse(t, validMacAddress)
-	fmt.Printf("MacAddress: %+v\n", hostConfig)
-	assert.Equal(t, "92:d0:c6:0a:29:33", config.MacAddress) //nolint:staticcheck
+	_, hostConfig, nwConfig := mustParse(t, validMacAddress)
+	defaultNw := hostConfig.NetworkMode.NetworkName()
+	if nwConfig.EndpointsConfig[defaultNw].MacAddress.String() != "92:d0:c6:0a:29:33" {
+		t.Fatalf("Expected the default endpoint to have the MacAddress '92:d0:c6:0a:29:33' set, got '%v'", nwConfig.EndpointsConfig[defaultNw].MacAddress)
+	}
 }
 
 func TestRunFlagsParseWithMemory(t *testing.T) {
@@ -339,7 +409,7 @@ func TestParseHostname(t *testing.T) {
 	hostnameWithDomain := "--hostname=hostname.domainname"
 	hostnameWithDomainTld := "--hostname=hostname.domainname.tld"
 	for hostname, expectedHostname := range validHostnames {
-		if config, _, _ := mustParse(t, fmt.Sprintf("--hostname=%s", hostname)); config.Hostname != expectedHostname {
+		if config, _, _ := mustParse(t, "--hostname="+hostname); config.Hostname != expectedHostname {
 			t.Fatalf("Expected the config to have 'hostname' as %q, got %q", expectedHostname, config.Hostname)
 		}
 	}
@@ -373,116 +443,166 @@ func TestParseHostnameDomainname(t *testing.T) {
 }
 
 func TestParseWithExpose(t *testing.T) {
-	invalids := map[string]string{
-		":":                   "invalid port format for --expose: :",
-		"8080:9090":           "invalid port format for --expose: 8080:9090",
-		"/tcp":                "invalid range format for --expose: /tcp, error: empty string specified for ports",
-		"/udp":                "invalid range format for --expose: /udp, error: empty string specified for ports",
-		"NaN/tcp":             `invalid range format for --expose: NaN/tcp, error: strconv.ParseUint: parsing "NaN": invalid syntax`,
-		"NaN-NaN/tcp":         `invalid range format for --expose: NaN-NaN/tcp, error: strconv.ParseUint: parsing "NaN": invalid syntax`,
-		"8080-NaN/tcp":        `invalid range format for --expose: 8080-NaN/tcp, error: strconv.ParseUint: parsing "NaN": invalid syntax`,
-		"1234567890-8080/tcp": `invalid range format for --expose: 1234567890-8080/tcp, error: strconv.ParseUint: parsing "1234567890": value out of range`,
-	}
-	valids := map[string][]nat.Port{
-		"8080/tcp":      {"8080/tcp"},
-		"8080/udp":      {"8080/udp"},
-		"8080/ncp":      {"8080/ncp"},
-		"8080-8080/udp": {"8080/udp"},
-		"8080-8082/tcp": {"8080/tcp", "8081/tcp", "8082/tcp"},
-	}
-	for expose, expectedError := range invalids {
-		if _, _, _, err := parseRun([]string{fmt.Sprintf("--expose=%v", expose), "img", "cmd"}); err == nil || err.Error() != expectedError {
-			t.Fatalf("Expected error '%v' with '--expose=%v', got '%v'", expectedError, expose, err)
+	t.Run("invalid", func(t *testing.T) {
+		tests := map[string]string{
+			":":                   `invalid range format for --expose: invalid start port ':': invalid syntax`,
+			"8080:9090":           `invalid range format for --expose: invalid start port '8080:9090': invalid syntax`,
+			"/tcp":                `invalid range format for --expose: invalid start port '': value is empty`,
+			"/udp":                `invalid range format for --expose: invalid start port '': value is empty`,
+			"NaN/tcp":             `invalid range format for --expose: invalid start port 'NaN': invalid syntax`,
+			"NaN-NaN/tcp":         `invalid range format for --expose: invalid start port 'NaN': invalid syntax`,
+			"8080-NaN/tcp":        `invalid range format for --expose: invalid end port 'NaN': invalid syntax`,
+			"1234567890-8080/tcp": `invalid range format for --expose: invalid start port '1234567890': value out of range`,
 		}
-	}
-	for expose, exposedPorts := range valids {
-		config, _, _, err := parseRun([]string{fmt.Sprintf("--expose=%v", expose), "img", "cmd"})
-		if err != nil {
-			t.Fatal(err)
+		for expose, expectedError := range tests {
+			t.Run(expose, func(t *testing.T) {
+				_, _, _, err := parseRun([]string{fmt.Sprintf("--expose=%v", expose), "img", "cmd"})
+				assert.Error(t, err, expectedError)
+			})
 		}
-		if len(config.ExposedPorts) != len(exposedPorts) {
-			t.Fatalf("Expected %v exposed port, got %v", len(exposedPorts), len(config.ExposedPorts))
+	})
+	t.Run("valid", func(t *testing.T) {
+		tests := map[string][]networktypes.Port{
+			"8080/tcp":      {networktypes.MustParsePort("8080/tcp")},
+			"8080/udp":      {networktypes.MustParsePort("8080/udp")},
+			"8080/ncp":      {networktypes.MustParsePort("8080/ncp")},
+			"8080-8080/udp": {networktypes.MustParsePort("8080/udp")},
+			"8080-8082/tcp": {networktypes.MustParsePort("8080/tcp"), networktypes.MustParsePort("8081/tcp"), networktypes.MustParsePort("8082/tcp")},
 		}
-		for _, port := range exposedPorts {
-			if _, ok := config.ExposedPorts[port]; !ok {
-				t.Fatalf("Expected %v, got %v", exposedPorts, config.ExposedPorts)
-			}
+		for expose, exposedPorts := range tests {
+			t.Run(expose, func(t *testing.T) {
+				config, _, _, err := parseRun([]string{fmt.Sprintf("--expose=%v", expose), "img", "cmd"})
+				assert.NilError(t, err)
+				for _, port := range exposedPorts {
+					_, ok := config.ExposedPorts[port]
+					assert.Check(t, ok, "missing port %q in exposed ports: %#+v", port, config.ExposedPorts[port])
+				}
+			})
 		}
-	}
-	// Merge with actual published port
-	config, _, _, err := parseRun([]string{"--publish=80", "--expose=80-81/tcp", "img", "cmd"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(config.ExposedPorts) != 2 {
-		t.Fatalf("Expected 2 exposed ports, got %v", config.ExposedPorts)
-	}
-	ports := []nat.Port{"80/tcp", "81/tcp"}
-	for _, port := range ports {
-		if _, ok := config.ExposedPorts[port]; !ok {
-			t.Fatalf("Expected %v, got %v", ports, config.ExposedPorts)
+	})
+
+	t.Run("merge with published", func(t *testing.T) {
+		// Merge with actual published port
+		config, _, _, err := parseRun([]string{"--publish=80", "--expose=80-81/tcp", "img", "cmd"})
+		assert.NilError(t, err)
+		assert.Check(t, is.Len(config.ExposedPorts, 2))
+		ports := []networktypes.Port{networktypes.MustParsePort("80/tcp"), networktypes.MustParsePort("81/tcp")}
+		for _, port := range ports {
+			_, ok := config.ExposedPorts[port]
+			assert.Check(t, ok, "missing port %q in exposed ports: %#+v", port, config.ExposedPorts[port])
 		}
-	}
+	})
 }
 
 func TestParseDevice(t *testing.T) {
 	skip.If(t, runtime.GOOS != "linux") // Windows and macOS validate server-side
-	valids := map[string]container.DeviceMapping{
-		"/dev/snd": {
-			PathOnHost:        "/dev/snd",
-			PathInContainer:   "/dev/snd",
-			CgroupPermissions: "rwm",
+	testCases := []struct {
+		devices        []string
+		deviceMapping  *container.DeviceMapping
+		deviceRequests []container.DeviceRequest
+	}{
+		{
+			devices: []string{"/dev/snd"},
+			deviceMapping: &container.DeviceMapping{
+				PathOnHost:        "/dev/snd",
+				PathInContainer:   "/dev/snd",
+				CgroupPermissions: "rwm",
+			},
 		},
-		"/dev/snd:rw": {
-			PathOnHost:        "/dev/snd",
-			PathInContainer:   "/dev/snd",
-			CgroupPermissions: "rw",
+		{
+			devices: []string{"/dev/snd:rw"},
+			deviceMapping: &container.DeviceMapping{
+				PathOnHost:        "/dev/snd",
+				PathInContainer:   "/dev/snd",
+				CgroupPermissions: "rw",
+			},
 		},
-		"/dev/snd:/something": {
-			PathOnHost:        "/dev/snd",
-			PathInContainer:   "/something",
-			CgroupPermissions: "rwm",
+		{
+			devices: []string{"/dev/snd:/something"},
+			deviceMapping: &container.DeviceMapping{
+				PathOnHost:        "/dev/snd",
+				PathInContainer:   "/something",
+				CgroupPermissions: "rwm",
+			},
 		},
-		"/dev/snd:/something:rw": {
-			PathOnHost:        "/dev/snd",
-			PathInContainer:   "/something",
-			CgroupPermissions: "rw",
+		{
+			devices: []string{"/dev/snd:/something:rw"},
+			deviceMapping: &container.DeviceMapping{
+				PathOnHost:        "/dev/snd",
+				PathInContainer:   "/something",
+				CgroupPermissions: "rw",
+			},
 		},
-	}
-	for device, deviceMapping := range valids {
-		_, hostconfig, _, err := parseRun([]string{fmt.Sprintf("--device=%v", device), "img", "cmd"})
-		if err != nil {
-			t.Fatal(err)
-		}
-		if len(hostconfig.Devices) != 1 {
-			t.Fatalf("Expected 1 devices, got %v", hostconfig.Devices)
-		}
-		if hostconfig.Devices[0] != deviceMapping {
-			t.Fatalf("Expected %v, got %v", deviceMapping, hostconfig.Devices)
-		}
+		{
+			devices:       []string{"vendor.com/class=name"},
+			deviceMapping: nil,
+			deviceRequests: []container.DeviceRequest{
+				{
+					Driver:    "cdi",
+					DeviceIDs: []string{"vendor.com/class=name"},
+				},
+			},
+		},
+		{
+			devices: []string{"vendor.com/class=name", "/dev/snd:/something:rw"},
+			deviceMapping: &container.DeviceMapping{
+				PathOnHost:        "/dev/snd",
+				PathInContainer:   "/something",
+				CgroupPermissions: "rw",
+			},
+			deviceRequests: []container.DeviceRequest{
+				{
+					Driver:    "cdi",
+					DeviceIDs: []string{"vendor.com/class=name"},
+				},
+			},
+		},
 	}
 
+	for _, tc := range testCases {
+		t.Run(fmt.Sprintf("%s", tc.devices), func(t *testing.T) {
+			var args []string
+			for _, d := range tc.devices {
+				args = append(args, fmt.Sprintf("--device=%v", d))
+			}
+			args = append(args, "img", "cmd")
+
+			_, hostconfig, _, err := parseRun(args)
+
+			assert.NilError(t, err)
+
+			if tc.deviceMapping != nil {
+				if assert.Check(t, is.Len(hostconfig.Devices, 1)) {
+					assert.Check(t, is.DeepEqual(*tc.deviceMapping, hostconfig.Devices[0]))
+				}
+			} else {
+				assert.Check(t, is.Len(hostconfig.Devices, 0))
+			}
+
+			assert.Check(t, is.DeepEqual(tc.deviceRequests, hostconfig.DeviceRequests))
+		})
+	}
 }
 
 func TestParseNetworkConfig(t *testing.T) {
 	tests := []struct {
-		name        string
-		flags       []string
-		expected    map[string]*networktypes.EndpointSettings
-		expectedCfg container.HostConfig
-		expectedErr string
+		name            string
+		flags           []string
+		expected        map[string]*networktypes.EndpointSettings
+		expectedHostCfg container.HostConfig
+		expectedErr     string
 	}{
 		{
-			name:        "single-network-legacy",
-			flags:       []string{"--network", "net1"},
-			expected:    map[string]*networktypes.EndpointSettings{},
-			expectedCfg: container.HostConfig{NetworkMode: "net1"},
+			name:            "single-network-legacy",
+			flags:           []string{"--network", "net1"},
+			expected:        map[string]*networktypes.EndpointSettings{},
+			expectedHostCfg: container.HostConfig{NetworkMode: "net1"},
 		},
 		{
-			name:        "single-network-advanced",
-			flags:       []string{"--network", "name=net1"},
-			expected:    map[string]*networktypes.EndpointSettings{},
-			expectedCfg: container.HostConfig{NetworkMode: "net1"},
+			name:            "single-network-advanced",
+			flags:           []string{"--network", "name=net1"},
+			expected:        map[string]*networktypes.EndpointSettings{},
+			expectedHostCfg: container.HostConfig{NetworkMode: "net1"},
 		},
 		{
 			name: "single-network-legacy-with-options",
@@ -500,15 +620,15 @@ func TestParseNetworkConfig(t *testing.T) {
 			expected: map[string]*networktypes.EndpointSettings{
 				"net1": {
 					IPAMConfig: &networktypes.EndpointIPAMConfig{
-						IPv4Address:  "172.20.88.22",
-						IPv6Address:  "2001:db8::8822",
-						LinkLocalIPs: []string{"169.254.2.2", "fe80::169:254:2:2"},
+						IPv4Address:  netip.MustParseAddr("172.20.88.22"),
+						IPv6Address:  netip.MustParseAddr("2001:db8::8822"),
+						LinkLocalIPs: []netip.Addr{netip.MustParseAddr("169.254.2.2"), netip.MustParseAddr("fe80::169:254:2:2")},
 					},
 					Links:   []string{"foo:bar", "bar:baz"},
 					Aliases: []string{"web1", "web2"},
 				},
 			},
-			expectedCfg: container.HostConfig{NetworkMode: "net1"},
+			expectedHostCfg: container.HostConfig{NetworkMode: "net1"},
 		},
 		{
 			name: "multiple-network-advanced-mixed",
@@ -524,14 +644,15 @@ func TestParseNetworkConfig(t *testing.T) {
 				"--network-alias", "web2",
 				"--network", "net2",
 				"--network", "name=net3,alias=web3,driver-opt=field3=value3,ip=172.20.88.22,ip6=2001:db8::8822",
+				"--network", "name=net4,mac-address=02:32:1c:23:00:04,link-local-ip=169.254.169.254",
 			},
 			expected: map[string]*networktypes.EndpointSettings{
 				"net1": {
 					DriverOpts: map[string]string{"field1": "value1"},
 					IPAMConfig: &networktypes.EndpointIPAMConfig{
-						IPv4Address:  "172.20.88.22",
-						IPv6Address:  "2001:db8::8822",
-						LinkLocalIPs: []string{"169.254.2.2", "fe80::169:254:2:2"},
+						IPv4Address:  netip.MustParseAddr("172.20.88.22"),
+						IPv6Address:  netip.MustParseAddr("2001:db8::8822"),
+						LinkLocalIPs: []netip.Addr{netip.MustParseAddr("169.254.2.2"), netip.MustParseAddr("fe80::169:254:2:2")},
 					},
 					Links:   []string{"foo:bar", "bar:baz"},
 					Aliases: []string{"web1", "web2"},
@@ -540,17 +661,23 @@ func TestParseNetworkConfig(t *testing.T) {
 				"net3": {
 					DriverOpts: map[string]string{"field3": "value3"},
 					IPAMConfig: &networktypes.EndpointIPAMConfig{
-						IPv4Address: "172.20.88.22",
-						IPv6Address: "2001:db8::8822",
+						IPv4Address: netip.MustParseAddr("172.20.88.22"),
+						IPv6Address: netip.MustParseAddr("2001:db8::8822"),
 					},
 					Aliases: []string{"web3"},
 				},
+				"net4": {
+					MacAddress: mustParseMAC("02:32:1c:23:00:04"),
+					IPAMConfig: &networktypes.EndpointIPAMConfig{
+						LinkLocalIPs: []netip.Addr{netip.MustParseAddr("169.254.169.254")},
+					},
+				},
 			},
-			expectedCfg: container.HostConfig{NetworkMode: "net1"},
+			expectedHostCfg: container.HostConfig{NetworkMode: "net1"},
 		},
 		{
 			name:  "single-network-advanced-with-options",
-			flags: []string{"--network", "name=net1,alias=web1,alias=web2,driver-opt=field1=value1,driver-opt=field2=value2,ip=172.20.88.22,ip6=2001:db8::8822"},
+			flags: []string{"--network", "name=net1,alias=web1,alias=web2,driver-opt=field1=value1,driver-opt=field2=value2,ip=172.20.88.22,ip6=2001:db8::8822,mac-address=02:32:1c:23:00:04"},
 			expected: map[string]*networktypes.EndpointSettings{
 				"net1": {
 					DriverOpts: map[string]string{
@@ -558,19 +685,31 @@ func TestParseNetworkConfig(t *testing.T) {
 						"field2": "value2",
 					},
 					IPAMConfig: &networktypes.EndpointIPAMConfig{
-						IPv4Address: "172.20.88.22",
-						IPv6Address: "2001:db8::8822",
+						IPv4Address: netip.MustParseAddr("172.20.88.22"),
+						IPv6Address: netip.MustParseAddr("2001:db8::8822"),
 					},
-					Aliases: []string{"web1", "web2"},
+					Aliases:    []string{"web1", "web2"},
+					MacAddress: mustParseMAC("02:32:1c:23:00:04"),
 				},
 			},
-			expectedCfg: container.HostConfig{NetworkMode: "net1"},
+			expectedHostCfg: container.HostConfig{NetworkMode: "net1"},
 		},
 		{
-			name:        "multiple-networks",
-			flags:       []string{"--network", "net1", "--network", "name=net2"},
-			expected:    map[string]*networktypes.EndpointSettings{"net1": {}, "net2": {}},
-			expectedCfg: container.HostConfig{NetworkMode: "net1"},
+			name:            "multiple-networks",
+			flags:           []string{"--network", "net1", "--network", "name=net2"},
+			expected:        map[string]*networktypes.EndpointSettings{"net1": {}, "net2": {}},
+			expectedHostCfg: container.HostConfig{NetworkMode: "net1"},
+		},
+		{
+			name:  "advanced-options-with-standalone-mac-address-flag",
+			flags: []string{"--network=name=net1,alias=foobar", "--mac-address", "52:0f:f3:dc:50:10"},
+			expected: map[string]*networktypes.EndpointSettings{
+				"net1": {
+					Aliases:    []string{"foobar"},
+					MacAddress: mustParseMAC("52:0f:f3:dc:50:10"),
+				},
+			},
+			expectedHostCfg: container.HostConfig{NetworkMode: "net1"},
 		},
 		{
 			name:        "conflict-network",
@@ -592,13 +731,26 @@ func TestParseNetworkConfig(t *testing.T) {
 			flags:       []string{"--network", "name=net1,ip=172.20.88.22,ip6=2001:db8::8822", "--ip6", "2001:db8::8822"},
 			expectedErr: `conflicting options: cannot specify both --ip6 and per-network IPv6 address`,
 		},
-		// case is skipped as it fails w/o any change
-		//
-		//{
-		//	name:        "invalid-mixed-network-types",
-		//	flags:       []string{"--network", "name=host", "--network", "net1"},
-		//	expectedErr: `conflicting options: cannot attach both user-defined and non-user-defined network-modes`,
-		//},
+		{
+			name:        "invalid-mixed-network-types",
+			flags:       []string{"--network", "name=host", "--network", "net1"},
+			expectedErr: `conflicting options: cannot attach both user-defined and non-user-defined network-modes`,
+		},
+		{
+			name:        "conflict-options-link-local-ip",
+			flags:       []string{"--network", "name=net1,link-local-ip=169.254.169.254", "--link-local-ip", "169.254.10.8"},
+			expectedErr: `conflicting options: cannot specify both --link-local-ip and per-network link-local IP addresses`,
+		},
+		{
+			name:        "conflict-options-mac-address",
+			flags:       []string{"--network", "name=net1,mac-address=02:32:1c:23:00:04", "--mac-address", "02:32:1c:23:00:04"},
+			expectedErr: `conflicting options: cannot specify both --mac-address and per-network MAC address`,
+		},
+		{
+			name:        "invalid-mac-address",
+			flags:       []string{"--network", "name=net1,mac-address=foobar"},
+			expectedErr: "foobar is not a valid mac address",
+		},
 	}
 
 	for _, tc := range tests {
@@ -611,8 +763,8 @@ func TestParseNetworkConfig(t *testing.T) {
 			}
 
 			assert.NilError(t, err)
-			assert.DeepEqual(t, hConfig.NetworkMode, tc.expectedCfg.NetworkMode)
-			assert.DeepEqual(t, nwConfig.EndpointsConfig, tc.expected)
+			assert.DeepEqual(t, hConfig.NetworkMode, tc.expectedHostCfg.NetworkMode)
+			assert.DeepEqual(t, nwConfig.EndpointsConfig, tc.expected, cmpopts.EquateComparable(netip.Addr{}))
 		})
 	}
 }
@@ -661,43 +813,81 @@ func TestRunFlagsParseShmSize(t *testing.T) {
 }
 
 func TestParseRestartPolicy(t *testing.T) {
-	invalids := map[string]string{
-		"always:2:3":         "invalid restart policy format: maximum retry count must be an integer",
-		"on-failure:invalid": "invalid restart policy format: maximum retry count must be an integer",
-	}
-	valids := map[string]container.RestartPolicy{
-		"": {},
-		"always": {
-			Name:              "always",
-			MaximumRetryCount: 0,
+	tests := []struct {
+		input       string
+		expected    container.RestartPolicy
+		expectedErr string
+	}{
+		{
+			input: "",
 		},
-		"on-failure:1": {
-			Name:              "on-failure",
-			MaximumRetryCount: 1,
+		{
+			input: "no",
+			expected: container.RestartPolicy{
+				Name: container.RestartPolicyDisabled,
+			},
+		},
+		{
+			input:       ":1",
+			expectedErr: "invalid restart policy format: no policy provided before colon",
+		},
+		{
+			input: "always",
+			expected: container.RestartPolicy{
+				Name: container.RestartPolicyAlways,
+			},
+		},
+		{
+			input: "always:1",
+			expected: container.RestartPolicy{
+				Name:              container.RestartPolicyAlways,
+				MaximumRetryCount: 1,
+			},
+		},
+		{
+			input:       "always:2:3",
+			expectedErr: "invalid restart policy format: maximum retry count must be an integer",
+		},
+		{
+			input: "on-failure:1",
+			expected: container.RestartPolicy{
+				Name:              container.RestartPolicyOnFailure,
+				MaximumRetryCount: 1,
+			},
+		},
+		{
+			input:       "on-failure:invalid",
+			expectedErr: "invalid restart policy format: maximum retry count must be an integer",
+		},
+		{
+			input: "unless-stopped",
+			expected: container.RestartPolicy{
+				Name: container.RestartPolicyUnlessStopped,
+			},
+		},
+		{
+			input:       "unless-stopped:invalid",
+			expectedErr: "invalid restart policy format: maximum retry count must be an integer",
 		},
 	}
-	for restart, expectedError := range invalids {
-		if _, _, _, err := parseRun([]string{fmt.Sprintf("--restart=%s", restart), "img", "cmd"}); err == nil || err.Error() != expectedError {
-			t.Fatalf("Expected an error with message '%v' for %v, got %v", expectedError, restart, err)
-		}
-	}
-	for restart, expected := range valids {
-		_, hostconfig, _, err := parseRun([]string{fmt.Sprintf("--restart=%v", restart), "img", "cmd"})
-		if err != nil {
-			t.Fatal(err)
-		}
-		if hostconfig.RestartPolicy != expected {
-			t.Fatalf("Expected %v, got %v", expected, hostconfig.RestartPolicy)
-		}
+	for _, tc := range tests {
+		t.Run(tc.input, func(t *testing.T) {
+			_, hostConfig, _, err := parseRun([]string{"--restart=" + tc.input, "img", "cmd"})
+			if tc.expectedErr != "" {
+				assert.Check(t, is.Error(err, tc.expectedErr))
+				assert.Check(t, is.Nil(hostConfig))
+			} else {
+				assert.NilError(t, err)
+				assert.Check(t, is.DeepEqual(hostConfig.RestartPolicy, tc.expected))
+			}
+		})
 	}
 }
 
 func TestParseRestartPolicyAutoRemove(t *testing.T) {
-	expected := "Conflicting options: --restart and --rm"
 	_, _, _, err := parseRun([]string{"--rm", "--restart=always", "img", "cmd"}) //nolint:dogsled
-	if err == nil || err.Error() != expected {
-		t.Fatalf("Expected error %v, but got none", expected)
-	}
+	const expected = "conflicting options: cannot specify both --restart and --rm"
+	assert.Check(t, is.Error(err, expected))
 }
 
 func TestParseHealth(t *testing.T) {
@@ -733,8 +923,8 @@ func TestParseHealth(t *testing.T) {
 	checkError("--no-healthcheck conflicts with --health-* options",
 		"--no-healthcheck", "--health-cmd=/check.sh -q", "img", "cmd")
 
-	health = checkOk("--health-timeout=2s", "--health-retries=3", "--health-interval=4.5s", "--health-start-period=5s", "img", "cmd")
-	if health.Timeout != 2*time.Second || health.Retries != 3 || health.Interval != 4500*time.Millisecond || health.StartPeriod != 5*time.Second {
+	health = checkOk("--health-timeout=2s", "--health-retries=3", "--health-interval=4.5s", "--health-start-period=5s", "--health-start-interval=1s", "img", "cmd")
+	if health.Timeout != 2*time.Second || health.Retries != 3 || health.Interval != 4500*time.Millisecond || health.StartPeriod != 5*time.Second || health.StartInterval != 1*time.Second {
 		t.Fatalf("--health-*: got %#v", health)
 	}
 }
@@ -797,7 +987,7 @@ func TestParseEnvfileVariablesWithBOMUnicode(t *testing.T) {
 	}
 
 	// UTF16 with BOM
-	e := "invalid env file"
+	e := "invalid utf8 bytes at line"
 	if _, _, _, err := parseRun([]string{"--env-file=testdata/utf16.env", "img", "cmd"}); err == nil || !strings.Contains(err.Error(), e) {
 		t.Fatalf("Expected an error with message '%s', got %v", e, err)
 	}
@@ -835,12 +1025,8 @@ func TestParseLabelfileVariables(t *testing.T) {
 
 func TestParseEntryPoint(t *testing.T) {
 	config, _, _, err := parseRun([]string{"--entrypoint=anything", "cmd", "img"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(config.Entrypoint) != 1 && config.Entrypoint[0] != "anything" {
-		t.Fatalf("Expected entrypoint 'anything', got %v", config.Entrypoint)
-	}
+	assert.NilError(t, err)
+	assert.Check(t, is.DeepEqual(config.Entrypoint, []string{"anything"}))
 }
 
 func TestValidateDevice(t *testing.T) {
@@ -887,10 +1073,8 @@ func TestValidateDevice(t *testing.T) {
 	for path, expectedError := range invalid {
 		if _, err := validateDevice(path, runtime.GOOS); err == nil {
 			t.Fatalf("ValidateDevice(`%q`) should have failed validation", path)
-		} else {
-			if err.Error() != expectedError {
-				t.Fatalf("ValidateDevice(`%q`) error should contain %q, got %q", path, expectedError, err.Error())
-			}
+		} else if err.Error() != expectedError {
+			t.Fatalf("ValidateDevice(`%q`) error should contain %q, got %q", path, expectedError, err.Error())
 		}
 	}
 }
@@ -966,7 +1150,6 @@ func TestConvertToStandardNotation(t *testing.T) {
 
 	for key, ports := range valid {
 		convertedPorts, err := convertToStandardNotation(ports)
-
 		if err != nil {
 			assert.NilError(t, err)
 		}

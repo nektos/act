@@ -34,6 +34,32 @@ func TestFindGitSlug(t *testing.T) {
 		{"http://github.com/nektos/act", "GitHub", "nektos/act"},
 		{"git+ssh://git@github.com/owner/repo.git", "GitHub", "owner/repo"},
 		{"http://myotherrepo.com/act.git", "", "http://myotherrepo.com/act.git"},
+		// secretlint-disable-next-line @secretlint/secretlint-rule-basicauth
+		{"https://x-access-token:abc@github.com/owner/repo.git", "GitHub", "owner/repo"},
+		{"ssh://git@github.com/owner/repo", "GitHub", "owner/repo"},
+		{"https://github.com:443/owner/repo.git", "GitHub", "owner/repo"},
+		{"git://github.com/owner/repo.git", "GitHub", "owner/repo"},
+		{"ssh://git@github.com:22/owner/repo.git", "GitHub", "owner/repo"},
+		{"ssh://git@ssh.github.com:443/owner/repo.git", "GitHub", "owner/repo"},
+		{"git@ssh.github.com:owner/repo.git", "GitHub", "owner/repo"},
+		{"https://ssh.github.com/owner/repo", "", "https://ssh.github.com/owner/repo"},
+		{"https://github.com:evil.test/owner/repo", "", "https://github.com:evil.test/owner/repo"},
+		{"ssh://git@github.com:22.evil.test/owner/repo", "", "ssh://git@github.com:22.evil.test/owner/repo"},
+		{"git://evil.test/github.com/owner/repo", "", "git://evil.test/github.com/owner/repo"},
+		{"https://evil.test?x=@github.com:443/owner/repo", "", "https://evil.test?x=@github.com:443/owner/repo"},
+		{"https://evil.test#@github.com/owner/repo", "", "https://evil.test#@github.com/owner/repo"},
+		{"ssh://evil.test?x=@github.com/owner/repo", "", "ssh://evil.test?x=@github.com/owner/repo"},
+		{"git://evil.test?x=@github.com/owner/repo", "", "git://evil.test?x=@github.com/owner/repo"},
+		{"git://evil.test#@github.com/owner/repo", "", "git://evil.test#@github.com/owner/repo"},
+		{"evil.test?x=@github.com:owner/repo", "", "evil.test?x=@github.com:owner/repo"},
+		{"https://evilgithub.com/owner/repo", "", "https://evilgithub.com/owner/repo"},
+		{"https://github.com.evil.test/owner/repo", "", "https://github.com.evil.test/owner/repo"},
+		{"https://evil.test/github.com/owner/repo", "", "https://evil.test/github.com/owner/repo"},
+		{"https://githubXcom/owner/repo", "", "https://githubXcom/owner/repo"},
+		{"git@evil.test:github.com/owner/repo", "", "git@evil.test:github.com/owner/repo"},
+		{"git@github.com.evil.test:owner/repo", "", "git@github.com.evil.test:owner/repo"},
+		{"https://git-codecommit.us-east-1Xamazonaws.com/v1/repos/r", "", "https://git-codecommit.us-east-1Xamazonaws.com/v1/repos/r"},
+		{"https://git-codecommit.us-east-1.amazonaws.com.evil.test/v1/repos/r", "", "https://git-codecommit.us-east-1.amazonaws.com.evil.test/v1/repos/r"},
 	}
 
 	for _, tt := range slugTests {
@@ -42,6 +68,81 @@ func TestFindGitSlug(t *testing.T) {
 		assert.NoError(err)
 		assert.Equal(tt.provider, provider)
 		assert.Equal(tt.slug, slug)
+	}
+}
+
+func TestFindGitSlugEnterprise(t *testing.T) {
+	for url, want := range map[string]string{
+		"https://ghe.example.com/owner/repo.git":     "owner/repo",
+		"git@ghe.example.com:owner/repo.git":         "owner/repo",
+		"https://ghe.example.com:8443/owner/repo":    "owner/repo",
+		"ssh://git@ghe.example.com:2222/owner/repo":  "owner/repo",
+		"https://gheXexample.com/owner/repo":         "",
+		"https://ghe.example.com.evil.test/owner/re": "",
+	} {
+		provider, slug, err := findGitSlug(url, "ghe.example.com")
+		assert.NoError(t, err)
+		assertEnterpriseSlug(t, url, want, provider, slug)
+	}
+
+	// The instance can include the HTTPS port; SSH remotes use their own port.
+	for url, want := range map[string]string{
+		"https://ghe.example.com:8443/owner/repo":       "owner/repo",
+		"ssh://git@ghe.example.com:2222/owner/repo":     "owner/repo",
+		"ssh://git@ghe.example.com/owner/repo.git":      "owner/repo",
+		"git@ghe.example.com:owner/repo.git":            "owner/repo",
+		"https://ghe.example.com:8443.evil.test/o/r":    "",
+		"https://ghe.example.com:9443/owner/repo":       "",
+		"ssh://git@ghe.example.com.evil.test:2222/o/r":  "",
+		"https://evil.test?x=@ghe.example.com:8443/o/r": "",
+	} {
+		provider, slug, err := findGitSlug(url, "ghe.example.com:8443")
+		assert.NoError(t, err)
+		assertEnterpriseSlug(t, url, want, provider, slug)
+	}
+
+	// IPv6 literals keep their brackets after the HTTPS port is removed.
+	for url, want := range map[string]string{
+		"https://[2001:db8::1]:8443/owner/repo":        "owner/repo",
+		"ssh://git@[2001:db8::1]:8443/owner/repo":      "owner/repo",
+		"ssh://git@[2001:db8::1]:2222/owner/repo":      "owner/repo",
+		"ssh://git@[2001:db8::1]/owner/repo.git":       "owner/repo",
+		"git://[2001:db8::1]/owner/repo.git":           "owner/repo",
+		"git@[2001:db8::1]:owner/repo.git":             "owner/repo",
+		"https://[2001:db8::1]:2222/owner/repo":        "",
+		"ssh://git@[2001:db8::12]:8443/owner/repo":     "",
+		"ssh://git@[2001:db8::1].evil.test/owner/repo": "",
+		"ssh://git@[2001:db8::1]:8443.evil/owner/repo": "",
+		"https://evil.test?x=@[2001:db8::1]:8443/o/r":  "",
+		"ssh://git@2001:db8::1:8443/owner/repo":        "",
+	} {
+		provider, slug, err := findGitSlug(url, "[2001:db8::1]:8443")
+		assert.NoError(t, err)
+		assertEnterpriseSlug(t, url, want, provider, slug)
+	}
+
+	// An instance with no port is already bracketed; SplitHostPort must not
+	// strip those brackets on the error path.
+	for url, want := range map[string]string{
+		"ssh://git@[2001:db8::1]/owner/repo":      "owner/repo",
+		"https://[2001:db8::1]/owner/repo.git":    "owner/repo",
+		"ssh://git@[2001:db8::1]:2222/owner/repo": "owner/repo",
+		"ssh://git@[2001:db8::2]/owner/repo":      "",
+	} {
+		provider, slug, err := findGitSlug(url, "[2001:db8::1]")
+		assert.NoError(t, err)
+		assertEnterpriseSlug(t, url, want, provider, slug)
+	}
+}
+
+func assertEnterpriseSlug(t *testing.T, url, want, provider, slug string) {
+	t.Helper()
+	if want == "" {
+		assert.Equal(t, "", provider, url)
+		assert.Equal(t, url, slug)
+	} else {
+		assert.Equal(t, "GitHubEnterprise", provider, url)
+		assert.Equal(t, want, slug, url)
 	}
 }
 

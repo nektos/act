@@ -21,6 +21,9 @@
 # Path for actions cache created when running tests
 pkg/runner/act/
 
+# Sample actions install nothing. Do not commit a node_modules tree.
+pkg/runner/testdata/**/node_modules/
+
 # act binary
 dist/local/act
 

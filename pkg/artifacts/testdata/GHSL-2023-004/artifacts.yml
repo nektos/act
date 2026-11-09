@@ -1,5 +1,4 @@
-
-name: "GHSL-2023-0004"
+name: "artifact path validation"
 on: push
 
 jobs:
@@ -7,33 +6,40 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: echo "hello world" > test.txt
-      - name: curl upload
-        run: curl --silent --show-error --fail ${ACTIONS_RUNTIME_URL}upload/1?itemPath=../../my-artifact/secret.txt --upload-file test.txt
+      - name: unauthenticated upload is rejected
+        run: |
+          code=$(curl --silent --output /dev/null --write-out '%{http_code}' --upload-file test.txt "${ACTIONS_RUNTIME_URL}upload/1?itemPath=my-artifact/secret.txt")
+          [ "$code" = "401" ]
+      - name: traversal upload is rejected
+        run: |
+          code=$(curl --silent --output /dev/null --write-out '%{http_code}' -H "Authorization: Bearer ${ACTIONS_RUNTIME_TOKEN}" --upload-file test.txt "${ACTIONS_RUNTIME_URL}upload/1?itemPath=../../my-artifact/secret.txt")
+          [ "$code" = "400" ]
+      - name: normal upload
+        run: |
+          curl --silent --show-error --fail -H "Authorization: Bearer ${ACTIONS_RUNTIME_TOKEN}" --upload-file test.txt "${ACTIONS_RUNTIME_URL}upload/1?itemPath=my-artifact/secret.txt"
       - uses: actions/download-artifact@v2
         with:
           name: my-artifact
           path: test-artifacts
-      - name: 'Verify Artifact #1'
+      - name: verify artifact
         run: |
           file="test-artifacts/secret.txt"
-          if [ ! -f $file ] ; then
+          if [ ! -f "$file" ]; then
             echo "Expected file does not exist"
             exit 1
           fi
-          if [ "$(cat $file)" != "hello world" ] ; then
+          if [ "$(cat "$file")" != "hello world" ]; then
             echo "File contents of downloaded artifact are incorrect"
             exit 1
           fi
-      - name: Verify download should work by clean extra dots
-        run: curl --silent --show-error --fail --path-as-is -o out.txt ${ACTIONS_RUNTIME_URL}artifact/1/../../../1/my-artifact/secret.txt
-      - name: 'Verify download content'
+      - name: traversal download is rejected
         run: |
-          file="out.txt"
-          if [ ! -f $file ] ; then
-            echo "Expected file does not exist"
-            exit 1
-          fi
-          if [ "$(cat $file)" != "hello world" ] ; then
+          code=$(curl --silent --output /dev/null --write-out '%{http_code}' --path-as-is -H "Authorization: Bearer ${ACTIONS_RUNTIME_TOKEN}" "${ACTIONS_RUNTIME_URL}artifact/1/../../../1/my-artifact/secret.txt")
+          [ "$code" = "400" ]
+      - name: normal download
+        run: |
+          curl --silent --show-error --fail --path-as-is -H "Authorization: Bearer ${ACTIONS_RUNTIME_TOKEN}" -o out.txt "${ACTIONS_RUNTIME_URL}artifact/1/my-artifact/secret.txt"
+          if [ "$(cat out.txt)" != "hello world" ]; then
             echo "File contents of downloaded artifact are incorrect"
             exit 1
           fi

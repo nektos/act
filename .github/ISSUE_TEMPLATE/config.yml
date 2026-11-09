@@ -1,8 +1,11 @@
-blank_issues_enabled: true
+blank_issues_enabled: false
 contact_links:
-  - name: Start a discussion
-    url: https://github.com/nektos/act/discussions/new
-    about: You can ask for help here!
+  - name: Ask a question
+    url: https://github.com/nektos/act/discussions/new/choose
+    about: Questions and how-to requests belong in GitHub Discussions, not issues.
+  - name: Documentation
+    url: https://nektosact.com
+    about: Read the act user guide before opening an issue.
   - name: Want to contribute to act?
-    url: https://github.com/nektos/act/blob/master/CONTRIBUTING.md
-    about: Be sure to read contributing guidelines!
+    url: https://github.com/nektos/act/blob/main/CONTRIBUTING.md
+    about: Read the contributing guidelines before opening a pull request.

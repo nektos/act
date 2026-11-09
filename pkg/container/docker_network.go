@@ -5,7 +5,7 @@ package container
 import (
 	"context"
 
-	"github.com/docker/docker/api/types/network"
+	"github.com/moby/moby/client"
 	"github.com/nektos/act/pkg/common"
 )
 
@@ -18,19 +18,19 @@ func NewDockerNetworkCreateExecutor(name string) common.Executor {
 		defer cli.Close()
 
 		// Only create the network if it doesn't exist
-		networks, err := cli.NetworkList(ctx, network.ListOptions{})
+		networks, err := cli.NetworkList(ctx, client.NetworkListOptions{})
 		if err != nil {
 			return err
 		}
 		common.Logger(ctx).Debugf("%v", networks)
-		for _, network := range networks {
+		for _, network := range networks.Items {
 			if network.Name == name {
 				common.Logger(ctx).Debugf("Network %v exists", name)
 				return nil
 			}
 		}
 
-		_, err = cli.NetworkCreate(ctx, name, network.CreateOptions{
+		_, err = cli.NetworkCreate(ctx, name, client.NetworkCreateOptions{
 			Driver: "bridge",
 			Scope:  "local",
 		})
@@ -52,20 +52,20 @@ func NewDockerNetworkRemoveExecutor(name string) common.Executor {
 
 		// Make sure that all network of the specified name are removed
 		// cli.NetworkRemove refuses to remove a network if there are duplicates
-		networks, err := cli.NetworkList(ctx, network.ListOptions{})
+		networks, err := cli.NetworkList(ctx, client.NetworkListOptions{})
 		if err != nil {
 			return err
 		}
 		common.Logger(ctx).Debugf("%v", networks)
-		for _, net := range networks {
+		for _, net := range networks.Items {
 			if net.Name == name {
-				result, err := cli.NetworkInspect(ctx, net.ID, network.InspectOptions{})
+				result, err := cli.NetworkInspect(ctx, net.ID, client.NetworkInspectOptions{})
 				if err != nil {
 					return err
 				}
 
-				if len(result.Containers) == 0 {
-					if err = cli.NetworkRemove(ctx, net.ID); err != nil {
+				if len(result.Network.Containers) == 0 {
+					if _, err = cli.NetworkRemove(ctx, net.ID, client.NetworkRemoveOptions{}); err != nil {
 						common.Logger(ctx).Debugf("%v", err)
 					}
 				} else {

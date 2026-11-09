@@ -77,8 +77,11 @@ func readActionImpl(ctx context.Context, step *model.Step, actionDir string, act
 					if b, err = trampoline.ReadFile("res/trampoline.js"); err != nil {
 						return nil, err
 					}
-					err2 := writeFile(filepath.Join(actionDir, actionPath, "trampoline.js"), b, 0o400)
+					dest, err2 := joinUnder(actionDir, path.Join(strings.ReplaceAll(actionPath, "\\", "/"), "trampoline.js"))
 					if err2 != nil {
+						return nil, err2
+					}
+					if err2 = writeFile(dest, b, 0o400); err2 != nil {
 						return nil, err2
 					}
 					action := &model.Action{
@@ -262,7 +265,25 @@ func execAsDocker(ctx context.Context, step actionStep, actionName, basedir, sub
 		image = fmt.Sprintf("%s-dockeraction:%s", regexp.MustCompile("[^a-zA-Z0-9]").ReplaceAllString(actionName, "-"), "latest")
 		image = fmt.Sprintf("act-%s", strings.TrimLeft(image, "-"))
 		image = strings.ToLower(image)
-		contextDir, fileName := path.Split(path.Join(subpath, action.Runs.Image))
+		contextDir, fileName, err := resolveDockerContext(subpath, action.Runs.Image, localAction)
+		if err != nil {
+			return err
+		}
+		hostContext := contextDir
+		if !localAction {
+			hostContext, err = joinUnder(basedir, strings.TrimSuffix(contextDir, "/"))
+			if err != nil {
+				return err
+			}
+		}
+		if localAction {
+			err = rejectHostContextEscape(localActionWorkspace(rc), contextDir)
+		} else if rc.Config.ActionCache == nil {
+			err = rejectHostContextEscape(basedir, hostContext)
+		}
+		if err != nil {
+			return err
+		}
 
 		anyArchExists, err := container.ImageExistsLocally(ctx, image, "any")
 		if err != nil {
@@ -285,7 +306,7 @@ func execAsDocker(ctx context.Context, step actionStep, actionName, basedir, sub
 		}
 
 		if !correctArchExists || rc.Config.ForceRebuild {
-			logger.Debugf("image '%s' for architecture '%s' will be built from context '%s", image, rc.Config.ContainerArchitecture, contextDir)
+			logger.Debugf("image '%s' for architecture '%s' will be built from context '%s", image, rc.Config.ContainerArchitecture, hostContext)
 			var buildContext io.ReadCloser
 			if localAction {
 				buildContext, err = rc.JobContainer.GetContainerArchive(ctx, contextDir+"/.")
@@ -302,7 +323,7 @@ func execAsDocker(ctx context.Context, step actionStep, actionName, basedir, sub
 				defer buildContext.Close()
 			}
 			prepImage = container.NewDockerBuildExecutor(container.NewDockerBuildExecutorInput{
-				ContextDir:   filepath.Join(basedir, contextDir),
+				ContextDir:   hostContext,
 				Dockerfile:   fileName,
 				ImageTag:     image,
 				BuildContext: buildContext,
@@ -535,7 +556,11 @@ func runPreStep(step actionStep) common.Executor {
 			actionDir = fmt.Sprintf("%s/%s", rc.ActionCacheDir(), safeFilename(stepModel.Uses))
 			remoteAction = remote
 		} else {
-			actionDir = filepath.Join(rc.Config.Workdir, stepModel.Uses)
+			var resolveErr error
+			actionDir, resolveErr = resolveLocalActionDir(rc.Config.Workdir, stepModel.Uses)
+			if resolveErr != nil {
+				return resolveErr
+			}
 			actionPath = ""
 		}
 
@@ -639,7 +664,11 @@ func runPostStep(step actionStep) common.Executor {
 			actionDir = fmt.Sprintf("%s/%s", rc.ActionCacheDir(), safeFilename(stepModel.Uses))
 			remoteAction = remote
 		} else {
-			actionDir = filepath.Join(rc.Config.Workdir, stepModel.Uses)
+			var resolveErr error
+			actionDir, resolveErr = resolveLocalActionDir(rc.Config.Workdir, stepModel.Uses)
+			if resolveErr != nil {
+				return resolveErr
+			}
 			actionPath = ""
 		}
 

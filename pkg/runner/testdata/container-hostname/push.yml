@@ -9,7 +9,7 @@ jobs:
   with-hostname:
     runs-on: ubuntu-latest
     container:
-      image: node:16-buster-slim
+      image: node:24-bookworm-slim
       options: "--hostname my.host.local --user 100:101"
     steps:
       - run: |
@@ -21,7 +21,7 @@ jobs:
   default-hostname:
     runs-on: ubuntu-latest
     container:
-      image: node:16-buster-slim
+      image: node:24-bookworm-slim
     steps:
       - run: |
           echo "UID: $(id -u)"

@@ -5,6 +5,9 @@ before:
 builds:
   - env:
       - CGO_ENABLED=0
+    # The version comes from the release tag; the VERSION file is not bumped.
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
     goos:
       - darwin
       - linux
@@ -50,3 +53,7 @@ changelog:
 release:
   prerelease: auto
   mode: append
+  # release.yml publishes the draft after the provenance attestation step.
+  draft: true
+  use_existing_draft: true
+  replace_existing_artifacts: true

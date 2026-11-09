@@ -3,12 +3,18 @@
 # Please see the documentation for all configuration options:
 # https://docs.github.com/github/administering-a-repository/configuration-options-for-dependency-updates
 
+# cooldown delays version updates until a release has aged, so a compromised
+# release has time to be caught. It does not delay security updates.
 version: 2
 updates:
   - package-ecosystem: 'github-actions'
-    directory: '/'
+    directories:
+      - '/'
+      - '/.github/actions/*'
     schedule:
       interval: 'monthly'
+    cooldown:
+      default-days: 7
     groups:
       dependencies:
         patterns:
@@ -17,6 +23,37 @@ updates:
     directory: '/'
     schedule:
       interval: 'monthly'
+    cooldown:
+      default-days: 7
+    groups:
+      dependencies:
+        patterns:
+        - '*'
+  - package-ecosystem: 'docker'
+    directories:
+      - '/.cursor'
+      - '/.github/actions/choco'
+      - '/.github/ci/fixtures'
+    schedule:
+      interval: 'monthly'
+    cooldown:
+      default-days: 7
+    groups:
+      docker:
+        patterns:
+        - '*'
+  # Sample actions used by runner tests. They have no third-party packages.
+  # The same monthly schedule, cooldown, and group apply if one is added.
+  # An empty manifest does not open an update pull request.
+  - package-ecosystem: 'npm'
+    directories:
+      - '/pkg/runner/testdata/actions/node12'
+      - '/pkg/runner/testdata/actions/node16'
+      - '/pkg/runner/testdata/actions/node20'
+    schedule:
+      interval: 'monthly'
+    cooldown:
+      default-days: 7
     groups:
       dependencies:
         patterns:

@@ -10,8 +10,9 @@ import (
 	"strings"
 
 	"github.com/distribution/reference"
-	"github.com/docker/docker/api/types/image"
-	"github.com/docker/docker/api/types/registry"
+	"github.com/moby/moby/api/types/registry"
+	"github.com/moby/moby/client"
+	specs "github.com/opencontainers/image-spec/specs-go/v1"
 
 	"github.com/nektos/act/pkg/common"
 )
@@ -74,9 +75,13 @@ func NewDockerPullExecutor(input NewDockerPullExecutorInput) common.Executor {
 	}
 }
 
-func getImagePullOptions(ctx context.Context, input NewDockerPullExecutorInput) (image.PullOptions, error) {
-	imagePullOptions := image.PullOptions{
-		Platform: input.Platform,
+func getImagePullOptions(ctx context.Context, input NewDockerPullExecutorInput) (client.ImagePullOptions, error) {
+	imagePullOptions := client.ImagePullOptions{}
+	if input.Platform != "" {
+		parts := strings.SplitN(input.Platform, "/", 2)
+		if len(parts) == 2 {
+			imagePullOptions.Platforms = []specs.Platform{{OS: parts[0], Architecture: parts[1]}}
+		}
 	}
 	logger := common.Logger(ctx)
 

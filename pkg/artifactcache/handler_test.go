@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -23,7 +24,7 @@ func TestHandler(t *testing.T) {
 	handler, err := StartHandler(dir, "", "", 0, nil)
 	require.NoError(t, err)
 
-	base := fmt.Sprintf("%s%s", handler.ExternalURL(), urlBase)
+	base := fmt.Sprintf("%s%s", handler.ExternalURL(), apiPath)
 
 	defer func() {
 		t.Run("inpect db", func(t *testing.T) {
@@ -589,7 +590,7 @@ func uploadCacheNormally(t *testing.T, base, key, version string, content []byte
 
 func TestHandler_CustomExternalURL(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "artifactcache")
-	handler, err := StartHandler(dir, "", "", 0, nil)
+	handler, err := StartHandler(dir, "", "127.0.0.1", 0, nil)
 	require.NoError(t, err)
 
 	defer func() {
@@ -598,9 +599,9 @@ func TestHandler_CustomExternalURL(t *testing.T) {
 
 	handler.customExternalURL = fmt.Sprintf("http://%s:%d", "127.0.0.1", handler.GetActualPort())
 
-	assert.Equal(t, fmt.Sprintf("http://%s:%d", "127.0.0.1", handler.GetActualPort()), handler.ExternalURL())
+	assert.Equal(t, fmt.Sprintf("http://%s:%d/%s", "127.0.0.1", handler.GetActualPort(), handler.token), handler.ExternalURL())
 
-	base := fmt.Sprintf("%s%s", handler.ExternalURL(), urlBase)
+	base := fmt.Sprintf("%s%s", handler.ExternalURL(), apiPath)
 
 	t.Run("advertise url set wrong", func(t *testing.T) {
 		original := handler.customExternalURL
@@ -608,7 +609,7 @@ func TestHandler_CustomExternalURL(t *testing.T) {
 			handler.customExternalURL = original
 		}()
 		handler.customExternalURL = "http://127.0.0.999:1234"
-		assert.Equal(t, "http://127.0.0.999:1234", handler.ExternalURL())
+		assert.Equal(t, "http://127.0.0.999:1234/"+handler.token, handler.ExternalURL())
 	})
 
 	t.Run("reserve and upload", func(t *testing.T) {
@@ -728,4 +729,78 @@ func TestHandler_gcCache(t *testing.T) {
 		})
 	}
 	require.NoError(t, db.Close())
+}
+
+func TestHandler_UnauthorizedAccess(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "artifactcache")
+	handler, err := StartHandler(dir, "", "", 0, nil)
+	require.NoError(t, err)
+	defer handler.Close()
+
+	// Try accessing without the token prefix — should get 404
+	noTokenBase := fmt.Sprintf("http://%s:%d%s", handler.outboundIP, handler.GetActualPort(), apiPath)
+
+	resp, err := http.Get(fmt.Sprintf("%s/cache?keys=test&version=abc", noTokenBase))
+	require.NoError(t, err)
+	assert.Equal(t, 404, resp.StatusCode)
+	resp.Body.Close()
+
+	resp, err = http.Post(fmt.Sprintf("%s/caches", noTokenBase), "application/json", strings.NewReader("{}"))
+	require.NoError(t, err)
+	assert.Equal(t, 404, resp.StatusCode)
+	resp.Body.Close()
+}
+
+func TestUploadFailureDoesNotReportSuccess(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "artifactcache")
+	handler, err := StartHandler(dir, "", "127.0.0.1", 0, nil)
+	require.NoError(t, err)
+	defer handler.Close()
+
+	base := fmt.Sprintf("%s%s", handler.ExternalURL(), apiPath)
+	body, err := json.Marshal(&Request{
+		Key:     "upload-failure",
+		Version: "c19da02a2bd7e77277f1ac29ab45c09b7d46a4ee758284e26bb3045ad11d9d20",
+		Size:    4,
+	})
+	require.NoError(t, err)
+	resp, err := http.Post(fmt.Sprintf("%s/caches", base), "application/json", bytes.NewReader(body))
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	var reserved struct {
+		CacheID uint64 `json:"cacheId"`
+	}
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&reserved))
+	resp.Body.Close()
+
+	badRoot := filepath.Join(t.TempDir(), "not-a-directory")
+	require.NoError(t, os.WriteFile(badRoot, []byte("x"), 0o600))
+	handler.storage = &Storage{rootDir: badRoot}
+
+	req, err := http.NewRequest(http.MethodPatch, fmt.Sprintf("%s/caches/%d", base, reserved.CacheID), strings.NewReader("data"))
+	require.NoError(t, err)
+	req.Header.Set("Content-Range", "bytes 0-3/*")
+	resp, err = http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	payload, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+	dec := json.NewDecoder(bytes.NewReader(payload))
+	var decoded map[string]any
+	require.NoError(t, dec.Decode(&decoded))
+	assert.False(t, dec.More())
+	_, hasError := decoded["error"]
+	assert.True(t, hasError)
+}
+
+func TestHandler_BindAddress(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "artifactcache")
+	handler, err := StartHandler(dir, "", "127.0.0.1", 0, nil)
+	require.NoError(t, err)
+	defer handler.Close()
+
+	addr := handler.listener.Addr().String()
+	assert.True(t, strings.HasPrefix(addr, "127.0.0.1:"))
 }

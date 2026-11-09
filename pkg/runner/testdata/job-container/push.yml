@@ -5,7 +5,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     container:
-      image: node:16-buster-slim
+      image: node:24-bookworm-slim
       env:
         TEST_ENV: test-value
     steps:
@@ -13,7 +13,7 @@ jobs:
 
   test2:
     runs-on: ubuntu-latest
-    container: node:16-buster-slim
+    container: node:24-bookworm-slim
     steps:
       - run: echo ${TEST_ENV} | grep test-value
         env:

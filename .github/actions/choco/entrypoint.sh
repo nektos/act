@@ -25,7 +25,7 @@ mkdir -p tools
 cp LICENSE tools/LICENSE.txt
 cp VERIFICATION tools/VERIFICATION.txt
 cp dist/act_windows_amd64_v1/act.exe tools/
-choco pack act-cli.nuspec --version ${VERSION}
+choco pack act-cli.nuspec --version "${VERSION}"
 if [[ "$INPUT_PUSH" == "true" ]]; then
-  choco push act-cli.${VERSION}.nupkg --api-key ${INPUT_APIKEY} -s https://push.chocolatey.org/ --timeout 180
+  choco push "act-cli.${VERSION}.nupkg" --api-key "${INPUT_APIKEY}" -s https://push.chocolatey.org/ --timeout 180
 fi

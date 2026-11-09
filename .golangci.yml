@@ -1,56 +1,78 @@
-# Minimum golangci-lint version required: v1.46.0
-run:
-  timeout: 3m
+version: "2"
+
+linters:
+  enable:
+    - contextcheck
+    - copyloopvar
+    - depguard
+    - dupl
+    - gocritic
+    - gocyclo
+    - gosec
+    - importas
+    - misspell
+    - nakedret
+    - nolintlint
+    - prealloc
+    - revive
+    - unconvert
+    - whitespace
+  settings:
+    depguard:
+      rules:
+        main:
+          deny:
+            - pkg: github.com/pkg/errors
+              desc: Please use "errors" package from standard library
+            - pkg: gotest.tools/v3
+              desc: Please keep tests unified using only github.com/stretchr/testify
+            - pkg: log
+              desc: Please keep logging unified using only github.com/sirupsen/logrus
+    gocritic:
+      disabled-checks:
+        - ifElseChain
+    gocyclo:
+      min-complexity: 20
+    importas:
+      alias:
+        - pkg: github.com/sirupsen/logrus
+          alias: log
+        - pkg: github.com/stretchr/testify/assert
+          alias: assert
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      # gosec rules not enforced in v1; enable incrementally
+      - linters: [gosec]
+        text: "G101|G115|G117"
+      # staticcheck style suggestions not enforced in v1
+      - linters: [staticcheck]
+        text: "ST1005|ST1019|QF1003|QF1008|QF1012"
+      # prealloc was enabled in v1 but these findings were suppressed
+      - linters: [prealloc]
+        text: "Consider preallocating"
+    paths:
+      - report
+      - third_party$
+      - builtin$
+      - examples$
 
 issues:
-  exclude-dirs:
-    - report # megalinter results+fixes
   max-issues-per-linter: 0
   max-same-issues: 0
 
-linters-settings:
-  gocyclo:
-    # minimal code complexity to report, 30 by default (but we recommend 10-20)
-    min-complexity: 20
-  gocritic:
-    disabled-checks:
-      - ifElseChain
-  importas:
-    alias:
-      - pkg: 'github.com/sirupsen/logrus'
-        alias: log
-      - pkg: 'github.com/stretchr/testify/assert'
-        alias: assert
-  depguard:
-    rules:
-      main:
-        deny:
-          - pkg: github.com/pkg/errors
-            desc: Please use "errors" package from standard library
-          - pkg: gotest.tools/v3
-            desc: Please keep tests unified using only github.com/stretchr/testify
-          - pkg: log
-            desc: Please keep logging unified using only github.com/sirupsen/logrus
-linters:
+formatters:
   enable:
-    - gosimple
-    - staticcheck
-    - unused
-    - govet
-    - revive
-    - gocyclo
-    - gosec
-    - unconvert
-    - dupl
-    - nakedret
-    - prealloc
-    - copyloopvar
-    - gocritic
     - goimports
-    - whitespace
-    - misspell
-    - depguard
-    - importas
-    - contextcheck
-    - nolintlint
-    - revive
+  exclusions:
+    generated: lax
+    paths:
+      - report
+      - third_party$
+      - builtin$
+      - examples$

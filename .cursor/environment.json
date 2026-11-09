@@ -1,0 +1,8 @@
+{
+  "name": "act",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "user": "ubuntu",
+  "install": "go mod download"
+}

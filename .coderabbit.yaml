@@ -1,0 +1,44 @@
+# CodeRabbit configuration. https://coderabbit.ai/integrations/schema.v2.json
+language: en-US
+reviews:
+  profile: chill
+  high_level_summary: true
+  poem: false
+  # Legacy alias for auto_approvals.enabled. Leave this off.
+  request_changes_workflow: false
+  auto_review:
+    enabled: true
+    drafts: false
+    # Patterns are unanchored regexes. Anchor both names so reviews continue
+    # across the default-branch rename. Remove ^master$ once main is default.
+    base_branches:
+      - "^main$"
+      - "^master$"
+  # Exclusions only. A pattern without "!" becomes an allowlist and drops every other file.
+  path_filters:
+    - "!vendor/**"
+    - "!**/*.pb.go"
+    # Generated mocks (gomock mock_*.go, mockery *_mock.go and mocks/).
+    - "!**/mocks/**"
+    - "!**/*_mock.go"
+    - "!**/mock_*.go"
+    - "!pkg/runner/testdata/**"
+    - "!go.sum"
+    - "!dist/**"
+  path_instructions:
+    - path: "**/*.go"
+      instructions: |
+        Review for correctness first.
+        Check error handling: errors must be checked and wrapped with context, not dropped or compared only by text.
+        Look for concurrency bugs and data races, including shared maps, goroutine lifetimes, missing locks, and context cancellation.
+        Flag Docker and container resource leaks: containers, networks, volumes, and exec sessions that are started and not removed or closed.
+        Flag security issues, especially around the artifact server, secrets handling, and token exposure.
+    - path: ".github/workflows/**"
+      instructions: |
+        Require third-party actions to be pinned to a full commit SHA, with the version written in a trailing comment.
+        Require least-privilege GITHUB_TOKEN permissions. Flag write scopes the job does not need, and pull_request_target workflows that check out pull request code.
+  tools:
+    golangci-lint:
+      enabled: true
+    actionlint:
+      enabled: true

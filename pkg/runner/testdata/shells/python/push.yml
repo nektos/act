@@ -11,7 +11,7 @@ jobs:
           print(platform.python_version())
   check-container:
     runs-on: ubuntu-latest
-    container: node:16-buster
+    container: python:3.13-slim-bookworm
     steps:
       - shell: python
         run: |

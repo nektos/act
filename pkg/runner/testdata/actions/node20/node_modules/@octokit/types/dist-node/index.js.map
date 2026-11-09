@@ -1,1 +1,0 @@
-{"version":3,"file":"index.js","sources":["../dist-src/VERSION.js"],"sourcesContent":["export const VERSION = \"0.0.0-development\";\n"],"names":["VERSION"],"mappings":";;;;MAAaA,OAAO,GAAG;;;;"}

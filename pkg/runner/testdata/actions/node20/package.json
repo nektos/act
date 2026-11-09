@@ -2,21 +2,15 @@
   "name": "node20",
   "version": "1.0.0",
   "description": "",
+  "type": "module",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "ncc build index.js"
+    "build": "node --eval \"const fs=require('fs'); fs.mkdirSync('dist',{recursive:true}); fs.copyFileSync('index.js','dist/index.js');\""
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "dependencies": {
-    "@actions/core": "^1.2.6",
-    "@actions/github": "^4.0.0"
-  },
-  "devDependencies": {
-    "@vercel/ncc": "^0.24.1"
-  },
   "engines": {
     "node": ">=20"
   }

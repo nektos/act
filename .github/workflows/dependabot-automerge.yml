@@ -1,0 +1,99 @@
+name: Dependabot auto-merge
+
+# Replaces the Mergify dependabot path (author dependabot[bot], squash).
+# pull_request is required: do not switch this to pull_request_target.
+# Dependabot-triggered pull_request runs start with a read-only token;
+# the job permissions below raise only the scopes this job uses.
+# This job never checks out pull request code. dependabot/fetch-metadata
+# refuses the step unless the pull request commits were created by Dependabot.
+on:
+  pull_request:
+    # ready_for_review is not a default type. A draft that later becomes
+    # ready must rerun this workflow or auto-merge stays off.
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+    branches:
+      - main
+
+# One in-flight run per pull request. A newer synchronize cancels the older
+# attempt; that run enables auto-merge again if the update still qualifies.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  dependabot:
+    name: dependabot
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Gate on the pull request author, not github.actor. zizmor's
+    # bot-conditions audit flags github.actor as spoofable: it can name the
+    # latest actor on the branch rather than the account that opened the
+    # pull request. dependabot[bot] is still the only author that passes.
+    # head.repo excludes fork pull requests; Dependabot opens from this repo.
+    if: >-
+      github.event.pull_request.user.login == 'dependabot[bot]' &&
+      github.repository == 'nektos/act' &&
+      github.event.pull_request.head.repo.full_name == 'nektos/act'
+    permissions:
+      contents: write # squash auto-merge once required checks pass
+      pull-requests: write # read the pull request and enable auto-merge
+      issues: write # create and add the major-update label
+    steps:
+      - name: Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      # update-type is the highest semver bump in the pull request, including
+      # grouped updates and the github-actions ecosystem. semver-minor and
+      # semver-patch therefore cover Go modules and GitHub Actions minor/patch
+      # updates. A group that contains any major stays at semver-major.
+      - name: Enable auto-merge for minor and patch updates
+        if: >-
+          github.event.pull_request.draft == false &&
+          (steps.metadata.outputs.update-type == 'version-update:semver-minor' ||
+          steps.metadata.outputs.update-type == 'version-update:semver-patch')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          set -euo pipefail
+          decision="$(gh pr view "$PR_URL" --json reviewDecision --jq '.reviewDecision // ""')"
+          if [ "$decision" = "CHANGES_REQUESTED" ]; then
+            echo "Changes were requested; not enabling auto-merge."
+            exit 0
+          fi
+          if ! gh pr merge --auto --squash "$PR_URL"; then
+            method="$(gh pr view "$PR_URL" --json autoMergeRequest --jq '.autoMergeRequest.mergeMethod // ""')"
+            if [ "$method" = "SQUASH" ]; then
+              echo "Squash auto-merge is already enabled."
+              exit 0
+            fi
+            exit 1
+          fi
+
+      - name: Leave semver-major updates for human review
+        if: steps.metadata.outputs.update-type == 'version-update:semver-major'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          set -euo pipefail
+          already="$(gh pr view "$PR_URL" --json labels --jq 'any(.labels[]; .name == "major-update")')"
+          if [ "$already" = "true" ]; then
+            echo "major-update label already set."
+            exit 0
+          fi
+          gh label create major-update \
+            --color B60205 \
+            --description "Semver-major Dependabot update; needs a human review" \
+            --force
+          gh pr edit "$PR_URL" --add-label major-update
+          gh pr comment "$PR_URL" --body "This Dependabot pull request is a semver-major update, or a grouped update whose highest bump is semver-major, so auto-merge was not enabled. Minor and patch updates, including GitHub Actions minor and patch updates, are squash-merged by this workflow after required checks pass. A maintainer should review this change."

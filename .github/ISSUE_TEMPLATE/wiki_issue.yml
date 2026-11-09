@@ -1,5 +1,5 @@
 name: Wiki issue
-description: Report issue/improvement ragarding documentation (wiki)
+description: Report an issue or improvement regarding documentation (wiki)
 labels:
   - 'kind/discussion'
   - 'area/docs'

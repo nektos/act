@@ -1,0 +1,5 @@
+# JavaScript dependencies vendored for runner integration fixtures
+pkg/runner/testdata/**/node_modules
+
+# Generated protobuf sources
+*.pb.go
