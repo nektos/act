@@ -117,6 +117,7 @@ func TestEvaluateRunContext(t *testing.T) {
 		{"cancelled()", false, ""},
 		{"github.workflow", "test-workflow", ""},
 		{"github.actor", "nektos/act", ""},
+		{"github.triggering_actor", "nektos/act", ""},
 		{"github.run_id", "1", ""},
 		{"github.run_number", "1", ""},
 		{"job.status", "success", ""},
