@@ -70,7 +70,9 @@ func (rc *RunContext) commandHandler(ctx context.Context) common.LineHandler {
 			rc.addPath(ctx, arg)
 		case "debug":
 			if rc.stepDebugEnabled() {
-				defCommandLogger.Infof("  \U0001F4AC  %s", line)
+				// Only the message is masked by the log formatter, so leave out the
+				// unmasked arg/raw fields when promoting debug output to info level.
+				logger.WithField("command", command).Infof("  \U0001F4AC  %s", line)
 			} else {
 				defCommandLogger.Debugf("  \U0001F4AC  %s", line)
 			}
@@ -111,7 +113,13 @@ func (rc *RunContext) stepDebugEnabled() bool {
 		return true
 	}
 	if rc.Config != nil {
-		return isTrue(rc.Config.Secrets[name]) || isTrue(rc.Config.Vars[name]) || isTrue(rc.Config.Env[name])
+		if isTrue(rc.Config.Secrets[name]) || isTrue(rc.Config.Vars[name]) || isTrue(rc.Config.Env[name]) {
+			return true
+		}
+	}
+	// Composite actions run without secrets, so ask the parent step's context.
+	if rc.Parent != nil {
+		return rc.Parent.stepDebugEnabled()
 	}
 	return false
 }

@@ -265,3 +265,36 @@ func TestDebugCommandNotShownWhenStepDebugFalse(t *testing.T) {
 
 	a.Equal("", out)
 }
+
+func TestDebugCommandJSONLoggerMasksSecrets(t *testing.T) {
+	config := &Config{
+		JSONLogger: true,
+		Secrets:    map[string]string{"ACTIONS_STEP_DEBUG": "true", "TOKEN": "s3cr3t-value"},
+	}
+	rc := &RunContext{Config: config}
+	a := assert.New(t)
+
+	out := captureOutput(t, func() {
+		ctx := WithJobLogger(context.Background(), "0", "testjob", config, &rc.Masks, map[string]interface{}{})
+		handler := rc.commandHandler(ctx)
+		handler("::debug::token is s3cr3t-value\n")
+	})
+
+	a.Contains(out, "token is ***")
+	a.NotContains(out, "s3cr3t-value")
+}
+
+func TestDebugCommandShownInCompositeWithSecretStepDebug(t *testing.T) {
+	parent := &RunContext{Config: &Config{Secrets: map[string]string{"ACTIONS_STEP_DEBUG": "true"}}}
+	// composite run contexts get a copy of the config without secrets
+	rc := &RunContext{Config: &Config{}, Parent: parent}
+	a := assert.New(t)
+
+	out := captureOutput(t, func() {
+		ctx := WithJobLogger(context.Background(), "0", "testjob", rc.Config, &rc.Masks, map[string]interface{}{})
+		handler := rc.commandHandler(ctx)
+		handler("::debug::from composite\n")
+	})
+
+	a.Equal("[testjob]   \U0001F4AC  ::debug::from composite\n", out)
+}
