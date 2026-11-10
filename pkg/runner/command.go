@@ -69,7 +69,11 @@ func (rc *RunContext) commandHandler(ctx context.Context) common.LineHandler {
 			}
 			rc.addPath(ctx, arg)
 		case "debug":
-			defCommandLogger.Debugf("  \U0001F4AC  %s", line)
+			if rc.stepDebugEnabled() {
+				defCommandLogger.Infof("  \U0001F4AC  %s", line)
+			} else {
+				defCommandLogger.Debugf("  \U0001F4AC  %s", line)
+			}
 		case "warning":
 			defCommandLogger.Warnf("  \U0001F6A7  %s", line)
 		case "error":
@@ -94,6 +98,22 @@ func (rc *RunContext) commandHandler(ctx context.Context) common.LineHandler {
 
 		return false
 	}
+}
+
+// stepDebugEnabled reports whether step debug logging is turned on the same way
+// GitHub Actions does it: ACTIONS_STEP_DEBUG set to "true" as a secret or a
+// variable. For convenience act also honours it as an env value (--env or the
+// workflow env). When it is off, ::debug:: messages are only shown with --verbose.
+func (rc *RunContext) stepDebugEnabled() bool {
+	const name = "ACTIONS_STEP_DEBUG"
+	isTrue := func(v string) bool { return strings.EqualFold(strings.TrimSpace(v), "true") }
+	if isTrue(rc.Env[name]) {
+		return true
+	}
+	if rc.Config != nil {
+		return isTrue(rc.Config.Secrets[name]) || isTrue(rc.Config.Vars[name]) || isTrue(rc.Config.Env[name])
+	}
+	return false
 }
 
 func (rc *RunContext) setEnv(ctx context.Context, kvPairs map[string]string, arg string) {

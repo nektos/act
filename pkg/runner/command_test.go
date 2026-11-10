@@ -211,3 +211,57 @@ func TestSaveState(t *testing.T) {
 
 	assert.Equal(t, "state-value", rc.IntraActionState["step"]["state-name"])
 }
+
+func TestDebugCommandHiddenByDefault(t *testing.T) {
+	rc := new(RunContext)
+	a := assert.New(t)
+
+	out := captureOutput(t, func() {
+		ctx := WithJobLogger(context.Background(), "0", "testjob", &Config{}, &rc.Masks, map[string]interface{}{})
+		handler := rc.commandHandler(ctx)
+		handler("::debug::noisy details\n")
+	})
+
+	a.Equal("", out)
+}
+
+func TestDebugCommandShownWithActionsStepDebug(t *testing.T) {
+	tables := []struct {
+		name   string
+		env    map[string]string
+		config *Config
+	}{
+		{"secret", nil, &Config{Secrets: map[string]string{"ACTIONS_STEP_DEBUG": "true"}}},
+		{"var", nil, &Config{Vars: map[string]string{"ACTIONS_STEP_DEBUG": "TRUE"}}},
+		{"config env", nil, &Config{Env: map[string]string{"ACTIONS_STEP_DEBUG": "true"}}},
+		{"job env", map[string]string{"ACTIONS_STEP_DEBUG": "true"}, &Config{}},
+	}
+
+	for _, table := range tables {
+		t.Run(table.name, func(t *testing.T) {
+			rc := &RunContext{Config: table.config, Env: table.env}
+			a := assert.New(t)
+
+			out := captureOutput(t, func() {
+				ctx := WithJobLogger(context.Background(), "0", "testjob", table.config, &rc.Masks, map[string]interface{}{})
+				handler := rc.commandHandler(ctx)
+				handler("::debug::useful details\n")
+			})
+
+			a.Equal("[testjob]   \U0001F4AC  ::debug::useful details\n", out)
+		})
+	}
+}
+
+func TestDebugCommandNotShownWhenStepDebugFalse(t *testing.T) {
+	rc := &RunContext{Config: &Config{Secrets: map[string]string{"ACTIONS_STEP_DEBUG": "false"}}}
+	a := assert.New(t)
+
+	out := captureOutput(t, func() {
+		ctx := WithJobLogger(context.Background(), "0", "testjob", rc.Config, &rc.Masks, map[string]interface{}{})
+		handler := rc.commandHandler(ctx)
+		handler("::debug::noisy details\n")
+	})
+
+	a.Equal("", out)
+}
