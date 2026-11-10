@@ -69,7 +69,13 @@ func (rc *RunContext) commandHandler(ctx context.Context) common.LineHandler {
 			}
 			rc.addPath(ctx, arg)
 		case "debug":
-			defCommandLogger.Debugf("  \U0001F4AC  %s", line)
+			if rc.stepDebugEnabled() {
+				// Only the message is masked by the log formatter, so leave out the
+				// unmasked arg/raw fields when promoting debug output to info level.
+				logger.WithField("command", command).Infof("  \U0001F4AC  %s", line)
+			} else {
+				defCommandLogger.Debugf("  \U0001F4AC  %s", line)
+			}
 		case "warning":
 			defCommandLogger.Warnf("  \U0001F6A7  %s", line)
 		case "error":
@@ -94,6 +100,28 @@ func (rc *RunContext) commandHandler(ctx context.Context) common.LineHandler {
 
 		return false
 	}
+}
+
+// stepDebugEnabled reports whether step debug logging is turned on the same way
+// GitHub Actions does it: ACTIONS_STEP_DEBUG set to "true" as a secret or a
+// variable. For convenience act also honours it as an env value (--env or the
+// workflow env). When it is off, ::debug:: messages are only shown with --verbose.
+func (rc *RunContext) stepDebugEnabled() bool {
+	const name = "ACTIONS_STEP_DEBUG"
+	isTrue := func(v string) bool { return strings.EqualFold(strings.TrimSpace(v), "true") }
+	if isTrue(rc.Env[name]) {
+		return true
+	}
+	if rc.Config != nil {
+		if isTrue(rc.Config.Secrets[name]) || isTrue(rc.Config.Vars[name]) || isTrue(rc.Config.Env[name]) {
+			return true
+		}
+	}
+	// Composite actions run without secrets, so ask the parent step's context.
+	if rc.Parent != nil {
+		return rc.Parent.stepDebugEnabled()
+	}
+	return false
 }
 
 func (rc *RunContext) setEnv(ctx context.Context, kvPairs map[string]string, arg string) {
@@ -155,6 +183,17 @@ func parseKeyValuePairs(kvPairs string, separator string) map[string]string {
 	}
 	return rtn
 }
+
+// escapeCommandData is the inverse of unescapeCommandData: it encodes a value
+// the way workflow commands encode their data (`%` -> `%25`, CR -> `%0D`,
+// LF -> `%0A`), so the raw command line can be checked for an encoded secret.
+func escapeCommandData(arg string) string {
+	arg = strings.ReplaceAll(arg, "%", "%25")
+	arg = strings.ReplaceAll(arg, "\r", "%0D")
+	arg = strings.ReplaceAll(arg, "\n", "%0A")
+	return arg
+}
+
 func unescapeCommandData(arg string) string {
 	escapeMap := map[string]string{
 		"%25": "%",
