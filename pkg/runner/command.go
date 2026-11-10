@@ -183,6 +183,17 @@ func parseKeyValuePairs(kvPairs string, separator string) map[string]string {
 	}
 	return rtn
 }
+
+// escapeCommandData is the inverse of unescapeCommandData: it encodes a value
+// the way workflow commands encode their data (`%` -> `%25`, CR -> `%0D`,
+// LF -> `%0A`), so the raw command line can be checked for an encoded secret.
+func escapeCommandData(arg string) string {
+	arg = strings.ReplaceAll(arg, "%", "%25")
+	arg = strings.ReplaceAll(arg, "\r", "%0D")
+	arg = strings.ReplaceAll(arg, "\n", "%0A")
+	return arg
+}
+
 func unescapeCommandData(arg string) string {
 	escapeMap := map[string]string{
 		"%25": "%",

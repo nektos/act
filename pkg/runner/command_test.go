@@ -284,6 +284,29 @@ func TestDebugCommandJSONLoggerMasksSecrets(t *testing.T) {
 	a.NotContains(out, "s3cr3t-value")
 }
 
+func TestDebugCommandMasksEscapedSecrets(t *testing.T) {
+	config := &Config{
+		Secrets: map[string]string{"ACTIONS_STEP_DEBUG": "true", "TOKEN": "s3cr%et"},
+	}
+	rc := &RunContext{Config: config}
+	a := assert.New(t)
+
+	out := captureOutput(t, func() {
+		ctx := WithJobLogger(context.Background(), "0", "testjob", config, &rc.Masks, map[string]interface{}{})
+		handler := rc.commandHandler(ctx)
+		// A command's data is encoded, so the secret arrives as s3cr%25et.
+		handler("::debug::token is s3cr%25et\n")
+		handler("::add-mask::multi%0Aline\n")
+		handler("::debug::value is multi%0Aline\n")
+	})
+
+	a.Contains(out, "token is ***")
+	a.Contains(out, "value is ***")
+	a.NotContains(out, "s3cr%25et")
+	a.NotContains(out, "s3cr%et")
+	a.NotContains(out, "multi%0Aline")
+}
+
 func TestDebugCommandShownInCompositeWithSecretStepDebug(t *testing.T) {
 	parent := &RunContext{Config: &Config{Secrets: map[string]string{"ACTIONS_STEP_DEBUG": "true"}}}
 	// composite run contexts get a copy of the config without secrets

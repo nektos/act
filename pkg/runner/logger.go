@@ -161,22 +161,29 @@ func valueMasker(insecureSecrets bool, secrets map[string]string) entryProcessor
 }
 
 // maskValues redacts secrets and ::add-mask:: values in one pass.
+// Each value is also masked in its workflow-command encoded form (`%` as `%25`,
+// line breaks as `%0D`/`%0A`), because raw `::debug::` and similar lines are
+// logged as written and would otherwise show an encoded secret.
 // Longer values are applied first so a short value nested inside a longer one
 // cannot be replaced early and leave the rest of the longer value visible.
 // Equal lengths break ties lexically so the result does not depend on map iteration.
 func maskValues(message string, secrets, masks []string) string {
-	values := make([]string, 0, len(secrets)+len(masks))
-	seen := make(map[string]struct{}, len(secrets)+len(masks))
+	values := make([]string, 0, 2*(len(secrets)+len(masks)))
+	seen := make(map[string]struct{}, 2*(len(secrets)+len(masks)))
+	add := func(v string) {
+		if v == "" {
+			return
+		}
+		if _, ok := seen[v]; ok {
+			return
+		}
+		seen[v] = struct{}{}
+		values = append(values, v)
+	}
 	for _, group := range [][]string{secrets, masks} {
 		for _, v := range group {
-			if v == "" {
-				continue
-			}
-			if _, ok := seen[v]; ok {
-				continue
-			}
-			seen[v] = struct{}{}
-			values = append(values, v)
+			add(v)
+			add(escapeCommandData(v))
 		}
 	}
 	sort.Slice(values, func(i, j int) bool {
