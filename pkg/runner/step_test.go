@@ -163,6 +163,8 @@ func TestSetupEnv(t *testing.T) {
 	delete((env), "GITHUB_REPOSITORY")
 	delete((env), "GITHUB_REPOSITORY_OWNER")
 	delete((env), "GITHUB_ACTOR")
+	assert.Equal(t, "nektos/act", env["GITHUB_TRIGGERING_ACTOR"])
+	delete((env), "GITHUB_TRIGGERING_ACTOR")
 
 	assert.Equal(t, map[string]string{
 		"ACT":                      "true",

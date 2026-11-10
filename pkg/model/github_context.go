@@ -17,6 +17,7 @@ type GithubContext struct {
 	RunID            string                 `json:"run_id"`
 	RunNumber        string                 `json:"run_number"`
 	Actor            string                 `json:"actor"`
+	TriggeringActor  string                 `json:"triggering_actor"`
 	Repository       string                 `json:"repository"`
 	EventName        string                 `json:"event_name"`
 	Sha              string                 `json:"sha"`

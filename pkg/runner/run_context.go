@@ -950,12 +950,16 @@ func (rc *RunContext) getStepsContext() map[string]*model.StepResult {
 func (rc *RunContext) getGithubContext(ctx context.Context) *model.GithubContext {
 	logger := common.Logger(ctx)
 	ghc := &model.GithubContext{
-		Event:            make(map[string]interface{}),
-		Workflow:         rc.Run.Workflow.Name,
-		RunAttempt:       rc.Config.Env["GITHUB_RUN_ATTEMPT"],
-		RunID:            rc.Config.Env["GITHUB_RUN_ID"],
-		RunNumber:        rc.Config.Env["GITHUB_RUN_NUMBER"],
-		Actor:            rc.Config.Actor,
+		Event:      make(map[string]interface{}),
+		Workflow:   rc.Run.Workflow.Name,
+		RunAttempt: rc.Config.Env["GITHUB_RUN_ATTEMPT"],
+		RunID:      rc.Config.Env["GITHUB_RUN_ID"],
+		RunNumber:  rc.Config.Env["GITHUB_RUN_NUMBER"],
+		Actor:      rc.Config.Actor,
+		// An explicit GITHUB_TRIGGERING_ACTOR override is honored
+		// (e.g. to simulate a re-run); otherwise it falls back to
+		// the actor below.
+		TriggeringActor:  rc.Config.Env["GITHUB_TRIGGERING_ACTOR"],
 		EventName:        rc.Config.EventName,
 		Action:           rc.CurrentStep,
 		Token:            rc.Config.Token,
@@ -1005,6 +1009,11 @@ func (rc *RunContext) getGithubContext(ctx context.Context) *model.GithubContext
 	// a default rather than being run as a cmd
 	if ghc.Actor == "" {
 		ghc.Actor = "nektos/act"
+	}
+
+	// act has no re-runs: the user who triggered the run is the actor.
+	if ghc.TriggeringActor == "" {
+		ghc.TriggeringActor = ghc.Actor
 	}
 
 	if rc.EventJSON != "" {
@@ -1105,6 +1114,7 @@ func (rc *RunContext) withGithubEnv(ctx context.Context, github *model.GithubCon
 	env["GITHUB_ACTION_REF"] = github.ActionRef
 	env["GITHUB_ACTIONS"] = "true"
 	env["GITHUB_ACTOR"] = github.Actor
+	env["GITHUB_TRIGGERING_ACTOR"] = github.TriggeringActor
 	env["GITHUB_REPOSITORY"] = github.Repository
 	env["GITHUB_EVENT_NAME"] = github.EventName
 	env["GITHUB_EVENT_PATH"] = github.EventPath
