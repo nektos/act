@@ -71,6 +71,13 @@ func TestValueMasker(t *testing.T) {
 			want:    "nothing ***",
 		},
 		{
+			name:    "whitespace-only values",
+			message: "Success - Main Repository\tCheckout",
+			secrets: map[string]string{"space": " ", "tab": "\t", "real": "s3cr3t"},
+			masks:   []string{"  ", "\n"},
+			want:    "Success - Main Repository\tCheckout",
+		},
+		{
 			name:    "multiple occurrences",
 			message: "pw=s3cr3t and again s3cr3t",
 			secrets: map[string]string{"pw": "s3cr3t"},
