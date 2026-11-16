@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -583,13 +584,14 @@ func newHandler(artifactPath string, authKey []byte) http.Handler {
 	return requireRuntimeToken(router, authKey)
 }
 
-// Serve starts the artifact server.
+// Serve starts the artifact server, listening on addr and port using network, which is
+// passed to net.Listen as tcp, tcp4 or tcp6.
 // Every request except the v4 upload and download URLs must carry an Authorization
 // bearer token created by common.CreateSignedAuthorizationToken with authKey for the
 // same run. Pass that key as runner.Config.ArtifactServerAuthKey so jobs receive it.
 // An empty authKey rejects every bearer request. v4 upload and download URLs are
 // authorized by a per-process signature instead.
-func Serve(ctx context.Context, artifactPath string, addr string, port string, authKey []byte) context.CancelFunc {
+func Serve(ctx context.Context, artifactPath string, addr string, port string, network string, authKey []byte) context.CancelFunc {
 	serverContext, cancel := context.WithCancel(ctx)
 	logger := common.Logger(serverContext)
 
@@ -602,16 +604,20 @@ func Serve(ctx context.Context, artifactPath string, addr string, port string, a
 		logger.Warn("Artifact server has no auth key; bearer requests will be rejected")
 	}
 
+	listener, err := net.Listen(network, fmt.Sprintf("%s:%s", addr, port))
+	if err != nil {
+		logger.Fatal(err)
+	}
+
 	server := &http.Server{
-		Addr:              fmt.Sprintf("%s:%s", addr, port),
 		ReadHeaderTimeout: 2 * time.Second,
 		Handler:           newHandler(artifactPath, authKey),
 	}
 
 	// run server
 	go func() {
-		logger.Infof("Start server on http://%s:%s", addr, port)
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		logger.Infof("Start artifact server on http://%s:%s", addr, port)
+		if err := server.Serve(listener); err != nil && err != http.ErrServerClosed {
 			logger.Fatal(err)
 		}
 	}()
