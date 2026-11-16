@@ -2,6 +2,7 @@ package filecollector
 
 import (
 	"archive/tar"
+	"bytes"
 	"context"
 	"io"
 	"os"
@@ -14,6 +15,7 @@ import (
 	"github.com/go-git/go-billy/v5/memfs"
 	git "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/cache"
+	"github.com/go-git/go-git/v5/plumbing/filemode"
 	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
 	"github.com/go-git/go-git/v5/plumbing/format/index"
 	"github.com/go-git/go-git/v5/storage/filesystem"
@@ -105,6 +107,52 @@ func TestCopyCollectorOverwritesReadOnlyFile(t *testing.T) {
 	st, err := os.Stat(filepath.Join(dst, "pack.idx"))
 	assert.NoError(t, err)
 	assert.Equal(t, os.FileMode(0o444), st.Mode().Perm())
+}
+
+func TestTarCollectorKeepsExecutableBitFromIndex(t *testing.T) {
+	dir := t.TempDir()
+	repo, err := git.PlainInit(dir, false)
+	assert.NoError(t, err)
+	w, err := repo.Worktree()
+	assert.NoError(t, err)
+	// Neither file is executable on disk, as in a checkout on Windows.
+	for _, name := range []string{"script.sh", "data.txt"} {
+		assert.NoError(t, os.WriteFile(filepath.Join(dir, name), []byte("x\n"), 0o600))
+		_, err = w.Add(name)
+		assert.NoError(t, err)
+	}
+	// git records script.sh as executable, as after `git update-index --chmod=+x`.
+	idx, err := repo.Storer.Index()
+	assert.NoError(t, err)
+	entry, err := idx.Entry("script.sh")
+	assert.NoError(t, err)
+	entry.Mode = filemode.Executable
+	assert.NoError(t, repo.Storer.SetIndex(idx))
+
+	var buf bytes.Buffer
+	tw := tar.NewWriter(&buf)
+	fc := &FileCollector{
+		Fs:        &DefaultFs{},
+		SrcPath:   dir,
+		SrcPrefix: dir + string(filepath.Separator),
+		Handler:   &TarCollector{TarWriter: tw},
+	}
+	assert.NoError(t, filepath.Walk(dir, fc.CollectFiles(context.Background(), nil)))
+	assert.NoError(t, tw.Close())
+
+	modes := map[string]int64{}
+	tr := tar.NewReader(&buf)
+	for {
+		h, err := tr.Next()
+		if err != nil {
+			assert.ErrorIs(t, err, io.EOF)
+			break
+		}
+		modes[h.Name] = h.Mode
+	}
+	assert.Contains(t, modes, "data.txt")
+	assert.Equal(t, int64(0o111), modes["script.sh"]&0o111, "script.sh must be executable")
+	assert.Equal(t, int64(0), modes["data.txt"]&0o111, "data.txt must not be executable")
 }
 
 func TestCopyCollectorRejectsEscapingPaths(t *testing.T) {
