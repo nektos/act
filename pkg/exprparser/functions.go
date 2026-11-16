@@ -119,7 +119,7 @@ func (impl *interperterImpl) format(str reflect.Value, replaceValue ...reflect.V
 				state = passThrough
 
 			default:
-				panic("Invalid format parser state")
+				return "", fmt.Errorf("Closing bracket without opening one. The following format string is invalid: '%s'", input)
 			}
 		}
 	}
