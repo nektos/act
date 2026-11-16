@@ -534,7 +534,7 @@ func (j *Job) Type() (JobType, error) {
 		isYaml, _ := regexp.MatchString(`\.(ya?ml)(?:$|@)`, j.Uses)
 
 		if isYaml {
-			isLocalPath := strings.HasPrefix(j.Uses, "./")
+			isLocalPath := strings.HasPrefix(j.Uses, "./") || strings.HasPrefix(j.Uses, "$/")
 			isRemotePath, _ := regexp.MatchString(`^[^.](.+?/){2,}.+\.ya?ml@`, j.Uses)
 			hasVersion, _ := regexp.MatchString(`\.ya?ml@`, j.Uses)
 
@@ -704,7 +704,7 @@ func (s *Step) Type() StepType {
 		return StepTypeReusableWorkflowLocal
 	} else if !strings.HasPrefix(s.Uses, "./") && strings.Contains(s.Uses, ".github/workflows") && (strings.Contains(s.Uses, ".yml@") || strings.Contains(s.Uses, ".yaml@")) {
 		return StepTypeReusableWorkflowRemote
-	} else if strings.HasPrefix(s.Uses, "./") {
+	} else if strings.HasPrefix(s.Uses, "./") || strings.HasPrefix(s.Uses, "$/") {
 		return StepTypeUsesActionLocal
 	}
 	return StepTypeUsesActionRemote
