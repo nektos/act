@@ -354,6 +354,9 @@ func TestGetGitHubContext(t *testing.T) {
 		Run: &model.Run{
 			Workflow: &model.Workflow{
 				Name: "GitHubContextTest",
+				Jobs: map[string]*model.Job{
+					"job1": {},
+				},
 			},
 		},
 		Name:           "GitHubContextTest",
@@ -389,11 +392,25 @@ func TestGetGitHubContext(t *testing.T) {
 	assert.Equal(t, "1", ghc.RunNumber)
 	assert.Equal(t, "0", ghc.RetentionDays)
 	assert.Equal(t, actor, ghc.Actor)
+	assert.Equal(t, actor, ghc.TriggeringActor)
 	assert.Equal(t, repo, ghc.Repository)
 	assert.Equal(t, owner, ghc.RepositoryOwner)
 	assert.Equal(t, "/dev/null", ghc.RunnerPerflog)
 	assert.Equal(t, rc.Config.Secrets["GITHUB_TOKEN"], ghc.Token)
 	assert.Equal(t, "job1", ghc.Job)
+
+	env := rc.withGithubEnv(context.Background(), ghc, map[string]string{})
+	assert.Equal(t, actor, env["GITHUB_ACTOR"])
+	assert.Equal(t, actor, env["GITHUB_TRIGGERING_ACTOR"])
+
+	// An explicit GITHUB_TRIGGERING_ACTOR override (e.g. to simulate a
+	// re-run) wins over the actor; the actor itself is unaffected.
+	rc.Config.Env = map[string]string{"GITHUB_TRIGGERING_ACTOR": "octocat"}
+	ghc = rc.getGithubContext(context.Background())
+	assert.Equal(t, actor, ghc.Actor)
+	assert.Equal(t, "octocat", ghc.TriggeringActor)
+	env = rc.withGithubEnv(context.Background(), ghc, map[string]string{})
+	assert.Equal(t, "octocat", env["GITHUB_TRIGGERING_ACTOR"])
 }
 
 func TestGetGithubContextRef(t *testing.T) {
