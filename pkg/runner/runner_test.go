@@ -360,8 +360,8 @@ func TestRunEvent(t *testing.T) {
 				if yaml.Unmarshal(file, testConfig) == nil {
 					if testConfig.LocalRepositories != nil {
 						config.ActionCache = &LocalRepositoryCache{
-							Parent: GoGitActionCache{
-								path.Clean(path.Join(workdir, "cache")),
+							Parent: &GoGitActionCache{
+								Path: path.Clean(path.Join(workdir, "cache")),
 							},
 							LocalRepositories: testConfig.LocalRepositories,
 							CacheDirCache:     map[string]string{},
@@ -394,7 +394,7 @@ func TestPullAndPostStepFailureIsJobFailure(t *testing.T) {
 	}
 
 	defCache := &GoGitActionCache{
-		path.Clean(path.Join(workdir, "cache")),
+		Path: path.Clean(path.Join(workdir, "cache")),
 	}
 
 	mockCache := &mockCache{}
