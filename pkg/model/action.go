@@ -93,6 +93,7 @@ type Action struct {
 	Inputs      map[string]Input  `yaml:"inputs"`
 	Outputs     map[string]Output `yaml:"outputs"`
 	Runs        ActionRuns        `yaml:"runs"`
+	ActionPath  string            `yaml:"-"`
 	Branding    struct {
 		Color string `yaml:"color"`
 		Icon  string `yaml:"icon"`
