@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"reflect"
+	"strconv"
 	"strings"
 
 	"github.com/nektos/act/pkg/model"
@@ -214,6 +215,8 @@ func (impl *interperterImpl) evaluateIndexAccess(indexAccessNode *actionlint.Ind
 				return nil, nil
 			}
 			return leftValue.Index(int(rightValue.Int())).Interface(), nil
+		case reflect.Map, reflect.Ptr, reflect.Struct:
+			return impl.getPropertyValue(leftValue, strconv.FormatInt(rightValue.Int(), 10))
 		default:
 			return nil, nil
 		}
