@@ -93,7 +93,14 @@ func (rc *RunContext) GetEnv() map[string]string {
 }
 
 func (rc *RunContext) jobContainerName() string {
-	return createContainerName("act", rc.String())
+	parts := []string{"act", rc.String()}
+	if rc.Config != nil && rc.Config.Workdir != "" {
+		// include the repository so that jobs with the same workflow and job
+		// names in different repositories don't share a container
+		workdirHash := sha256.Sum256([]byte(rc.Config.Workdir))
+		parts = append(parts, hex.EncodeToString(workdirHash[:4]))
+	}
+	return createContainerName(parts...)
 }
 
 // networkName return the name of the network which will be created by `act` automatically for job,
