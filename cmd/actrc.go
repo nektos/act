@@ -11,6 +11,8 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
+
+	"github.com/nektos/act/pkg/common"
 )
 
 const trustProjectActrcFlag = "trust-project-actrc"
@@ -61,9 +63,11 @@ var projectActrcFlags = map[string]projectFlagCheck{
 type projectFlagCheck func(value string) string
 
 // checkPlatform rejects self-hosted platforms, which run steps on the host.
+// The image is judged by common.IsHostPlatform, the same helper the runner
+// uses to select host mode.
 func checkPlatform(value string) string {
 	_, image, _ := strings.Cut(value, "=")
-	if strings.TrimSpace(image) == "-self-hosted" {
+	if common.IsHostPlatform(image) {
 		return "self-hosted platforms run steps on the host"
 	}
 	return ""
@@ -78,9 +82,19 @@ func checkAssignment(value string) string {
 	return ""
 }
 
+// checkLocalPath keeps an untrusted project path inside the invocation
+// directory. Lexical ".." and absolute paths are rejected. A name that stays
+// inside lexically is also rejected when a symlink resolves outside that
+// directory. Command-line flags and a trusted project file do not use this
+// check, so an explicit --eventpath or --workflows still names the path the
+// operator wrote.
 func checkLocalPath(value string) string {
-	if !filepath.IsLocal(filepath.FromSlash(value)) {
+	path := filepath.FromSlash(value)
+	if !filepath.IsLocal(path) {
 		return "the path must stay inside the project directory"
+	}
+	if escapesWorkdir(".", path) {
+		return "the path resolves outside the project directory"
 	}
 	return ""
 }

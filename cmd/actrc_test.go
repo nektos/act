@@ -9,6 +9,8 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/nektos/act/pkg/common"
 )
 
 func testFlagSets(t *testing.T) []*pflag.FlagSet {
@@ -274,6 +276,65 @@ func TestProjectActrcLegitimateLines(t *testing.T) {
 	assertNoSelfHosted(t, input)
 }
 
+func TestProjectActrcRejectsHostPlatformFold(t *testing.T) {
+	longS := "\u017f"
+	rejected := []struct {
+		name    string
+		content string
+	}{
+		{name: "upper", content: "-P ubuntu-latest=-SELF-HOSTED\n"},
+		{name: "mixed", content: "-P ubuntu-latest=-Self-Hosted\n"},
+		{name: "partial", content: "-P ubuntu-latest=-self-HOSTED\n"},
+		{name: "long flag spaced", content: "--platform ubuntu-latest=-SELF-HOSTED\n"},
+		{name: "long flag equals", content: "--platform=ubuntu-latest=-SELF-HOSTED\n"},
+		{name: "short equals", content: "-P=ubuntu-latest=-SELF-HOSTED\n"},
+		{name: "short attached", content: "-Pubuntu-latest=-SELF-HOSTED\n"},
+		{name: "trailing space", content: "-P ubuntu-latest=-SELF-HOSTED \n"},
+		{name: "nbsp", content: "-P ubuntu-latest=\u00a0-SELF-HOSTED\n"},
+		{name: "long s", content: "-P ubuntu-latest=-" + longS + "elf-hosted\n"},
+		{name: "long s both", content: "-P ubuntu-latest=-" + longS + "elf-ho" + longS + "ted\n"},
+		{name: "mixed long s", content: "-P ubuntu-latest=-" + longS + "ELF-ho" + longS + "TED\n"},
+		{name: "leading space looks like a flag", content: "-P ubuntu-latest= -SELF-HOSTED\n"},
+		{name: "tab looks like a flag", content: "-P ubuntu-latest=\t-SELF-HOSTED\n"},
+		{
+			name: "bad line last among several",
+			content: "" +
+				"-P ubuntu-22.04=node:16\n" +
+				"-P ubuntu-latest=-SELF-HOSTED\n",
+		},
+	}
+	for _, tc := range rejected {
+		t.Run(tc.name, func(t *testing.T) {
+			_, input, _ := parseProjectActrc(t, "", tc.content, nil)
+			assertNoSelfHosted(t, input)
+			assert.Equal(t, "node:16-buster-slim", input.newPlatforms()["ubuntu-latest"])
+		})
+	}
+
+	t.Run("keeps images that only look similar", func(t *testing.T) {
+		content := "" +
+			"-P ubuntu-latest=self-hosted\n" +
+			"-P ubuntu-22.04=-self-hosted-extra\n" +
+			"-P ubuntu-20.04=-\uff53elf-hosted\n" +
+			"-P ubuntu-18.04=-self\u2010hosted\n"
+		_, input, _ := parseProjectActrc(t, "", content, nil)
+		platforms := input.newPlatforms()
+		assert.Equal(t, "self-hosted", platforms["ubuntu-latest"])
+		assert.Equal(t, "-self-hosted-extra", platforms["ubuntu-22.04"])
+		assert.Equal(t, "-\uff53elf-hosted", platforms["ubuntu-20.04"])
+		assert.Equal(t, "-self\u2010hosted", platforms["ubuntu-18.04"])
+		assertNoSelfHosted(t, input)
+	})
+
+	t.Run("user config and trusted project file may select host mode", func(t *testing.T) {
+		_, input, _ := parseProjectActrc(t, "-P ubuntu-latest=-SELF-HOSTED\n", "# project\n", nil)
+		assert.True(t, common.IsHostPlatform(input.newPlatforms()["ubuntu-latest"]))
+
+		_, input, _ = parseProjectActrc(t, "", "-P ubuntu-latest=-SELF-HOSTED\n", []string{"--trust-project-actrc"})
+		assert.True(t, common.IsHostPlatform(input.newPlatforms()["ubuntu-latest"]))
+	})
+}
+
 func parseProjectActrc(t *testing.T, userContent, projectContent string, cli []string) ([]string, *Input, *cobra.Command) {
 	t.Helper()
 	dir := t.TempDir()
@@ -302,9 +363,58 @@ func assertProjectActrcSafe(t *testing.T, input *Input, secretPath string) {
 	assertNoSelfHosted(t, input)
 }
 
+func TestProjectActrcRejectsEscapingPathSymlinks(t *testing.T) {
+	repo := t.TempDir()
+	outside := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(outside, "event.json"), []byte("{\"marker\":\"outside\"}\n"), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(outside, "foreign.yml"), []byte("name: foreign\n"), 0o600))
+	if err := os.Symlink(filepath.Join(outside, "event.json"), filepath.Join(repo, "abs-link.json")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	rel, err := filepath.Rel(repo, filepath.Join(outside, "event.json"))
+	require.NoError(t, err)
+	require.NoError(t, os.Symlink(rel, filepath.Join(repo, "rel-link.json")))
+	require.NoError(t, os.Symlink(filepath.Join(outside, "foreign.yml"), filepath.Join(repo, "foreign.yml")))
+	require.NoError(t, os.WriteFile(filepath.Join(repo, "inside.json"), []byte("{\"marker\":\"inside\"}\n"), 0o600))
+	require.NoError(t, os.Symlink("inside.json", filepath.Join(repo, "inside-link.json")))
+	t.Chdir(repo)
+
+	t.Run("absolute symlink target", func(t *testing.T) {
+		_, input, _ := parseProjectActrc(t, "", "--eventpath abs-link.json\n", nil)
+		assert.Empty(t, input.eventPath)
+	})
+	t.Run("relative symlink target", func(t *testing.T) {
+		_, input, _ := parseProjectActrc(t, "", "--eventpath rel-link.json\n", nil)
+		assert.Empty(t, input.eventPath)
+	})
+	t.Run("workflows file symlink", func(t *testing.T) {
+		_, input, _ := parseProjectActrc(t, "", "--workflows foreign.yml\n", nil)
+		assert.Equal(t, "./.github/workflows/", input.workflowsPath)
+	})
+	t.Run("lexical absolute and dotdot", func(t *testing.T) {
+		_, input, _ := parseProjectActrc(t, "", "--eventpath /tmp/event.json\n--workflows ../foreign.yml\n", nil)
+		assert.Empty(t, input.eventPath)
+		assert.Equal(t, "./.github/workflows/", input.workflowsPath)
+	})
+	t.Run("symlink that stays inside", func(t *testing.T) {
+		_, input, _ := parseProjectActrc(t, "", "--eventpath inside-link.json\n", nil)
+		assert.Equal(t, "inside-link.json", input.eventPath)
+	})
+	t.Run("trusted project file may follow the link", func(t *testing.T) {
+		_, input, _ := parseProjectActrc(t, "", "--eventpath abs-link.json\n-W foreign.yml\n", []string{"--trust-project-actrc"})
+		assert.Equal(t, "abs-link.json", input.eventPath)
+		assert.Equal(t, "foreign.yml", input.workflowsPath)
+	})
+	t.Run("cli flag may name the link", func(t *testing.T) {
+		_, input, _ := parseProjectActrc(t, "", "# project\n", []string{"--eventpath", "abs-link.json", "-W", "foreign.yml"})
+		assert.Equal(t, "abs-link.json", input.eventPath)
+		assert.Equal(t, "foreign.yml", input.workflowsPath)
+	})
+}
+
 func assertNoSelfHosted(t *testing.T, input *Input) {
 	t.Helper()
 	for name, image := range input.newPlatforms() {
-		assert.NotEqual(t, "-self-hosted", image, name)
+		assert.False(t, common.IsHostPlatform(image), "%s=%s", name, image)
 	}
 }
