@@ -20,6 +20,7 @@ type Input struct {
 	envs                               []string
 	inputs                             []string
 	platforms                          []string
+	platformOptions                    []string
 	dryrun                             bool
 	forcePull                          bool
 	forceRebuild                       bool
