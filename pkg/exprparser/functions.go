@@ -252,6 +252,22 @@ func (impl *interperterImpl) getNeedsTransitive(job *model.Job) []string {
 	return needs
 }
 
+func (impl *interperterImpl) caseFunc(args []reflect.Value) (interface{}, error) {
+	if len(args) < 3 {
+		return nil, fmt.Errorf("case() requires at least 3 arguments, got %d", len(args))
+	}
+	if len(args)%2 == 0 {
+		return nil, fmt.Errorf("case() requires an odd number of arguments (pairs of predicate/value plus a default), got %d", len(args))
+	}
+
+	for i := 0; i < len(args)-1; i += 2 {
+		if IsTruthy(impl.getSafeValue(args[i])) {
+			return impl.getSafeValue(args[i+1]), nil
+		}
+	}
+	return impl.getSafeValue(args[len(args)-1]), nil
+}
+
 func (impl *interperterImpl) always() (bool, error) {
 	return true, nil
 }
