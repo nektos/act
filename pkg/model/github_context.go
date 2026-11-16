@@ -145,7 +145,7 @@ func (ghc *GithubContext) SetSha(ctx context.Context, repoPath string) {
 	// https://docs.github.com/en/actions/learn-github-actions/events-that-trigger-workflows
 	// https://docs.github.com/en/developers/webhooks-and-events/webhooks/webhook-events-and-payloads
 	switch ghc.EventName {
-	case "pull_request_target":
+	case "pull_request_target", "pull_request":
 		ghc.Sha = asString(nestedMapLookup(ghc.Event, "pull_request", "base", "sha"))
 	case "deployment", "deployment_status":
 		ghc.Sha = asString(nestedMapLookup(ghc.Event, "deployment", "sha"))
