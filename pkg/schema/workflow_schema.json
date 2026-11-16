@@ -13,6 +13,7 @@
           "env": "workflow-env",
           "permissions": "permissions",
           "concurrency": "workflow-concurrency",
+          "cache-mode": "cache-mode",
           "jobs": {
             "type": "jobs",
             "required": true
@@ -35,6 +36,7 @@
           "env": "workflow-env",
           "permissions": "permissions",
           "concurrency": "workflow-concurrency",
+          "cache-mode": "cache-mode",
           "jobs": {
             "type": "jobs",
             "required": true
@@ -1453,6 +1455,7 @@
           "environment": "job-environment",
           "permissions": "permissions",
           "concurrency": "job-concurrency",
+          "cache-mode": "cache-mode",
           "outputs": "job-outputs",
           "defaults": "job-defaults",
           "steps": "steps"
@@ -1477,6 +1480,7 @@
           "if": "job-if",
           "permissions": "permissions",
           "concurrency": "job-concurrency",
+          "cache-mode": "cache-mode",
           "strategy": "strategy"
         }
       }
@@ -1620,6 +1624,10 @@
         "loose-key-type": "non-empty-string",
         "loose-value-type": "string"
       }
+    },
+    "cache-mode": {
+      "description": "Control the level of GitHub Actions cache access granted to jobs. Setting this at the workflow level applies to every job unless a job overrides it with jobs.<job_id>.cache-mode. If omitted, a read or write default is used based on the trigger type.\n\n[Documentation](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#cache-mode)",
+      "allowed-values": ["read", "write", "write-only", "none"]
     },
     "workflow-concurrency": {
       "description": "Concurrency ensures that only a single job or workflow using the same concurrency group will run at a time. A concurrency group can be any string or expression.\n\nYou can also specify `concurrency` at the job level.\n\n[Documentation](https://docs.github.com/actions/using-workflows/workflow-syntax-for-github-actions#concurrency)",
