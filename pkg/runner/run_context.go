@@ -214,6 +214,10 @@ func (rc *RunContext) startHostEnvironment() common.Executor {
 		if err := os.MkdirAll(runnerTmp, 0o777); err != nil {
 			return err
 		}
+		homeDir := filepath.Join(miscpath, "home")
+		if err := os.MkdirAll(homeDir, 0o777); err != nil {
+			return err
+		}
 		toolCache := filepath.Join(cacheDir, "tool_cache")
 		rc.JobContainer = &container.HostEnvironment{
 			Path:      path,
@@ -232,6 +236,13 @@ func (rc *RunContext) startHostEnvironment() common.Executor {
 				rc.Env[fmt.Sprintf("RUNNER_%s", strings.ToUpper(k))] = v
 			}
 		}
+		// Provide a stable, writable HOME for self-hosted jobs, mirroring the
+		// behavior of real GitHub runners. Without it, steps run with an empty
+		// HOME (e.g. on Windows) or leak the host's HOME, and tools such as
+		// actions/checkout@v7 that create a temporary HOME under RUNNER_TEMP
+		// can fail writing .gitconfig ("No such file or directory").
+		// https://github.com/nektos/act/issues/6195
+		rc.Env["HOME"] = homeDir
 		for _, env := range os.Environ() {
 			if k, v, ok := strings.Cut(env, "="); ok {
 				// don't override
