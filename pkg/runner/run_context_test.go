@@ -743,3 +743,42 @@ func TestSetRuntimeVariablesWithRunID(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, int64(45), gotRunID)
 }
+
+func TestIsHostEnvUsesSharedPlatformCheck(t *testing.T) {
+	cases := []struct {
+		name      string
+		image     string
+		container string
+		want      bool
+	}{
+		{name: "canonical", image: "-self-hosted", want: true},
+		{name: "upper", image: "-SELF-HOSTED", want: true},
+		{name: "mixed", image: "-Self-Hosted", want: true},
+		{name: "long s", image: "-\u017felf-hosted", want: true},
+		{name: "padded", image: " \t-SELF-HOSTED \n", want: true},
+		{name: "nbsp", image: "\u00a0-Self-Hosted\u00a0", want: true},
+		{name: "docker image", image: "node:16-buster-slim", want: false},
+		{name: "label without hyphen", image: "self-hosted", want: false},
+		{name: "suffix", image: "-self-hosted-extra", want: false},
+		{name: "fullwidth", image: "-\uff53elf-hosted", want: false},
+		{name: "container overrides host platform", image: "-SELF-HOSTED", container: "ubuntu:22.04", want: false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			jobYAML := "runs-on: ubuntu-latest"
+			if tc.container != "" {
+				jobYAML += "\ncontainer: \"" + tc.container + "\""
+			}
+			rc := createIfTestRunContext(map[string]*model.Job{
+				"job1": createJob(t, jobYAML, ""),
+			})
+			rc.Config.Platforms = map[string]string{"ubuntu-latest": tc.image}
+			assert.Equal(t, tc.want, rc.IsHostEnv(context.Background()))
+			if tc.container == "" {
+				assert.Equal(t, tc.want, common.IsHostPlatform(tc.image))
+			} else {
+				assert.True(t, common.IsHostPlatform(tc.image))
+			}
+		})
+	}
+}

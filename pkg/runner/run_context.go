@@ -684,7 +684,7 @@ func (rc *RunContext) startContainer() common.Executor {
 func (rc *RunContext) IsHostEnv(ctx context.Context) bool {
 	platform := rc.runsOnImage(ctx)
 	image := rc.containerImage(ctx)
-	return image == "" && strings.EqualFold(platform, "-self-hosted")
+	return image == "" && common.IsHostPlatform(platform)
 }
 
 func (rc *RunContext) stopContainer() common.Executor {
