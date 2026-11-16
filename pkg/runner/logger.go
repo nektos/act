@@ -164,12 +164,14 @@ func valueMasker(insecureSecrets bool, secrets map[string]string) entryProcessor
 // Longer values are applied first so a short value nested inside a longer one
 // cannot be replaced early and leave the rest of the longer value visible.
 // Equal lengths break ties lexically so the result does not depend on map iteration.
+// Whitespace-only values are skipped, like the GitHub runner does, so a secret
+// such as " " does not turn every space in the log into "***".
 func maskValues(message string, secrets, masks []string) string {
 	values := make([]string, 0, len(secrets)+len(masks))
 	seen := make(map[string]struct{}, len(secrets)+len(masks))
 	for _, group := range [][]string{secrets, masks} {
 		for _, v := range group {
-			if v == "" {
+			if strings.TrimSpace(v) == "" {
 				continue
 			}
 			if _, ok := seen[v]; ok {
