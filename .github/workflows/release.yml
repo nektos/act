@@ -76,6 +76,11 @@ jobs:
   winget:
     name: Winget
     needs: release
+    # A second publish of the same tag waits, then sees the pull request the
+    # first run opened. Different tags still publish at the same time.
+    concurrency:
+      group: winget-${{ inputs.tag || github.ref_name }}
+      cancel-in-progress: false
     if: ${{ always() && !cancelled() && (needs.release.result == 'success' || (github.event_name == 'workflow_dispatch' && github.ref_name == github.event.repository.default_branch && needs.release.result == 'skipped' && inputs.winget)) }}
     runs-on: ubuntu-latest
     timeout-minutes: 30

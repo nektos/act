@@ -57,6 +57,12 @@ existing=""
 while IFS= read -r ref; do
   [ -n "$ref" ] || continue
   ref_name="${ref#refs/heads/}"
+  # matching-refs is a prefix search, so 0.2.98 also matches 0.2.98-rc1-<uuid>.
+  # Branches this script creates end in a 32-character uppercase UUID.
+  suffix="${ref_name#"${PACKAGE_ID}-${version}-"}"
+  if [ "$suffix" = "$ref_name" ] || [[ ! "$suffix" =~ ^[0-9A-F]{32}$ ]]; then
+    continue
+  fi
   existing=$(
     gh api "repos/${WINGET_UPSTREAM}/pulls?state=open&head=${fork_owner}:${ref_name}" \
       --jq '.[0].html_url'
@@ -164,10 +170,8 @@ upstream_branch=$(gh api "repos/${WINGET_UPSTREAM}" --jq .default_branch)
 fork_branch=$(gh api "repos/${WINGET_FORK}" --jq .default_branch)
 upstream_sha=$(gh api "repos/${WINGET_UPSTREAM}/commits/${upstream_branch}" --jq .sha)
 fork_sha=$(gh api "repos/${WINGET_FORK}/commits/${fork_branch}" --jq .sha)
-if ! gh api "repos/${WINGET_UPSTREAM}/commits/${fork_sha}" --jq .sha >/dev/null; then
-  echo "${WINGET_FORK} ${fork_branch} (${fork_sha}) is not in ${WINGET_UPSTREAM}; refusing to branch from a diverged fork" >&2
-  exit 1
-fi
+upstream_owner="${WINGET_UPSTREAM%%/*}"
+upstream_name="${WINGET_UPSTREAM#*/}"
 
 uuid=$(tr -d '-' </proc/sys/kernel/random/uuid | tr '[:lower:]' '[:upper:]')
 branch="${PACKAGE_ID}-${version}-${uuid}"
@@ -190,8 +194,31 @@ if [ "$upstream_sha" != "$fork_sha" ]; then
     echo "Created ${branch} at ${WINGET_UPSTREAM} ${upstream_branch} ${upstream_sha}"
   else
     echo "Could not create ${branch} at upstream ${upstream_sha}."
-    echo "Committing the manifests onto ${WINGET_FORK} ${fork_branch} (${fork_sha}) instead, without updating that branch."
     cat "${work}/createref.out" "${work}/createref.err" >&2 || true
+    # Fork network objects are visible through the parent repo, so a commit
+    # lookup cannot tell a diverged fork from an ancestor. aheadBy is 0 only
+    # when every fork commit is already in upstream.
+    ahead=$(
+      # shellcheck disable=SC2016 # GraphQL variables are not shell variables.
+      gh api graphql \
+        -f query='query($owner:String!, $name:String!, $ref:String!, $sha:String!) {
+          repository(owner:$owner, name:$name) {
+            ref(qualifiedName:$ref) {
+              compare(headRef:$sha) { aheadBy }
+            }
+          }
+        }' \
+        -f owner="$upstream_owner" \
+        -f name="$upstream_name" \
+        -f ref="refs/heads/${upstream_branch}" \
+        -f sha="$fork_sha" \
+        --jq '.data.repository.ref.compare.aheadBy'
+    )
+    if [ "$ahead" != "0" ]; then
+      echo "${WINGET_FORK} ${fork_branch} (${fork_sha}) is not an ancestor of ${WINGET_UPSTREAM} ${upstream_branch}; refusing to publish fork-only commits" >&2
+      exit 1
+    fi
+    echo "Committing the manifests onto ${WINGET_FORK} ${fork_branch} (${fork_sha}) instead, without updating that branch."
   fi
 fi
 
