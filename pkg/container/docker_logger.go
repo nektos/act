@@ -55,7 +55,7 @@ func logDockerResponse(logger logrus.FieldLogger, dockerResponse io.ReadCloser, 
 
 		if msg.ErrorDetail.Message != "" {
 			writeLog(logger, isError, "%s", msg.ErrorDetail.Message)
-			return errors.New(msg.Error)
+			return errors.New(msg.ErrorDetail.Message)
 		}
 
 		if msg.Status != "" {

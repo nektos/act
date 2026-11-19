@@ -529,7 +529,7 @@ func (cr *containerReference) extractFromImageEnv(env *map[string]string) common
 	return func(ctx context.Context) error {
 		logger := common.Logger(ctx)
 
-		inspectResult, err := cr.cli.ImageInspect(ctx, cr.input.Image)
+		inspectResult, err := imageInspect(ctx, cr.cli, cr.input.Image, cr.input.Platform)
 		if err != nil {
 			logger.Error(err)
 			return fmt.Errorf("inspect image: %w", err)
