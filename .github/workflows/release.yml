@@ -76,6 +76,11 @@ jobs:
   winget:
     name: Winget
     needs: release
+    # A second publish of the same tag waits, then sees the pull request the
+    # first run opened. Different tags still publish at the same time.
+    concurrency:
+      group: winget-${{ inputs.tag || github.ref_name }}
+      cancel-in-progress: false
     if: ${{ always() && !cancelled() && (needs.release.result == 'success' || (github.event_name == 'workflow_dispatch' && github.ref_name == github.event.repository.default_branch && needs.release.result == 'skipped' && inputs.winget)) }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -99,26 +104,23 @@ jobs:
             echo "tag must match ^v\\d and contain only [0-9A-Za-z._+-]" >&2
             exit 1
           fi
-      - name: Sync winget-pkgs fork
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      # Does not sync cplee/winget-pkgs. merge-upstream needs the workflow scope
+      # when upstream has changed .github/workflows, and this token does not have it.
+      - name: Publish Winget
         env:
           GH_TOKEN: ${{ secrets.WINGET_TOKEN }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          # komac creates its branch from upstream HEAD. A lagging fork fails CreateRef
-          # and names the token user, which looks like a missing permission.
-          gh repo sync cplee/winget-pkgs --branch master
-      - name: Winget
-        uses: vedantmgoyal2009/winget-releaser@4ffc7888bffd451b357355dc214d43bb9f23917e # v2 zizmor: ignore[ref-version-mismatch]
-        with:
-          identifier: nektos.act
-          installers-regex: '_Windows_\w+\.zip$'
+          GITHUB_TOKEN: ${{ secrets.WINGET_TOKEN }}
           # Push events have no release payload; dispatch must not fall back to the branch name.
-          release-tag: ${{ inputs.tag || github.ref_name }}
-          # WINGET_TOKEN belongs to cplee. nektos/winget-pkgs is too far behind upstream
-          # for komac to branch, which surfaces as a CreateRef error naming the token user.
-          fork-user: cplee
-          token: ${{ secrets.WINGET_TOKEN }}
+          TAG: ${{ inputs.tag || github.ref_name }}
+          RELEASE_REPO: ${{ github.repository }}
+          WINGET_FORK: cplee/winget-pkgs
+          WINGET_UPSTREAM: microsoft/winget-pkgs
+          PACKAGE_ID: nektos.act
+        shell: bash
+        run: bash .github/ci/publish-winget.sh
   chocolatey:
     name: Chocolatey
     needs: release
