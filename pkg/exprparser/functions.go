@@ -157,12 +157,15 @@ func (impl *interperterImpl) toJSON(value reflect.Value) (string, error) {
 		return "null", nil
 	}
 
-	json, err := json.MarshalIndent(value.Interface(), "", "  ")
-	if err != nil {
+	var buf strings.Builder
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(value.Interface()); err != nil {
 		return "", fmt.Errorf("Cannot convert value to JSON. Cause: %v", err)
 	}
 
-	return string(json), nil
+	return strings.TrimSuffix(buf.String(), "\n"), nil
 }
 
 func (impl *interperterImpl) fromJSON(value reflect.Value) (interface{}, error) {
