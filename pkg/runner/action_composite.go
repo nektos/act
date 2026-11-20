@@ -148,8 +148,14 @@ func (rc *RunContext) compositeExecutor(action *model.Action) *compositeSteps {
 
 		step, err := sf.newStep(&stepcopy, rc)
 		if err != nil {
+			if stepcopy.Type() == model.StepTypeInvalid {
+				err = fmt.Errorf("composite step %q must specify either run with shell or uses: %w", stepcopy.String(), err)
+			}
+			// No steps were scheduled. Let the main phase report the validation error.
 			return &compositeSteps{
+				pre:  common.NewPipelineExecutor(),
 				main: common.NewErrorExecutor(err),
+				post: common.NewPipelineExecutor(),
 			}
 		}
 
