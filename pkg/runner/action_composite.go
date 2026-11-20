@@ -148,8 +148,11 @@ func (rc *RunContext) compositeExecutor(action *model.Action) *compositeSteps {
 
 		step, err := sf.newStep(&stepcopy, rc)
 		if err != nil {
+			// No steps were scheduled. Let the main phase report the validation error.
 			return &compositeSteps{
+				pre:  common.NewPipelineExecutor(),
 				main: common.NewErrorExecutor(err),
+				post: common.NewPipelineExecutor(),
 			}
 		}
 
