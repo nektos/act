@@ -8,6 +8,7 @@ import (
 
 	"github.com/docker/cli/cli/config"
 	"github.com/docker/cli/cli/config/credentials"
+	"github.com/docker/cli/cli/config/types"
 	"github.com/moby/moby/api/types/registry"
 	"github.com/nektos/act/pkg/common"
 )
@@ -31,6 +32,10 @@ func LoadDockerAuthConfig(ctx context.Context, image string) (registry.AuthConfi
 	}
 
 	authConfig, err := config.GetAuthConfig(hostName)
+	if hostName == "docker.io" && err == nil && authConfig == (types.AuthConfig{}) {
+		// Docker login stores Hub credentials under its legacy index URL.
+		authConfig, err = config.GetAuthConfig("https://index.docker.io/v1/")
+	}
 	if err != nil {
 		logger.Warnf("Could not get auth config from docker config: %v", err)
 		return registry.AuthConfig{}, err
