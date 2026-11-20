@@ -18,7 +18,9 @@ func TestInvalidCompositeStepRequiresNoCleanup(t *testing.T) {
 	}}
 
 	steps := rc.compositeExecutor(action)
-	assert.ErrorContains(t, steps.main(t.Context()), "Invalid run/uses syntax for job:test step:something")
+	err := steps.main(t.Context())
+	assert.ErrorContains(t, err, `composite step "something" must specify either run with shell or uses`)
+	assert.ErrorContains(t, err, "Invalid run/uses syntax for job:test step:something")
 	if assert.NotNil(t, steps.pre, "an invalid composite should have no pre-step error") {
 		assert.NoError(t, steps.pre(t.Context()))
 	}
