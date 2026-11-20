@@ -21,7 +21,7 @@ func newSecrets(secretList []string) secrets {
 		}
 		if len(secretPairParts) == 2 {
 			s[secretPairParts[0]] = secretPairParts[1]
-		} else if env, ok := os.LookupEnv(secretPairParts[0]); ok && env != "" {
+		} else if env, ok := os.LookupEnv(secretPairParts[0]); ok {
 			s[secretPairParts[0]] = env
 		} else {
 			fmt.Printf("Provide value for '%s': ", secretPairParts[0])
