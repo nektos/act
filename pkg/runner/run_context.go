@@ -96,6 +96,13 @@ func (rc *RunContext) jobContainerName() string {
 	return createContainerName("act", rc.String())
 }
 
+func (rc *RunContext) toolCacheVolumeName() string {
+	if rc.Config.IsolateToolcache {
+		return rc.jobContainerName() + "-toolcache"
+	}
+	return "act-toolcache"
+}
+
 // networkName return the name of the network which will be created by `act` automatically for job,
 // only create network if using a service container
 func (rc *RunContext) networkName() (string, bool) {
@@ -151,8 +158,8 @@ func (rc *RunContext) GetBindsAndMounts() ([]string, map[string]string) {
 		return binds, mounts
 	}
 	mounts := map[string]string{
-		"act-toolcache": "/opt/hostedtoolcache",
-		name + "-env":   ext.GetActPath(),
+		rc.toolCacheVolumeName(): "/opt/hostedtoolcache",
+		name + "-env":            ext.GetActPath(),
 	}
 
 	if job := rc.Run.Job(); job != nil {
@@ -368,6 +375,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 				return rc.JobContainer.Remove().IfNot(reuseJobContainer).
 					Then(container.NewDockerVolumeRemoveExecutor(rc.jobContainerName(), false)).IfNot(reuseJobContainer).
 					Then(container.NewDockerVolumeRemoveExecutor(rc.jobContainerName()+"-env", false)).IfNot(reuseJobContainer).
+					Then(container.NewDockerVolumeRemoveExecutor(rc.toolCacheVolumeName(), false).IfBool(rc.Config.IsolateToolcache)).IfNot(reuseJobContainer).
 					Then(func(ctx context.Context) error {
 						if len(rc.ServiceContainers) > 0 {
 							logger.Infof("Cleaning up services for job %s", rc.JobName)
