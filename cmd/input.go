@@ -58,6 +58,7 @@ type Input struct {
 	matrix                             []string
 	actionCachePath                    string
 	actionOfflineMode                  bool
+	anonymousActionFetch               bool
 	logPrefixJobID                     bool
 	networkName                        string
 	useNewActionCache                  bool

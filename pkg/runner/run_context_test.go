@@ -782,3 +782,10 @@ func TestIsHostEnvUsesSharedPlatformCheck(t *testing.T) {
 		})
 	}
 }
+
+func TestActionFetchToken(t *testing.T) {
+	rc := &RunContext{Config: &Config{}}
+	assert.Equal(t, "token", rc.actionFetchToken("token"))
+	rc.Config.AnonymousActionFetch = true
+	assert.Equal(t, "", rc.actionFetchToken("token"))
+}
