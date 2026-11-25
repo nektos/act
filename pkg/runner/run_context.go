@@ -1006,6 +1006,7 @@ func (rc *RunContext) getGithubContext(ctx context.Context) *model.GithubContext
 	if ghc.Actor == "" {
 		ghc.Actor = "nektos/act"
 	}
+	ghc.TriggeringActor = ghc.Actor
 
 	if rc.EventJSON != "" {
 		err := json.Unmarshal([]byte(rc.EventJSON), &ghc.Event)
@@ -1105,6 +1106,7 @@ func (rc *RunContext) withGithubEnv(ctx context.Context, github *model.GithubCon
 	env["GITHUB_ACTION_REF"] = github.ActionRef
 	env["GITHUB_ACTIONS"] = "true"
 	env["GITHUB_ACTOR"] = github.Actor
+	env["GITHUB_TRIGGERING_ACTOR"] = github.TriggeringActor
 	env["GITHUB_REPOSITORY"] = github.Repository
 	env["GITHUB_EVENT_NAME"] = github.EventName
 	env["GITHUB_EVENT_PATH"] = github.EventPath
