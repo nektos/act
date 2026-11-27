@@ -1,0 +1,11 @@
+name: composite input context
+on: push
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./uses-composite-input-context/composite
+        with:
+          explicit: from-workflow
