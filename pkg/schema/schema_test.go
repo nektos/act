@@ -90,3 +90,48 @@ jobs:
 	}).UnmarshalYAML(&node)
 	assert.NoError(t, err)
 }
+
+func TestCaseFunctionSchema(t *testing.T) {
+	var node yaml.Node
+	err := yaml.Unmarshal([]byte(`
+on: push
+jobs:
+  main:
+    runs-on: ubuntu-latest
+    env:
+      TEST: ${{ case(github.event_name == 'workflow_dispatch', 'dispatch', 'other') }}
+      MULTI: ${{ case(github.ref == 'refs/heads/main', 'production', github.ref == 'refs/heads/staging', 'staging', 'development') }}
+    steps:
+    - run: echo $TEST
+`), &node)
+	if !assert.NoError(t, err) {
+		return
+	}
+	err = (&Node{
+		Definition: "workflow-root-strict",
+		Schema:     GetWorkflowSchema(),
+	}).UnmarshalYAML(&node)
+	assert.NoError(t, err)
+}
+
+func TestCaseFunctionSchemaTooFewArgs(t *testing.T) {
+	var node yaml.Node
+	err := yaml.Unmarshal([]byte(`
+on: push
+jobs:
+  main:
+    runs-on: ubuntu-latest
+    env:
+      TEST: ${{ case(true, 'only-two') }}
+    steps:
+    - run: echo $TEST
+`), &node)
+	if !assert.NoError(t, err) {
+		return
+	}
+	err = (&Node{
+		Definition: "workflow-root-strict",
+		Schema:     GetWorkflowSchema(),
+	}).UnmarshalYAML(&node)
+	assert.Error(t, err)
+}
