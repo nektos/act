@@ -50,6 +50,7 @@ func TestOperators(t *testing.T) {
 		{"github.action[0]", nil, "string-index", ""},
 		{"github.action['0']", nil, "string-index", ""},
 		{"fromJSON('[0,1]')[1]", 1.0, "array-index", ""},
+		{"fromJSON('{\"5432\":\"49153\"}')[5432]", "49153", "numeric-object-index", ""},
 		{"fromJSON('[0,1]')[1.1]", nil, "array-index", ""},
 		// Disabled weird things are happening
 		// {"fromJSON('[0,1]')['1.1']", nil, "array-index", ""},
