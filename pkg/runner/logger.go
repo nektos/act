@@ -155,9 +155,107 @@ func valueMasker(insecureSecrets bool, secrets map[string]string) entryProcessor
 		}
 
 		masks := Masks(entry.Context)
-		entry.Message = maskValues(entry.Message, ssecrets, *masks)
-		return entry
+		// Dup copies Data shallowly and omits Message, Level, Caller, and Buffer.
+		// Mask the message and Data on that copy. Nested maps and slices are
+		// deep-copied: matrix is the live job matrix, and kvPairs is reused to
+		// set outputs and env, so neither map may be mutated.
+		masked := entry.Dup()
+		masked.Level = entry.Level
+		masked.Caller = entry.Caller
+		masked.Buffer = entry.Buffer
+		masked.Message = maskValues(entry.Message, ssecrets, *masks)
+		if len(entry.Data) == 0 {
+			masked.Data = entry.Data
+			return masked
+		}
+		for k, v := range masked.Data {
+			masked.Data[k] = maskLogValue(v, ssecrets, *masks)
+		}
+		return masked
 	}
+}
+
+// maskLogValue redacts secrets in one structured field. Maps and slices are
+// copied so the caller's containers stay unchanged. Bools and numbers are
+// returned as-is.
+func maskLogValue(v any, secrets, masks []string) any {
+	switch val := v.(type) {
+	case string:
+		if val == "" {
+			return val
+		}
+		return maskValues(val, secrets, masks)
+	case []byte:
+		if len(val) == 0 {
+			return val
+		}
+		return []byte(maskValues(string(val), secrets, masks))
+	case map[string]string:
+		return maskStringMap(val, secrets, masks)
+	case map[string]any:
+		return maskAnyMap(val, secrets, masks)
+	case logrus.Fields:
+		// Conversion shares the backing map; maskAnyMap only reads it.
+		return logrus.Fields(maskAnyMap(map[string]any(val), secrets, masks))
+	case []string:
+		return maskStringSlice(val, secrets, masks)
+	case []any:
+		return maskAnySlice(val, secrets, masks)
+	default:
+		return v
+	}
+}
+
+func maskStringMap(in map[string]string, secrets, masks []string) map[string]string {
+	if in == nil {
+		return nil
+	}
+	out := make(map[string]string, len(in))
+	for k, v := range in {
+		if v == "" {
+			out[k] = v
+			continue
+		}
+		out[k] = maskValues(v, secrets, masks)
+	}
+	return out
+}
+
+func maskAnyMap(in map[string]any, secrets, masks []string) map[string]any {
+	if in == nil {
+		return nil
+	}
+	out := make(map[string]any, len(in))
+	for k, v := range in {
+		out[k] = maskLogValue(v, secrets, masks)
+	}
+	return out
+}
+
+func maskStringSlice(in []string, secrets, masks []string) []string {
+	if in == nil {
+		return nil
+	}
+	out := make([]string, len(in))
+	for i, v := range in {
+		if v == "" {
+			out[i] = v
+			continue
+		}
+		out[i] = maskValues(v, secrets, masks)
+	}
+	return out
+}
+
+func maskAnySlice(in []any, secrets, masks []string) []any {
+	if in == nil {
+		return nil
+	}
+	out := make([]any, len(in))
+	for i, v := range in {
+		out[i] = maskLogValue(v, secrets, masks)
+	}
+	return out
 }
 
 // maskValues redacts secrets and ::add-mask:: values in one pass.
