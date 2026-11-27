@@ -782,3 +782,25 @@ func TestIsHostEnvUsesSharedPlatformCheck(t *testing.T) {
 		})
 	}
 }
+
+func TestJobContainerNameDependsOnWorkdir(t *testing.T) {
+	newRunContext := func(workdir string) *RunContext {
+		return &RunContext{
+			Name: "build",
+			Run: &model.Run{
+				Workflow: &model.Workflow{
+					Name: "Build",
+				},
+			},
+			Config: &Config{
+				Workdir: workdir,
+			},
+		}
+	}
+
+	repoA := newRunContext("/src/repo-a").jobContainerName()
+	repoB := newRunContext("/src/repo-b").jobContainerName()
+
+	assert.NotEqual(t, repoA, repoB, "jobs of different repositories must not share a container")
+	assert.Equal(t, repoA, newRunContext("/src/repo-a").jobContainerName(), "the container name must be repeatable for --reuse")
+}
