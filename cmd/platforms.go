@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"strings"
+
+	"github.com/nektos/act/pkg/runner"
 )
 
 func (i *Input) newPlatforms() map[string]string {
@@ -19,4 +21,21 @@ func (i *Input) newPlatforms() map[string]string {
 		}
 	}
 	return platforms
+}
+
+func (i *Input) newPlatformOptions() map[string]runner.PlatformOptions {
+	platformOptions := make(map[string]runner.PlatformOptions, len(i.platformOptions))
+	for _, option := range i.platformOptions {
+		optionParts := strings.SplitN(option, "=", 2)
+		if len(optionParts) == 2 {
+			platformName := optionParts[0]
+			appendOptions := strings.HasSuffix(platformName, "+")
+			platformName = strings.TrimSuffix(platformName, "+")
+			platformOptions[strings.ToLower(platformName)] = runner.PlatformOptions{
+				Options: optionParts[1],
+				Append:  appendOptions,
+			}
+		}
+	}
+	return platformOptions
 }
