@@ -70,7 +70,7 @@ func (sar *stepActionRemote) prepareActionExecutor() common.Executor {
 			sar.cacheDir = fmt.Sprintf("%s/%s", sar.remoteAction.Org, sar.remoteAction.Repo)
 			repoURL := sar.remoteAction.URL + "/" + sar.cacheDir
 			repoRef := sar.remoteAction.Ref
-			sar.resolvedSha, err = cache.Fetch(ctx, sar.cacheDir, repoURL, repoRef, github.Token)
+			sar.resolvedSha, err = cache.Fetch(ctx, sar.cacheDir, repoURL, repoRef, sar.RunContext.actionFetchToken(github.Token))
 			if err != nil {
 				return fmt.Errorf("failed to fetch \"%s\" version \"%s\": %w", repoURL, repoRef, err)
 			}
@@ -109,7 +109,7 @@ func (sar *stepActionRemote) prepareActionExecutor() common.Executor {
 			URL:         sar.remoteAction.CloneURL(),
 			Ref:         sar.remoteAction.Ref,
 			Dir:         actionDir,
-			Token:       github.Token,
+			Token:       sar.RunContext.actionFetchToken(github.Token),
 			OfflineMode: sar.RunContext.Config.ActionOfflineMode,
 		})
 		var ntErr common.Executor

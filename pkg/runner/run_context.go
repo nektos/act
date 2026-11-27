@@ -1248,3 +1248,10 @@ func (rc *RunContext) GetServiceBindsAndMounts(svcVolumes []string) ([]string, m
 
 	return binds, mounts
 }
+
+func (rc *RunContext) actionFetchToken(token string) string {
+	if rc.Config.AnonymousActionFetch {
+		return ""
+	}
+	return token
+}
