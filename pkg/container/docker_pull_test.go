@@ -2,6 +2,9 @@ package container
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/docker/cli/cli/config"
@@ -58,4 +61,50 @@ func TestGetImagePullOptions(t *testing.T) {
 	})
 	assert.Nil(t, err, "Failed to create ImagePullOptions")
 	assert.Equal(t, "eyJ1c2VybmFtZSI6InVzZXJuYW1lIiwicGFzc3dvcmQiOiJwYXNzd29yZFxuIiwic2VydmVyYWRkcmVzcyI6Imh0dHBzOi8vaW5kZXguZG9ja2VyLmlvL3YxLyJ9", options.RegistryAuth, "RegistryAuth should be taken from local docker config")
+}
+
+func TestDockerPullSendsDockerHubAuthForBothImageNames(t *testing.T) {
+	previous := config.Dir()
+	config.SetDir("testdata/docker-pull-options")
+	t.Cleanup(func() { config.SetDir(previous) })
+
+	type pullRequest struct {
+		image   string
+		hasAuth bool
+	}
+	requests := make(chan pullRequest, 2)
+	docker := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/_ping"):
+			w.Header().Set("API-Version", "1.48")
+		case r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/images/create"):
+			select {
+			case requests <- pullRequest{r.URL.Query().Get("fromImage"), r.Header.Get("X-Registry-Auth") != ""}:
+			default:
+				t.Error("unexpected extra Docker pull")
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte("{\"status\":\"downloaded\"}\n"))
+		default:
+			t.Errorf("unexpected Docker API call: %s %s", r.Method, r.URL)
+			http.NotFound(w, r)
+		}
+	}))
+	defer docker.Close()
+	t.Setenv("DOCKER_HOST", docker.URL)
+	t.Setenv("DOCKER_TLS_VERIFY", "")
+	t.Setenv("DOCKER_CERT_PATH", "")
+	for _, image := range []string{"nektos/act", "docker.io/nektos/act"} {
+		pull := NewDockerPullExecutor(NewDockerPullExecutorInput{Image: image, ForcePull: true})
+		if err := pull(context.Background()); err != nil {
+			t.Fatalf("pull %q: %v", image, err)
+		}
+		select {
+		case request := <-requests:
+			t.Logf("%s → %s, X-Registry-Auth present=%t", image, request.image, request.hasAuth)
+			assert.True(t, request.hasAuth, "%s should use Docker Hub credentials", image)
+		default:
+			t.Fatalf("no Docker API pull for %q", image)
+		}
+	}
 }
