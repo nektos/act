@@ -340,6 +340,32 @@ func TestRunContext_GetBindsAndMounts(t *testing.T) {
 	})
 }
 
+func TestRunContext_ToolCache(t *testing.T) {
+	for _, isolated := range []bool{false, true} {
+		rc := &RunContext{
+			Name:   "first",
+			Run:    &model.Run{Workflow: &model.Workflow{Name: "toolcache"}},
+			Config: &Config{IsolateToolcache: isolated},
+		}
+		_, mounts := rc.GetBindsAndMounts()
+		volume := rc.toolCacheVolumeName()
+		assert.Equal(t, "/opt/hostedtoolcache", mounts[volume])
+		if isolated {
+			assert.Equal(t, rc.jobContainerName()+"-toolcache", volume)
+			assert.NotContains(t, mounts, "act-toolcache")
+		} else {
+			assert.Equal(t, "act-toolcache", volume)
+		}
+		rc.Name = "second"
+		_, otherMounts := rc.GetBindsAndMounts()
+		if isolated {
+			assert.NotContains(t, otherMounts, volume)
+		} else {
+			assert.Equal(t, "/opt/hostedtoolcache", otherMounts[volume])
+		}
+	}
+}
+
 func TestGetGitHubContext(t *testing.T) {
 	log.SetLevel(log.DebugLevel)
 
