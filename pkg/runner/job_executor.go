@@ -2,6 +2,7 @@ package runner
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -58,6 +59,14 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 			return nil
 		}
 		logger := common.Logger(ctx)
+
+		// Check if this is a fail-fast cancellation
+		if errors.Is(err, context.Canceled) && common.IsFailFast(ctx) {
+			logger.Errorf("Job cancelled (fail-fast)")
+			common.SetJobError(ctx, err)
+			return err
+		}
+
 		logger.Errorf("%v", err)
 		common.SetJobError(ctx, err)
 		return err
