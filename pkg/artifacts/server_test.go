@@ -245,6 +245,7 @@ var (
 	artifactsPort = "12345"
 )
 
+// TestArtifactFlow runs the artifact workflows in testdata against a running server.
 func TestArtifactFlow(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
@@ -255,7 +256,7 @@ func TestArtifactFlow(t *testing.T) {
 	authKey, err := NewAuthKey()
 	assert.NoError(t, err)
 
-	cancel := Serve(ctx, artifactsPath, artifactsAddr, artifactsPort, authKey)
+	cancel := Serve(ctx, artifactsPath, artifactsAddr, artifactsPort, "tcp", authKey)
 	defer cancel()
 
 	platforms := map[string]string{
