@@ -607,6 +607,19 @@ func (impl *interperterImpl) evaluateLogicalCompare(compareNode *actionlint.Logi
 	return nil, fmt.Errorf("Unable to compare incompatibles types '%s' and '%s'", leftValue.Kind(), rightValue.Kind())
 }
 
+// minFuncArgs lists the minimum number of arguments of the functions that
+// index into their arguments. The expression parser does not check arity, so
+// without this check a call such as contains('a') panics.
+var minFuncArgs = map[string]int{
+	"contains":   2,
+	"startswith": 2,
+	"endswith":   2,
+	"format":     1,
+	"join":       1,
+	"tojson":     1,
+	"fromjson":   1,
+}
+
 //nolint:gocyclo
 func (impl *interperterImpl) evaluateFuncCall(funcCallNode *actionlint.FuncCallNode) (interface{}, error) {
 	args := make([]reflect.Value, 0)
@@ -618,6 +631,10 @@ func (impl *interperterImpl) evaluateFuncCall(funcCallNode *actionlint.FuncCallN
 		}
 
 		args = append(args, reflect.ValueOf(value))
+	}
+
+	if minArgs, ok := minFuncArgs[strings.ToLower(funcCallNode.Callee)]; ok && len(args) < minArgs {
+		return nil, fmt.Errorf("Too few parameters supplied to function '%s': expected at least %d, got %d", funcCallNode.Callee, minArgs, len(args))
 	}
 
 	switch strings.ToLower(funcCallNode.Callee) {
