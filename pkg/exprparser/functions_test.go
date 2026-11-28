@@ -276,3 +276,30 @@ func TestMapContains(t *testing.T) {
 
 	assert.Equal(t, true, output)
 }
+
+func TestFunctionTooFewArguments(t *testing.T) {
+	table := []struct {
+		input    string
+		expected string
+	}{
+		{"contains('a') }}", "Too few parameters supplied to function 'contains': expected at least 2, got 1"},
+		{"startsWith('a') }}", "Too few parameters supplied to function 'startsWith': expected at least 2, got 1"},
+		{"endsWith() }}", "Too few parameters supplied to function 'endsWith': expected at least 2, got 0"},
+		{"format() }}", "Too few parameters supplied to function 'format': expected at least 1, got 0"},
+		{"join() }}", "Too few parameters supplied to function 'join': expected at least 1, got 0"},
+		{"toJSON() }}", "Too few parameters supplied to function 'toJSON': expected at least 1, got 0"},
+		{"fromJSON() }}", "Too few parameters supplied to function 'fromJSON': expected at least 1, got 0"},
+	}
+
+	env := &EvaluationEnvironment{}
+
+	for _, tt := range table {
+		t.Run(tt.input, func(t *testing.T) {
+			assert.NotPanics(t, func() {
+				output, err := NewInterpeter(env, Config{}).Evaluate(tt.input, DefaultStatusCheckNone)
+				assert.Nil(t, output)
+				assert.EqualError(t, err, tt.expected)
+			})
+		})
+	}
+}
